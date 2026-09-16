@@ -1,0 +1,103 @@
+[
+  {
+    "id": "proj-01",
+    "name": "Implementation of SAP",
+    "projectNumber": "PRJ-2024-001",
+    "department": "Information Technology",
+    "category": "Cloud & IT Services",
+    "suggestedCategories": ["Software licenses", "Managed services"],
+    "budgetedItems": [
+      { "id": "itm-01a", "name": "SAP modules implementation" },
+      { "id": "itm-01b", "name": "AMS" },
+      { "id": "itm-01c", "name": "Managed services" }
+    ]
+  },
+  {
+    "id": "proj-02",
+    "name": "Headquarters Network Modernization",
+    "projectNumber": "PRJ-2024-002",
+    "department": "Information Technology",
+    "category": "Cloud & IT Services",
+    "suggestedCategories": ["Network infrastructure", "Cybersecurity infrastructure"],
+    "budgetedItems": [
+      { "id": "itm-02a", "name": "Core switches" },
+      { "id": "itm-02b", "name": "Firewall appliances" },
+      { "id": "itm-02c", "name": "Network cabling" }
+    ]
+  },
+  {
+    "id": "proj-03",
+    "name": "Cybersecurity Uplift Program",
+    "projectNumber": "PRJ-2024-003",
+    "department": "Information Technology",
+    "category": "Cloud & IT Services",
+    "suggestedCategories": ["Cybersecurity infrastructure"],
+    "budgetedItems": [
+      { "id": "itm-03a", "name": "SOC monitoring services" },
+      { "id": "itm-03b", "name": "Endpoint protection licenses" }
+    ]
+  },
+  {
+    "id": "proj-04",
+    "name": "Facilities Operations FY24",
+    "projectNumber": "PRJ-2024-004",
+    "department": "Facilities Management",
+    "category": "Facilities & Maintenance",
+    "suggestedCategories": ["Managed services"],
+    "budgetedItems": [
+      { "id": "itm-04a", "name": "HVAC maintenance" },
+      { "id": "itm-04b", "name": "Cleaning services" },
+      { "id": "itm-04c", "name": "Landscaping" }
+    ]
+  },
+  {
+    "id": "proj-05",
+    "name": "New Regional Office Fit-Out",
+    "projectNumber": "PRJ-2024-005",
+    "department": "Facilities Management",
+    "category": "Facilities & Maintenance",
+    "suggestedCategories": ["Managed services"],
+    "budgetedItems": [
+      { "id": "itm-05a", "name": "Interior fit-out works" },
+      { "id": "itm-05b", "name": "Furniture procurement" }
+    ]
+  },
+  {
+    "id": "proj-06",
+    "name": "Corporate Cloud Migration",
+    "projectNumber": "PRJ-2024-006",
+    "department": "Information Technology",
+    "category": "Cloud & IT Services",
+    "suggestedCategories": ["Cloud services", "Managed services"],
+    "budgetedItems": [
+      { "id": "itm-06a", "name": "Cloud infrastructure setup" },
+      { "id": "itm-06b", "name": "Data migration services" },
+      { "id": "itm-06c", "name": "Cloud support retainer" }
+    ]
+  },
+  {
+    "id": "proj-07",
+    "name": "Enterprise Advisory Services",
+    "projectNumber": "PRJ-2024-007",
+    "department": "Legal",
+    "category": "Consulting",
+    "suggestedCategories": ["CONSULTING SERVICES"],
+    "budgetedItems": [
+      { "id": "itm-07a", "name": "Legal advisory retainer" },
+      { "id": "itm-07b", "name": "Compliance review" }
+    ]
+  },
+  {
+    "id": "proj-08",
+    "name": "Workforce Training Initiative",
+    "projectNumber": "PRJ-2024-008",
+    "department": "Human Resources",
+    "category": "Professional Services",
+    "suggestedCategories": ["Managed services"],
+    "budgetedItems": [
+      { "id": "itm-08a", "name": "Training curriculum design" },
+      { "id": "itm-08b", "name": "Instructor-led sessions" },
+      { "id": "itm-08c", "name": "E-learning platform license" }
+    ]
+  }
+]

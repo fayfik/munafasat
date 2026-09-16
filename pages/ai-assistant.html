@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Procurement AI Assistant — Munafasat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="../styles/tokens.css">
+<link rel="stylesheet" href="../styles/app-shell.css">
+<link rel="stylesheet" href="../components/sidebar/sidebar.css">
+<link rel="stylesheet" href="../components/header/header.css">
+<link rel="stylesheet" href="../components/badge/badge.css">
+<link rel="stylesheet" href="ai-assistant.css">
+</head>
+<body data-page="my-requests" data-page-title="Procurement AI Assistant">
+  <div class="app-shell">
+    <div id="app-sidebar"></div>
+    <div id="app-header"></div>
+    <main class="app-main">
+      <div class="app-page">
+        <div class="aia-layout">
+
+          <div class="aia-progress-card">
+            <div class="aia-progress-title">RFP Progress</div>
+            <div class="aia-progress-bar-row">
+              <span id="aia-progress-percent"></span>
+            </div>
+            <div class="aia-progress-track">
+              <div class="aia-progress-fill" id="aia-progress-fill" style="width:0%;"></div>
+            </div>
+            <div class="aia-structure-title">Request Structure</div>
+            <div class="aia-structure-list" id="aia-structure-list"></div>
+          </div>
+
+          <div class="aia-chat-card">
+            <div class="aia-chat-header">
+              <div class="aia-chat-header-left">
+                <span class="aia-chat-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                <div>
+                  <div class="aia-chat-title">Procurement AI Assistant</div>
+                  <div class="aia-chat-subtext">Extracts structured data into RFP sections as you converse</div>
+                </div>
+              </div>
+              <button type="button" class="aia-continue-btn" id="aia-continue-btn">
+                Continue with Form <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="aia-messages" id="aia-messages"></div>
+
+            <div class="aia-input-row">
+              <input type="text" class="aia-input" id="aia-chat-input" placeholder="Type a message…" autocomplete="off">
+              <button type="button" class="aia-send-btn" id="aia-send-btn" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/data-store.js"></script>
+  <script src="../components/badge/badge.js"></script>
+  <script src="../components/sidebar/sidebar.js"></script>
+  <script src="../components/header/header.js"></script>
+  <script src="ai-assistant.js"></script>
+</body>
+</html>

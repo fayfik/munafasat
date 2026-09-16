@@ -1,0 +1,119 @@
+/* Vertical Stepper component — maps to powerappsui.com "Stepper" */
+
+.stepper-rail {
+  display: flex;
+  flex-direction: column;
+}
+
+.stepper-step {
+  display: flex;
+  gap: var(--space-3);
+  position: relative;
+  padding-bottom: var(--space-5);
+}
+
+.stepper-step:last-child {
+  padding-bottom: 0;
+}
+
+.stepper-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 32px;
+  bottom: 0;
+  width: 2px;
+  background: var(--border-default);
+}
+
+.stepper-step.completed:not(:last-child)::before {
+  background: var(--color-green-300);
+}
+
+.stepper-indicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  flex-shrink: 0;
+  z-index: 1;
+  background: var(--color-neutral-200);
+  color: var(--text-secondary);
+}
+
+.stepper-content {
+  padding-top: 4px;
+  min-width: 0;
+}
+
+.stepper-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+}
+
+.stepper-description {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* ---- States ---- */
+
+.stepper-step.current .stepper-indicator {
+  background: var(--color-green-600);
+  color: var(--color-neutral-0);
+  box-shadow: 0 0 0 4px var(--color-green-50);
+}
+
+.stepper-step.current .stepper-title {
+  color: var(--color-green-700);
+}
+
+.stepper-step.current .stepper-description {
+  color: var(--text-secondary);
+}
+
+.stepper-step.completed .stepper-indicator {
+  background: var(--color-green-50);
+  color: var(--color-green-700);
+  border: 1.5px solid var(--color-green-300);
+}
+
+.stepper-step.completed .stepper-title {
+  color: var(--text-primary);
+}
+
+.stepper-step.error .stepper-indicator {
+  background: var(--color-error-500);
+  color: var(--color-neutral-0);
+}
+
+.stepper-step.error .stepper-title {
+  color: var(--color-error-600);
+}
+
+.stepper-step.upcoming .stepper-title,
+.stepper-step.upcoming .stepper-description {
+  color: var(--text-tertiary);
+}
+
+/* ---- Interactivity ---- */
+
+.stepper-step.completed {
+  cursor: pointer;
+}
+
+.stepper-step.completed:hover .stepper-title {
+  color: var(--color-green-700);
+  text-decoration: underline;
+}
+
+.stepper-step.upcoming,
+.stepper-step.current {
+  cursor: default;
+}

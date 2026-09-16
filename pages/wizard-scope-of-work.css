@@ -1,0 +1,305 @@
+/* Step 3 - Scope of Work */
+
+.sow-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.sow-header-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.sow-header-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-top: 4px;
+  max-width: 640px;
+}
+
+.sow-ai-section-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 34px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-green-300);
+  background: var(--color-green-50);
+  color: var(--color-green-700);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sow-ai-section-btn:hover {
+  background: var(--color-green-100);
+}
+
+/* ---- Cards ---- */
+
+.sow-cards-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sow-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.sow-card-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.sow-field {
+  margin-bottom: var(--space-4);
+}
+
+.sow-field:last-child {
+  margin-bottom: 0;
+}
+
+.sow-field-divider {
+  border: none;
+  border-top: 1px solid var(--border-default);
+  margin: var(--space-4) 0;
+}
+
+.sow-field-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.sow-field-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.sow-field-ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-green-600);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+
+.sow-field-ai-btn:hover {
+  text-decoration: underline;
+}
+
+.sow-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  resize: vertical;
+}
+
+.sow-textarea:focus {
+  outline: none;
+  border-color: var(--color-green-600);
+  box-shadow: 0 0 0 3px var(--color-green-50);
+}
+
+.sow-char-count {
+  text-align: right;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+
+/* ---- AI suggestion review box ---- */
+
+.sow-ai-suggested-box {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--color-green-400);
+  background: var(--color-green-50);
+  border-radius: var(--radius-md);
+}
+
+.sow-ai-suggested-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-green-700);
+  margin-bottom: var(--space-2);
+}
+
+.sow-ai-suggested-dismiss {
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.sow-ai-suggested-dismiss:hover {
+  color: var(--text-primary);
+}
+
+.sow-ai-suggested-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  margin-bottom: var(--space-3);
+}
+
+.sow-ai-suggested-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.sow-ai-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.sow-ai-action-btn.accept { border-color: var(--color-success-500); color: var(--color-success-600); }
+.sow-ai-action-btn.reject { border-color: var(--color-error-500); color: var(--color-error-600); }
+.sow-ai-action-btn.edit,
+.sow-ai-action-btn.regenerate { color: var(--text-secondary); }
+.sow-ai-action-btn:hover { background: var(--surface-hover); }
+
+/* ---- Footer extras ---- */
+
+.sow-footer-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.sow-footer-back-btn:hover {
+  color: var(--text-primary);
+}
+
+.sow-footer-save-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-right: var(--space-3);
+}
+
+.sow-footer-save-state i {
+  color: var(--color-green-600);
+}
+
+/* ---- Section-level confirm / review dialog buttons (reuses dialog.css shell) ---- */
+
+.sow-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.sow-btn-cancel {
+  height: 36px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.sow-btn-cancel:hover {
+  background: var(--surface-hover);
+}
+
+.sow-btn-primary {
+  height: 36px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--color-green-600);
+  color: var(--color-neutral-0);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.sow-btn-primary:hover {
+  background: var(--color-green-700);
+}
+
+.sow-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+
+.sow-review-item-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.sow-review-item.resolved {
+  opacity: 0.5;
+}
+
+.sow-review-status {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  margin-top: var(--space-1);
+}
+
+.sow-review-status.accepted { color: var(--color-success-600); }
+.sow-review-status.rejected { color: var(--color-error-600); }

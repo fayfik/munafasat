@@ -1,0 +1,29 @@
+/* Breadcrumbs component — maps to powerappsui.com "Breadcrumbs" */
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.breadcrumbs a {
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.breadcrumbs a:hover {
+  color: var(--text-link);
+}
+
+.breadcrumbs .breadcrumb-current {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.breadcrumbs .breadcrumb-sep {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}

@@ -1,0 +1,155 @@
+/* Sidebar component — maps to powerappsui.com "Sidebar" (Side navigation - Customisable) */
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width-collapsed);
+  background: var(--surface-sidebar);
+  border-right: 1px solid var(--surface-sidebar-border);
+  z-index: var(--z-sidebar);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width var(--transition-shell);
+}
+
+.sidebar.expanded {
+  width: var(--sidebar-width-expanded);
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--header-height);
+  flex-shrink: 0;
+  padding: 0 var(--space-3);
+}
+
+.sidebar-brand img {
+  height: 28px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.sidebar-toggle-row {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2) 0 var(--space-3);
+  flex-shrink: 0;
+}
+
+.sidebar-toggle {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--transition-shell), transform var(--transition-shell);
+}
+
+.sidebar-toggle:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.sidebar.expanded .sidebar-toggle i {
+  transform: rotate(180deg);
+}
+
+.sidebar-toggle i {
+  transition: transform var(--transition-shell);
+  font-size: 13px;
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
+}
+
+.sidebar-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 40px;
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-1);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sidebar-nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-nav-item.active {
+  background: var(--surface-active);
+  color: var(--color-green-700);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sidebar-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: var(--radius-full);
+  background: var(--color-green-600);
+}
+
+.sidebar-nav-item i {
+  width: 20px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 16px;
+}
+
+.sidebar-nav-item span {
+  opacity: 0;
+  transition: opacity var(--transition-shell);
+  font-size: var(--font-size-md);
+}
+
+.sidebar.expanded .sidebar-nav-item span {
+  opacity: 1;
+}
+
+/* Tooltip shown only while collapsed */
+.sidebar-tooltip {
+  position: absolute;
+  left: calc(var(--sidebar-width-collapsed) + var(--space-2));
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--color-neutral-900);
+  color: var(--color-neutral-0);
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: var(--z-dropdown);
+}
+
+.sidebar:not(.expanded) .sidebar-nav-item:hover .sidebar-tooltip {
+  opacity: 1;
+}
+
+.sidebar.expanded .sidebar-tooltip {
+  display: none;
+}

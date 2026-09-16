@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Request Details — Munafasat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="../styles/tokens.css">
+<link rel="stylesheet" href="../styles/app-shell.css">
+<link rel="stylesheet" href="../components/sidebar/sidebar.css">
+<link rel="stylesheet" href="../components/header/header.css">
+<link rel="stylesheet" href="../components/badge/badge.css">
+<link rel="stylesheet" href="../components/breadcrumbs/breadcrumbs.css">
+</head>
+<body data-page="my-requests" data-page-title="Request Details">
+  <div class="app-shell">
+    <div id="app-sidebar"></div>
+    <div id="app-header"></div>
+    <main class="app-main">
+      <div class="app-page">
+        <div id="request-detail-breadcrumbs"></div>
+        <div class="placeholder-state" id="request-detail-placeholder">
+          <img src="../assets/state illustrations/Name=Files, Theme=Light.png" alt="">
+          <h2 id="request-detail-heading">Request details — coming soon</h2>
+          <p id="request-detail-text">The full request detail view will be built in a follow-up phase.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/data-store.js"></script>
+  <script src="../components/badge/badge.js"></script>
+  <script src="../components/breadcrumbs/breadcrumbs.js"></script>
+  <script src="../components/sidebar/sidebar.js"></script>
+  <script src="../components/header/header.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const requestId = params.get('id');
+    const mode = params.get('mode');
+
+    renderBreadcrumbs('request-detail-breadcrumbs', [
+      { label: 'My Requests', href: 'my-requests.html' },
+      { label: requestId || 'Request Details' },
+    ]);
+
+    if (requestId) {
+      document.getElementById('request-detail-heading').textContent =
+        mode === 'edit' ? `Edit ${requestId} — coming soon` : 'Request details — coming soon';
+      document.getElementById('request-detail-text').textContent =
+        mode === 'edit'
+          ? `The edit flow for ${requestId} will be built in a follow-up phase.`
+          : `${requestId} — the full request detail view will be built in a follow-up phase.`;
+    }
+  </script>
+</body>
+</html>

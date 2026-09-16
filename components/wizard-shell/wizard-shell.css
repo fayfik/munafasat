@@ -1,0 +1,191 @@
+/* Wizard shell — the frame Steps 1-8 render inside. Composed from a header
+   card, a Stepper rail card, a content card, and a fixed footer bar. */
+
+.wizard-shell {
+  padding-bottom: 88px; /* clears the fixed footer */
+}
+
+.wizard-header-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.wizard-header-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.wizard-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.wizard-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.wizard-btn-secondary:hover {
+  background: var(--surface-hover);
+}
+
+.wizard-btn-secondary i {
+  color: var(--color-green-600);
+}
+
+/* ---- Two-column body ---- */
+
+.wizard-body {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.wizard-stepper-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  position: sticky;
+  top: calc(var(--header-height) + var(--space-4));
+}
+
+.wizard-content-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  min-height: 420px;
+}
+
+.wizard-content-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 380px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .wizard-body {
+    grid-template-columns: 1fr;
+  }
+  .wizard-stepper-card {
+    position: static;
+  }
+}
+
+/* ---- Fixed footer ---- */
+
+.wizard-footer {
+  position: fixed;
+  left: var(--sidebar-width-collapsed);
+  right: 0;
+  bottom: 0;
+  height: 72px;
+  background: var(--surface-card);
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-6);
+  z-index: var(--z-header);
+  transition: left var(--transition-shell);
+}
+
+.app-shell.sidebar-expanded .wizard-footer {
+  left: var(--sidebar-width-expanded);
+}
+
+.wizard-footer-save-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+.wizard-footer-save-state i {
+  color: var(--color-green-600);
+}
+
+.wizard-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.wizard-btn-outline {
+  height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.wizard-btn-outline:hover {
+  background: var(--surface-hover);
+}
+
+.wizard-btn-continue {
+  height: 40px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--color-green-600);
+  color: var(--color-neutral-0);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.wizard-btn-continue:hover:not(:disabled) {
+  background: var(--color-green-700);
+}
+
+.wizard-btn-continue:disabled {
+  background: var(--color-neutral-200);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .wizard-footer {
+    padding: 0 var(--space-3);
+    flex-wrap: wrap;
+    height: auto;
+    gap: var(--space-2);
+    padding-block: var(--space-2);
+  }
+  .wizard-shell {
+    padding-bottom: 120px;
+  }
+}

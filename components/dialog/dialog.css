@@ -1,0 +1,66 @@
+/* Dialog component — maps to powerappsui.com "Dialog" */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(27, 31, 25, 0.45);
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh var(--space-4) var(--space-4);
+  z-index: var(--z-overlay);
+}
+
+.dialog-overlay.open {
+  display: flex;
+}
+
+.dialog-panel {
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 780px;
+  max-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.dialog-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.dialog-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog-close-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.dialog-body {
+  padding: var(--space-5);
+  overflow-y: auto;
+}

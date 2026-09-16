@@ -1,0 +1,67 @@
+/* Activity timeline component — maps to powerappsui.com "Activity Timeline" */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-item {
+  display: flex;
+  gap: var(--space-3);
+  position: relative;
+  padding-bottom: var(--space-4);
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 32px;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-default);
+}
+
+.timeline-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-green-50);
+  color: var(--color-green-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.timeline-icon.tone-blue { background: var(--color-blue-50); color: var(--color-blue-700); }
+.timeline-icon.tone-amber { background: var(--color-warning-50); color: var(--color-warning-700); }
+.timeline-icon.tone-neutral { background: var(--color-neutral-200); color: var(--color-neutral-700); }
+
+.timeline-content {
+  flex: 1;
+  padding-top: 4px;
+}
+
+.timeline-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.timeline-text a {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-link);
+}
+
+.timeline-time {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}

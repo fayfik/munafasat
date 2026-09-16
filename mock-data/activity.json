@@ -1,0 +1,110 @@
+[
+  {
+    "id": "act-001",
+    "timeLabel": "10 mins ago",
+    "action": "approved",
+    "rfpId": "RFP-2024-044",
+    "actor": "Mohammed Al-Drees",
+    "actorRole": null,
+    "description": "RFP-2024-044 Approved by Mohammed Al-Drees"
+  },
+  {
+    "id": "act-002",
+    "timeLabel": "1 hour ago",
+    "action": "approved",
+    "rfpId": "RFP-2024-041",
+    "actor": "Mohammed Fuzan",
+    "actorRole": "Finance",
+    "description": "RFP-2024-041 approved by Finance-Mohammed Fuzan"
+  },
+  {
+    "id": "act-003",
+    "timeLabel": "1 hour ago",
+    "action": "approved",
+    "rfpId": "RFP-2024-037",
+    "actor": "Mohammed Fuzan",
+    "actorRole": "Finance",
+    "description": "RFP-2024-037 approved by Finance-Mohammed Fuzan"
+  },
+  {
+    "id": "act-004",
+    "timeLabel": "3 hours ago",
+    "action": "vendor-update",
+    "rfpId": "RFP-2024-038",
+    "actor": "System",
+    "actorRole": null,
+    "description": "RFP-2024-038 received a new vendor proposal"
+  },
+  {
+    "id": "act-005",
+    "timeLabel": "5 hours ago",
+    "action": "status-change",
+    "rfpId": "RFP-2024-031",
+    "actor": "Ahmed Al-Mutairi",
+    "actorRole": null,
+    "description": "RFP-2024-031 moved to Under Review"
+  },
+  {
+    "id": "act-006",
+    "timeLabel": "Yesterday",
+    "action": "submitted",
+    "rfpId": "PR-2024-112",
+    "actor": "Sara Al-Qahtani",
+    "actorRole": null,
+    "description": "PR-2024-112 submitted for approval"
+  },
+  {
+    "id": "act-007",
+    "timeLabel": "Yesterday",
+    "action": "submitted",
+    "rfpId": "RFP-2024-042",
+    "actor": "Sara Al-Qahtani",
+    "actorRole": null,
+    "description": "RFP-2024-042 submitted for approval"
+  },
+  {
+    "id": "act-008",
+    "timeLabel": "Yesterday",
+    "action": "comment",
+    "rfpId": "RFP-2024-033",
+    "actor": "Faisal Al-Dossari",
+    "actorRole": null,
+    "description": "Faisal Al-Dossari added a comment on RFP-2024-033"
+  },
+  {
+    "id": "act-009",
+    "timeLabel": "2 days ago",
+    "action": "awarded",
+    "rfpId": "RFP-2024-020",
+    "actor": "Nourah Al-Harbi",
+    "actorRole": null,
+    "description": "RFP-2024-020 awarded to Al-Faisaliah Technology Co."
+  },
+  {
+    "id": "act-010",
+    "timeLabel": "2 days ago",
+    "action": "vendor-update",
+    "rfpId": "RFP-2024-018",
+    "actor": "Faisal Al-Dossari",
+    "actorRole": null,
+    "description": "RFP-2024-018 vendor shortlist finalized"
+  },
+  {
+    "id": "act-011",
+    "timeLabel": "3 days ago",
+    "action": "submitted",
+    "rfpId": "RFP-2024-028",
+    "actor": "Sara Al-Qahtani",
+    "actorRole": null,
+    "description": "RFP-2024-028 submitted for approval"
+  },
+  {
+    "id": "act-012",
+    "timeLabel": "4 days ago",
+    "action": "published",
+    "rfpId": "RFP-2024-030",
+    "actor": "Layla Al-Otaibi",
+    "actorRole": null,
+    "description": "RFP-2024-030 published as an Active RFP"
+  }
+]

@@ -1,0 +1,11 @@
+[
+  { "value": "iso-9001", "label": "ISO 9001 Quality Management Certificate" },
+  { "value": "commercial-registration", "label": "Commercial Registration" },
+  { "value": "zakat-certificate", "label": "Zakat Certificate" },
+  { "value": "gosi-certificate", "label": "GOSI Certificate" },
+  { "value": "sce-license", "label": "Saudi Council of Engineers License" },
+  { "value": "etimad-registration", "label": "Etimad Registration" },
+  { "value": "chamber-of-commerce", "label": "Chamber of Commerce Membership" },
+  { "value": "iso-27001", "label": "ISO 27001 Information Security Certificate" },
+  { "value": "saudization-certificate", "label": "Saudization (Nitaqat) Certificate" }
+]

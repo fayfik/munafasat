@@ -1,0 +1,108 @@
+/* File Upload component — maps to powerappsui.com "File Upload" */
+
+.upload-dropzone {
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-app-bg);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.upload-dropzone:hover,
+.upload-dropzone.drag-over {
+  border-color: var(--color-green-500);
+  background: var(--color-green-50);
+}
+
+.upload-dropzone i {
+  font-size: 24px;
+  color: var(--color-green-600);
+}
+
+.upload-dropzone-main {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.upload-dropzone-sub {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+.upload-error {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-error-600);
+}
+
+.upload-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.upload-file-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+}
+
+.upload-file-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--color-blue-50);
+  color: var(--color-blue-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.upload-file-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-file-name {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-file-size {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.upload-file-delete {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--color-error-500);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.upload-file-delete:hover {
+  background: var(--color-error-50);
+}

@@ -1,0 +1,78 @@
+/* Pagination — common Gallery + Buttons companion pattern (not a single
+   named powerappsui.com component). */
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
+}
+
+.pagination-summary {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.pagination-page-size {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pagination-page-size select {
+  height: 30px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.pagination-btn {
+  height: 32px;
+  min-width: 32px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pagination-btn.active {
+  background: var(--color-green-600);
+  border-color: var(--color-green-600);
+  color: var(--color-neutral-0);
+  font-weight: var(--font-weight-semibold);
+}
+
+.pagination-ellipsis {
+  padding: 0 4px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}

@@ -1,0 +1,88 @@
+/* Global reset + app shell layout grid. Loaded on every page after tokens.css. */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-base);
+  color: var(--text-primary);
+  background: var(--surface-app-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+a {
+  color: var(--text-link);
+  text-decoration: none;
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---- Shell layout ---- */
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-main {
+  margin-left: var(--sidebar-width-collapsed);
+  padding-top: var(--header-height);
+  min-height: 100vh;
+  transition: margin-left var(--transition-shell);
+}
+
+.app-shell.sidebar-expanded .app-main {
+  margin-left: var(--sidebar-width-expanded);
+}
+
+.app-page {
+  padding: var(--space-6);
+}
+
+/* ---- Placeholder / "coming soon" state ---- */
+
+.placeholder-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-4);
+  min-height: calc(100vh - var(--header-height) - var(--space-8));
+  padding: var(--space-8);
+}
+
+.placeholder-state img {
+  width: 220px;
+  height: auto;
+  margin-bottom: var(--space-2);
+}
+
+.placeholder-state h2 {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.placeholder-state p {
+  margin: 0;
+  max-width: 420px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-md);
+}

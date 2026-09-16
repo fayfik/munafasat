@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create RFP — Munafasat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="../styles/tokens.css">
+<link rel="stylesheet" href="../styles/app-shell.css">
+<link rel="stylesheet" href="../components/sidebar/sidebar.css">
+<link rel="stylesheet" href="../components/header/header.css">
+<link rel="stylesheet" href="../components/badge/badge.css">
+<link rel="stylesheet" href="../components/breadcrumbs/breadcrumbs.css">
+<link rel="stylesheet" href="../components/dialog/dialog.css">
+<link rel="stylesheet" href="create-request.css">
+</head>
+<body data-page="my-requests" data-page-title="Create RFP">
+  <div class="app-shell">
+    <div id="app-sidebar"></div>
+    <div id="app-header"></div>
+    <main class="app-main">
+      <div class="app-page">
+        <div id="cr-breadcrumbs"></div>
+
+        <button class="cr-back-btn" id="cr-back-btn">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span>Back</span>
+        </button>
+
+        <div class="cr-heading-block">
+          <h1 class="cr-heading">How would you like to create your request?</h1>
+          <p class="cr-subheading">Choose how you'd like to start creating your RFP.</p>
+        </div>
+
+        <div class="cr-cards-row">
+          <div class="cr-option-card" id="cr-scratch-card" role="button" tabindex="0">
+            <img class="cr-option-illustration" src="../assets/state illustrations/Name=Add 1, Theme=Light.png" alt="">
+            <h2 class="cr-option-title">From Scratch</h2>
+            <p class="cr-option-desc">Create a new request by filling out the form manually.</p>
+            <button class="cr-option-cta" type="button">Create from Scratch</button>
+          </div>
+
+          <div class="cr-option-card" id="cr-previous-card" role="button" tabindex="0">
+            <img class="cr-option-illustration" src="../assets/state illustrations/Name=Files, Theme=Light.png" alt="">
+            <h2 class="cr-option-title">Create from Previous Request</h2>
+            <p class="cr-option-desc">Reuse an existing request as a starting point and update the required details.</p>
+            <button class="cr-option-cta" type="button">Start with Previous Request</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/data-store.js"></script>
+  <script src="../components/badge/badge.js"></script>
+  <script src="../components/breadcrumbs/breadcrumbs.js"></script>
+  <script src="../components/dialog/dialog.js"></script>
+  <script src="../components/sidebar/sidebar.js"></script>
+  <script src="../components/header/header.js"></script>
+  <script src="create-request.js"></script>
+</body>
+</html>

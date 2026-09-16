@@ -1,0 +1,74 @@
+[
+  {
+    "id": "notif-001",
+    "title": "Approval required",
+    "message": "RFP-2024-039 is awaiting your approval before it can be published.",
+    "timeLabel": "10 mins ago",
+    "read": false,
+    "type": "approval",
+    "relatedId": "RFP-2024-039"
+  },
+  {
+    "id": "notif-002",
+    "title": "RFP approved",
+    "message": "RFP-2024-044 was approved by Mohammed Al-Drees.",
+    "timeLabel": "10 mins ago",
+    "read": false,
+    "type": "approval",
+    "relatedId": "RFP-2024-044"
+  },
+  {
+    "id": "notif-003",
+    "title": "Deadline approaching",
+    "message": "RFP-2024-045 is closing in 2 days.",
+    "timeLabel": "1 hour ago",
+    "read": false,
+    "type": "deadline",
+    "relatedId": "RFP-2024-045"
+  },
+  {
+    "id": "notif-004",
+    "title": "Finance approval",
+    "message": "RFP-2024-041 approved by Finance-Mohammed Fuzan.",
+    "timeLabel": "1 hour ago",
+    "read": false,
+    "type": "approval",
+    "relatedId": "RFP-2024-041"
+  },
+  {
+    "id": "notif-005",
+    "title": "New vendor proposal",
+    "message": "A new vendor proposal was received for RFP-2024-038.",
+    "timeLabel": "3 hours ago",
+    "read": false,
+    "type": "info",
+    "relatedId": "RFP-2024-038"
+  },
+  {
+    "id": "notif-006",
+    "title": "RFP awarded",
+    "message": "RFP-2024-020 was awarded to Al-Faisaliah Technology Co.",
+    "timeLabel": "2 days ago",
+    "read": true,
+    "type": "info",
+    "relatedId": "RFP-2024-020"
+  },
+  {
+    "id": "notif-007",
+    "title": "Overdue with finance",
+    "message": "RFP23231 has been overdue with finance for 56 days.",
+    "timeLabel": "3 days ago",
+    "read": true,
+    "type": "deadline",
+    "relatedId": "RFP23231"
+  },
+  {
+    "id": "notif-008",
+    "title": "New request submitted",
+    "message": "PR-2024-112 was submitted for approval.",
+    "timeLabel": "Yesterday",
+    "read": true,
+    "type": "info",
+    "relatedId": "PR-2024-112"
+  }
+]

@@ -1,0 +1,231 @@
+/* Date Picker component — maps to powerappsui.com "Date Picker" */
+
+.date-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 38px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+}
+
+.date-field:focus-within {
+  border-color: var(--color-green-600);
+}
+
+.date-field i {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.date-field input[type="date"] {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  width: 100%;
+  font-family: inherit;
+}
+
+.date-field.has-error {
+  border-color: var(--color-error-500);
+}
+
+.date-range-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.date-range-row > .date-field {
+  flex: 1;
+}
+
+.date-range-error {
+  font-size: var(--font-size-xs);
+  color: var(--color-error-600);
+  margin-top: var(--space-1);
+}
+
+/*
+  Hijri/Gregorian-aware calendar popup (used by createDatePicker in
+  date-picker.js). Separate "dp-" prefixed classes so they don't collide
+  with the plain native-input `.date-field` styles above.
+*/
+
+.dp-field {
+  position: relative;
+}
+
+.dp-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 42px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  cursor: pointer;
+}
+
+.dp-field.open .dp-trigger {
+  border-color: var(--color-green-600);
+  box-shadow: 0 0 0 3px var(--color-green-50);
+}
+
+.dp-field.has-error .dp-trigger {
+  border-color: var(--color-error-500);
+}
+
+.dp-trigger i.dp-calendar-icon {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.dp-trigger-label {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.dp-trigger-label.placeholder {
+  color: var(--text-tertiary);
+}
+
+.dp-trigger-clear {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.dp-trigger-clear:hover {
+  color: var(--text-primary);
+}
+
+.dp-hijri-caption {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.dp-popup {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  width: 300px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-3);
+  display: none;
+  z-index: var(--z-dropdown);
+}
+
+.dp-field.open .dp-popup {
+  display: block;
+}
+
+.dp-tabs {
+  display: flex;
+  gap: var(--space-1);
+  background: var(--surface-sidebar);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  margin-bottom: var(--space-3);
+}
+
+.dp-tab {
+  flex: 1;
+  height: 30px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.dp-tab.active {
+  background: var(--surface-card);
+  color: var(--color-green-700);
+  box-shadow: var(--shadow-sm);
+}
+
+.dp-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.dp-nav-btn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.dp-nav-btn:hover {
+  background: var(--surface-hover);
+}
+
+.dp-nav-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.dp-weekdays,
+.dp-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.dp-weekdays span {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  padding: 4px 0;
+}
+
+.dp-day {
+  height: 30px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.dp-day:hover {
+  background: var(--surface-hover);
+}
+
+.dp-day.dp-day-empty {
+  cursor: default;
+}
+
+.dp-day.dp-day-selected {
+  background: var(--color-green-600);
+  color: var(--color-neutral-0);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dp-day.dp-day-today:not(.dp-day-selected) {
+  border: 1px solid var(--color-green-400);
+}

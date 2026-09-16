@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Requests — Munafasat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="../styles/tokens.css">
+<link rel="stylesheet" href="../styles/app-shell.css">
+<link rel="stylesheet" href="../components/sidebar/sidebar.css">
+<link rel="stylesheet" href="../components/header/header.css">
+<link rel="stylesheet" href="../components/badge/badge.css">
+<link rel="stylesheet" href="../components/dialog/dialog.css">
+<link rel="stylesheet" href="../components/table/table.css">
+<link rel="stylesheet" href="../components/chips/chips.css">
+<link rel="stylesheet" href="../components/date-picker/date-picker.css">
+<link rel="stylesheet" href="../components/filter-panel/filter-panel.css">
+<link rel="stylesheet" href="../components/pagination/pagination.css">
+<link rel="stylesheet" href="my-requests.css">
+</head>
+<body data-page="my-requests" data-page-title="My Requests">
+  <div class="app-shell">
+    <div id="app-sidebar"></div>
+    <div id="app-header"></div>
+    <main class="app-main">
+      <div class="app-page">
+        <div class="mr-cards-stack">
+
+          <div class="mr-card">
+            <div class="mr-header-row">
+              <div class="mr-header-left">
+                <span class="mr-header-icon"><i class="fa-solid fa-file-lines"></i></span>
+                <div>
+                  <h1 class="mr-header-title">My requests</h1>
+                  <p class="mr-header-sub">View, manage and track all the Requests for Proposal you have created</p>
+                </div>
+              </div>
+              <div class="mr-header-controls">
+                <label class="mr-search-field">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input type="text" id="mr-search-input" placeholder="Search your requests here by request number or name">
+                </label>
+                <button class="mr-filter-btn" id="mr-filter-btn" title="Filter">
+                  <i class="fa-solid fa-filter"></i>
+                  <span class="badge-dot" id="mr-filter-active-dot" style="display:none;"></span>
+                </button>
+                <a class="mr-create-btn" href="create-request.html">
+                  <i class="fa-solid fa-plus"></i>
+                  <span>Create RFP</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div class="mr-card mr-table-card">
+            <div id="mr-table-mount"></div>
+            <div id="mr-pagination"></div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/data-store.js"></script>
+  <script src="../components/badge/badge.js"></script>
+  <script src="../components/table/table.js"></script>
+  <script src="../components/dialog/dialog.js"></script>
+  <script src="../components/chips/chips.js"></script>
+  <script src="../components/filter-panel/filter-panel.js"></script>
+  <script src="../components/pagination/pagination.js"></script>
+  <script src="../components/sidebar/sidebar.js"></script>
+  <script src="../components/header/header.js"></script>
+  <script src="my-requests.js"></script>
+</body>
+</html>

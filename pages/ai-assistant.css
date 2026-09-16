@@ -1,0 +1,415 @@
+/* Procurement AI Assistant — scripted demo shell */
+
+.aia-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+  height: calc(100vh - var(--header-height) - (2 * var(--space-6)));
+  min-height: 560px;
+}
+
+/* ---- Left: RFP Progress panel ---- */
+
+.aia-progress-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  height: 100%;
+  overflow-y: auto;
+}
+
+.aia-progress-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-3);
+}
+
+.aia-progress-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.aia-progress-percent {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-green-700);
+}
+
+.aia-progress-track {
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-neutral-200);
+  overflow: hidden;
+  margin-bottom: var(--space-5);
+}
+
+.aia-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-green-600);
+  transition: width 300ms ease;
+}
+
+.aia-structure-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: var(--space-3);
+}
+
+.aia-structure-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.aia-structure-item {
+  display: flex;
+  gap: var(--space-3);
+  position: relative;
+  padding-bottom: var(--space-4);
+}
+
+.aia-structure-item:last-child {
+  padding-bottom: 0;
+}
+
+.aia-structure-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 26px;
+  bottom: 0;
+  width: 2px;
+  background: var(--border-default);
+}
+
+.aia-structure-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  background: var(--color-neutral-200);
+  color: var(--text-tertiary);
+  z-index: 1;
+  transition: background 200ms ease, color 200ms ease;
+}
+
+.aia-structure-item.status-in-progress .aia-structure-dot {
+  background: var(--color-warning-100);
+  color: var(--color-warning-700);
+}
+
+.aia-structure-item.status-partially-complete .aia-structure-dot {
+  background: var(--color-blue-100);
+  color: var(--color-blue-700);
+}
+
+.aia-structure-item.status-complete .aia-structure-dot {
+  background: var(--color-success-500);
+  color: var(--color-neutral-0);
+}
+
+.aia-structure-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  padding-top: 2px;
+}
+
+.aia-structure-status {
+  font-size: var(--font-size-xs);
+  margin-top: 2px;
+}
+
+.aia-structure-item.status-not-started .aia-structure-status { color: var(--text-tertiary); }
+.aia-structure-item.status-in-progress .aia-structure-status { color: var(--color-warning-700); }
+.aia-structure-item.status-partially-complete .aia-structure-status { color: var(--color-blue-700); }
+.aia-structure-item.status-complete .aia-structure-status { color: var(--color-success-700); }
+
+/* ---- Right: conversational workspace ---- */
+
+.aia-chat-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.aia-chat-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.aia-chat-header-left {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.aia-chat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--color-green-50);
+  color: var(--color-green-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.aia-chat-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.aia-chat-subtext {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.aia-continue-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 38px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--color-green-600);
+  color: var(--color-neutral-0);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.aia-continue-btn:hover {
+  background: var(--color-green-700);
+}
+
+.aia-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.aia-message-row {
+  display: flex;
+  gap: var(--space-2);
+  max-width: 78%;
+}
+
+.aia-message-row.from-ai {
+  align-self: flex-start;
+}
+
+.aia-message-row.from-user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.aia-message-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.from-ai .aia-message-avatar {
+  background: var(--color-green-50);
+  color: var(--color-green-700);
+}
+
+.from-user .aia-message-avatar {
+  background: var(--surface-sidebar);
+  color: var(--text-secondary);
+}
+
+.aia-message-bubble {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.from-ai .aia-message-bubble {
+  background: var(--surface-app-bg);
+  color: var(--text-primary);
+  border-top-left-radius: 2px;
+}
+
+.from-user .aia-message-bubble {
+  background: var(--color-green-600);
+  color: var(--color-neutral-0);
+  border-top-right-radius: 2px;
+}
+
+/* ---- AI suggestion card (inline in the chat) ---- */
+
+.aia-suggestion-card {
+  margin-top: var(--space-1);
+  border: 1px dashed var(--color-green-400);
+  background: var(--color-green-50);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  max-width: 78%;
+  align-self: flex-start;
+}
+
+.aia-suggestion-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-green-700);
+  margin-bottom: var(--space-2);
+}
+
+.aia-suggestion-body {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  margin-bottom: var(--space-3);
+}
+
+.aia-suggestion-edit-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-green-400);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-3);
+  font-family: inherit;
+}
+
+.aia-suggestion-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.aia-suggestion-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.aia-suggestion-btn.accept { border-color: var(--color-success-500); color: var(--color-success-600); }
+.aia-suggestion-btn.reject { border-color: var(--color-error-500); color: var(--color-error-600); }
+.aia-suggestion-btn.edit { color: var(--text-secondary); }
+.aia-suggestion-btn:hover { background: var(--surface-hover); }
+
+.aia-suggestion-resolved-note {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  margin-top: 2px;
+}
+
+.aia-suggestion-resolved-note.accepted { color: var(--color-success-600); }
+.aia-suggestion-resolved-note.rejected { color: var(--color-error-600); }
+
+/* ---- Input row ---- */
+
+.aia-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.aia-input {
+  flex: 1;
+  height: 42px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-app-bg);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+}
+
+.aia-input:focus {
+  outline: none;
+  border-color: var(--color-green-600);
+  box-shadow: 0 0 0 3px var(--color-green-50);
+}
+
+.aia-send-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-green-600);
+  color: var(--color-neutral-0);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.aia-send-btn:hover {
+  background: var(--color-green-700);
+}
+
+@media (max-width: 860px) {
+  .aia-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .aia-progress-card {
+    height: auto;
+  }
+  .aia-chat-card {
+    height: 640px;
+  }
+  .aia-chat-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .aia-continue-btn {
+    justify-content: center;
+  }
+}

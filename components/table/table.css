@@ -1,0 +1,116 @@
+/* Table component — maps to powerappsui.com "Table" */
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.data-table th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border-default);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.data-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+.data-table tbody tr.row-clickable {
+  cursor: pointer;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.row-action {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
+.row-action:hover {
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+
+.row-action-delete {
+  color: var(--color-error-500);
+}
+
+.row-action-delete:hover {
+  background: var(--color-error-50);
+  color: var(--color-error-600);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table .cell-muted {
+  color: var(--text-secondary);
+}
+
+.data-table .cell-id a,
+.data-table .cell-id {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.data-table a.table-link {
+  color: var(--text-link);
+}
+
+.data-table .table-view-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-link);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.data-table .table-view-action:hover {
+  background: var(--color-blue-50);
+}
+
+.data-table.compact th,
+.data-table.compact td {
+  padding: var(--space-2);
+}
+
+.table-empty {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}

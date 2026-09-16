@@ -1,0 +1,182 @@
+/* Filter panel — right-side slide-in overlay (not in the powerappsui.com
+   catalog as a single named component; composed from Dropdown Menu, Chips,
+   Date Picker and Button patterns inside a slide-in Container). */
+
+.filter-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(27, 31, 25, 0.35);
+  z-index: var(--z-overlay);
+  display: none;
+}
+
+.filter-panel-overlay.open {
+  display: block;
+}
+
+.filter-panel-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 200ms ease;
+}
+
+.filter-panel-overlay.open .filter-panel-drawer {
+  transform: translateX(0);
+}
+
+.filter-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.filter-panel-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.filter-panel-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.filter-panel-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.filter-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.filter-field-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.filter-select {
+  width: 100%;
+  height: 38px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.filter-clear-all-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.filter-clear-all-link {
+  font-size: var(--font-size-sm);
+  color: var(--text-link);
+  font-weight: var(--font-weight-medium);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.filter-panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.filter-btn-text {
+  background: none;
+  border: none;
+  color: var(--text-link);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  padding: var(--space-2);
+}
+
+.filter-footer-right {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.filter-btn-outline {
+  height: 36px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.filter-btn-outline:hover {
+  background: var(--surface-hover);
+}
+
+.filter-btn-primary {
+  height: 36px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--color-green-600);
+  color: var(--color-neutral-0);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.filter-btn-primary:hover {
+  background: var(--color-green-700);
+}
+
+/* Save-filter mini dialog */
+.save-filter-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.save-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

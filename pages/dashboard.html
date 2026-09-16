@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Munafasat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="../styles/tokens.css">
+<link rel="stylesheet" href="../styles/app-shell.css">
+<link rel="stylesheet" href="../components/sidebar/sidebar.css">
+<link rel="stylesheet" href="../components/header/header.css">
+<link rel="stylesheet" href="../components/badge/badge.css">
+<link rel="stylesheet" href="../components/dialog/dialog.css">
+<link rel="stylesheet" href="../components/table/table.css">
+<link rel="stylesheet" href="../components/kpi-card/kpi-card.css">
+<link rel="stylesheet" href="../components/donut-chart/donut-chart.css">
+<link rel="stylesheet" href="../components/activity-timeline/activity-timeline.css">
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body data-page="dashboard" data-page-title="Dashboard">
+  <div class="app-shell">
+    <div id="app-sidebar"></div>
+    <div id="app-header"></div>
+    <main class="app-main">
+      <div class="app-page">
+
+        <div class="dashboard-greeting-row" id="dashboard-greeting"></div>
+
+        <section id="kpi-section"></section>
+
+        <div class="dashboard-grid">
+          <div class="dashboard-main-col">
+            <section class="dashboard-section" id="status-section"></section>
+            <section class="dashboard-section" id="recent-requests-section"></section>
+            <section class="dashboard-section" id="closing-soon-section"></section>
+            <section class="dashboard-section" id="activity-section"></section>
+          </div>
+          <div class="dashboard-side-col">
+            <section class="dashboard-section" id="ai-suggestions-section"></section>
+            <section class="dashboard-section" id="quick-actions-section"></section>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/data-store.js"></script>
+  <script src="../components/badge/badge.js"></script>
+  <script src="../components/table/table.js"></script>
+  <script src="../components/dialog/dialog.js"></script>
+  <script src="../components/kpi-card/kpi-card.js"></script>
+  <script src="../components/donut-chart/donut-chart.js"></script>
+  <script src="../components/activity-timeline/activity-timeline.js"></script>
+  <script src="../components/sidebar/sidebar.js"></script>
+  <script src="../components/header/header.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

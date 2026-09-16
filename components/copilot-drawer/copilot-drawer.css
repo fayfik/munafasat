@@ -1,0 +1,93 @@
+/* Copilot drawer — right-side slide-in placeholder. Real content lands in
+   Phase 5; for now this just proves the open/close mechanics. */
+
+.copilot-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(27, 31, 25, 0.35);
+  z-index: var(--z-overlay);
+  display: none;
+}
+
+.copilot-drawer-overlay.open {
+  display: block;
+}
+
+.copilot-drawer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 200ms ease;
+}
+
+.copilot-drawer-overlay.open .copilot-drawer-panel {
+  transform: translateX(0);
+}
+
+.copilot-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.copilot-drawer-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.copilot-drawer-title i {
+  color: var(--color-green-600);
+}
+
+.copilot-drawer-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.copilot-drawer-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.copilot-drawer-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  color: var(--text-secondary);
+}
+
+.copilot-drawer-body i {
+  font-size: 28px;
+  color: var(--text-tertiary);
+}
+
+.copilot-drawer-body p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  max-width: 260px;
+}

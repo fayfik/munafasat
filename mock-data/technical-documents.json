@@ -1,0 +1,9 @@
+[
+  { "value": "technical-proposal", "label": "Technical Proposal" },
+  { "value": "product-datasheets", "label": "Product Datasheets" },
+  { "value": "compliance-matrix", "label": "Compliance Matrix" },
+  { "value": "past-performance-references", "label": "Past Performance References" },
+  { "value": "warranty-documentation", "label": "Warranty Documentation" },
+  { "value": "installation-plan", "label": "Installation Plan" },
+  { "value": "project-implementation-schedule", "label": "Project Implementation Schedule" }
+]
