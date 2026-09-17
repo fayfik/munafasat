@@ -78,6 +78,8 @@ function renderPayPage() {
         <div class="pay-header-desc">Define payment stages - percentages must total 100%.</div>
       </div>
     </div>
+    <div class="aig-ribbon" id="ribbon-pay-section"></div>
+    <button type="button" class="aig-undo-btn" id="undo-pay-section"></button>
     <div class="pay-section-card" id="pay-section-card"></div>
   `;
   renderSectionCard();
@@ -504,47 +506,32 @@ function generateFullScheduleSuggestion() {
   }));
 }
 
+/*
+  Like BOQ, this adds new rows rather than filling field values — "empty"
+  means "no stages exist yet" (the button itself is only shown in the
+  empty state). Undo removes exactly the stages this run added.
+*/
 function runFullScheduleAi() {
-  showFullScheduleReview(generateFullScheduleSuggestion());
-}
-
-function showFullScheduleReview(schedule) {
-  const totalPct = schedule.reduce((s, x) => s + x.percentage, 0);
-  const totalAmt = schedule.reduce((s, x) => s + x.amount, 0);
-
-  openDialog({
-    title: 'Suggested payment schedule',
-    bodyHtml: `
-      ${buildTableHtml({
-        columns: [
-          { key: 'stageName', label: 'Stage' },
-          { key: 'itemDeliverable', label: 'Item / Deliverable', cellClass: 'cell-muted' },
-          { key: 'startDate', label: 'Start Date', cellClass: 'cell-muted', render: (r) => formatDate(r.startDate) },
-          { key: 'durationDays', label: 'Duration', cellClass: 'cell-muted', render: (r) => `${r.durationDays}d` },
-          { key: 'percentage', label: '%', render: (r) => `${r.percentage}%` },
-          { key: 'amount', label: 'Amount', render: (r) => formatPaySAR(r.amount) },
-        ],
-        rows: schedule,
-        compact: true,
-      })}
-      <div class="pay-ai-schedule-total">Total: ${totalPct}% · ${formatPaySAR(totalAmt)}</div>
-      <div class="pay-modal-footer">
-        <button class="pay-btn-cancel" id="pay-schedule-cancel">Cancel</button>
-        <div style="display:flex; gap: var(--space-2);">
-          <button class="pay-btn-cancel" id="pay-schedule-regenerate">Regenerate</button>
-          <button class="pay-btn-save" id="pay-schedule-apply">Accept &amp; Apply</button>
-        </div>
-      </div>
-    `,
-  });
-  document.getElementById('pay-schedule-cancel').addEventListener('click', closeDialog);
-  document.getElementById('pay-schedule-regenerate').addEventListener('click', () => showFullScheduleReview(generateFullScheduleSuggestion()));
-  document.getElementById('pay-schedule-apply').addEventListener('click', () => {
-    schedule.forEach((s) => pay.stages.push({ id: newStageId(), ...s }));
-    persistPay();
-    closeDialog();
-    renderSectionCard();
-    showToast('Payment schedule added.');
+  runAiGenerate({
+    confirmMessage: 'Would you like AI to fill this section using the information already provided in your RFP?',
+    ribbonMountId: 'ribbon-pay-section',
+    undoMountId: 'undo-pay-section',
+    hasWork: () => pay.stages.length === 0,
+    performApply: () => {
+      const schedule = generateFullScheduleSuggestion();
+      const addedIds = schedule.map((s) => {
+        const id = newStageId();
+        pay.stages.push({ id, ...s });
+        return id;
+      });
+      persistPay();
+      renderSectionCard();
+      return () => {
+        pay.stages = pay.stages.filter((s) => !addedIds.includes(s.id));
+        persistPay();
+        renderSectionCard();
+      };
+    },
   });
 }
 

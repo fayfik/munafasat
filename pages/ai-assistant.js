@@ -35,15 +35,65 @@ const AIA_STATUS_LABEL = {
   'complete': 'Complete',
 };
 
-const aia = {
-  progressPercent: 10,
-  stepStatus: Object.fromEntries(AIA_STRUCTURE_STEPS.map((s) => [s.id, 'not-started'])),
-  // Values the scripted conversation has inferred, keyed by suggestion id,
-  // only ACCEPTED ones get merged into the real form on "Continue with Form".
-  acceptedValues: {},
-  // Simple turn counter driving the scripted script — see getScriptedResponse().
-  conversationStage: 'awaiting-item',
-};
+function freshAiaState() {
+  return {
+    progressPercent: 10,
+    stepStatus: Object.fromEntries(AIA_STRUCTURE_STEPS.map((s) => [s.id, 'not-started'])),
+    // Values the scripted conversation has inferred, keyed by suggestion id,
+    // only ACCEPTED ones get merged into the real form on "Continue with Form".
+    acceptedValues: {},
+    // Simple turn counter driving the scripted script — see getScriptedResponse().
+    conversationStage: 'awaiting-item',
+  };
+}
+
+let aia = freshAiaState();
+
+/*
+  Builds the same "RFP Progress + conversational workspace" markup used
+  both by the standalone page (pages/ai-assistant.html) and by the
+  Copilot-triggered "Try a new experience" modal — one template, two
+  places it can be mounted.
+*/
+function buildAiAssistantLayoutHtml({ inModal = false } = {}) {
+  return `
+    <div class="aia-layout${inModal ? ' in-modal' : ''}">
+      <div class="aia-progress-card">
+        <div class="aia-progress-title">RFP Progress</div>
+        <div class="aia-progress-bar-row">
+          <span id="aia-progress-percent"></span>
+        </div>
+        <div class="aia-progress-track">
+          <div class="aia-progress-fill" id="aia-progress-fill" style="width:0%;"></div>
+        </div>
+        <div class="aia-structure-title">Request Structure</div>
+        <div class="aia-structure-list" id="aia-structure-list"></div>
+      </div>
+
+      <div class="aia-chat-card">
+        <div class="aia-chat-header">
+          <div class="aia-chat-header-left">
+            <span class="aia-chat-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <div>
+              <div class="aia-chat-title">Procurement AI Assistant</div>
+              <div class="aia-chat-subtext">Extracts structured data into RFP sections as you converse</div>
+            </div>
+          </div>
+          <button type="button" class="aia-continue-btn" id="aia-continue-btn">
+            Continue with Form <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+
+        <div class="aia-messages" id="aia-messages"></div>
+
+        <div class="aia-input-row">
+          <input type="text" class="aia-input" id="aia-chat-input" placeholder="Type a message…" autocomplete="off">
+          <button type="button" class="aia-send-btn" id="aia-send-btn" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 function renderProgressPanel() {
   document.getElementById('aia-progress-percent').textContent = `${aia.progressPercent}% complete`;
@@ -245,9 +295,13 @@ function escapeHtmlAia(str) {
   return div.innerHTML;
 }
 
-/* ---- Continue with Form ---- */
+/* ---- Continue with Form ----
+   Applies any accepted values into the shared WizardStore data, exactly
+   the same way regardless of whether this ran on the standalone page or
+   inside the modal — only what happens *after* differs (navigate vs.
+   close-and-reload), via the `after` callback. */
 
-function handleContinueWithForm() {
+function applyAcceptedValuesToWizard() {
   const patch = {};
   if (aia.acceptedValues.boqItem) {
     const { qty, itemNoun, teamText } = aia.acceptedValues.boqItem;
@@ -279,17 +333,20 @@ function handleContinueWithForm() {
   if (Object.keys(patch).length > 0) {
     WizardStore.updateFormData(patch);
   }
+}
 
+function handleContinueWithForm() {
+  applyAcceptedValuesToWizard();
   WizardStore.setStepStatus('basic-details', 'current');
   window.location.href = 'wizard-basic-details.html';
 }
 
-/* ---- Init ---- */
+/* ---- Wiring (shared by both the standalone page and the modal) ---- */
 
-function initAiAssistant() {
+function wireAiAssistantInteractions(onContinue) {
   renderProgressPanel();
 
-  document.getElementById('aia-continue-btn').addEventListener('click', handleContinueWithForm);
+  document.getElementById('aia-continue-btn').addEventListener('click', onContinue);
   document.getElementById('aia-send-btn').addEventListener('click', handleSend);
   document.getElementById('aia-chat-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); handleSend(); }
@@ -298,4 +355,40 @@ function initAiAssistant() {
   appendMessage('ai', "Hi! I'll help you create your RFP. You can share information in any order - I'll organize it across the different sections and only ask for what's still needed. What are you looking to procure?");
 }
 
+/* ---- Standalone page entry point ---- */
+
+function initAiAssistant() {
+  const mount = document.getElementById('aia-mount');
+  if (!mount) return; // not on the standalone page
+  mount.innerHTML = buildAiAssistantLayoutHtml();
+  wireAiAssistantInteractions(handleContinueWithForm);
+}
+
 document.addEventListener('DOMContentLoaded', initAiAssistant);
+
+/*
+  ---- Modal entry point ----
+  Wired to the wizard header's "Try a new experience" button
+  (components/wizard-shell/wizard-shell.js). Stays a scripted/canned demo
+  like the standalone page — same state machine, same isolated
+  getScriptedResponse(). "Continue with Form" applies any accepted values
+  and closes the modal; the page reloads so whichever wizard step is
+  showing picks up the new data through its own existing
+  WizardStore.getFormData() read on load (no wizard-step file is touched
+  to make this work).
+*/
+function openAiAssistantModal() {
+  aia = freshAiaState(); // each open starts a fresh scripted conversation
+
+  openDialog({
+    title: 'Procurement AI Assistant',
+    size: 'large',
+    bodyHtml: buildAiAssistantLayoutHtml({ inModal: true }),
+  });
+
+  wireAiAssistantInteractions(() => {
+    applyAcceptedValuesToWizard();
+    closeDialog();
+    window.location.reload();
+  });
+}

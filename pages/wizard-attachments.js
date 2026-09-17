@@ -1,7 +1,10 @@
 /*
   Step 5 - Attachments (Certificates and Documents) controller.
   Depends on: data-store.js, dialog.js, toast.js, searchable-select.js,
-  wizard-shell.js (all loaded before this file).
+  file-upload.js, wizard-shell.js (all loaded before this file).
+
+  Supporting Documents (the first card) was originally on Step 1 and moved
+  here in a later correction — it's optional and doesn't gate Continue.
 
   Required Certificates and Technical Documents are two fully independent
   collections (`certCard` / `techCard` below, persisted separately as
@@ -105,9 +108,21 @@ function makeAttachmentCard({ key, mountPrefix, options, initialItems }) {
   }
 
   function addAiEntries(labels) {
+    const addedIds = [];
     labels.forEach((label) => {
-      if (!hasLabel(label)) card.items.push({ id: newAttId(), label, source: 'ai' });
+      if (!hasLabel(label)) {
+        const id = newAttId();
+        card.items.push({ id, label, source: 'ai' });
+        addedIds.push(id);
+      }
     });
+    renderChips();
+    persistAttachments();
+    return addedIds;
+  }
+
+  function removeItemsByIds(ids) {
+    card.items = card.items.filter((i) => !ids.includes(i.id));
     renderChips();
     persistAttachments();
   }
@@ -125,16 +140,18 @@ function makeAttachmentCard({ key, mountPrefix, options, initialItems }) {
     });
   }
 
-  return { card, renderPredefinedSelect, renderChips, addOtherEntry, addAiEntries, hasLabel };
+  return { card, renderPredefinedSelect, renderChips, addOtherEntry, addAiEntries, removeItemsByIds, hasLabel };
 }
 
 let certCardCtl = null;
 let techCardCtl = null;
+let supportingDocsUpload = null;
 
 function persistAttachments() {
   WizardStore.updateFormData({
     attachmentCertificates: certCardCtl.card.items,
     attachmentTechnicalDocuments: techCardCtl.card.items,
+    supportingDocuments: supportingDocsUpload.getFiles(),
   });
 }
 
@@ -172,6 +189,12 @@ async function renderAttachmentsPage() {
     </div>
 
     <div class="att-cards-stack">
+      <div class="att-card">
+        <div class="att-card-title">Supporting documents <span style="font-weight:400; color:var(--text-tertiary);">(optional)</span></div>
+        <div class="att-card-desc">Attach TOR, quotations, and technical specification.</div>
+        <div id="att-supporting-docs-upload"></div>
+      </div>
+
       <div class="att-card">
         <div class="att-card-title">Required Certificates</div>
         <div class="att-card-desc">Select the compliance and legal certificates vendors must provide.</div>
@@ -212,12 +235,22 @@ async function renderAttachmentsPage() {
             <button type="button" class="att-add-btn" id="att-tech-other-add"><i class="fa-solid fa-plus"></i> Add</button>
           </div>
           <div class="att-field-error" id="att-tech-other-error"></div>
+          <div class="aig-ribbon" id="ribbon-att-tech"></div>
+          <button type="button" class="aig-undo-btn" id="undo-att-tech"></button>
         </div>
 
         <div class="att-chip-row" id="att-tech-chips"></div>
       </div>
     </div>
   `;
+
+  supportingDocsUpload = createFileUpload({
+    mountId: 'att-supporting-docs-upload',
+    acceptExtensions: ['pdf', 'xlsx', 'docx'],
+    maxSizeMB: 25,
+    initialFiles: fd.supportingDocuments || [],
+    onChange: () => persistAttachments(),
+  });
 
   certCardCtl.renderPredefinedSelect();
   certCardCtl.renderChips();
@@ -244,55 +277,25 @@ function wireOtherRow(inputId, addBtnId, ctl) {
   });
 }
 
-/* ---- AI: Technical Documents "Other" field only ---- */
-
+/*
+  AI: Technical Documents "Other" field only. Like BOQ/Payments, this adds
+  new chips rather than filling a field value — "empty" means "there's at
+  least one suggested document not already in the list" — Undo removes
+  exactly the chips this run added (by id), leaving manually-added or
+  previously-accepted ones untouched.
+*/
 function runTechDocsAi() {
-  const suggestions = AI_TECH_DOC_POOL.filter((label) => !techCardCtl.hasLabel(label)).slice(0, 4);
-  showTechDocsAiReview(suggestions);
-}
-
-function showTechDocsAiReview(suggestions) {
-  if (suggestions.length === 0) {
-    openDialog({
-      title: 'Generate with AI',
-      bodyHtml: `<p class="att-ai-empty-note">All suggested technical documents are already selected.</p>`,
-    });
-    return;
-  }
-
-  openDialog({
-    title: 'Suggested technical documents',
-    bodyHtml: `
-      <p class="att-ai-empty-note">Based on Basic Details, BOQ, Scope of Work, and the Payment Schedule for this RFP, consider requesting:</p>
-      <div class="att-ai-review-list">
-        ${suggestions.map((label, i) => `
-          <label class="att-ai-review-item">
-            <input type="checkbox" checked data-suggest-index="${i}">
-            <span class="att-ai-review-item-label">${escapeHtmlAtt(label)}</span>
-          </label>
-        `).join('')}
-      </div>
-      <div class="att-modal-footer">
-        <button class="att-btn-cancel" id="att-ai-cancel">Cancel</button>
-        <button class="att-btn-cancel" id="att-ai-regenerate">Regenerate</button>
-        <button class="att-btn-primary" id="att-ai-apply">Accept &amp; Apply</button>
-      </div>
-    `,
-  });
-
-  document.getElementById('att-ai-cancel').addEventListener('click', closeDialog);
-  document.getElementById('att-ai-regenerate').addEventListener('click', () => {
-    // Rotate the pool slightly so "regenerate" doesn't look like a no-op.
-    const remaining = AI_TECH_DOC_POOL.filter((label) => !techCardCtl.hasLabel(label));
-    const rotated = [...remaining.slice(1), remaining[0]].filter(Boolean).slice(0, 4);
-    showTechDocsAiReview(rotated);
-  });
-  document.getElementById('att-ai-apply').addEventListener('click', () => {
-    const checked = [...document.querySelectorAll('.att-ai-review-item input:checked')]
-      .map((el) => suggestions[Number(el.dataset.suggestIndex)]);
-    techCardCtl.addAiEntries(checked);
-    closeDialog();
-    showToast(checked.length > 0 ? `${checked.length} technical document${checked.length > 1 ? 's' : ''} added.` : 'No documents selected.');
+  runAiGenerate({
+    confirmMessage: 'Would you like AI to fill this field using the information already provided in your RFP?',
+    ribbonMountId: 'ribbon-att-tech',
+    undoMountId: 'undo-att-tech',
+    emptyMessage: 'All suggested technical documents are already selected.',
+    hasWork: () => AI_TECH_DOC_POOL.some((label) => !techCardCtl.hasLabel(label)),
+    performApply: () => {
+      const suggestions = AI_TECH_DOC_POOL.filter((label) => !techCardCtl.hasLabel(label)).slice(0, 4);
+      const addedIds = techCardCtl.addAiEntries(suggestions);
+      return () => techCardCtl.removeItemsByIds(addedIds);
+    },
   });
 }
 

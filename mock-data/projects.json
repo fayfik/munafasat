@@ -7,9 +7,9 @@
     "category": "Cloud & IT Services",
     "suggestedCategories": ["Software licenses", "Managed services"],
     "budgetedItems": [
-      { "id": "itm-01a", "name": "SAP modules implementation" },
-      { "id": "itm-01b", "name": "AMS" },
-      { "id": "itm-01c", "name": "Managed services" }
+      { "id": "itm-01a", "name": "SAP modules implementation", "costCentres": [{ "id": "CC-1001", "name": "IT Infrastructure & Operations" }, { "id": "CC-1002", "name": "IT Software & Licensing" }] },
+      { "id": "itm-01b", "name": "AMS", "costCentres": [{ "id": "CC-1001", "name": "IT Infrastructure & Operations" }] },
+      { "id": "itm-01c", "name": "Managed services", "costCentres": [{ "id": "CC-1001", "name": "IT Infrastructure & Operations" }, { "id": "CC-1006", "name": "Corporate Administration" }] }
     ]
   },
   {
@@ -20,9 +20,9 @@
     "category": "Cloud & IT Services",
     "suggestedCategories": ["Network infrastructure", "Cybersecurity infrastructure"],
     "budgetedItems": [
-      { "id": "itm-02a", "name": "Core switches" },
-      { "id": "itm-02b", "name": "Firewall appliances" },
-      { "id": "itm-02c", "name": "Network cabling" }
+      { "id": "itm-02a", "name": "Core switches", "costCentres": [{ "id": "CC-1001", "name": "IT Infrastructure & Operations" }] },
+      { "id": "itm-02b", "name": "Firewall appliances", "costCentres": [{ "id": "CC-1001", "name": "IT Infrastructure & Operations" }] },
+      { "id": "itm-02c", "name": "Network cabling", "costCentres": [{ "id": "CC-1001", "name": "IT Infrastructure & Operations" }, { "id": "CC-1003", "name": "Facilities & General Services" }] }
     ]
   },
   {
@@ -33,8 +33,8 @@
     "category": "Cloud & IT Services",
     "suggestedCategories": ["Cybersecurity infrastructure"],
     "budgetedItems": [
-      { "id": "itm-03a", "name": "SOC monitoring services" },
-      { "id": "itm-03b", "name": "Endpoint protection licenses" }
+      { "id": "itm-03a", "name": "SOC monitoring services", "costCentres": [{ "id": "CC-1001", "name": "IT Infrastructure & Operations" }] },
+      { "id": "itm-03b", "name": "Endpoint protection licenses", "costCentres": [{ "id": "CC-1002", "name": "IT Software & Licensing" }] }
     ]
   },
   {
@@ -45,9 +45,9 @@
     "category": "Facilities & Maintenance",
     "suggestedCategories": ["Managed services"],
     "budgetedItems": [
-      { "id": "itm-04a", "name": "HVAC maintenance" },
-      { "id": "itm-04b", "name": "Cleaning services" },
-      { "id": "itm-04c", "name": "Landscaping" }
+      { "id": "itm-04a", "name": "HVAC maintenance", "costCentres": [{ "id": "CC-1003", "name": "Facilities & General Services" }] },
+      { "id": "itm-04b", "name": "Cleaning services", "costCentres": [{ "id": "CC-1003", "name": "Facilities & General Services" }] },
+      { "id": "itm-04c", "name": "Landscaping", "costCentres": [{ "id": "CC-1003", "name": "Facilities & General Services" }] }
     ]
   },
   {
@@ -58,8 +58,8 @@
     "category": "Facilities & Maintenance",
     "suggestedCategories": ["Managed services"],
     "budgetedItems": [
-      { "id": "itm-05a", "name": "Interior fit-out works" },
-      { "id": "itm-05b", "name": "Furniture procurement" }
+      { "id": "itm-05a", "name": "Interior fit-out works", "costCentres": [{ "id": "CC-1003", "name": "Facilities & General Services" }, { "id": "CC-1006", "name": "Corporate Administration" }] },
+      { "id": "itm-05b", "name": "Furniture procurement", "costCentres": [{ "id": "CC-1003", "name": "Facilities & General Services" }] }
     ]
   },
   {
@@ -70,9 +70,9 @@
     "category": "Cloud & IT Services",
     "suggestedCategories": ["Cloud services", "Managed services"],
     "budgetedItems": [
-      { "id": "itm-06a", "name": "Cloud infrastructure setup" },
-      { "id": "itm-06b", "name": "Data migration services" },
-      { "id": "itm-06c", "name": "Cloud support retainer" }
+      { "id": "itm-06a", "name": "Cloud infrastructure setup", "costCentres": [{ "id": "CC-1001", "name": "IT Infrastructure & Operations" }, { "id": "CC-1002", "name": "IT Software & Licensing" }] },
+      { "id": "itm-06b", "name": "Data migration services", "costCentres": [{ "id": "CC-1001", "name": "IT Infrastructure & Operations" }] },
+      { "id": "itm-06c", "name": "Cloud support retainer", "costCentres": [{ "id": "CC-1002", "name": "IT Software & Licensing" }] }
     ]
   },
   {
@@ -83,8 +83,8 @@
     "category": "Consulting",
     "suggestedCategories": ["CONSULTING SERVICES"],
     "budgetedItems": [
-      { "id": "itm-07a", "name": "Legal advisory retainer" },
-      { "id": "itm-07b", "name": "Compliance review" }
+      { "id": "itm-07a", "name": "Legal advisory retainer", "costCentres": [{ "id": "CC-1005", "name": "Legal & Compliance" }] },
+      { "id": "itm-07b", "name": "Compliance review", "costCentres": [{ "id": "CC-1005", "name": "Legal & Compliance" }] }
     ]
   },
   {
@@ -95,9 +95,9 @@
     "category": "Professional Services",
     "suggestedCategories": ["Managed services"],
     "budgetedItems": [
-      { "id": "itm-08a", "name": "Training curriculum design" },
-      { "id": "itm-08b", "name": "Instructor-led sessions" },
-      { "id": "itm-08c", "name": "E-learning platform license" }
+      { "id": "itm-08a", "name": "Training curriculum design", "costCentres": [{ "id": "CC-1004", "name": "Human Resources" }] },
+      { "id": "itm-08b", "name": "Instructor-led sessions", "costCentres": [{ "id": "CC-1004", "name": "Human Resources" }] },
+      { "id": "itm-08c", "name": "E-learning platform license", "costCentres": [{ "id": "CC-1004", "name": "Human Resources" }, { "id": "CC-1002", "name": "IT Software & Licensing" }] }
     ]
   }
 ]

@@ -101,7 +101,20 @@ const WizardStore = (() => {
     sessionStorage.removeItem(WIZARD_STORAGE_KEY);
   }
 
-  return { STEPS: WIZARD_STEPS, start, getState, setStepStatus, getFormData, updateFormData, clear };
+  // The stepper rail (and the footer's "Continue: <next step>" label) show
+  // a variable-length step list depending on Step 1's procurement category:
+  // Souq Etimad procurements only need Basic details + BOQ, every other
+  // step is irrelevant to that flow. Hidden steps keep their stepStatuses
+  // entry and formData untouched — this only affects what's rendered.
+  function getVisibleSteps() {
+    const formData = getFormData();
+    if (formData.procurementCategory === 'souq-etimad') {
+      return WIZARD_STEPS.filter((s) => s.id === 'basic-details' || s.id === 'boq');
+    }
+    return WIZARD_STEPS;
+  }
+
+  return { STEPS: WIZARD_STEPS, start, getState, setStepStatus, getFormData, updateFormData, clear, getVisibleSteps };
 })();
 
 // Fixed category list for Section 2's "Categories" field. `approverRoles` is

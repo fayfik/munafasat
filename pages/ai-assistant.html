@@ -21,43 +21,7 @@
     <div id="app-header"></div>
     <main class="app-main">
       <div class="app-page">
-        <div class="aia-layout">
-
-          <div class="aia-progress-card">
-            <div class="aia-progress-title">RFP Progress</div>
-            <div class="aia-progress-bar-row">
-              <span id="aia-progress-percent"></span>
-            </div>
-            <div class="aia-progress-track">
-              <div class="aia-progress-fill" id="aia-progress-fill" style="width:0%;"></div>
-            </div>
-            <div class="aia-structure-title">Request Structure</div>
-            <div class="aia-structure-list" id="aia-structure-list"></div>
-          </div>
-
-          <div class="aia-chat-card">
-            <div class="aia-chat-header">
-              <div class="aia-chat-header-left">
-                <span class="aia-chat-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
-                <div>
-                  <div class="aia-chat-title">Procurement AI Assistant</div>
-                  <div class="aia-chat-subtext">Extracts structured data into RFP sections as you converse</div>
-                </div>
-              </div>
-              <button type="button" class="aia-continue-btn" id="aia-continue-btn">
-                Continue with Form <i class="fa-solid fa-arrow-right"></i>
-              </button>
-            </div>
-
-            <div class="aia-messages" id="aia-messages"></div>
-
-            <div class="aia-input-row">
-              <input type="text" class="aia-input" id="aia-chat-input" placeholder="Type a message…" autocomplete="off">
-              <button type="button" class="aia-send-btn" id="aia-send-btn" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
-            </div>
-          </div>
-
-        </div>
+        <div id="aia-mount"></div>
       </div>
     </main>
   </div>

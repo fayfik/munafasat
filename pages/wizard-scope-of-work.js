@@ -141,6 +141,8 @@ function renderSowPage() {
       </div>
       <button type="button" class="sow-ai-section-btn" id="sow-section-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
     </div>
+    <div class="aig-ribbon" id="ribbon-sow-section"></div>
+    <button type="button" class="aig-undo-btn" id="undo-sow-section"></button>
 
     <div class="sow-cards-stack">
       ${SOW_CARDS.map((card) => `
@@ -155,7 +157,8 @@ function renderSowPage() {
               </div>
               <textarea class="sow-textarea" id="sow-f-${field.key}" data-field-key="${field.key}" placeholder="${field.placeholder}" maxlength="2000">${sow.formData[field.key] || ''}</textarea>
               <div class="sow-char-count" id="sow-count-${field.key}">${(sow.formData[field.key] || '').length} / 2000</div>
-              <div id="sow-suggest-${field.key}"></div>
+              <div class="aig-ribbon" id="ribbon-sow-${field.key}"></div>
+              <button type="button" class="aig-undo-btn" id="undo-sow-${field.key}"></button>
             </div>
           `).join('')}
         </div>
@@ -178,126 +181,31 @@ function wireSowFields() {
   });
 }
 
-/* ---- Field-level AI: always offers a suggestion, never auto-overwrites ---- */
+/* ---- Field-level AI: confirm -> fill if empty -> ribbon -> Undo ---- */
 
 function runFieldAi(field) {
-  const mount = document.getElementById(`sow-suggest-${field.key}`);
-  const text = SOW_GENERATORS[field.key]();
-  renderFieldSuggestion(mount, field, text);
-}
-
-function renderFieldSuggestion(mount, field, text) {
-  mount.innerHTML = `
-    <div class="sow-ai-suggested-box">
-      <div class="sow-ai-suggested-label">
-        <span><i class="fa-solid fa-wand-magic-sparkles"></i> AI-suggested</span>
-        <button type="button" class="sow-ai-suggested-dismiss" data-dismiss><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="sow-ai-suggested-text">${text}</div>
-      <div class="sow-ai-suggested-actions">
-        <button type="button" class="sow-ai-action-btn accept" data-act="accept"><i class="fa-solid fa-check"></i> Accept &amp; Apply</button>
-        <button type="button" class="sow-ai-action-btn regenerate" data-act="regenerate"><i class="fa-solid fa-rotate"></i> Regenerate</button>
-      </div>
-    </div>
-  `;
-  mount.querySelector('[data-dismiss]').addEventListener('click', () => { mount.innerHTML = ''; });
-  mount.querySelector('[data-act="accept"]').addEventListener('click', () => {
-    const textarea = document.getElementById(`sow-f-${field.key}`);
-    textarea.value = text;
-    patchSow({ [field.key]: text });
-    document.getElementById(`sow-count-${field.key}`).textContent = `${text.length} / 2000`;
-    mount.innerHTML = '';
-  });
-  mount.querySelector('[data-act="regenerate"]').addEventListener('click', () => {
-    renderFieldSuggestion(mount, field, SOW_GENERATORS[field.key]());
+  runFieldAiGenerate({
+    ribbonMountId: `ribbon-sow-${field.key}`,
+    undoMountId: `undo-sow-${field.key}`,
+    isEmpty: () => !sow.formData[field.key] || !sow.formData[field.key].trim(),
+    generate: () => SOW_GENERATORS[field.key](),
+    apply: (text) => commitSowField(field, text),
   });
 }
 
-/* ---- Section-level AI: fills only empty fields, review before commit ---- */
+/* ---- Section-level AI: same pattern across all 13 fields at once ---- */
 
 function runSectionAi() {
-  openDialog({
-    title: 'Generate with AI',
-    bodyHtml: `
-      <p style="margin:0 0 var(--space-4); color: var(--text-secondary); font-size: var(--font-size-sm);">
-        Would you like AI to fill this section using the information already provided in your RFP?
-      </p>
-      <div class="sow-modal-footer">
-        <button class="sow-btn-cancel" id="sow-section-ai-no">No</button>
-        <button class="sow-btn-primary" id="sow-section-ai-yes">Yes</button>
-      </div>
-    `,
-  });
-  document.getElementById('sow-section-ai-no').addEventListener('click', closeDialog);
-  document.getElementById('sow-section-ai-yes').addEventListener('click', () => {
-    const emptyFields = ALL_SOW_FIELDS.filter((f) => !sow.formData[f.key] || !sow.formData[f.key].trim());
-    if (emptyFields.length === 0) {
-      openDialog({
-        title: 'Generate with AI',
-        bodyHtml: `<p style="margin:0; color: var(--text-secondary); font-size: var(--font-size-sm);">Every field already has content — nothing to generate.</p>`,
-      });
-      return;
-    }
-    showSectionReview(emptyFields.map((f) => ({ field: f, text: SOW_GENERATORS[f.key](), status: 'pending' })));
-  });
-}
-
-function showSectionReview(reviewItems) {
-  openDialog({
-    title: 'Review AI-generated content',
-    bodyHtml: `
-      <div class="sow-review-list">
-        ${reviewItems.map((item, i) => `
-          <div class="sow-review-item${item.status !== 'pending' ? ' resolved' : ''}" data-review-index="${i}">
-            <div class="sow-review-item-label">${item.field.label}</div>
-            <textarea class="sow-textarea" id="sow-review-text-${i}" ${item.status !== 'pending' ? 'disabled' : ''}>${item.text}</textarea>
-            ${item.status === 'pending' ? `
-              <div class="sow-ai-suggested-actions" style="margin-top: var(--space-2);">
-                <button type="button" class="sow-ai-action-btn accept" data-review-act="accept" data-review-index="${i}"><i class="fa-solid fa-check"></i> Accept</button>
-                <button type="button" class="sow-ai-action-btn regenerate" data-review-act="regenerate" data-review-index="${i}"><i class="fa-solid fa-rotate"></i> Regenerate</button>
-                <button type="button" class="sow-ai-action-btn reject" data-review-act="reject" data-review-index="${i}"><i class="fa-solid fa-xmark"></i> Reject</button>
-              </div>
-            ` : `<div class="sow-review-status ${item.status}">${item.status === 'accepted' ? 'Accepted' : 'Rejected'}</div>`}
-          </div>
-        `).join('')}
-      </div>
-      <div class="sow-modal-footer">
-        <button class="sow-btn-cancel" id="sow-review-close">Close</button>
-        <button class="sow-btn-primary" id="sow-review-accept-all">Accept all remaining</button>
-      </div>
-    `,
-  });
-
-  document.getElementById('sow-review-close').addEventListener('click', closeDialog);
-  document.getElementById('sow-review-accept-all').addEventListener('click', () => {
-    reviewItems.forEach((item, i) => {
-      if (item.status === 'pending') {
-        item.text = document.getElementById(`sow-review-text-${i}`).value;
-        commitSowField(item.field, item.text);
-        item.status = 'accepted';
-      }
-    });
-    closeDialog();
-    renderSowPage();
-    showToast('AI-generated content applied.');
-  });
-
-  reviewItems.forEach((item, i) => {
-    if (item.status !== 'pending') return;
-    document.querySelector(`[data-review-act="accept"][data-review-index="${i}"]`).addEventListener('click', () => {
-      item.text = document.getElementById(`sow-review-text-${i}`).value;
-      commitSowField(item.field, item.text);
-      item.status = 'accepted';
-      showSectionReview(reviewItems);
-    });
-    document.querySelector(`[data-review-act="regenerate"][data-review-index="${i}"]`).addEventListener('click', () => {
-      item.text = SOW_GENERATORS[item.field.key]();
-      showSectionReview(reviewItems);
-    });
-    document.querySelector(`[data-review-act="reject"][data-review-index="${i}"]`).addEventListener('click', () => {
-      item.status = 'rejected';
-      showSectionReview(reviewItems);
-    });
+  runSectionAiGenerate({
+    ribbonMountId: 'ribbon-sow-section',
+    undoMountId: 'undo-sow-section',
+    fieldDefs: ALL_SOW_FIELDS.map((field) => ({
+      key: field.key,
+      isApplicable: () => true,
+      isEmpty: () => !sow.formData[field.key] || !sow.formData[field.key].trim(),
+      generate: () => SOW_GENERATORS[field.key](),
+      apply: (text) => commitSowField(field, text),
+    })),
   });
 }
 

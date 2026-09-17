@@ -5,8 +5,8 @@
 
   createSearchableSelect({
     mountId, mode: 'single'|'multi', options: [{ value, label, line2Left, line2Right }],
-    selected, placeholder, searchPlaceholder, onChange, maxVisibleChips, showChips
-  }) -> { getSelected, setSelected, setOptions, clear }
+    selected, placeholder, searchPlaceholder, onChange, maxVisibleChips, showChips, disabled
+  }) -> { getSelected, setSelected, setOptions, clear, setDisabled }
 
   `showChips` (multi mode only, default true): set to false when the caller
   wants to render its own unified chip row instead (e.g. Step 5's
@@ -14,6 +14,12 @@
   need to appear together as one chip collection) — the component still
   tracks selection and fires onChange normally, it just skips its own
   `.sel-chip-row` markup.
+
+  `disabled` (single mode use case: e.g. Step 1's Cost centre field when
+  only one option applies): shows a lock icon instead of the caret, blocks
+  opening the dropdown, and hides the clear button — the field still holds
+  and reports whatever `selected`/`setSelected` gives it. Toggle at runtime
+  with `setDisabled(bool)`.
 */
 
 function createSearchableSelect({
@@ -26,6 +32,7 @@ function createSearchableSelect({
   onChange = () => {},
   maxVisibleChips = 6,
   showChips = true,
+  disabled = false,
 }) {
   const mount = document.getElementById(mountId);
   let opts = options;
@@ -33,6 +40,7 @@ function createSearchableSelect({
   let query = '';
   let activeIndex = -1;
   let chipsExpanded = false;
+  let isDisabled = disabled;
 
   function filteredOptions() {
     const q = query.trim().toLowerCase();
@@ -61,10 +69,10 @@ function createSearchableSelect({
 
     mount.innerHTML = `
       <div class="sel-field${isOpen ? ' open' : ''}">
-        <div class="sel-trigger" id="${mountId}-trigger">
+        <div class="sel-trigger${isDisabled ? ' disabled' : ''}" id="${mountId}-trigger">
           <span class="sel-trigger-label${(mode === 'single' && !sel) || (mode === 'multi' && sel.length === 0) ? ' placeholder' : ''}">${triggerLabel()}</span>
-          ${(mode === 'single' ? sel : sel.length > 0) ? `<button type="button" class="sel-trigger-clear" id="${mountId}-clear" aria-label="Clear"><i class="fa-solid fa-xmark"></i></button>` : ''}
-          <i class="fa-solid fa-chevron-down sel-trigger-caret"></i>
+          ${!isDisabled && (mode === 'single' ? sel : sel.length > 0) ? `<button type="button" class="sel-trigger-clear" id="${mountId}-clear" aria-label="Clear"><i class="fa-solid fa-xmark"></i></button>` : ''}
+          <i class="fa-solid ${isDisabled ? 'fa-lock' : 'fa-chevron-down'} sel-trigger-caret"></i>
         </div>
         <div class="sel-dropdown" id="${mountId}-dropdown">
           <label class="sel-search">
@@ -160,6 +168,7 @@ function createSearchableSelect({
     const clearBtn = document.getElementById(`${mountId}-clear`);
 
     trigger.addEventListener('click', (e) => {
+      if (isDisabled) return;
       if (e.target.closest('.sel-trigger-clear')) return;
       const isOpen = mount.querySelector('.sel-field').classList.contains('open');
       if (isOpen) close(); else open();
@@ -229,5 +238,6 @@ function createSearchableSelect({
     setSelected: (v) => { sel = mode === 'multi' ? [...(v || [])] : v; chipsExpanded = false; render(); },
     setOptions: (newOptions) => { opts = newOptions; render(); },
     clear: () => { sel = mode === 'multi' ? [] : null; render(); },
+    setDisabled: (v) => { isDisabled = v; if (v) close(); render(); },
   };
 }

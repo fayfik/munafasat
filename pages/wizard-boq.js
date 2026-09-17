@@ -1,38 +1,81 @@
 /*
   Step 2 - Bill of Quantity controller.
   Depends on: data-store.js, dialog.js, toast.js, searchable-select.js,
-  date-picker.js, table.js, wizard-shell.js, and the SheetJS `XLSX` global
-  (loaded via CDN in wizard-boq.html) — all loaded before this file.
-*/
+  table.js, header.js (for the global setupDropdown() helper), wizard-shell.js,
+  and the SheetJS `XLSX` global (loaded via CDN in wizard-boq.html) — all
+  loaded before this file.
 
-const BOQ_REQUIRED_HEADERS = [
-  'Item No.', 'Item Name', 'Item Description', 'Structural Code', 'Procurement Type',
-  'Purchase Group', 'Material Group', 'UOM', 'Quantity', 'Unit Price (SAR)',
-  'Delivery Date', 'Has Brand Name', 'Justification for Brand Name',
-];
+  Rebuilt to remove the Add/Edit BOQ Item modal entirely: every cell is
+  inline-editable directly in the table. Native <select> elements are used
+  for Material group / Purchase group / Procurement type / UOM (a per-row
+  searchable-select instance is used only for Budgeted Item, since the
+  source spec calls that one out specifically as "searchable dropdown").
+  Delivery Date uses a plain <input type="date"> rather than the app's
+  Hijri/Gregorian date-picker component, to keep a wide, many-column table
+  tractable — flagged here as a pragmatic simplification.
+*/
 
 const PROCUREMENT_TYPES = ['Goods', 'Services', 'Works', 'Consulting'];
 const PURCHASE_GROUPS = ['IT Procurement', 'Facilities Procurement', 'Corporate Services', 'Professional Services'];
 const MATERIAL_GROUPS = ['Hardware', 'Software', 'Networking Equipment', 'Furniture', 'Maintenance Services', 'Consulting Services'];
-const UOM_OPTIONS = [
-  { value: 'Uni', label: 'Uni — Unit' },
-  { value: 'EA', label: 'EA — Each' },
-  { value: 'CAR', label: 'CAR — Carton' },
-  { value: 'AU', label: 'AU — Activity Unit' },
+const UOM_OPTIONS = ['Uni', 'EA', 'CAR', 'AU'];
+
+const IMPORT_TEMPLATE_HEADERS = [
+  'Item No.', 'Item Name', 'Description', 'Budgeted item', 'Material group', 'Purchase group',
+  'Procurement type', 'UOM', 'Quantity', 'Unit Price (SAR)', 'Delivery Date', 'Has Brand Name', 'Total (SAR)',
 ];
 
-const SIMILAR_BOQ_SAMPLE = [
-  { name: 'Standard laptop unit', description: 'Business-grade laptop for staff use.', procurementType: 'Goods', purchaseGroup: 'IT Procurement', materialGroup: 'Hardware', uom: 'EA', quantity: 1, unitPrice: 4200, deliveryDate: null, hasBrandName: false, brandJustification: '' },
-  { name: 'Extended hardware warranty', description: '3-year extended warranty covering parts and labor.', procurementType: 'Services', purchaseGroup: 'IT Procurement', materialGroup: 'Maintenance Services', uom: 'Uni', quantity: 1, unitPrice: 600, deliveryDate: null, hasBrandName: false, brandJustification: '' },
+// >= 15 canned rows, used to simulate a bulk Excel import (the redesigned
+// Import Data flow no longer actually parses the uploaded file's content —
+// see the spec note on openImportDataModal()).
+const IMPORT_SIMULATED_POOL = [
+  ['Standard laptop unit', 'Business-grade laptop for staff use.', 'Hardware', 'EA', 1, 4200],
+  ['Docking station', 'USB-C docking station with dual monitor support.', 'Hardware', 'EA', 1, 650],
+  ['Core switch', '24-port managed switch.', 'Networking Equipment', 'EA', 1, 3800],
+  ['Firewall appliance', 'Next-gen firewall appliance.', 'Networking Equipment', 'EA', 1, 12000],
+  ['Software license (annual)', 'Annual per-seat software license.', 'Software', 'EA', 1, 900],
+  ['Cloud subscription', 'Annual cloud platform subscription.', 'Software', 'Uni', 1, 60000],
+  ['Extended warranty', '3-year extended hardware warranty.', 'Maintenance Services', 'Uni', 1, 600],
+  ['Installation services', 'On-site installation and setup.', 'Consulting Services', 'Uni', 1, 8000],
+  ['Training session', 'Half-day end-user training session.', 'Consulting Services', 'Uni', 1, 3000],
+  ['Office chair', 'Ergonomic office chair.', 'Furniture', 'EA', 1, 850],
+  ['Desk unit', 'Height-adjustable desk.', 'Furniture', 'EA', 1, 1200],
+  ['Network cabling', 'Structured cabling per floor.', 'Networking Equipment', 'Uni', 1, 15000],
+  ['Data migration services', 'Migration of legacy data to the new system.', 'Consulting Services', 'Uni', 1, 25000],
+  ['Managed support retainer', 'Monthly managed support retainer.', 'Maintenance Services', 'Uni', 12, 5000],
+  ['Endpoint protection license', 'Per-device endpoint protection license.', 'Software', 'EA', 1, 120],
+  ['Project management services', 'Dedicated PM for implementation.', 'Consulting Services', 'Uni', 1, 40000],
 ];
+
+// Canned line items per project category, used by "Import BOQ from Similar
+// RFPs" since mock-data/rfps.json doesn't carry real BOQ breakdowns.
+const SIMILAR_RFP_ITEM_POOL = {
+  'IT Equipment': [
+    { name: 'Standard laptop unit', description: 'Business-grade laptop for staff use.', uom: 'EA', quantity: 25, unitPrice: 4200 },
+    { name: 'Docking station', description: 'USB-C docking station with dual monitor support.', uom: 'EA', quantity: 25, unitPrice: 650 },
+  ],
+  'Cloud & IT Services': [
+    { name: 'Cloud subscription (annual)', description: 'Annual cloud platform subscription.', uom: 'Uni', quantity: 1, unitPrice: 180000 },
+    { name: 'Implementation services', description: 'Setup and configuration services.', uom: 'Uni', quantity: 1, unitPrice: 60000 },
+  ],
+  'Facilities & Maintenance': [
+    { name: 'Facility maintenance contract', description: 'Annual facility maintenance and upkeep.', uom: 'Uni', quantity: 1, unitPrice: 90000 },
+  ],
+  'Consulting': [
+    { name: 'Advisory retainer', description: 'Monthly advisory services retainer.', uom: 'Uni', quantity: 12, unitPrice: 15000 },
+  ],
+};
 
 const boq = {
   items: [],
   importBatches: [],
   step1FormData: {},
   projects: [],
-  editingItemId: null,
-  originalSnapshot: null,
+  similarRfps: [],
+  viewMode: 'full', // 'full' | 'compact' — see "Change view" (View more menu)
+  undoSnapshot: null, // JSON snapshot of `items` before the last bulk action (AI/import/clear); null = nothing to undo
+  pendingImportFile: null,
+  budgetedSelects: {},
 };
 
 /* ---- Persistence ---- */
@@ -52,10 +95,31 @@ function newItemId() {
   return `boq-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
+/* ---- Undo (toolbar icon) ---- */
+
+function captureUndoSnapshot() {
+  boq.undoSnapshot = JSON.stringify(boq.items);
+}
+
+function handleUndoClick() {
+  if (!boq.undoSnapshot) return;
+  boq.items = JSON.parse(boq.undoSnapshot);
+  boq.undoSnapshot = null;
+  persistBoq();
+  renderBoqPage();
+  showToast('Change undone.');
+}
+
 /* ---- Totals ---- */
 
 function formatBoqSAR(amount) {
-  return `SAR ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `SAR ${(Number(amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function itemTotal(item) {
@@ -68,10 +132,25 @@ function computeTotals() {
   return { subtotal, vat, grand: subtotal + vat };
 }
 
-/* ---- Validation / footer ---- */
+/* ---- Validation / footer (unchanged gating logic) ---- */
 
 function updateContinueState() {
   setWizardContinueEnabled(boq.items.length > 0);
+}
+
+/* ---- Budgeted Item options (sourced from Step 1) ---- */
+
+function boqBudgetedItemOptions() {
+  const project = boq.step1FormData.projectId ? boq.projects.find((p) => p.id === boq.step1FormData.projectId) : null;
+  const ids = boq.step1FormData.budgetedItemIds || [];
+  if (!project) return [];
+  return project.budgetedItems.filter((i) => ids.includes(i.id)).map((i) => ({ value: i.id, label: i.name }));
+}
+
+function budgetedItemName(id) {
+  if (!id) return '';
+  const opt = boqBudgetedItemOptions().find((o) => o.value === id);
+  return opt ? opt.label : '';
 }
 
 /* ---- Rendering ---- */
@@ -86,19 +165,59 @@ function renderBoqPage() {
         <div class="boq-header-sub">Add one or more line items to this RFP</div>
       </div>
       <div class="boq-header-actions">
-        <button type="button" class="boq-ai-section-btn" id="boq-section-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
-        <button type="button" class="boq-btn-outline" id="boq-export-btn"><i class="fa-solid fa-file-export"></i> Export Template</button>
-        <button type="button" class="boq-btn-outline" id="boq-import-btn"><i class="fa-solid fa-file-import"></i> Import Excel</button>
+        <button type="button" class="boq-btn-outline" id="boq-import-data-btn"><i class="fa-solid fa-file-import"></i> Import data</button>
+        <button type="button" class="boq-ai-section-btn" id="boq-generate-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+        <button type="button" class="boq-undo-icon-btn" id="boq-undo-btn" title="Undo last change" ${boq.undoSnapshot ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
+        <div class="boq-dropdown" id="boq-viewmore-dropdown">
+          <button type="button" class="boq-btn-outline" id="boq-viewmore-btn">View more <i class="fa-solid fa-chevron-down"></i></button>
+          <div class="boq-dropdown-menu" id="boq-viewmore-menu">
+            <div class="boq-dropdown-item" id="boq-menu-similar-rfps">Import BOQ from similar RFPs</div>
+            <div class="boq-dropdown-item" id="boq-menu-change-view">Change view</div>
+            <div class="boq-dropdown-item danger" id="boq-menu-clear-table">Clear table</div>
+          </div>
+        </div>
+        <div class="boq-dropdown" id="boq-download-dropdown">
+          <button type="button" class="boq-btn-outline" id="boq-download-btn"><i class="fa-solid fa-download"></i> Download <i class="fa-solid fa-chevron-down"></i></button>
+          <div class="boq-dropdown-menu" id="boq-download-menu">
+            <div class="boq-dropdown-item" id="boq-dl-etimad">Material - Etimad templates prefilled</div>
+            <!-- Only the Etimad option above is confirmed by the source doc;
+                 the two below are plausible additions, flagged as placeholders. -->
+            <div class="boq-dropdown-item" id="boq-dl-blank">Standard BOQ Template (blank)</div>
+            <div class="boq-dropdown-item" id="boq-dl-summary">BOQ Summary Report</div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="boq-section-card" id="boq-section-card"></div>
   `;
 
-  document.getElementById('boq-section-ai-btn').addEventListener('click', runSectionAi);
-  document.getElementById('boq-export-btn').addEventListener('click', exportBoqTemplate);
-  document.getElementById('boq-import-btn').addEventListener('click', openImportModal);
+  document.getElementById('boq-import-data-btn').addEventListener('click', openImportDataModal);
+  document.getElementById('boq-generate-ai-btn').addEventListener('click', openGenerateAiPreview);
+  document.getElementById('boq-undo-btn').addEventListener('click', handleUndoClick);
+
+  setupDropdown('boq-viewmore-dropdown', 'boq-viewmore-btn', 'boq-viewmore-menu');
+  setupDropdown('boq-download-dropdown', 'boq-download-btn', 'boq-download-menu');
+
+  document.getElementById('boq-menu-similar-rfps').addEventListener('click', () => { closeAllBoqMenus(); openSimilarRfpsModal(); });
+  document.getElementById('boq-menu-change-view').addEventListener('click', () => { closeAllBoqMenus(); toggleChangeView(); });
+  document.getElementById('boq-menu-clear-table').addEventListener('click', () => { closeAllBoqMenus(); confirmClearTable(); });
+  document.getElementById('boq-dl-etimad').addEventListener('click', () => { closeAllBoqMenus(); downloadEtimadPrefilledTemplate(); });
+  document.getElementById('boq-dl-blank').addEventListener('click', () => { closeAllBoqMenus(); exportBoqTemplate(); });
+  document.getElementById('boq-dl-summary').addEventListener('click', () => { closeAllBoqMenus(); downloadSummaryReport(); });
 
   renderSectionCard();
+}
+
+function closeAllBoqMenus() {
+  document.querySelectorAll('.boq-dropdown-menu.open').forEach((m) => m.classList.remove('open'));
+}
+
+function toggleChangeView() {
+  // "Change view" has no further detail in the source spec — implemented
+  // as a full/compact column toggle as a plausible placeholder behavior.
+  boq.viewMode = boq.viewMode === 'compact' ? 'full' : 'compact';
+  renderSectionCard();
+  showToast(`Switched to ${boq.viewMode === 'compact' ? 'compact' : 'full'} view.`);
 }
 
 function renderSectionCard() {
@@ -112,7 +231,7 @@ function renderSectionCard() {
   const totals = computeTotals();
   card.innerHTML = `
     ${buildTableHtml({
-      columns: BOQ_COLUMNS,
+      columns: getBoqColumns(),
       rows: boq.items,
       rowKey: (r) => r.id,
       emptyText: 'No items yet.',
@@ -128,63 +247,198 @@ function renderSectionCard() {
     ${boq.importBatches.map((batch) => buildImportCardHtml(batch)).join('')}
   `;
 
-  document.getElementById('boq-add-row-btn')?.addEventListener('click', () => openItemModal(null));
-  wireTableRowEvents();
+  document.getElementById('boq-add-row-btn')?.addEventListener('click', addNewItemRow);
+  wireTableCellEvents();
+  wireBudgetedItemSelects();
   wireImportCards();
 }
 
-const BOQ_COLUMNS = [
-  { key: 'itemNo', label: 'Item No.', render: (r, i) => String((boq.items.indexOf(r)) + 1).padStart(2, '0') },
-  { key: 'name', label: 'Item Name', render: (r) => `<span class="cell-truncate" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</span>` },
-  { key: 'description', label: 'Description', cellClass: 'cell-muted', render: (r) => `<span class="cell-truncate" title="${escapeHtml(r.description || '')}">${escapeHtml(r.description || '—')}</span>` },
-  { key: 'materialGroup', label: 'Material group', cellClass: 'cell-muted', render: (r) => r.materialGroup || '—' },
-  { key: 'uom', label: 'UOM', cellClass: 'cell-muted' },
-  { key: 'quantity', label: 'Quantity', cellClass: 'cell-muted' },
-  { key: 'unitPrice', label: 'Unit Price (SAR)', cellClass: 'cell-muted', render: (r) => formatBoqSAR(Number(r.unitPrice) || 0) },
-  { key: 'deliveryDate', label: 'Delivery Date', cellClass: 'cell-muted', render: (r) => formatDate(r.deliveryDate) },
-  { key: 'hasBrandName', label: 'Has Brand Name', render: (r) => (r.hasBrandName ? 'Yes' : 'No') },
-  { key: 'total', label: 'Total (SAR)', render: (r) => `<strong>${formatBoqSAR(itemTotal(r))}</strong>` },
-  {
+function boqAnyBrandName() {
+  return boq.items.some((it) => it.hasBrandName);
+}
+
+function selectCellHtml(id, field, options, current) {
+  return `
+    <select class="boq-cell-select" data-field="${field}" data-id="${id}">
+      <option value="">—</option>
+      ${options.map((o) => `<option value="${escapeHtml(o)}" ${current === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+    </select>
+  `;
+}
+
+function getBoqColumns() {
+  const compact = boq.viewMode === 'compact';
+  const cols = [
+    { key: 'itemNo', label: 'Item No.', render: (r) => String(boq.items.indexOf(r) + 1).padStart(2, '0') },
+    { key: 'name', label: 'Item Name', render: (r) => `<input type="text" class="boq-cell-input" data-field="name" data-id="${r.id}" value="${escapeHtml(r.name)}" placeholder="Item name">` },
+    {
+      key: 'description', label: 'Description', render: (r) => `
+        <div class="boq-desc-cell">
+          <input type="text" class="boq-cell-input" data-field="description" data-id="${r.id}" value="${escapeHtml(r.description || '')}" placeholder="Description">
+          <button type="button" class="boq-row-ai-btn" data-ai-row="${r.id}" title="Auto-fill from Item Name + Description"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+        </div>`,
+    },
+  ];
+
+  if (!compact) {
+    cols.push({ key: 'budgetedItem', label: 'Budgeted Item', render: (r) => `<div id="boq-sel-budgeted-${r.id}"></div>` });
+    cols.push({ key: 'materialGroup', label: 'Material group', render: (r) => selectCellHtml(r.id, 'materialGroup', MATERIAL_GROUPS, r.materialGroup) });
+    cols.push({ key: 'purchaseGroup', label: 'Purchase group', render: (r) => selectCellHtml(r.id, 'purchaseGroup', PURCHASE_GROUPS, r.purchaseGroup) });
+    cols.push({ key: 'procurementType', label: 'Procurement type', render: (r) => selectCellHtml(r.id, 'procurementType', PROCUREMENT_TYPES, r.procurementType) });
+  }
+
+  cols.push({ key: 'uom', label: 'UOM', render: (r) => selectCellHtml(r.id, 'uom', UOM_OPTIONS, r.uom) });
+  cols.push({ key: 'quantity', label: 'Quantity', render: (r) => `<input type="number" min="0" step="1" class="boq-cell-input boq-cell-num" data-field="quantity" data-id="${r.id}" value="${r.quantity ?? ''}">` });
+  cols.push({ key: 'unitPrice', label: 'Unit Price (SAR)', render: (r) => `<input type="number" min="0" step="0.01" class="boq-cell-input boq-cell-num" data-field="unitPrice" data-id="${r.id}" value="${r.unitPrice ?? ''}">` });
+
+  if (!compact) {
+    cols.push({ key: 'deliveryDate', label: 'Delivery Date', render: (r) => `<input type="date" class="boq-cell-input" data-field="deliveryDate" data-id="${r.id}" value="${r.deliveryDate || ''}">` });
+  }
+
+  cols.push({ key: 'hasBrandName', label: 'Has Brand Name', render: (r) => `<button type="button" class="boq-toggle-switch${r.hasBrandName ? ' on' : ''}" data-toggle-brand="${r.id}" aria-label="Has brand name"></button>` });
+
+  // Table-wide conditional: only shown once at least one row has Has Brand
+  // Name = Yes; a row without it stays disabled/blank in this column.
+  if (boqAnyBrandName()) {
+    cols.push({
+      key: 'brandJustification', label: 'Brand Name Justification', render: (r) => `
+        <input type="text" class="boq-cell-input" data-field="brandJustification" data-id="${r.id}"
+          value="${escapeHtml(r.brandJustification || '')}"
+          placeholder="${r.hasBrandName ? 'Why this brand is required' : 'N/A'}" ${r.hasBrandName ? '' : 'disabled'}>`,
+    });
+  }
+
+  cols.push({ key: 'total', label: 'Total (SAR)', render: (r) => `<strong class="boq-total-cell" data-total-id="${r.id}">${formatBoqSAR(itemTotal(r))}</strong>` });
+  cols.push({
     key: 'actions', label: 'Actions', render: (r) => `
       <div class="row-actions">
-        <button class="row-action" data-action="edit" title="Edit"><i class="fa-solid fa-pen"></i></button>
-        <button class="row-action row-action-delete" data-action="delete" title="Delete"><i class="fa-solid fa-trash"></i></button>
+        <button class="row-action row-action-delete" data-action="delete" data-id="${r.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
       </div>
     `,
-  },
-];
+  });
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
+  return cols;
 }
 
-function wireTableRowEvents() {
-  const tbody = document.querySelector('#boq-section-card tbody');
-  if (!tbody) return;
-  tbody.addEventListener('click', (event) => {
-    const actionBtn = event.target.closest('.row-action');
-    const tr = event.target.closest('tr[data-row-key]');
-    if (!tr) return;
-    const item = boq.items.find((it) => it.id === tr.dataset.rowKey);
-    if (!item) return;
+/* ---- Per-row Budgeted Item searchable-select ---- */
 
-    if (actionBtn) {
-      if (actionBtn.dataset.action === 'edit') openItemModal(item);
-      else if (actionBtn.dataset.action === 'delete') confirmDeleteItem(item);
-      return;
-    }
-    openItemModal(item);
+function wireBudgetedItemSelects() {
+  const options = boqBudgetedItemOptions();
+  boq.items.forEach((r) => {
+    const mountId = `boq-sel-budgeted-${r.id}`;
+    if (!document.getElementById(mountId)) return;
+    boq.budgetedSelects[r.id] = createSearchableSelect({
+      mountId,
+      mode: 'single',
+      options,
+      selected: r.budgetedItemId || null,
+      placeholder: options.length ? 'Select item' : 'No items in Step 1',
+      searchPlaceholder: 'Search',
+      onChange: (val) => { r.budgetedItemId = val; persistBoq(); },
+    });
   });
 }
+
+/* ---- Cell edit event delegation ---- */
+
+function wireTableCellEvents() {
+  const tbody = document.querySelector('#boq-section-card tbody');
+  if (!tbody) return;
+
+  tbody.addEventListener('input', (e) => {
+    const el = e.target;
+    if (!el.classList.contains('boq-cell-input')) return;
+    const item = boq.items.find((it) => it.id === el.dataset.id);
+    if (!item) return;
+    item[el.dataset.field] = el.value;
+    if (el.dataset.field === 'quantity' || el.dataset.field === 'unitPrice') {
+      const totalEl = tbody.querySelector(`[data-total-id="${item.id}"]`);
+      if (totalEl) totalEl.textContent = formatBoqSAR(itemTotal(item));
+    }
+    persistBoq();
+  });
+
+  tbody.addEventListener('change', (e) => {
+    const el = e.target;
+    if (!el.classList.contains('boq-cell-select')) return;
+    const item = boq.items.find((it) => it.id === el.dataset.id);
+    if (item) { item[el.dataset.field] = el.value || null; persistBoq(); }
+  });
+
+  tbody.addEventListener('click', (e) => {
+    const toggleBtn = e.target.closest('[data-toggle-brand]');
+    if (toggleBtn) {
+      const item = boq.items.find((it) => it.id === toggleBtn.dataset.toggleBrand);
+      if (item) {
+        item.hasBrandName = !item.hasBrandName;
+        if (!item.hasBrandName) item.brandJustification = '';
+        persistBoq();
+        renderSectionCard(); // structural: Brand Justification column visibility may change
+      }
+      return;
+    }
+
+    const aiBtn = e.target.closest('[data-ai-row]');
+    if (aiBtn) { runRowAi(aiBtn.dataset.aiRow); return; }
+
+    const delBtn = e.target.closest('[data-action="delete"]');
+    if (delBtn) {
+      const item = boq.items.find((it) => it.id === delBtn.dataset.id);
+      if (item) confirmDeleteItem(item);
+    }
+  });
+}
+
+/* ---- Per-row AI sparkle: auto-fill from Item Name + Description ---- */
+
+function suggestRowAiFields(item) {
+  const text = `${item.name} ${item.description || ''}`.toLowerCase();
+  const budgetedOptions = boqBudgetedItemOptions();
+  const matchedBudgeted = budgetedOptions.find((o) => text.includes(o.label.toLowerCase())) || budgetedOptions[0] || null;
+
+  let materialGroup = 'Hardware';
+  if (text.includes('software') || text.includes('license')) materialGroup = 'Software';
+  else if (text.includes('network') || text.includes('switch') || text.includes('cabl') || text.includes('firewall')) materialGroup = 'Networking Equipment';
+  else if (text.includes('furniture') || text.includes('chair') || text.includes('desk')) materialGroup = 'Furniture';
+  else if (text.includes('maintenance') || text.includes('support') || text.includes('warranty')) materialGroup = 'Maintenance Services';
+  else if (text.includes('consult') || text.includes('advisory') || text.includes('implementation') || text.includes('training') || text.includes('migration')) materialGroup = 'Consulting Services';
+
+  let procurementType = 'Goods';
+  if (materialGroup === 'Maintenance Services' || materialGroup === 'Consulting Services') procurementType = 'Services';
+
+  let purchaseGroup = 'IT Procurement';
+  if (text.includes('facilit') || text.includes('clean') || text.includes('landscap')) purchaseGroup = 'Facilities Procurement';
+  else if (text.includes('legal') || text.includes('compliance')) purchaseGroup = 'Corporate Services';
+  else if (materialGroup === 'Consulting Services') purchaseGroup = 'Professional Services';
+
+  return {
+    budgetedItemId: matchedBudgeted ? matchedBudgeted.value : item.budgetedItemId,
+    materialGroup,
+    purchaseGroup,
+    procurementType,
+    unitPrice: item.unitPrice || 1000,
+    quantity: item.quantity || 1,
+  };
+}
+
+function runRowAi(id) {
+  const item = boq.items.find((it) => it.id === id);
+  if (!item) return;
+  if (!item.name || !item.name.trim()) { showToast('Enter an item name first.'); return; }
+  Object.assign(item, suggestRowAiFields(item));
+  persistBoq();
+  renderSectionCard();
+  showToast('Row auto-filled from Item Name and Description.');
+}
+
+/* ---- Empty state ---- */
 
 function buildEmptyStateHtml() {
   return `
     <div class="boq-empty-state">
       <i class="fa-regular fa-folder-open"></i>
       <h3>No items yet</h3>
-      <p>Click Add Item or Import Excel to add BOQ items.</p>
+      <p>Click Add Item or Import data to add BOQ items.</p>
       <div class="boq-empty-actions">
         <button type="button" class="boq-btn-primary" id="boq-empty-add-btn"><i class="fa-solid fa-plus"></i> Add New Item</button>
       </div>
@@ -197,18 +451,25 @@ function buildEmptyStateHtml() {
 }
 
 function wireEmptyState() {
-  document.getElementById('boq-empty-add-btn').addEventListener('click', () => openItemModal(null));
-  document.getElementById('boq-similar-touchpoint').addEventListener('click', () => {
-    SIMILAR_BOQ_SAMPLE.forEach((sample) => {
-      boq.items.push({ id: newItemId(), sourceImportId: null, ...sample });
-    });
-    persistBoq();
-    renderSectionCard();
-    showToast(`${SIMILAR_BOQ_SAMPLE.length} BOQ items added from similar RFPs.`);
-  });
+  document.getElementById('boq-empty-add-btn').addEventListener('click', addNewItemRow);
+  document.getElementById('boq-similar-touchpoint').addEventListener('click', openSimilarRfpsModal);
 }
 
-/* ---- Import status card ---- */
+function emptyItem() {
+  return {
+    name: '', description: '', budgetedItemId: null, procurementType: null, purchaseGroup: null,
+    materialGroup: null, uom: null, quantity: '', unitPrice: '', deliveryDate: null,
+    hasBrandName: false, brandJustification: '',
+  };
+}
+
+function addNewItemRow() {
+  boq.items.push({ id: newItemId(), sourceImportId: null, ...emptyItem() });
+  persistBoq();
+  renderSectionCard();
+}
+
+/* ---- Import status card (kept from the previous implementation) ---- */
 
 function buildImportCardHtml(batch) {
   const itemsFromBatch = boq.items.filter((it) => it.sourceImportId === batch.id).length;
@@ -217,7 +478,7 @@ function buildImportCardHtml(batch) {
       <div class="boq-import-card-main">
         <span class="boq-import-card-icon"><i class="fa-solid fa-check"></i></span>
         <div>
-          <div class="boq-import-card-title">BOQ Excel Imported Successfully</div>
+          <div class="boq-import-card-title">BOQ Data Imported Successfully</div>
           <div class="boq-import-card-meta">${escapeHtml(batch.filename)} · ${itemsFromBatch} items imported · ${new Date(batch.importedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
         </div>
       </div>
@@ -242,8 +503,9 @@ function openSheetPreview(batchId) {
   const rows = boq.items.filter((it) => it.sourceImportId === batchId);
   openDialog({
     title: 'Imported BOQ (read-only)',
+    size: 'large',
     bodyHtml: buildTableHtml({
-      columns: BOQ_COLUMNS.filter((c) => c.key !== 'actions'),
+      columns: getBoqColumns().filter((c) => c.key !== 'actions'),
       rows,
       compact: true,
       emptyText: 'No items from this import remain (they may have been edited or deleted).',
@@ -267,11 +529,12 @@ function confirmRemoveImportBatch(batchId) {
   });
   document.getElementById('remove-batch-cancel').addEventListener('click', closeDialog);
   document.getElementById('remove-batch-confirm').addEventListener('click', () => {
+    captureUndoSnapshot();
     boq.items = boq.items.filter((it) => it.sourceImportId !== batchId);
     boq.importBatches = boq.importBatches.filter((b) => b.id !== batchId);
     persistBoq();
     closeDialog();
-    renderSectionCard();
+    renderBoqPage();
     showToast(`Removed import${batch ? ` "${batch.filename}"` : ''}.`);
   });
 }
@@ -301,337 +564,35 @@ function confirmDeleteItem(item) {
   });
 }
 
-/* ---- Add / Edit item modal ---- */
+/* ---- Clear table (View more menu) ---- */
 
-function emptyItem() {
-  return {
-    id: null, name: '', description: '', procurementType: null, purchaseGroup: null,
-    materialGroup: null, uom: null, quantity: '', unitPrice: '', deliveryDate: null,
-    hasBrandName: false, brandJustification: '', sourceImportId: null,
-  };
-}
-
-let modalSelects = {};
-let modalDatePicker = null;
-
-function openItemModal(item, draftValues) {
-  const isEdit = !!item;
-  boq.editingItemId = isEdit ? item.id : null;
-  const values = draftValues || (item ? { ...item } : emptyItem());
-  boq.originalSnapshot = isEdit && !draftValues ? JSON.stringify(item) : boq.originalSnapshot;
-
+function confirmClearTable() {
+  if (boq.items.length === 0 && boq.importBatches.length === 0) return;
   openDialog({
-    title: isEdit ? 'Edit BOQ Item' : 'Add BOQ Item',
-    bodyHtml: buildItemModalHtml(values, isEdit),
-  });
-  wireItemModal(values, isEdit);
-}
-
-function buildItemModalHtml(v, isEdit) {
-  return `
-    <div class="boq-modal-toolbar">
-      <span class="boq-modal-subtext">Fill all fields then save to add to the table</span>
-      <button type="button" class="boq-ai-section-btn" id="boq-modal-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
-    </div>
-
-    <div class="boq-field-row">
-      <div class="boq-field full">
-        <label class="boq-field-label">Item name <span class="boq-required">*</span></label>
-        <input type="text" class="boq-input" id="boq-f-name" placeholder="Enter item name" value="${escapeHtml(v.name)}">
-        <div id="ai-suggest-name"></div>
-        <div class="boq-field-error" id="err-name"></div>
-      </div>
-    </div>
-
-    <div class="boq-field-row">
-      <div class="boq-field full">
-        <label class="boq-field-label">Item description</label>
-        <textarea class="boq-textarea" id="boq-f-description" placeholder="Describe the item requirements or specifications.">${escapeHtml(v.description || '')}</textarea>
-        <div id="ai-suggest-description"></div>
-      </div>
-    </div>
-
-    <div class="boq-field-row">
-      <div class="boq-field half">
-        <label class="boq-field-label">Procurement type</label>
-        <div id="boq-sel-procurement-type"></div>
-      </div>
-      <div class="boq-field half">
-        <label class="boq-field-label">Purchase group</label>
-        <div id="boq-sel-purchase-group"></div>
-      </div>
-    </div>
-
-    <div class="boq-field-row">
-      <div class="boq-field half">
-        <label class="boq-field-label">Material group</label>
-        <div id="boq-sel-material-group"></div>
-      </div>
-      <div class="boq-field half">
-        <label class="boq-field-label">UOM <span class="boq-required">*</span></label>
-        <div id="boq-sel-uom"></div>
-        <div class="boq-field-error" id="err-uom"></div>
-      </div>
-    </div>
-
-    <div class="boq-field-row">
-      <div class="boq-field half">
-        <label class="boq-field-label">Quantity <span class="boq-required">*</span></label>
-        <div class="boq-number-input">
-          <input type="number" id="boq-f-quantity" min="0" step="1" value="${v.quantity ?? ''}">
-          <div class="boq-number-steppers">
-            <button type="button" id="qty-up"><i class="fa-solid fa-chevron-up"></i></button>
-            <button type="button" id="qty-down"><i class="fa-solid fa-chevron-down"></i></button>
-          </div>
-        </div>
-        <div class="boq-field-error" id="err-quantity"></div>
-      </div>
-      <div class="boq-field half">
-        <label class="boq-field-label">Unit price (SAR) <span class="boq-required">*</span></label>
-        <div class="boq-number-input has-prefix">
-          <span class="boq-number-prefix">SAR</span>
-          <input type="number" id="boq-f-unit-price" min="0" step="0.01" value="${v.unitPrice ?? ''}">
-          <div class="boq-number-steppers">
-            <button type="button" id="price-up"><i class="fa-solid fa-chevron-up"></i></button>
-            <button type="button" id="price-down"><i class="fa-solid fa-chevron-down"></i></button>
-          </div>
-        </div>
-        <div class="boq-field-error" id="err-unitPrice"></div>
-      </div>
-    </div>
-
-    <div class="boq-field-row">
-      <div class="boq-field full">
-        <label class="boq-field-label">Delivery date</label>
-        <div id="boq-dp-delivery"></div>
-      </div>
-    </div>
-
-    <div class="boq-field-row">
-      <div class="boq-field full">
-        <div class="boq-toggle-row">
-          <button type="button" class="boq-toggle-switch${v.hasBrandName ? ' on' : ''}" id="boq-f-has-brand"></button>
-          <span class="boq-toggle-label">Has brand name</span>
-        </div>
-        <div class="boq-brand-reveal${v.hasBrandName ? ' visible' : ''}" id="boq-brand-reveal">
-          <label class="boq-field-label">Justification for Brand Name <span class="boq-required">*</span></label>
-          <textarea class="boq-textarea" id="boq-f-brand-justification" placeholder="Explain why a specific brand is required…">${escapeHtml(v.brandJustification || '')}</textarea>
-          <div class="boq-field-error" id="err-brandJustification"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="boq-modal-footer">
-      <button class="boq-btn-cancel" id="boq-modal-cancel">Cancel</button>
-      <button class="boq-btn-save" id="boq-modal-save" disabled>${isEdit ? 'Save Changes' : 'Add to BOQ'}</button>
-    </div>
-  `;
-}
-
-function readModalValues() {
-  return {
-    name: document.getElementById('boq-f-name').value.trim(),
-    description: document.getElementById('boq-f-description').value,
-    procurementType: modalSelects.procurementType.getSelected(),
-    purchaseGroup: modalSelects.purchaseGroup.getSelected(),
-    materialGroup: modalSelects.materialGroup.getSelected(),
-    uom: modalSelects.uom.getSelected(),
-    quantity: document.getElementById('boq-f-quantity').value,
-    unitPrice: document.getElementById('boq-f-unit-price').value,
-    deliveryDate: modalDatePicker.getValue(),
-    hasBrandName: document.getElementById('boq-f-has-brand').classList.contains('on'),
-    brandJustification: document.getElementById('boq-f-brand-justification').value,
-  };
-}
-
-function validateModal(values) {
-  const errors = {};
-  if (!values.name) errors.name = 'Item name is required.';
-  if (!values.uom) errors.uom = 'UOM is required.';
-  if (!values.quantity || Number(values.quantity) <= 0) errors.quantity = 'Quantity must be greater than 0.';
-  if (values.unitPrice === '' || values.unitPrice === null || Number(values.unitPrice) < 0) errors.unitPrice = 'Unit price is required and cannot be negative.';
-  if (values.hasBrandName && !values.brandJustification.trim()) errors.brandJustification = 'Justification for brand name is required.';
-  return errors;
-}
-
-function refreshModalValidity() {
-  const values = readModalValues();
-  const errors = validateModal(values);
-  document.getElementById('boq-modal-save').disabled = Object.keys(errors).length > 0;
-  return { values, errors };
-}
-
-function wireItemModal(v, isEdit) {
-  modalSelects = {
-    procurementType: createSearchableSelect({ mountId: 'boq-sel-procurement-type', mode: 'single', options: PROCUREMENT_TYPES.map((o) => ({ value: o, label: o })), selected: v.procurementType, placeholder: 'Select procurement type', searchPlaceholder: 'Search', onChange: refreshModalValidity }),
-    purchaseGroup: createSearchableSelect({ mountId: 'boq-sel-purchase-group', mode: 'single', options: PURCHASE_GROUPS.map((o) => ({ value: o, label: o })), selected: v.purchaseGroup, placeholder: 'Select purchase group', searchPlaceholder: 'Search', onChange: refreshModalValidity }),
-    materialGroup: createSearchableSelect({ mountId: 'boq-sel-material-group', mode: 'single', options: MATERIAL_GROUPS.map((o) => ({ value: o, label: o })), selected: v.materialGroup, placeholder: 'Select material group', searchPlaceholder: 'Search', onChange: refreshModalValidity }),
-    uom: createSearchableSelect({ mountId: 'boq-sel-uom', mode: 'single', options: UOM_OPTIONS, selected: v.uom, placeholder: 'Select UOM', searchPlaceholder: 'Search', onChange: refreshModalValidity }),
-  };
-  modalDatePicker = createDatePicker({ mountId: 'boq-dp-delivery', value: v.deliveryDate, onChange: refreshModalValidity });
-
-  document.getElementById('boq-f-name').addEventListener('input', refreshModalValidity);
-  document.getElementById('boq-f-quantity').addEventListener('input', refreshModalValidity);
-  document.getElementById('boq-f-unit-price').addEventListener('input', refreshModalValidity);
-  document.getElementById('boq-f-brand-justification').addEventListener('input', refreshModalValidity);
-
-  document.getElementById('qty-up').addEventListener('click', () => stepNumber('boq-f-quantity', 1, 0));
-  document.getElementById('qty-down').addEventListener('click', () => stepNumber('boq-f-quantity', -1, 0));
-  document.getElementById('price-up').addEventListener('click', () => stepNumber('boq-f-unit-price', 1, 0));
-  document.getElementById('price-down').addEventListener('click', () => stepNumber('boq-f-unit-price', -1, 0));
-
-  const brandToggle = document.getElementById('boq-f-has-brand');
-  brandToggle.addEventListener('click', () => {
-    const on = !brandToggle.classList.contains('on');
-    brandToggle.classList.toggle('on', on);
-    document.getElementById('boq-brand-reveal').classList.toggle('visible', on);
-    refreshModalValidity();
-  });
-
-  document.getElementById('boq-modal-ai-btn').addEventListener('click', () => runModalAi());
-  document.getElementById('boq-modal-cancel').addEventListener('click', () => handleModalCancel(isEdit));
-  document.getElementById('boq-modal-save').addEventListener('click', () => handleModalSave(isEdit));
-
-  refreshModalValidity();
-}
-
-function stepNumber(id, delta, min) {
-  const el = document.getElementById(id);
-  const next = Math.max(min, (Number(el.value) || 0) + delta);
-  el.value = next;
-  el.dispatchEvent(new Event('input'));
-}
-
-function handleModalCancel(isEdit) {
-  if (!isEdit) { closeDialog(); return; }
-  const current = readModalValues();
-  const originalItem = boq.items.find((it) => it.id === boq.editingItemId);
-  const currentSnapshot = JSON.stringify({ ...originalItem, ...current });
-  if (currentSnapshot === boq.originalSnapshot) { closeDialog(); return; }
-
-  openDialog({
-    title: 'Discard changes?',
+    title: 'Clear all BOQ items?',
     bodyHtml: `
       <p style="margin:0 0 var(--space-4); color: var(--text-secondary); font-size: var(--font-size-sm);">
-        Your recent changes will not be saved.
+        This removes all ${boq.items.length} item${boq.items.length === 1 ? '' : 's'} from the table. You can undo this from the toolbar afterwards.
       </p>
       <div class="boq-modal-footer" style="margin-top:0;">
-        <button class="boq-btn-cancel" id="discard-continue">Continue editing</button>
-        <button class="boq-btn-danger" id="discard-confirm">Discard changes</button>
+        <button class="boq-btn-cancel" id="clear-table-cancel">Cancel</button>
+        <button class="boq-btn-danger" id="clear-table-confirm">Clear table</button>
       </div>
     `,
   });
-  document.getElementById('discard-continue').addEventListener('click', () => {
-    openItemModal(originalItem, current);
-  });
-  document.getElementById('discard-confirm').addEventListener('click', closeDialog);
-}
-
-function handleModalSave(isEdit) {
-  const values = readModalValues();
-  const errors = validateModal(values);
-  if (Object.keys(errors).length > 0) {
-    Object.keys(errors).forEach((k) => { const el = document.getElementById(`err-${k}`); if (el) el.textContent = errors[k]; });
-    return;
-  }
-
-  if (isEdit) {
-    const idx = boq.items.findIndex((it) => it.id === boq.editingItemId);
-    if (idx >= 0) {
-      // An individually-edited item is no longer considered part of its
-      // originating import batch (so "Remove / Re-upload" won't sweep it away).
-      boq.items[idx] = { ...boq.items[idx], ...values, sourceImportId: null };
-    }
+  document.getElementById('clear-table-cancel').addEventListener('click', closeDialog);
+  document.getElementById('clear-table-confirm').addEventListener('click', () => {
+    captureUndoSnapshot();
+    boq.items = [];
+    boq.importBatches = [];
     persistBoq();
     closeDialog();
-    renderSectionCard();
-    showToast('BOQ item updated successfully.');
-  } else {
-    boq.items.push({ id: newItemId(), sourceImportId: null, ...values });
-    persistBoq();
-    closeDialog();
-    renderSectionCard();
-    showToast('BOQ item added successfully.');
-  }
-}
-
-/* ---- Modal-level "Generate with AI" (fills empty fields only) ---- */
-
-function runModalAi() {
-  openDialog({
-    title: 'Generate with AI',
-    bodyHtml: `
-      <p style="margin:0 0 var(--space-4); color: var(--text-secondary); font-size: var(--font-size-sm);">
-        Would you like AI to fill this section using the information already provided?
-      </p>
-      <div class="boq-modal-footer" style="margin-top:0;">
-        <button class="boq-btn-cancel" id="modal-ai-no">No</button>
-        <button class="boq-btn-save" id="modal-ai-yes" style="background:var(--color-green-600);">Yes</button>
-      </div>
-    `,
-  });
-  document.getElementById('modal-ai-no').addEventListener('click', () => {
-    // Re-open the item form as it was (the confirm dialog replaced it).
-    reopenCurrentModalForm();
-  });
-  document.getElementById('modal-ai-yes').addEventListener('click', () => {
-    const current = readModalValues();
-    reopenCurrentModalForm(current);
-    applyModalAiSuggestions(current);
+    renderBoqPage();
+    showToast('BOQ table cleared.');
   });
 }
 
-function reopenCurrentModalForm(draftValues) {
-  const item = boq.editingItemId ? boq.items.find((it) => it.id === boq.editingItemId) : null;
-  openItemModal(item, draftValues || readModalValuesSafe());
-}
-
-function readModalValuesSafe() {
-  try { return readModalValues(); } catch { return undefined; }
-}
-
-function applyModalAiSuggestions(current) {
-  const suggestions = [
-    { key: 'name', empty: !current.name, text: 'New procurement item', apply: (t) => { document.getElementById('boq-f-name').value = t; refreshModalValidity(); } },
-    { key: 'description', empty: !current.description, text: `Specification and requirements for ${current.name || 'this item'}.`, apply: (t) => { document.getElementById('boq-f-description').value = t; refreshModalValidity(); } },
-    { key: 'procurementType', empty: !current.procurementType, text: 'Goods', apply: (t) => { modalSelects.procurementType.setSelected(t); refreshModalValidity(); } },
-    { key: 'purchaseGroup', empty: !current.purchaseGroup, text: 'IT Procurement', apply: (t) => { modalSelects.purchaseGroup.setSelected(t); refreshModalValidity(); } },
-    { key: 'materialGroup', empty: !current.materialGroup, text: 'Hardware', apply: (t) => { modalSelects.materialGroup.setSelected(t); refreshModalValidity(); } },
-    { key: 'uom', empty: !current.uom, text: 'EA', apply: (t) => { modalSelects.uom.setSelected(t); refreshModalValidity(); } },
-    { key: 'quantity', empty: !current.quantity, text: '1', apply: (t) => { document.getElementById('boq-f-quantity').value = t; refreshModalValidity(); } },
-    { key: 'unitPrice', empty: !current.unitPrice, text: '1000', apply: (t) => { document.getElementById('boq-f-unit-price').value = t; refreshModalValidity(); } },
-  ];
-
-  suggestions.filter((s) => s.empty).forEach((s) => {
-    const mount = document.getElementById(`ai-suggest-${s.key}`);
-    if (mount) {
-      showFieldAiSuggestion(mount, s.text, s.apply);
-    } else {
-      // Fields without a dedicated suggestion mount (dropdowns/numbers)
-      // apply directly — still reviewable since the user can change them.
-      s.apply(s.text);
-    }
-  });
-}
-
-function showFieldAiSuggestion(mount, text, applyFn) {
-  mount.innerHTML = `
-    <div class="boq-ai-suggested-box">
-      <div class="boq-ai-suggested-label"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-suggested</div>
-      <div class="boq-ai-suggested-text">${text}</div>
-      <div class="boq-ai-suggested-actions">
-        <button type="button" class="boq-ai-action-btn accept" data-act="accept"><i class="fa-solid fa-check"></i> Accept</button>
-        <button type="button" class="boq-ai-action-btn edit" data-act="edit"><i class="fa-solid fa-pen"></i> Edit</button>
-        <button type="button" class="boq-ai-action-btn reject" data-act="reject"><i class="fa-solid fa-xmark"></i> Reject</button>
-      </div>
-    </div>
-  `;
-  mount.querySelector('[data-act="accept"]').addEventListener('click', () => { applyFn(text); mount.innerHTML = ''; });
-  mount.querySelector('[data-act="edit"]').addEventListener('click', () => { applyFn(text); mount.innerHTML = ''; document.getElementById(mount.id.replace('ai-suggest-', 'boq-f-'))?.focus(); });
-  mount.querySelector('[data-act="reject"]').addEventListener('click', () => { mount.innerHTML = ''; });
-}
-
-/* ---- Section-level "Generate with AI" (BOQ header, derived from Step 1 budgeted items) ---- */
+/* ---- Generate with AI: checkbox-selectable preview (toolbar) ---- */
 
 function generateBoqFromBudgetedItems() {
   const project = boq.step1FormData.projectId ? boq.projects.find((p) => p.id === boq.step1FormData.projectId) : null;
@@ -644,6 +605,7 @@ function generateBoqFromBudgetedItems() {
     return {
       name,
       description: `Line item covering ${name} for ${project.name}.`,
+      budgetedItemId: id,
       procurementType: 'Services',
       purchaseGroup: 'IT Procurement',
       materialGroup: 'Consulting Services',
@@ -657,179 +619,308 @@ function generateBoqFromBudgetedItems() {
   });
 }
 
-function runSectionAi() {
-  const generated = generateBoqFromBudgetedItems();
-  openDialog({
-    title: 'Generate with AI',
-    bodyHtml: `
-      <p style="margin:0 0 var(--space-4); color: var(--text-secondary); font-size: var(--font-size-sm);">
-        Would you like AI to fill this section using the information already provided in your RFP?
-      </p>
-      <div class="boq-modal-footer" style="margin-top:0;">
-        <button class="boq-btn-cancel" id="section-ai-no">No</button>
-        <button class="boq-btn-save" id="section-ai-yes" style="background:var(--color-green-600);">Yes</button>
-      </div>
-    `,
-  });
-  document.getElementById('section-ai-no').addEventListener('click', closeDialog);
-  document.getElementById('section-ai-yes').addEventListener('click', () => showSectionAiPreview(generated));
-}
-
-function showSectionAiPreview(generated) {
-  if (generated.length === 0) {
+function openGenerateAiPreview() {
+  const suggestions = generateBoqFromBudgetedItems();
+  if (suggestions.length === 0) {
     openDialog({
       title: 'Generate with AI',
-      bodyHtml: `<p style="margin:0; color: var(--text-secondary); font-size: var(--font-size-sm);">No budgeted items were selected in Step 1 to generate BOQ suggestions from. Go back to Basic Details to select some, or add items manually.</p>`,
+      bodyHtml: `
+        <p style="margin:0; color: var(--text-secondary); font-size: var(--font-size-sm);">
+          No budgeted items were selected in Step 1 to generate BOQ suggestions from. Go back to Basic Details to select some, or add items manually.
+        </p>
+        <div class="boq-modal-footer" style="margin-top:var(--space-4);">
+          <button class="boq-btn-cancel" id="ai-preview-close">Close</button>
+        </div>
+      `,
     });
+    document.getElementById('ai-preview-close').addEventListener('click', closeDialog);
     return;
   }
 
   openDialog({
-    title: 'Suggested BOQ items',
-    bodyHtml: `
-      ${buildTableHtml({
-        columns: [
-          { key: 'name', label: 'Item Name' },
-          { key: 'description', label: 'Description', cellClass: 'cell-muted' },
-          { key: 'uom', label: 'UOM', cellClass: 'cell-muted' },
-          { key: 'quantity', label: 'Qty', cellClass: 'cell-muted' },
-          { key: 'unitPrice', label: 'Unit Price', cellClass: 'cell-muted', render: (r) => formatBoqSAR(r.unitPrice) },
-        ],
-        rows: generated,
-        compact: true,
-      })}
-      <div class="boq-modal-footer">
-        <button class="boq-btn-cancel" id="section-ai-cancel">Cancel</button>
-        <div style="display:flex; gap: var(--space-2);">
-          <button class="boq-btn-cancel" id="section-ai-regenerate">Regenerate</button>
-          <button class="boq-btn-save" id="section-ai-apply">Accept &amp; Apply</button>
-        </div>
-      </div>
-    `,
+    title: 'Generate with AI — Suggested BOQ Items',
+    size: 'large',
+    bodyHtml: buildAiPreviewHtml(suggestions),
   });
-  document.getElementById('section-ai-cancel').addEventListener('click', closeDialog);
-  document.getElementById('section-ai-regenerate').addEventListener('click', () => showSectionAiPreview(generateBoqFromBudgetedItems()));
-  document.getElementById('section-ai-apply').addEventListener('click', () => {
-    generated.forEach((g) => boq.items.push({ id: newItemId(), sourceImportId: null, ...g }));
+  wireAiPreview(suggestions);
+}
+
+function buildAiPreviewHtml(suggestions) {
+  return `
+    <p class="boq-modal-subtext" style="display:block; margin-bottom:var(--space-3);">Review the suggested items below, uncheck any you don't want, then add the rest to your BOQ.</p>
+    <div class="table-scroll">
+      <table class="data-table compact">
+        <thead><tr><th></th><th>Item Name</th><th>Description</th><th>UOM</th><th>Qty</th><th>Unit Price (SAR)</th></tr></thead>
+        <tbody>
+          ${suggestions.map((s, i) => `
+            <tr>
+              <td><input type="checkbox" class="ai-preview-check" data-idx="${i}" checked></td>
+              <td>${escapeHtml(s.name)}</td>
+              <td class="cell-muted">${escapeHtml(s.description)}</td>
+              <td class="cell-muted">${s.uom}</td>
+              <td class="cell-muted">${s.quantity}</td>
+              <td class="cell-muted">${formatBoqSAR(s.unitPrice)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="boq-modal-footer">
+      <button class="boq-btn-cancel" id="ai-preview-cancel">Cancel</button>
+      <button class="boq-btn-save" id="ai-preview-add">Add selected (<span id="ai-preview-count">${suggestions.length}</span>)</button>
+    </div>
+  `;
+}
+
+function wireAiPreview(suggestions) {
+  const checks = () => Array.from(document.querySelectorAll('.ai-preview-check'));
+  function refreshCount() {
+    const n = checks().filter((c) => c.checked).length;
+    document.getElementById('ai-preview-count').textContent = n;
+    document.getElementById('ai-preview-add').disabled = n === 0;
+  }
+  checks().forEach((c) => c.addEventListener('change', refreshCount));
+  document.getElementById('ai-preview-cancel').addEventListener('click', closeDialog);
+  document.getElementById('ai-preview-add').addEventListener('click', () => {
+    const selected = suggestions.filter((_, i) => checks()[i].checked);
+    if (selected.length === 0) return;
+    captureUndoSnapshot();
+    selected.forEach((s) => boq.items.push({ id: newItemId(), sourceImportId: null, ...s }));
     persistBoq();
     closeDialog();
-    renderSectionCard();
-    showToast(`${generated.length} BOQ item${generated.length > 1 ? 's' : ''} added from AI suggestions.`);
+    renderBoqPage();
+    showToast(`${selected.length} BOQ item${selected.length > 1 ? 's' : ''} added from AI suggestions.`);
+  });
+  refreshCount();
+}
+
+/* ---- Import BOQ from Similar RFPs (View more menu) ---- */
+
+function mockBoqItemsForRfp(rfp) {
+  const pool = SIMILAR_RFP_ITEM_POOL[rfp.category] || [
+    { name: `${rfp.title} — line item`, description: `Line item derived from ${rfp.title}.`, uom: 'Uni', quantity: 1, unitPrice: Math.round((rfp.estimatedBudgetSAR || 50000) / 2) },
+  ];
+  return pool.map((p) => ({ ...p, budgetedItemId: null, procurementType: null, purchaseGroup: null, materialGroup: null, deliveryDate: null, hasBrandName: false, brandJustification: '' }));
+}
+
+function openSimilarRfpsModal() {
+  openDialog({ title: 'Import BOQ from Similar RFPs', size: 'large', bodyHtml: buildSimilarRfpsHtml() });
+  wireSimilarRfpsModal();
+}
+
+function buildSimilarRfpsHtml() {
+  return `
+    <div class="boq-similar-modal">
+      <div class="boq-similar-list" id="boq-similar-list">
+        ${boq.similarRfps.map((r) => `
+          <div class="boq-similar-list-item" data-rfp-id="${r.id}">
+            <div class="boq-similar-list-title">${escapeHtml(r.title)}</div>
+            <div class="boq-similar-list-meta">${escapeHtml(r.id)} · ${escapeHtml(r.project)}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="boq-similar-detail" id="boq-similar-detail">
+        <div class="boq-similar-detail-empty">
+          <i class="fa-regular fa-folder-open"></i>
+          <p>Select an RFP to see BOQs part of it</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function wireSimilarRfpsModal() {
+  document.querySelectorAll('.boq-similar-list-item').forEach((el) => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.boq-similar-list-item.active').forEach((a) => a.classList.remove('active'));
+      el.classList.add('active');
+      const rfp = boq.similarRfps.find((r) => r.id === el.dataset.rfpId);
+      renderSimilarRfpDetail(rfp);
+    });
   });
 }
 
-/* ---- Export template ---- */
+function renderSimilarRfpDetail(rfp) {
+  const items = mockBoqItemsForRfp(rfp);
+  const detail = document.getElementById('boq-similar-detail');
+  detail.innerHTML = `
+    <div class="boq-similar-detail-header">
+      <strong>${escapeHtml(rfp.title)}</strong>
+      <span class="cell-muted">${items.length} item${items.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table compact">
+        <thead><tr><th><input type="checkbox" id="similar-check-all" checked></th><th>Item Name</th><th>Description</th><th>UOM</th><th>Qty</th><th>Unit Price (SAR)</th></tr></thead>
+        <tbody>
+          ${items.map((it) => `
+            <tr>
+              <td><input type="checkbox" class="similar-item-check" checked></td>
+              <td>${escapeHtml(it.name)}</td>
+              <td class="cell-muted">${escapeHtml(it.description)}</td>
+              <td class="cell-muted">${it.uom}</td>
+              <td class="cell-muted">${it.quantity}</td>
+              <td class="cell-muted">${formatBoqSAR(it.unitPrice)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="boq-modal-footer">
+      <button class="boq-btn-cancel" id="similar-cancel">Cancel</button>
+      <button class="boq-btn-save" id="similar-add-items">Add items</button>
+    </div>
+  `;
+  document.getElementById('similar-check-all').addEventListener('change', (e) => {
+    document.querySelectorAll('.similar-item-check').forEach((c) => { c.checked = e.target.checked; });
+  });
+  document.getElementById('similar-cancel').addEventListener('click', closeDialog);
+  document.getElementById('similar-add-items').addEventListener('click', () => {
+    const checks = Array.from(document.querySelectorAll('.similar-item-check'));
+    const selected = items.filter((_, i) => checks[i].checked);
+    if (selected.length === 0) return;
+    captureUndoSnapshot();
+    selected.forEach((it) => boq.items.push({ id: newItemId(), sourceImportId: null, ...it }));
+    persistBoq();
+    closeDialog();
+    renderBoqPage();
+    showToast(`${selected.length} BOQ item${selected.length > 1 ? 's' : ''} added from ${rfp.title}.`);
+  });
+}
+
+/* ---- Download menu ---- */
 
 function exportBoqTemplate() {
-  const ws = XLSX.utils.aoa_to_sheet([BOQ_REQUIRED_HEADERS]);
+  const ws = XLSX.utils.aoa_to_sheet([IMPORT_TEMPLATE_HEADERS]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'BOQ Template');
-  XLSX.writeFile(wb, 'BOQ_Template.xlsx');
+  XLSX.writeFile(wb, 'BOQ-table.xlsx');
 }
 
-/* ---- Import Excel ---- */
+function downloadEtimadPrefilledTemplate() {
+  const rows = boq.items.map((it, i) => [
+    i + 1, it.name, it.description || '', budgetedItemName(it.budgetedItemId), it.materialGroup || '',
+    it.purchaseGroup || '', it.procurementType || '', it.uom || '', it.quantity || 0, it.unitPrice || 0,
+    it.deliveryDate || '', it.hasBrandName ? 'Yes' : 'No', itemTotal(it),
+  ]);
+  const ws = XLSX.utils.aoa_to_sheet([IMPORT_TEMPLATE_HEADERS, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Etimad BOQ');
+  XLSX.writeFile(wb, 'Material-Etimad-Template.xlsx');
+}
 
-function openImportModal() {
-  openDialog({
-    title: 'Import BOQ from Excel',
-    bodyHtml: `
-      <p class="boq-modal-subtext" style="display:block; margin-bottom: var(--space-4);">Upload the completed BOQ template to add multiple items at once.</p>
-      <div class="upload-dropzone" id="boq-import-dropzone">
-        <i class="fa-solid fa-cloud-arrow-up"></i>
-        <div class="upload-dropzone-main">Click to upload</div>
-        <div class="upload-dropzone-sub">SUPPORTED FORMAT: XLSX — MAXIMUM FILE SIZE: 25 MB</div>
-        <input type="file" id="boq-import-input" accept=".xlsx" style="display:none;">
+function downloadSummaryReport() {
+  // Placeholder: only the Etimad-prefilled option is confirmed by the
+  // source doc; this summary export is a plausible addition pending spec.
+  const totals = computeTotals();
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Metric', 'Value'],
+    ['Total items', boq.items.length],
+    ['Subtotal (SAR)', totals.subtotal],
+    ['VAT (SAR)', totals.vat],
+    ['Grand Total (SAR)', totals.grand],
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'BOQ Summary');
+  XLSX.writeFile(wb, 'BOQ-Summary-Report.xlsx');
+}
+
+/* ---- Import Data (redesigned 2-step modal, replaces the old Excel import) ----
+   NOTE: unlike the previous Import Excel flow, this no longer actually
+   parses the uploaded file's rows — per spec, clicking Upload simulates a
+   >=15-record import from a canned pool regardless of the file's real
+   contents. Only extension/size are validated client-side. */
+
+function generateSimulatedImportBatch() {
+  return IMPORT_SIMULATED_POOL.map(([name, description, materialGroup, uom, quantity, unitPrice]) => ({
+    name, description, materialGroup, uom, quantity, unitPrice,
+    budgetedItemId: null, purchaseGroup: null, procurementType: null, deliveryDate: null, hasBrandName: false, brandJustification: '',
+  }));
+}
+
+function openImportDataModal() {
+  boq.pendingImportFile = null;
+  openDialog({ title: 'Import Bill of Quantities', size: 'large', bodyHtml: buildImportDataHtml() });
+  wireImportDataModal();
+}
+
+function buildImportDataHtml() {
+  return `
+    <div class="boq-import-data-layout">
+      <div class="boq-import-data-hero">
+        <div class="boq-import-data-hero-badge"><i class="fa-solid fa-file-excel"></i></div>
+        <div class="boq-import-data-hero-title">Upload Bill of Quantities</div>
+        <div class="boq-import-data-hero-sub">Download the template, fill it in, then upload it here to add multiple BOQ items at once.</div>
       </div>
-      <div class="boq-import-error" id="boq-import-error"></div>
-    `,
-  });
+      <div class="boq-import-data-steps">
+        <div class="boq-import-step">
+          <div class="boq-import-step-badge">1</div>
+          <div class="boq-import-step-body">
+            <div class="boq-import-step-title">Download Template</div>
+            <div class="boq-import-step-desc">Get the BOQ Excel template with the required columns.</div>
+            <button type="button" class="boq-btn-outline" id="boq-download-template-btn"><i class="fa-solid fa-download"></i> Download Template</button>
+          </div>
+        </div>
+        <div class="boq-import-step">
+          <div class="boq-import-step-badge">2</div>
+          <div class="boq-import-step-body">
+            <div class="boq-import-step-title">Upload data</div>
+            <div class="boq-import-step-desc">Upload the completed template.</div>
+            <div class="upload-dropzone" id="boq-import-dropzone">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <div class="upload-dropzone-main">Click to upload or drag and drop</div>
+              <div class="upload-dropzone-sub">SUPPORTED FORMAT: XLSX — MAX 25 MB</div>
+              <input type="file" id="boq-import-input" accept=".xlsx" style="display:none;">
+            </div>
+            <div class="boq-import-selected-file" id="boq-import-selected-file"></div>
+            <div class="boq-import-error" id="boq-import-error"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="boq-modal-footer">
+      <button class="boq-btn-cancel" id="boq-import-cancel">Cancel</button>
+      <button class="boq-btn-save" id="boq-import-upload-btn" disabled>Upload</button>
+    </div>
+  `;
+}
+
+function wireImportDataModal() {
+  document.getElementById('boq-download-template-btn').addEventListener('click', exportBoqTemplate);
 
   const dropzone = document.getElementById('boq-import-dropzone');
   const input = document.getElementById('boq-import-input');
+  const uploadBtn = document.getElementById('boq-import-upload-btn');
+
+  function selectFile(file) {
+    const errEl = document.getElementById('boq-import-error');
+    errEl.textContent = '';
+    if (!file.name.toLowerCase().endsWith('.xlsx')) { errEl.textContent = 'Only .xlsx files are supported.'; return; }
+    if (file.size > 25 * 1024 * 1024) { errEl.textContent = 'File exceeds the 25 MB limit.'; return; }
+    boq.pendingImportFile = file;
+    document.getElementById('boq-import-selected-file').innerHTML = `<i class="fa-solid fa-file-excel"></i>${escapeHtml(file.name)}`;
+    uploadBtn.disabled = false;
+  }
+
   dropzone.addEventListener('click', () => input.click());
-  input.addEventListener('change', (e) => { if (e.target.files[0]) handleImportFile(e.target.files[0]); });
+  input.addEventListener('change', (e) => { if (e.target.files[0]) selectFile(e.target.files[0]); });
   ['dragover', 'dragenter'].forEach((evt) => dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); }));
   ['dragleave', 'drop'].forEach((evt) => dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag-over'); }));
-  dropzone.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) handleImportFile(e.dataTransfer.files[0]); });
-}
+  dropzone.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]); });
 
-function showImportError(msg) {
-  const el = document.getElementById('boq-import-error');
-  if (el) el.textContent = msg;
-}
-
-function handleImportFile(file) {
-  showImportError('');
-
-  if (!file.name.toLowerCase().endsWith('.xlsx')) {
-    showImportError('Import failed (Only .xlsx files are supported).');
-    return;
-  }
-  if (file.size > 25 * 1024 * 1024) {
-    showImportError('Import failed (File exceeds the 25 MB limit).');
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = new Uint8Array(e.target.result);
-      const wb = XLSX.read(data, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-
-      if (rawRows.length === 0) {
-        showImportError('Import failed (The file is empty).');
-        return;
-      }
-
-      const headerRow = rawRows[0].map((h) => String(h).trim());
-      const missing = BOQ_REQUIRED_HEADERS.filter((h) => !headerRow.includes(h));
-      if (missing.length > 0) {
-        showImportError(`Import failed (The following required columns are missing: ${missing.join(', ')}).`);
-        return;
-      }
-
-      const dataRows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      const batchId = newItemId();
-      let imported = 0;
-
-      dataRows.forEach((row) => {
-        const name = String(row['Item Name'] || '').trim();
-        if (!name) return; // skip blank rows
-        boq.items.push({
-          id: newItemId(),
-          sourceImportId: batchId,
-          name,
-          description: String(row['Item Description'] || ''),
-          procurementType: row['Procurement Type'] || null,
-          purchaseGroup: row['Purchase Group'] || null,
-          materialGroup: row['Material Group'] || null,
-          uom: row['UOM'] || null,
-          quantity: Number(row['Quantity']) || 0,
-          unitPrice: Number(row['Unit Price (SAR)']) || 0,
-          deliveryDate: row['Delivery Date'] ? String(row['Delivery Date']) : null,
-          hasBrandName: String(row['Has Brand Name']).trim().toLowerCase() === 'yes',
-          brandJustification: String(row['Justification for Brand Name'] || ''),
-        });
-        imported += 1;
-      });
-
-      if (imported === 0) {
-        showImportError('Import failed (No valid rows with an Item Name were found).');
-        return;
-      }
-
-      boq.importBatches.push({ id: batchId, filename: file.name, importedAt: Date.now(), itemCount: imported });
-      persistBoq();
-      closeDialog();
-      renderSectionCard();
-      showToast(`${imported} BOQ items imported successfully.`);
-    } catch (err) {
-      showImportError('Import failed (The file could not be read as a valid .xlsx workbook).');
-    }
-  };
-  reader.readAsArrayBuffer(file);
+  document.getElementById('boq-import-cancel').addEventListener('click', closeDialog);
+  uploadBtn.addEventListener('click', () => {
+    if (!boq.pendingImportFile) return;
+    captureUndoSnapshot();
+    const batchId = newItemId();
+    const items = generateSimulatedImportBatch();
+    items.forEach((it) => boq.items.push({ id: newItemId(), sourceImportId: batchId, ...it }));
+    boq.importBatches.push({ id: batchId, filename: boq.pendingImportFile.name, importedAt: Date.now(), itemCount: items.length });
+    boq.pendingImportFile = null;
+    persistBoq();
+    closeDialog();
+    renderBoqPage();
+    showToast(`${items.length} BOQ items imported successfully.`);
+  });
 }
 
 /* ---- Footer ---- */
@@ -842,8 +933,13 @@ function saveDraft() {
 function handleContinue() {
   if (boq.items.length === 0) return;
   WizardStore.setStepStatus('boq', 'completed');
-  WizardStore.setStepStatus('scope-of-work', 'current');
-  window.location.href = 'wizard-scope-of-work.html';
+  const next = wizardNextStep('boq');
+  WizardStore.setStepStatus(next ? next.id : 'scope-of-work', 'current');
+  // On the Souq Etimad path (see Step 1) BOQ is the final visible step —
+  // wizardNextStep() returns null there, so fall through to the standalone
+  // scope-of-work page (still safe to visit directly; it's just not on the
+  // rail). Non-Souq-Etimad path behaves exactly as before.
+  window.location.href = next ? next.href : 'wizard-scope-of-work.html';
 }
 
 /* ---- Init ---- */
@@ -869,6 +965,7 @@ async function initBoq() {
 
   boq.step1FormData = WizardStore.getFormData();
   boq.projects = await DataStore.getAllProjects();
+  boq.similarRfps = (await DataStore.getAllRfps()).slice(0, 12);
   loadBoqState();
 
   renderBoqPage();

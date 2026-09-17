@@ -2,22 +2,64 @@
   KPI Card component — maps to powerappsui.com "KPI Cards".
   Renders the 5-card procurement snapshot row plus a shared drill-down
   panel beneath it. Only one card's drill-down is open at a time.
+
+  Per a product correction pass, the 3 status cards (My Drafts, My
+  Submissions, Awaiting your Approvals) show fixed example tables rather
+  than a generic view over live rfps.json — the exact rows/columns given
+  in that correction, not derived data. The 2 value cards (Total RFP
+  Value, Total PO Value) are intentionally non-interactive.
+
   Depends on: js/data-store.js, components/table/table.js, components/badge/badge.js.
 */
+
+const KPI_DRAFTS_ROWS = [
+  { id: 'RFP-2026-041', title: 'SAP S/4HANA Implementation', lastUpdated: 'Today, 10:32 AM', action: 'Continue' },
+  { id: 'RFP-2026-038', title: 'IT Infrastructure Services', lastUpdated: 'Today, 09:15 AM', action: 'Continue' },
+  { id: 'RFP-2026-035', title: 'Office Equipment', lastUpdated: 'Yesterday', action: 'Continue' },
+  { id: 'RFP-2026-029', title: 'Consulting Services', lastUpdated: '2 days ago', action: 'Continue' },
+];
+
+const KPI_SUBMISSIONS_ROWS = [
+  { id: 'RFP-2026-041', title: 'SAP S/4HANA Implementation', lastUpdated: '16 Sep 2026', action: 'Awaiting Approval', tone: 'tone-blue' },
+  { id: 'RFP-2026-038', title: 'IT Infrastructure Services', lastUpdated: '15 Sep 2026', action: 'Under Review', tone: 'tone-amber' },
+  { id: 'RFP-2026-035', title: 'Office Equipment', lastUpdated: '14 Sep 2026', action: 'Approved', tone: 'tone-green' },
+  { id: 'RFP-2026-029', title: 'Consulting Services', lastUpdated: '12 Sep 2026', action: 'Procurement Review', tone: 'tone-neutral' },
+];
+
+const KPI_AWAITING_APPROVAL_ROWS = [
+  { id: 'RFP-2026-041', title: 'SAP Implementation', submittedBy: 'Ahmed Al-Salem', pendingSince: 'Today', action: 'Review' },
+  { id: 'RFP-2026-038', title: 'IT Managed Services', submittedBy: 'Sara Ahmed', pendingSince: 'Yesterday', action: 'Review' },
+  { id: 'RFP-2026-035', title: 'Data Center Services', submittedBy: 'Mohammed Ali', pendingSince: 'Yesterday', action: 'Review' },
+  { id: 'RFP-2026-029', title: 'Consulting Services', submittedBy: 'Mohammed Ali', pendingSince: '2 days ago', action: 'Review' },
+];
+
+const KPI_DRAFTS_COLUMNS = [
+  { key: 'id', label: 'RFP ID', cellClass: 'cell-id', render: (r) => `<a class="table-link" href="${requestDetailHref(r.id)}&mode=edit">${r.id}</a>` },
+  { key: 'title', label: 'RFP Title' },
+  { key: 'lastUpdated', label: 'Last updated', cellClass: 'cell-muted' },
+  { key: 'action', label: 'Action', render: (r) => `<a class="table-view-action" href="${requestDetailHref(r.id)}&mode=edit">${r.action}</a>` },
+];
+
+const KPI_SUBMISSIONS_COLUMNS = [
+  { key: 'id', label: 'RFP ID', cellClass: 'cell-id', render: (r) => `<a class="table-link" href="${requestDetailHref(r.id)}">${r.id}</a>` },
+  { key: 'title', label: 'RFP Title' },
+  { key: 'lastUpdated', label: 'Last updated', cellClass: 'cell-muted' },
+  { key: 'action', label: 'Action', render: (r) => `<span class="kpi-action-chip ${r.tone}">${r.action}</span>` },
+];
+
+const KPI_AWAITING_APPROVAL_COLUMNS = [
+  { key: 'id', label: 'RFP ID', cellClass: 'cell-id', render: (r) => `<a class="table-link" href="${requestDetailHref(r.id)}">${r.id}</a>` },
+  { key: 'title', label: 'RFP Title' },
+  { key: 'submittedBy', label: 'Submitted By', cellClass: 'cell-muted' },
+  { key: 'pendingSince', label: 'Pending Since', cellClass: 'cell-muted' },
+  { key: 'action', label: 'Action', render: (r) => `<a class="table-view-action" href="${requestDetailHref(r.id)}">${r.action}</a>` },
+];
 
 async function renderKpiSnapshotSection(containerId) {
   const mount = document.getElementById(containerId);
   if (!mount) return;
 
-  const [snapshot, allRfps, pendingApproval, topValue] = await Promise.all([
-    DataStore.getKpiSnapshot(),
-    DataStore.getAllRfps(),
-    DataStore.getPendingApprovalRfps(),
-    DataStore.getTopValueRfps(10),
-  ]);
-
-  const drafts = allRfps.filter((r) => r.status === 'Draft');
-  const submissions = allRfps.filter((r) => r.status === 'Submitted');
+  const snapshot = await DataStore.getKpiSnapshot();
 
   const cards = [
     {
@@ -26,7 +68,9 @@ async function renderKpiSnapshotSection(containerId) {
       label: 'My Drafts',
       value: String(snapshot.drafts.count),
       sub: snapshot.drafts.sub,
-      rows: drafts,
+      interactive: true,
+      rows: KPI_DRAFTS_ROWS,
+      columns: KPI_DRAFTS_COLUMNS,
     },
     {
       id: 'submissions',
@@ -34,7 +78,9 @@ async function renderKpiSnapshotSection(containerId) {
       label: 'My Submissions',
       value: String(snapshot.submissions.count),
       sub: snapshot.submissions.sub,
-      rows: submissions,
+      interactive: true,
+      rows: KPI_SUBMISSIONS_ROWS,
+      columns: KPI_SUBMISSIONS_COLUMNS,
     },
     {
       id: 'awaiting-approval',
@@ -43,7 +89,9 @@ async function renderKpiSnapshotSection(containerId) {
       value: String(snapshot.awaitingApproval.count),
       sub: snapshot.awaitingApproval.sub,
       subUrgent: true,
-      rows: pendingApproval,
+      interactive: true,
+      rows: KPI_AWAITING_APPROVAL_ROWS,
+      columns: KPI_AWAITING_APPROVAL_COLUMNS,
     },
     {
       id: 'rfp-value',
@@ -51,8 +99,7 @@ async function renderKpiSnapshotSection(containerId) {
       label: 'Total RFP Value',
       value: `${snapshot.totalRfpValue.value.toLocaleString('en-US')} SAR`,
       sub: snapshot.totalRfpValue.sub,
-      rows: topValue,
-      rowsTitle: 'Top 10 RFPs by value',
+      interactive: false,
     },
     {
       id: 'po-value',
@@ -60,18 +107,17 @@ async function renderKpiSnapshotSection(containerId) {
       label: 'Total PO Value',
       value: `${snapshot.totalPoValue.value.toLocaleString('en-US')} SAR`,
       sub: snapshot.totalPoValue.sub,
-      rows: topValue,
-      rowsTitle: '10 RFPs included in PO value',
+      interactive: false,
     },
   ];
 
   mount.innerHTML = `
     <div class="kpi-row">
       ${cards.map((card) => `
-        <div class="kpi-card" data-kpi-id="${card.id}">
+        <div class="kpi-card${card.interactive ? '' : ' non-interactive'}" data-kpi-id="${card.id}">
           <div class="kpi-card-top">
             <span class="kpi-card-icon"><i class="${card.icon}"></i></span>
-            <i class="fa-solid fa-chevron-down kpi-card-chevron"></i>
+            ${card.interactive ? '<i class="fa-solid fa-chevron-down kpi-card-chevron"></i>' : ''}
           </div>
           <div class="kpi-card-value">${card.value}</div>
           <div class="kpi-card-label">${card.label}</div>
@@ -94,14 +140,6 @@ async function renderKpiSnapshotSection(containerId) {
   const drilldownTitle = document.getElementById('kpi-drilldown-title');
   const drilldownBody = document.getElementById('kpi-drilldown-body');
 
-  const kpiColumns = [
-    { key: 'id', label: 'Request ID', cellClass: 'cell-id', render: (r) => `<a class="table-link" href="${requestDetailHref(r.id)}">${r.id}</a>` },
-    { key: 'description', label: 'Description' },
-    { key: 'status', label: 'Status', render: (r) => renderStatusBadge(r.status) },
-    { key: 'lastUpdatedDate', label: 'Last Updated', render: (r) => formatDate(r.lastUpdatedDate) },
-    { key: 'action', label: '', render: (r) => `<a class="table-view-action" href="${requestDetailHref(r.id)}">View <i class="fa-solid fa-arrow-right"></i></a>` },
-  ];
-
   function closeDrilldown() {
     drilldown.classList.remove('open');
     mount.querySelectorAll('.kpi-card.open').forEach((el) => el.classList.remove('open'));
@@ -110,8 +148,10 @@ async function renderKpiSnapshotSection(containerId) {
   document.getElementById('kpi-drilldown-close').addEventListener('click', closeDrilldown);
 
   mount.querySelectorAll('.kpi-card').forEach((cardEl) => {
+    const card = cards.find((c) => c.id === cardEl.dataset.kpiId);
+    if (!card.interactive) return;
+
     cardEl.addEventListener('click', () => {
-      const card = cards.find((c) => c.id === cardEl.dataset.kpiId);
       const alreadyOpen = cardEl.classList.contains('open');
 
       mount.querySelectorAll('.kpi-card.open').forEach((el) => el.classList.remove('open'));
@@ -122,8 +162,8 @@ async function renderKpiSnapshotSection(containerId) {
       }
 
       cardEl.classList.add('open');
-      drilldownTitle.textContent = `${card.rowsTitle || card.label} (${card.rows.length})`;
-      drilldownBody.innerHTML = buildTableHtml({ columns: kpiColumns, rows: card.rows, compact: true });
+      drilldownTitle.textContent = `${card.label} (${card.rows.length})`;
+      drilldownBody.innerHTML = buildTableHtml({ columns: card.columns, rows: card.rows, compact: true });
       drilldown.classList.add('open');
     });
   });

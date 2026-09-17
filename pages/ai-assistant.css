@@ -9,6 +9,15 @@
   min-height: 560px;
 }
 
+/* Used when this same layout is mounted inside the "Try a new experience"
+   modal (components/dialog) instead of the standalone page — there's no
+   full viewport / app header to size against in that context. */
+.aia-layout.in-modal {
+  height: 65vh;
+  min-height: 420px;
+  width: 100%;
+}
+
 /* ---- Left: RFP Progress panel ---- */
 
 .aia-progress-card {

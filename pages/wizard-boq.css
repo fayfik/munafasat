@@ -629,6 +629,326 @@
   background: var(--color-error-600);
 }
 
+/* ---- Inline-editable table cells (replaces the old Add/Edit modal) ---- */
+
+.boq-cell-input,
+.boq-cell-select {
+  width: 100%;
+  min-width: 110px;
+  height: 34px;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+}
+
+.boq-cell-input:hover,
+.boq-cell-select:hover {
+  border-color: var(--border-default);
+}
+
+.boq-cell-input:focus,
+.boq-cell-select:focus {
+  outline: none;
+  border-color: var(--color-green-600);
+  background: var(--surface-card);
+  box-shadow: 0 0 0 3px var(--color-green-50);
+}
+
+.boq-cell-input:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+.boq-cell-num {
+  min-width: 90px;
+}
+
+.boq-desc-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.boq-desc-cell .boq-cell-input {
+  flex: 1;
+}
+
+.boq-row-ai-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--color-green-50);
+  color: var(--color-green-600);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.boq-row-ai-btn:hover {
+  background: var(--color-green-100);
+}
+
+.boq-total-cell {
+  white-space: nowrap;
+}
+
+/* ---- Toolbar: Undo icon + dropdowns ---- */
+
+.boq-undo-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.boq-undo-icon-btn:hover:not(:disabled) {
+  background: var(--color-green-50);
+  border-color: var(--color-green-300);
+  color: var(--color-green-700);
+}
+
+.boq-undo-icon-btn:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.boq-dropdown {
+  position: relative;
+}
+
+.boq-dropdown-menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  min-width: 240px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-1);
+  display: none;
+  z-index: var(--z-dropdown);
+}
+
+.boq-dropdown-menu.open {
+  display: block;
+}
+
+.boq-dropdown-item {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.boq-dropdown-item:hover {
+  background: var(--surface-hover);
+}
+
+.boq-dropdown-item.danger {
+  color: var(--color-error-600);
+}
+
+/* ---- Import Data modal (2-pane: green hero + 2-step stepper) ---- */
+
+.boq-import-data-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: stretch;
+}
+
+.boq-import-data-hero {
+  background: var(--color-green-600);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-3);
+}
+
+.boq-import-data-hero-badge {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-neutral-0);
+  color: var(--color-green-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+.boq-import-data-hero-title {
+  color: var(--color-neutral-0);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.boq-import-data-hero-sub {
+  color: var(--color-green-50);
+  font-size: var(--font-size-sm);
+}
+
+.boq-import-data-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.boq-import-step {
+  display: flex;
+  gap: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.boq-import-step-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-green-100);
+  color: var(--color-green-700);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.boq-import-step-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.boq-import-step-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.boq-import-step-desc {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-3);
+}
+
+.boq-import-selected-file {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.boq-import-selected-file i {
+  color: var(--color-success-600);
+  margin-right: 6px;
+}
+
+@media (max-width: 720px) {
+  .boq-import-data-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Import BOQ from Similar RFPs modal (2-pane list + detail) ---- */
+
+.boq-similar-modal {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: var(--space-4);
+  min-height: 360px;
+}
+
+.boq-similar-list {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow-y: auto;
+  max-height: 420px;
+}
+
+.boq-similar-list-item {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+  cursor: pointer;
+}
+
+.boq-similar-list-item:last-child {
+  border-bottom: none;
+}
+
+.boq-similar-list-item:hover {
+  background: var(--surface-hover);
+}
+
+.boq-similar-list-item.active {
+  background: var(--color-green-50);
+  border-left: 3px solid var(--color-green-600);
+}
+
+.boq-similar-list-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.boq-similar-list-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.boq-similar-detail {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+.boq-similar-detail-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 300px;
+  color: var(--text-tertiary);
+  gap: var(--space-2);
+}
+
+.boq-similar-detail-empty i {
+  font-size: 28px;
+}
+
+.boq-similar-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
 /* ---- Footer left "Basic Details" back-link (rendered via wizard-shell save-state slot override on this page) ---- */
 
 .boq-footer-back-btn {

@@ -1,15 +1,15 @@
 /*
   Step 1 - Basic Details controller.
   Depends on: data-store.js, dialog.js, toast.js, searchable-select.js,
-  date-picker.js, file-upload.js, wizard-shell.js (all loaded before this file).
+  date-picker.js, wizard-shell.js (all loaded before this file).
 */
 
-const CATEGORY_NAMES = CATEGORY_OPTIONS.map((c) => c.name);
-
-/* ---- Naive EN<->AR word-substitution "translator" ----
-   There's no real translation API in a static prototype; this is a small
-   curated dictionary covering common procurement vocabulary so the AI
-   sparkle icon produces a plausible (not linguistically perfect) result.
+/* ---- Naive EN->AR word-substitution "translator" ----
+   There's no real translation/fetch API in a static prototype; this is a
+   small curated dictionary covering common procurement vocabulary, reused
+   to simulate the auto-fetched Arabic request name (Request name (Ar) has
+   no manual entry or AI icon of its own anymore — it's derived from the
+   English name the same way a real backend lookup would populate it).
    Unmatched words pass through unchanged. */
 const EN_TO_AR_DICT = {
   procurement: 'مشتريات', request: 'طلب', of: '', for: 'ل', services: 'خدمات', service: 'خدمة',
@@ -23,9 +23,6 @@ const EN_TO_AR_DICT = {
   infrastructure: 'بنية تحتية', data: 'بيانات', center: 'مركز', and: 'و', the: '', fleet: 'أسطول',
   vehicle: 'مركبة', leasing: 'تأجير', travel: 'سفر', corporate: 'مؤسسي', financial: 'مالي', systems: 'أنظمة',
 };
-const AR_TO_EN_DICT = Object.fromEntries(
-  Object.entries(EN_TO_AR_DICT).filter(([, ar]) => ar).map(([en, ar]) => [ar, en])
-);
 
 function naiveTranslate(text, dict) {
   return text.split(/\s+/).map((word) => {
@@ -35,7 +32,7 @@ function naiveTranslate(text, dict) {
   }).filter(Boolean).join(' ');
 }
 
-/* ---- Canned "AI generation" text ---- */
+/* ---- Canned "AI generation" / auto-fetch text ---- */
 function projectAndItemNames(formData, project) {
   const projectName = project ? project.name : 'the selected project';
   const itemNames = project
@@ -50,22 +47,55 @@ function genBusinessJustification(formData, project) {
   return `This request (${nameBit}) is raised to support ${projectName}, covering ${itemsText}. The procurement is necessary to ensure timely delivery of project milestones, maintain operational continuity, and meet the department's committed timelines. Proceeding promptly will help avoid delays to dependent workstreams and ensure compliance with the approved project scope.`;
 }
 
-function genUrgencyJustification(formData, project) {
-  const { projectName } = projectAndItemNames(formData, project);
-  return `This request requires expedited processing due to an immediate operational risk associated with ${projectName}. Delaying procurement beyond the standard timeline risks service disruption and non-compliance with committed delivery dates. Immediate action is requested to mitigate this risk.`;
+// Request name (En)/(Ar) are no longer free-text — both are disabled and
+// auto-fetched once an item is selected in Section 1.
+function genRequestNameEn(formData, project) {
+  // Gated on an item being selected, not just a project — otherwise this
+  // (and the Business Justification it feeds into) would fire with a
+  // generic "the required items" filler the instant a project is picked.
+  if (!project || !(formData.budgetedItemIds || []).length) return '';
+  const { itemsText } = projectAndItemNames(formData, project);
+  return `Procurement of ${itemsText} - ${project.name}`;
 }
 
-function genSingleVendorJustification(formData, project) {
-  const { projectName } = projectAndItemNames(formData, project);
-  return `[Vendor Name] has been identified as the only vendor capable of meeting the requirements of ${projectName} due to their unique technical capability, existing system compatibility, or proprietary licensing. Please review and confirm before proceeding with single-vendor procurement.`;
+function genRequestNameAr(formData, project) {
+  const en = genRequestNameEn(formData, project);
+  return en ? naiveTranslate(en, EN_TO_AR_DICT) : '';
 }
 
-function genRequestNameEn(project) {
-  return project ? `Procurement for ${project.name}` : 'New procurement request';
+// Item name -> department keyword heuristic, layered on top of the
+// project's own suggestedCategories to simulate "AI analyzes Project/Items"
+// for the Concurrence Required Departments recommendation banner.
+const DEPARTMENT_KEYWORD_MAP = [
+  { keywords: ['security', 'firewall', 'endpoint', 'soc'], department: 'Cybersecurity infrastructure' },
+  { keywords: ['network', 'switch', 'cabling'], department: 'Network infrastructure' },
+  { keywords: ['license', 'software'], department: 'Software licenses' },
+  { keywords: ['cloud'], department: 'Cloud services' },
+  { keywords: ['consult', 'advisory', 'legal', 'compliance'], department: 'CONSULTING SERVICES' },
+  { keywords: ['managed', 'support', 'maintenance', 'training'], department: 'Managed services' },
+];
+
+function computeRecommendedDepartments(project, budgetedItemIds) {
+  if (!project) return [];
+  const set = new Set(project.suggestedCategories || []);
+  const items = (budgetedItemIds || []).map((id) => project.budgetedItems.find((i) => i.id === id)).filter(Boolean);
+  items.forEach((item) => {
+    const name = item.name.toLowerCase();
+    DEPARTMENT_KEYWORD_MAP.forEach(({ keywords, department }) => {
+      if (keywords.some((k) => name.includes(k))) set.add(department);
+    });
+  });
+  return [...set];
 }
 
-function genCategories(project) {
-  return project ? [...project.suggestedCategories] : [];
+// A selected budgeted item's cost centre(s) determine Field 4's options —
+// union across every currently-selected item, deduped by id.
+function computeCostCentreOptions(project, budgetedItemIds) {
+  if (!project || !budgetedItemIds || budgetedItemIds.length === 0) return [];
+  const items = project.budgetedItems.filter((i) => budgetedItemIds.includes(i.id));
+  const map = new Map();
+  items.forEach((i) => (i.costCentres || []).forEach((cc) => map.set(cc.id, cc)));
+  return [...map.values()];
 }
 
 /* ---- Step controller ---- */
@@ -77,10 +107,11 @@ const step1 = {
   errors: {},
   selects: {},
   datePicker: null,
-  fileUpload: null,
   saveTimer: null,
   agingTimer: null,
   lastSavedAt: null,
+  recommendedDepartments: [],
+  dismissedDepartmentRecommendations: new Set(),
 };
 
 function getProject() {
@@ -129,13 +160,12 @@ function validateStep1() {
   if (!f.procurementCategory) errors.procurementCategory = 'Select a procurement category.';
   if (!f.projectId) errors.projectId = 'Select a project.';
   if (f.projectId && (!f.budgetedItemIds || f.budgetedItemIds.length === 0)) errors.budgetedItemIds = 'Select at least one budgeted item.';
-  if (!f.requestNameEn || !f.requestNameEn.trim()) errors.requestNameEn = 'Request name (En) is required.';
-  if (!f.requestNameAr || !f.requestNameAr.trim()) errors.requestNameAr = 'Request name (Ar) is required.';
+  if (f.budgetedItemIds && f.budgetedItemIds.length > 0 && !f.costCentreId) errors.costCentreId = 'Select a cost centre.';
+  if (!f.requestNameEn || !f.requestNameEn.trim()) errors.requestNameEn = 'Request name (En) will be auto-filled once an item is selected.';
+  if (!f.requestNameAr || !f.requestNameAr.trim()) errors.requestNameAr = 'Request name (Ar) will be auto-filled once an item is selected.';
   if (!f.businessJustification || !f.businessJustification.trim()) errors.businessJustification = 'Business justification is required.';
   if (!f.department) errors.department = 'Department is required — select a project first.';
-  if (!f.categories || f.categories.length === 0) errors.categories = 'Select at least one category.';
-  if (f.urgencyChecked && (!f.urgencyJustification || !f.urgencyJustification.trim())) errors.urgencyJustification = 'Urgent justification is required.';
-  if (f.singleVendorChecked && (!f.singleVendorJustification || !f.singleVendorJustification.trim())) errors.singleVendorJustification = 'Justification for single vendor is required.';
+  if (!f.concurrenceDepartments || f.concurrenceDepartments.length === 0) errors.concurrenceDepartments = 'Select at least one concurrence required department.';
   if (!f.projectStartDate) errors.projectStartDate = 'Project start date is required.';
 
   step1.errors = errors;
@@ -177,50 +207,15 @@ function renderClosureNote() {
     : 'Tentative project closure: —';
 }
 
-/* ---- AI suggestion boxes (section-level "Generate with AI") ---- */
-
-function showAiSuggestion({ key, text, applyFn }) {
-  const mount = document.getElementById(`ai-suggest-${key}`);
-  if (!mount) return;
-  mount.innerHTML = `
-    <div class="step1-ai-suggested-box">
-      <div class="step1-ai-suggested-label"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-suggested</div>
-      <div class="step1-ai-suggested-text">${text}</div>
-      <div class="step1-ai-suggested-actions">
-        <button type="button" class="step1-ai-action-btn accept" data-act="accept"><i class="fa-solid fa-check"></i> Accept</button>
-        <button type="button" class="step1-ai-action-btn edit" data-act="edit"><i class="fa-solid fa-pen"></i> Edit</button>
-        <button type="button" class="step1-ai-action-btn reject" data-act="reject"><i class="fa-solid fa-xmark"></i> Reject</button>
-      </div>
-    </div>
-  `;
-  mount.querySelector('[data-act="accept"]').addEventListener('click', () => { applyFn(text); mount.innerHTML = ''; });
-  mount.querySelector('[data-act="edit"]').addEventListener('click', () => { applyFn(text, true); mount.innerHTML = ''; });
-  mount.querySelector('[data-act="reject"]').addEventListener('click', () => { mount.innerHTML = ''; });
-}
-
-function confirmSectionAi(fieldDefs) {
-  openDialog({
-    title: 'Generate with AI',
-    bodyHtml: `
-      <p style="margin:0 0 var(--space-4); color: var(--text-secondary); font-size: var(--font-size-sm);">
-        Would you like AI to fill this section using the information already provided?
-      </p>
-      <div class="save-filter-actions">
-        <button class="filter-btn-outline" id="ai-confirm-no">No</button>
-        <button class="filter-btn-primary" id="ai-confirm-yes">Yes</button>
-      </div>
-    `,
-  });
-  document.getElementById('ai-confirm-no').addEventListener('click', closeDialog);
-  document.getElementById('ai-confirm-yes').addEventListener('click', () => {
-    closeDialog();
-    const eligible = fieldDefs.filter((f) => f.isApplicable() && f.isEmpty());
-    if (eligible.length === 0) {
-      showToast('Nothing to generate — this section is already filled in.');
-      return;
-    }
-    eligible.forEach((f) => showAiSuggestion({ key: f.key, text: f.generate(), applyFn: f.apply }));
-  });
+/* ---- STUB: submission-time hook (full submission flow isn't built yet).
+   When it is, call this at submit time — if it returns true, surface a
+   warning/confirmation that AI-recommended concurrence departments were
+   left un-actioned (neither added nor explicitly dismissed). ---- */
+function hasUnactionedDepartmentRecommendations() {
+  const selected = step1.formData.concurrenceDepartments || [];
+  return step1.recommendedDepartments.some(
+    (d) => !selected.includes(d) && !step1.dismissedDepartmentRecommendations.has(d)
+  );
 }
 
 /* ---- Rendering ---- */
@@ -228,6 +223,7 @@ function confirmSectionAi(fieldDefs) {
 function renderStep1() {
   const project = getProject();
   const f = step1.formData;
+  const budgetedItemIds = f.budgetedItemIds || [];
 
   const html = `
     <div class="step1-section">
@@ -242,11 +238,11 @@ function renderStep1() {
         <div class="step1-field">
           <label class="step1-field-label">What is the category of the procurement? <span class="step1-required">*</span></label>
           <div class="radio-card-row" id="procurement-category-row">
-            <div class="radio-card${f.procurementCategory === 'general' ? ' selected' : ''}" data-value="general">
+            <div class="radio-card${f.procurementCategory === 'procurement-requests' ? ' selected' : ''}" data-value="procurement-requests">
               <span class="radio-card-dot"></span>
               <div>
-                <div class="radio-card-title">General procurement</div>
-                <div class="radio-card-desc">Choose this for RFP creation, Tendering and regular procurement flow</div>
+                <div class="radio-card-title">Procurement requests</div>
+                <div class="radio-card-desc">This covers the IT related procurements, general procurements RFP &amp; Direct Purchases</div>
               </div>
             </div>
             <div class="radio-card${f.procurementCategory === 'souq-etimad' ? ' selected' : ''}" data-value="souq-etimad">
@@ -276,6 +272,14 @@ function renderStep1() {
           <div class="step1-field-error" id="err-budgetedItemIds"></div>
         </div>
       </div>
+
+      <div class="step1-field-row" id="cost-centre-row" style="${project && budgetedItemIds.length ? '' : 'display:none;'}">
+        <div class="step1-field">
+          <label class="step1-field-label">Cost centre <span class="step1-required">*</span></label>
+          <div id="sel-cost-centre"></div>
+          <div class="step1-field-error" id="err-costCentreId"></div>
+        </div>
+      </div>
     </div>
 
     <div class="step1-section">
@@ -284,25 +288,17 @@ function renderStep1() {
           <div class="step1-section-title">Request details</div>
           <div class="step1-section-desc">Kindly provide justification &amp; need for the request.</div>
         </div>
-        <button type="button" class="step1-ai-section-btn" id="ai-section-2-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
       </div>
 
       <div class="step1-field-row">
         <div class="step1-field half">
           <label class="step1-field-label">Request name (En) <span class="step1-required">*</span></label>
-          <div class="step1-input-with-ai">
-            <input type="text" class="step1-input" id="field-request-name-en" placeholder="Type your request name here." value="${f.requestNameEn || ''}">
-            <button type="button" class="step1-ai-icon-btn" id="ai-translate-to-en" title="Translate from Arabic"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
-          </div>
-          <div id="ai-suggest-requestNameEn"></div>
+          <input type="text" class="step1-input" id="field-request-name-en" disabled value="${f.requestNameEn || ''}" placeholder="Select an item to auto-fill">
           <div class="step1-field-error" id="err-requestNameEn"></div>
         </div>
         <div class="step1-field half">
           <label class="step1-field-label">Request name (Ar) <span class="step1-required">*</span></label>
-          <div class="step1-input-with-ai" dir-rtl-icon>
-            <input type="text" class="step1-input" id="field-request-name-ar" dir="rtl" placeholder="اكتب اسم طلبك هنا" value="${f.requestNameAr || ''}">
-            <button type="button" class="step1-ai-icon-btn left" id="ai-translate-to-ar" title="Translate from English"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
-          </div>
+          <input type="text" class="step1-input" id="field-request-name-ar" dir="rtl" disabled value="${f.requestNameAr || ''}" placeholder="سيتم التعبئة تلقائياً">
           <div class="step1-field-error" id="err-requestNameAr"></div>
         </div>
       </div>
@@ -315,7 +311,8 @@ function renderStep1() {
           </div>
           <textarea class="step1-textarea" id="field-business-justification" placeholder="Kindly provide justification for the RFP." maxlength="1200">${f.businessJustification || ''}</textarea>
           <div class="step1-char-count" id="count-businessJustification">${(f.businessJustification || '').length} / 1200</div>
-          <div id="ai-suggest-businessJustification"></div>
+          <div class="aig-ribbon" id="ribbon-businessJustification"></div>
+          <button type="button" class="aig-undo-btn" id="undo-businessJustification"></button>
           <div class="step1-field-error" id="err-businessJustification"></div>
         </div>
       </div>
@@ -330,69 +327,11 @@ function renderStep1() {
 
       <div class="step1-field-row">
         <div class="step1-field">
-          <label class="step1-field-label">Categories <span class="step1-required">*</span></label>
-          <div id="sel-categories"></div>
-          <div id="ai-suggest-categories"></div>
-          <div class="step1-field-error" id="err-categories"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="step1-section">
-      <div class="step1-section-header">
-        <div>
-          <div class="step1-section-title">Priority and special conditions</div>
-          <div class="step1-section-desc">Set urgency and flag special procurement conditions</div>
-        </div>
-        <button type="button" class="step1-ai-section-btn" id="ai-section-3-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
-      </div>
-
-      <div class="checkbox-card${f.urgencyChecked ? ' checked' : ''}" id="card-urgency">
-        <div class="checkbox-card-header" id="card-urgency-header">
-          <span class="checkbox-card-checkbox"><i class="fa-solid fa-check" style="font-size:10px;"></i></span>
-          <div>
-            <div class="checkbox-card-title">Urgency</div>
-            <div class="checkbox-card-desc">Select only when there is an immediate operational risk, safety incident, or critical deadline that cannot be deferred through standard processing timelines.</div>
-          </div>
-        </div>
-        <div class="checkbox-card-reveal">
-          <label class="step1-field-label">Urgent justification <span class="step1-required">*</span></label>
-          <div class="step1-textarea-toolbar">
-            <button type="button" class="step1-generate-ai-btn" id="ai-gen-urgency"><i class="fa-solid fa-wand-magic-sparkles"></i> Autofill with AI</button>
-          </div>
-          <textarea class="step1-textarea" id="field-urgency-justification" placeholder="Describe the urgency - operational risk, safety incident, critical deadline or other extreme condition…" maxlength="800">${f.urgencyJustification || ''}</textarea>
-          <div class="step1-char-count" id="count-urgencyJustification">${(f.urgencyJustification || '').length} / 800</div>
-          <div id="ai-suggest-urgencyJustification"></div>
-          <div class="step1-field-error" id="err-urgencyJustification"></div>
-        </div>
-      </div>
-
-      <div class="checkbox-card${f.singleVendorChecked ? ' checked' : ''}" id="card-single-vendor">
-        <div class="checkbox-card-header" id="card-single-vendor-header">
-          <span class="checkbox-card-checkbox"><i class="fa-solid fa-check" style="font-size:10px;"></i></span>
-          <div>
-            <div class="checkbox-card-title">Single vendor</div>
-            <div class="checkbox-card-desc">Select if only one vendor can meet the procurement requirement.</div>
-          </div>
-        </div>
-        <div class="checkbox-card-reveal">
-          <label class="step1-field-label">Justification for single Vendor <span class="step1-required">*</span></label>
-          <div class="step1-textarea-toolbar">
-            <button type="button" class="step1-generate-ai-btn" id="ai-gen-single-vendor"><i class="fa-solid fa-wand-magic-sparkles"></i> Autofill with AI</button>
-          </div>
-          <textarea class="step1-textarea" id="field-single-vendor-justification" placeholder="Describe about the Vendor &amp; why we will need to proceed with this vendor." maxlength="800">${f.singleVendorJustification || ''}</textarea>
-          <div class="step1-char-count" id="count-singleVendorJustification">${(f.singleVendorJustification || '').length} / 800</div>
-          <div id="ai-suggest-singleVendorJustification"></div>
-          <div class="step1-field-error" id="err-singleVendorJustification"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="step1-section">
-      <div class="step1-section-header">
-        <div>
-          <div class="step1-section-title">RFP project details</div>
-          <div class="step1-section-desc">Contract type, duration, and evaluation committee members.</div>
+          <label class="step1-field-label">Concurrence Required Department(s) <span class="step1-required">*</span></label>
+          <div id="sel-concurrence-departments"></div>
+          <div class="step1-field-hint">Following are the departments part for RFP approvals</div>
+          <div class="dept-ai-banner" id="dept-ai-banner"></div>
+          <div class="step1-field-error" id="err-concurrenceDepartments"></div>
         </div>
       </div>
 
@@ -420,6 +359,15 @@ function renderStep1() {
           <div class="step1-closure-note" id="closure-note"></div>
         </div>
       </div>
+    </div>
+
+    <div class="step1-section">
+      <div class="step1-section-header">
+        <div>
+          <div class="step1-section-title">Split procurement</div>
+          <div class="step1-section-desc">Split the RFP into separate lots/packages if needed.</div>
+        </div>
+      </div>
 
       <div class="split-rfp-card">
         <div>
@@ -428,17 +376,6 @@ function renderStep1() {
         </div>
         <button type="button" class="toggle-switch${f.splitRfp ? ' on' : ''}" id="toggle-split-rfp" aria-label="Split RFP"></button>
       </div>
-    </div>
-
-    <div class="step1-section">
-      <div class="step1-section-header">
-        <div>
-          <div class="step1-section-title">Supporting documents <span style="font-weight:400; color:var(--text-tertiary);">(optional)</span></div>
-          <div class="step1-section-desc">Attach TOR, quotations, and technical specification.</div>
-        </div>
-        <button type="button" class="step1-ai-section-btn" id="ai-section-5-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
-      </div>
-      <div id="upload-documents"></div>
     </div>
   `;
 
@@ -465,6 +402,10 @@ function wireStep1() {
       document.querySelectorAll('#procurement-category-row .radio-card').forEach((c) => c.classList.remove('selected'));
       if (next) card.classList.add('selected');
       patchForm({ procurementCategory: next });
+      // Souq Etimad collapses the stepper rail to Basic details + BOQ only
+      // (data on other steps is untouched); re-selecting Procurement
+      // requests restores all 8 immediately — no page reload needed.
+      refreshWizardStepChrome('basic-details');
     });
   });
 
@@ -481,38 +422,9 @@ function wireStep1() {
 
   // Section 1 - budgeted items (only if project selected)
   if (getProject()) renderBudgetedItemsSelect();
+  renderCostCentreSelect();
 
-  // Section 2 - request name EN/AR
-  const enInput = document.getElementById('field-request-name-en');
-  const arInput = document.getElementById('field-request-name-ar');
-  enInput.addEventListener('input', (e) => patchForm({ requestNameEn: e.target.value }));
-  arInput.addEventListener('input', (e) => patchForm({ requestNameAr: e.target.value }));
-
-  const translateToEnBtn = document.getElementById('ai-translate-to-en');
-  const translateToArBtn = document.getElementById('ai-translate-to-ar');
-  function refreshTranslateButtons() {
-    translateToEnBtn.disabled = !arInput.value.trim();
-    translateToEnBtn.title = translateToEnBtn.disabled ? 'Enter the Arabic name first' : 'Translate from Arabic';
-    translateToArBtn.disabled = !enInput.value.trim();
-    translateToArBtn.title = translateToArBtn.disabled ? 'Enter the English name first' : 'Translate from English';
-  }
-  refreshTranslateButtons();
-  enInput.addEventListener('input', refreshTranslateButtons);
-  arInput.addEventListener('input', refreshTranslateButtons);
-
-  translateToEnBtn.addEventListener('click', () => {
-    if (translateToEnBtn.disabled) return;
-    const translated = naiveTranslate(arInput.value, AR_TO_EN_DICT);
-    enInput.value = translated;
-    patchForm({ requestNameEn: translated });
-    refreshTranslateButtons();
-  });
-  translateToArBtn.addEventListener('click', () => {
-    if (translateToArBtn.disabled) return;
-    const translated = naiveTranslate(enInput.value, EN_TO_AR_DICT);
-    arInput.value = translated;
-    patchForm({ requestNameAr: translated });
-  });
+  // Section 2 - request name EN/AR are disabled/auto-fetched, no wiring needed.
 
   // Section 2 - business justification
   const justificationEl = document.getElementById('field-business-justification');
@@ -521,93 +433,32 @@ function wireStep1() {
     document.getElementById('count-businessJustification').textContent = `${e.target.value.length} / 1200`;
   });
   document.getElementById('ai-gen-justification').addEventListener('click', () => {
-    showAiSuggestion({
-      key: 'businessJustification',
-      text: genBusinessJustification(step1.formData, getProject()),
-      applyFn: (text, focus) => {
+    runFieldAiGenerate({
+      ribbonMountId: 'ribbon-businessJustification',
+      undoMountId: 'undo-businessJustification',
+      isEmpty: () => !step1.formData.businessJustification,
+      generate: () => genBusinessJustification(step1.formData, getProject()),
+      apply: (text) => {
         justificationEl.value = text;
         patchForm({ businessJustification: text });
         document.getElementById('count-businessJustification').textContent = `${text.length} / 1200`;
-        if (focus) justificationEl.focus();
       },
     });
   });
 
-  // Section 2 - categories
-  step1.selects.categories = createSearchableSelect({
-    mountId: 'sel-categories',
+  // Section 2 - Concurrence Required Department(s)
+  step1.selects.concurrenceDepartments = createSearchableSelect({
+    mountId: 'sel-concurrence-departments',
     mode: 'multi',
-    options: CATEGORY_NAMES.map((name) => ({ value: name, label: name })),
-    selected: f.categories || [],
-    placeholder: 'Select categories.',
-    searchPlaceholder: 'Search categories',
-    onChange: (vals) => patchForm({ categories: vals }),
+    options: CATEGORY_OPTIONS.map((c) => ({ value: c.name, label: c.name })),
+    selected: f.concurrenceDepartments || [],
+    placeholder: 'Select departments.',
+    searchPlaceholder: 'Search departments',
+    onChange: (vals) => { patchForm({ concurrenceDepartments: vals }); renderDeptAiBanner(); },
   });
+  renderDeptAiBanner();
 
-  document.getElementById('ai-section-2-btn').addEventListener('click', () => {
-    confirmSectionAi([
-      { key: 'requestNameEn', isApplicable: () => true, isEmpty: () => !step1.formData.requestNameEn, generate: () => genRequestNameEn(getProject()), apply: (text) => { enInput.value = text; patchForm({ requestNameEn: text }); refreshTranslateButtons(); } },
-      { key: 'businessJustification', isApplicable: () => true, isEmpty: () => !step1.formData.businessJustification, generate: () => genBusinessJustification(step1.formData, getProject()), apply: (text) => { justificationEl.value = text; patchForm({ businessJustification: text }); document.getElementById('count-businessJustification').textContent = `${text.length} / 1200`; } },
-      { key: 'categories', isApplicable: () => true, isEmpty: () => !(step1.formData.categories || []).length, generate: () => genCategories(getProject()).join(', ') || 'Managed services', apply: (text) => { const vals = text.split(',').map((s) => s.trim()).filter(Boolean); step1.selects.categories.setSelected(vals); patchForm({ categories: vals }); } },
-    ]);
-  });
-
-  // Section 3 - urgency
-  const urgencyCard = document.getElementById('card-urgency');
-  document.getElementById('card-urgency-header').addEventListener('click', () => {
-    const checked = !urgencyCard.classList.contains('checked');
-    urgencyCard.classList.toggle('checked', checked);
-    patchForm({ urgencyChecked: checked });
-  });
-  const urgencyTextarea = document.getElementById('field-urgency-justification');
-  urgencyTextarea.addEventListener('input', (e) => {
-    patchForm({ urgencyJustification: e.target.value });
-    document.getElementById('count-urgencyJustification').textContent = `${e.target.value.length} / 800`;
-  });
-  document.getElementById('ai-gen-urgency').addEventListener('click', () => {
-    showAiSuggestion({
-      key: 'urgencyJustification',
-      text: genUrgencyJustification(step1.formData, getProject()),
-      applyFn: (text) => {
-        urgencyTextarea.value = text;
-        patchForm({ urgencyJustification: text });
-        document.getElementById('count-urgencyJustification').textContent = `${text.length} / 800`;
-      },
-    });
-  });
-
-  // Section 3 - single vendor
-  const vendorCard = document.getElementById('card-single-vendor');
-  document.getElementById('card-single-vendor-header').addEventListener('click', () => {
-    const checked = !vendorCard.classList.contains('checked');
-    vendorCard.classList.toggle('checked', checked);
-    patchForm({ singleVendorChecked: checked });
-  });
-  const vendorTextarea = document.getElementById('field-single-vendor-justification');
-  vendorTextarea.addEventListener('input', (e) => {
-    patchForm({ singleVendorJustification: e.target.value });
-    document.getElementById('count-singleVendorJustification').textContent = `${e.target.value.length} / 800`;
-  });
-  document.getElementById('ai-gen-single-vendor').addEventListener('click', () => {
-    showAiSuggestion({
-      key: 'singleVendorJustification',
-      text: genSingleVendorJustification(step1.formData, getProject()),
-      applyFn: (text) => {
-        vendorTextarea.value = text;
-        patchForm({ singleVendorJustification: text });
-        document.getElementById('count-singleVendorJustification').textContent = `${text.length} / 800`;
-      },
-    });
-  });
-
-  document.getElementById('ai-section-3-btn').addEventListener('click', () => {
-    confirmSectionAi([
-      { key: 'urgencyJustification', isApplicable: () => step1.formData.urgencyChecked, isEmpty: () => !step1.formData.urgencyJustification, generate: () => genUrgencyJustification(step1.formData, getProject()), apply: (text) => { urgencyTextarea.value = text; patchForm({ urgencyJustification: text }); document.getElementById('count-urgencyJustification').textContent = `${text.length} / 800`; } },
-      { key: 'singleVendorJustification', isApplicable: () => step1.formData.singleVendorChecked, isEmpty: () => !step1.formData.singleVendorJustification, generate: () => genSingleVendorJustification(step1.formData, getProject()), apply: (text) => { vendorTextarea.value = text; patchForm({ singleVendorJustification: text }); document.getElementById('count-singleVendorJustification').textContent = `${text.length} / 800`; } },
-    ]);
-  });
-
-  // Section 4 - date + duration
+  // Section 2 - date + duration (moved in from the former "RFP project details" section)
   step1.datePicker = createDatePicker({
     mountId: 'dp-start-date',
     value: f.projectStartDate || null,
@@ -633,25 +484,12 @@ function wireStep1() {
   });
   renderClosureNote();
 
-  // Split RFP toggle
+  // Split procurement - Split RFP toggle
   document.getElementById('toggle-split-rfp').addEventListener('click', (e) => {
     const on = !e.currentTarget.classList.contains('on');
     e.currentTarget.classList.toggle('on', on);
     document.getElementById('split-rfp-desc').textContent = on ? 'Yes — divided into separate lots' : 'Toggle if RFP should be split into packages';
     patchForm({ splitRfp: on });
-  });
-
-  // Section 5 - file upload
-  step1.fileUpload = createFileUpload({
-    mountId: 'upload-documents',
-    acceptExtensions: ['pdf', 'xlsx', 'docx'],
-    maxSizeMB: 25,
-    initialFiles: f.documents || [],
-    onChange: (files) => patchForm({ documents: files }),
-  });
-
-  document.getElementById('ai-section-5-btn').addEventListener('click', () => {
-    confirmSectionAi([]); // no text fields to fill in this section — shows the "nothing to generate" toast
   });
 }
 
@@ -671,8 +509,152 @@ function renderBudgetedItemsSelect() {
     // NOTE: the selected budgeted items below directly determine how many
     // item sections appear in Step 2 - BOQ (one section per item). That
     // wiring isn't built yet — this just stores the selection.
-    onChange: (vals) => patchForm({ budgetedItemIds: vals }),
+    onChange: (vals) => {
+      patchForm({ budgetedItemIds: vals });
+      refreshAutoFetchedFields();
+      renderCostCentreSelect();
+      renderDeptAiBanner();
+    },
   });
+}
+
+// Field 4 - Cost centre: prefilled + locked when the selected item(s) only
+// have one associated cost centre; searchable/enabled when more than one.
+function renderCostCentreSelect() {
+  const project = getProject();
+  const budgetedItemIds = step1.formData.budgetedItemIds || [];
+  const row = document.getElementById('cost-centre-row');
+  const show = !!project && budgetedItemIds.length > 0;
+  if (row) row.style.display = show ? '' : 'none';
+  if (!show) return;
+
+  const options = computeCostCentreOptions(project, budgetedItemIds);
+  const isSingle = options.length === 1;
+  let current = step1.formData.costCentreId;
+
+  if (isSingle) {
+    current = options[0].id;
+    if (step1.formData.costCentreId !== current) patchForm({ costCentreId: current });
+  } else if (current && !options.some((o) => o.id === current)) {
+    current = null;
+    patchForm({ costCentreId: null });
+  }
+
+  const optionDefs = options.map((o) => ({ value: o.id, label: o.name }));
+  if (step1.selects.costCentre) {
+    step1.selects.costCentre.setOptions(optionDefs);
+    step1.selects.costCentre.setSelected(current || null);
+    step1.selects.costCentre.setDisabled(isSingle);
+  } else {
+    step1.selects.costCentre = createSearchableSelect({
+      mountId: 'sel-cost-centre',
+      mode: 'single',
+      options: optionDefs,
+      selected: current || null,
+      disabled: isSingle,
+      placeholder: 'Select cost centre.',
+      searchPlaceholder: 'Search cost centres',
+      onChange: (val) => patchForm({ costCentreId: val }),
+    });
+  }
+}
+
+// AI-recommended Concurrence Required Departments banner: shows whichever
+// recommended departments aren't already selected, with per-chip add/
+// dismiss and an "Add all" CTA.
+function renderDeptAiBanner() {
+  const mount = document.getElementById('dept-ai-banner');
+  if (!mount) return;
+
+  step1.recommendedDepartments = computeRecommendedDepartments(getProject(), step1.formData.budgetedItemIds);
+  const selected = step1.formData.concurrenceDepartments || [];
+  const pending = step1.recommendedDepartments.filter(
+    (d) => !selected.includes(d) && !step1.dismissedDepartmentRecommendations.has(d)
+  );
+
+  if (pending.length === 0) {
+    mount.innerHTML = '';
+    return;
+  }
+
+  mount.innerHTML = `
+    <div class="dept-ai-banner-inner">
+      <div class="dept-ai-banner-label"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-recommended based on the selected project/items</div>
+      <div class="dept-ai-chip-row">
+        ${pending.map((d) => `
+          <span class="dept-ai-chip" data-dept="${d}">
+            ${d}
+            <button type="button" class="dept-ai-chip-add" data-add="${d}" title="Add"><i class="fa-solid fa-plus"></i></button>
+            <button type="button" class="dept-ai-chip-dismiss" data-dismiss="${d}" title="Dismiss"><i class="fa-solid fa-xmark"></i></button>
+          </span>
+        `).join('')}
+      </div>
+      <button type="button" class="dept-ai-add-all-btn" id="dept-ai-add-all">Add all</button>
+    </div>
+  `;
+
+  mount.querySelectorAll('[data-add]').forEach((btn) => {
+    btn.addEventListener('click', () => addRecommendedDepartment(btn.dataset.add));
+  });
+  mount.querySelectorAll('[data-dismiss]').forEach((btn) => {
+    btn.addEventListener('click', () => dismissRecommendedDepartment(btn.dataset.dismiss));
+  });
+  document.getElementById('dept-ai-add-all').addEventListener('click', () => {
+    pending.forEach((d) => addRecommendedDepartment(d, { skipRender: true }));
+    renderDeptAiBanner();
+  });
+}
+
+function addRecommendedDepartment(name, { skipRender = false } = {}) {
+  const current = step1.formData.concurrenceDepartments || [];
+  if (!current.includes(name)) {
+    const next = [...current, name];
+    step1.selects.concurrenceDepartments.setSelected(next);
+    patchForm({ concurrenceDepartments: next });
+  }
+  if (!skipRender) renderDeptAiBanner();
+}
+
+function dismissRecommendedDepartment(name) {
+  step1.dismissedDepartmentRecommendations.add(name);
+  renderDeptAiBanner();
+}
+
+// Recomputes Request name (En)/(Ar) and Business Justification from the
+// current project + selected items. Request name fields always reflect the
+// latest selection (they're disabled — there's nothing for the user to
+// preserve). Business Justification is still user-editable, so it's only
+// auto-filled while still empty, never overwritten.
+function refreshAutoFetchedFields() {
+  const project = getProject();
+  const requestNameEn = genRequestNameEn(step1.formData, project);
+  const patch = {
+    requestNameEn,
+    requestNameAr: genRequestNameAr(step1.formData, project),
+  };
+  const hasItems = (step1.formData.budgetedItemIds || []).length > 0;
+  if (!step1.formData.businessJustification && hasItems) {
+    // Build the justification off the request name we just derived (not
+    // the stale one still in step1.formData) so it reads "this request
+    // ("Procurement of...")" instead of the placeholder "this request".
+    patch.businessJustification = genBusinessJustification({ ...step1.formData, requestNameEn }, project);
+  }
+  step1.formData = { ...step1.formData, ...patch };
+  WizardStore.updateFormData(patch);
+  scheduleSave();
+
+  const enInput = document.getElementById('field-request-name-en');
+  const arInput = document.getElementById('field-request-name-ar');
+  if (enInput) enInput.value = patch.requestNameEn;
+  if (arInput) arInput.value = patch.requestNameAr;
+  if (patch.businessJustification !== undefined) {
+    const jEl = document.getElementById('field-business-justification');
+    if (jEl) {
+      jEl.value = patch.businessJustification;
+      document.getElementById('count-businessJustification').textContent = `${patch.businessJustification.length} / 1200`;
+    }
+  }
+  updateContinueState();
 }
 
 function onProjectChange(projectId) {
@@ -681,19 +663,27 @@ function onProjectChange(projectId) {
     projectId,
     department: project ? project.department : '',
     budgetedItemIds: [],
+    costCentreId: null,
   };
-  // Auto-populate categories from the project, but only if the user hasn't
-  // already customized the categories field (don't clobber their edits).
-  if (project && (!step1.formData.categories || step1.formData.categories.length === 0)) {
-    patch.categories = [...project.suggestedCategories];
+  // Auto-populate Concurrence Required Department(s) from the project, but
+  // only if the user hasn't already customized the field (don't clobber
+  // their edits).
+  if (project && (!step1.formData.concurrenceDepartments || step1.formData.concurrenceDepartments.length === 0)) {
+    patch.concurrenceDepartments = [...project.suggestedCategories];
   }
+  step1.dismissedDepartmentRecommendations = new Set();
   step1.formData = { ...step1.formData, ...patch };
   WizardStore.updateFormData(patch);
   scheduleSave();
 
   document.getElementById('field-department').value = patch.department;
-  if (step1.selects.categories && patch.categories) step1.selects.categories.setSelected(patch.categories);
+  if (step1.selects.concurrenceDepartments && patch.concurrenceDepartments) {
+    step1.selects.concurrenceDepartments.setSelected(patch.concurrenceDepartments);
+  }
   renderBudgetedItemsSelect();
+  renderCostCentreSelect();
+  refreshAutoFetchedFields();
+  renderDeptAiBanner();
   updateContinueState();
 }
 

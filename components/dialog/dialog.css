@@ -27,6 +27,17 @@
   overflow: hidden;
 }
 
+.dialog-panel.size-large {
+  max-width: 1100px;
+}
+
+.dialog-panel.size-large .dialog-body {
+  padding: var(--space-4);
+  overflow-y: hidden;
+  display: flex;
+  min-height: 0;
+}
+
 .dialog-header {
   display: flex;
   align-items: center;

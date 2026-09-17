@@ -56,7 +56,7 @@ function mrEmptyHtml() {
         <i class="fa-regular fa-folder-open"></i>
         <h3>No requests yet.</h3>
         <p>Create your first RFP to get started.</p>
-        <a class="mr-create-btn" href="create-request.html"><i class="fa-solid fa-plus"></i><span>Create request/RFP</span></a>
+        <a class="mr-create-btn" href="create-request.html"><i class="fa-solid fa-plus"></i><span>Create request</span></a>
       </div>
     `;
   }

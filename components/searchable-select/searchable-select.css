@@ -32,6 +32,16 @@
   border-color: var(--color-error-500);
 }
 
+.sel-trigger.disabled {
+  background: var(--surface-sidebar);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+.sel-trigger.disabled:hover {
+  border-color: var(--border-default);
+}
+
 .sel-trigger-label {
   flex: 1;
   min-width: 0;

@@ -1,0 +1,300 @@
+/* Step 8 - Technical Evaluation Criteria */
+
+.tec-header-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.tec-header-title { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--text-primary); }
+.tec-header-sub { font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: 2px; }
+
+.tec-header-right { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+
+.tec-total-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.tec-total-badge.state-warning { background: var(--color-warning-100); color: var(--color-warning-700); }
+.tec-total-badge.state-success { background: var(--color-success-100); color: var(--color-success-700); }
+.tec-total-badge.state-error { background: var(--color-error-100); color: var(--color-error-700); }
+
+.tec-btn-primary {
+  display: inline-flex; align-items: center; gap: var(--space-2); height: 38px; padding: 0 var(--space-4);
+  border-radius: var(--radius-md); border: none; background: var(--color-green-600); color: var(--color-neutral-0);
+  font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); cursor: pointer; white-space: nowrap;
+}
+.tec-btn-primary:hover { background: var(--color-green-700); }
+
+.tec-ai-btn {
+  display: inline-flex; align-items: center; gap: var(--space-2); height: 38px; padding: 0 var(--space-3);
+  border-radius: var(--radius-md); border: 1px solid var(--color-green-300); background: var(--color-green-50);
+  color: var(--color-green-700); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); cursor: pointer; white-space: nowrap;
+}
+.tec-ai-btn:hover { background: var(--color-green-100); }
+
+.tec-passing-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.tec-passing-label { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--text-primary); }
+.tec-passing-desc { font-size: var(--font-size-xs); color: var(--text-secondary); margin-top: 2px; }
+
+.tec-passing-input-wrap {
+  display: flex; align-items: center; height: 40px; border: 1px solid var(--border-default); border-radius: var(--radius-md); overflow: hidden;
+}
+.tec-passing-input-wrap input { width: 80px; border: none; outline: none; text-align: right; padding: 0 var(--space-2); font-size: var(--font-size-sm); color: var(--text-primary); }
+.tec-passing-input-wrap span {
+  padding: 0 var(--space-3); background: var(--surface-sidebar); color: var(--text-secondary); font-size: var(--font-size-sm);
+  height: 100%; display: flex; align-items: center; border-left: 1px solid var(--border-default);
+}
+
+.tec-segment-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.tec-segment-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.tec-segment-name-input {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  min-width: 220px;
+}
+.tec-segment-name-input:hover { border-color: var(--border-default); }
+.tec-segment-name-input:focus { outline: none; border-color: var(--color-green-600); background: var(--surface-card); box-shadow: 0 0 0 3px var(--color-green-50); }
+
+.tec-segment-total {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tec-segment-total.state-success { color: var(--color-success-700); }
+.tec-segment-total.state-warning { color: var(--color-warning-700); }
+.tec-segment-total.state-error { color: var(--color-error-700); }
+
+.tec-applicability {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  background: var(--surface-app-bg);
+  border-radius: var(--radius-md);
+}
+
+.tec-applicability-radios {
+  display: flex;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+.tec-applicability-radios label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tec-item-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 200px;
+}
+
+.tec-item-checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tec-no-items-note {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.tec-cell-input {
+  width: 100%;
+  min-width: 140px;
+  height: 34px;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+}
+
+.tec-cell-input:hover { border-color: var(--border-default); }
+.tec-cell-input:focus { outline: none; border-color: var(--color-green-600); background: var(--surface-card); box-shadow: 0 0 0 3px var(--color-green-50); }
+.tec-cell-input.has-error { border-color: var(--color-error-500); }
+
+.tec-how-applied-cell { display: flex; align-items: center; gap: var(--space-2); }
+.tec-how-applied-cell .tec-cell-input { flex: 1; }
+
+.tec-recommend-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--color-green-50);
+  color: var(--color-green-600);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tec-recommend-btn:hover { background: var(--color-green-100); }
+
+.tec-add-criterion-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--color-green-700);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  padding: var(--space-2);
+}
+.tec-add-criterion-link:hover { text-decoration: underline; }
+
+.tec-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+}
+.tec-empty-state i { font-size: 32px; color: var(--text-tertiary); margin-bottom: var(--space-2); }
+.tec-empty-state h3 { margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--text-primary); }
+.tec-empty-state p { margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm); }
+
+.tec-define-segment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 38px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-green-400);
+  background: var(--color-green-50);
+  color: var(--color-green-700);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  width: 100%;
+  justify-content: center;
+}
+.tec-define-segment-btn:hover { background: var(--color-green-100); }
+
+/* ---- Completion state ---- */
+
+.tec-completion-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.tec-completion-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--color-success-100);
+  color: var(--color-success-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+}
+
+.tec-completion-title { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--text-primary); }
+.tec-completion-desc { font-size: var(--font-size-sm); color: var(--text-secondary); max-width: 420px; }
+
+/* ---- Shared modal / button primitives ---- */
+
+.tec-modal-footer { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-4); }
+.tec-btn-cancel {
+  height: 38px; padding: 0 var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--border-default);
+  background: var(--surface-card); color: var(--text-primary); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); cursor: pointer;
+}
+.tec-btn-cancel:hover { background: var(--surface-hover); }
+.tec-btn-save {
+  height: 38px; padding: 0 var(--space-4); border-radius: var(--radius-md); border: none;
+  background: var(--color-green-600); color: var(--color-neutral-0); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); cursor: pointer;
+}
+.tec-btn-save:hover:not(:disabled) { background: var(--color-green-700); }
+.tec-btn-save:disabled { background: var(--color-neutral-200); color: var(--text-tertiary); cursor: not-allowed; }
+
+.tec-footer-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+.tec-footer-back-btn:hover { color: var(--text-primary); }

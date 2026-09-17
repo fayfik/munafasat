@@ -14,9 +14,14 @@
 <link rel="stylesheet" href="../components/header/header.css">
 <link rel="stylesheet" href="../components/badge/badge.css">
 <link rel="stylesheet" href="../components/dialog/dialog.css">
+<link rel="stylesheet" href="../components/toast/toast.css">
 <link rel="stylesheet" href="../components/stepper/stepper.css">
 <link rel="stylesheet" href="../components/copilot-drawer/copilot-drawer.css">
 <link rel="stylesheet" href="../components/wizard-shell/wizard-shell.css">
+<link rel="stylesheet" href="../components/table/table.css">
+<link rel="stylesheet" href="../components/ai-generate/ai-generate.css">
+<link rel="stylesheet" href="ai-assistant.css">
+<link rel="stylesheet" href="wizard-qualification-criteria.css">
 </head>
 <body data-page="my-requests" data-page-title="Create Request">
   <div class="app-shell">
@@ -32,23 +37,15 @@
   <script src="../js/data-store.js"></script>
   <script src="../components/badge/badge.js"></script>
   <script src="../components/dialog/dialog.js"></script>
+  <script src="../components/toast/toast.js"></script>
   <script src="../components/stepper/stepper.js"></script>
   <script src="../components/copilot-drawer/copilot-drawer.js"></script>
   <script src="../components/wizard-shell/wizard-shell.js"></script>
+  <script src="../components/table/table.js"></script>
+  <script src="../components/ai-generate/ai-generate.js"></script>
+  <script src="ai-assistant.js"></script>
   <script src="../components/sidebar/sidebar.js"></script>
   <script src="../components/header/header.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      WizardStore.setStepStatus('qualification-criteria', 'current');
-      renderWizardShell({ mountId: 'wizard-shell-mount', currentStepId: 'qualification-criteria' });
-      document.getElementById('wizard-step-content').innerHTML = `
-        <div class="placeholder-state">
-          <img src="../assets/state illustrations/Name=Checked file, Theme=Light.png" alt="">
-          <h2>Qualification criteria — coming soon</h2>
-          <p>This step's fields will be built in a follow-up phase.</p>
-        </div>
-      `;
-    });
-  </script>
+  <script src="wizard-qualification-criteria.js"></script>
 </body>
 </html>

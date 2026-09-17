@@ -32,27 +32,6 @@
   margin-top: 2px;
 }
 
-.step1-ai-section-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 32px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-green-300);
-  background: var(--color-green-50);
-  color: var(--color-green-700);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.step1-ai-section-btn:hover {
-  background: var(--color-green-100);
-}
-
 /* ---- Field groups ---- */
 
 .step1-field-row {
@@ -191,50 +170,6 @@
   text-align: right;
 }
 
-.step1-input-with-ai {
-  position: relative;
-}
-
-.step1-input-with-ai .step1-input {
-  padding-right: 40px;
-}
-
-.step1-input-with-ai[dir-rtl-icon] .step1-input {
-  padding-right: var(--space-3);
-  padding-left: 40px;
-}
-
-.step1-ai-icon-btn {
-  position: absolute;
-  right: var(--space-2);
-  top: 50%;
-  transform: translateY(-50%);
-  width: 26px;
-  height: 26px;
-  border: none;
-  background: transparent;
-  color: var(--color-green-600);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.step1-ai-icon-btn.left {
-  right: auto;
-  left: var(--space-2);
-}
-
-.step1-ai-icon-btn:hover:not(:disabled) {
-  background: var(--color-green-50);
-}
-
-.step1-ai-icon-btn:disabled {
-  color: var(--text-tertiary);
-  cursor: not-allowed;
-}
-
 /* ---- Textarea ---- */
 
 .step1-textarea-wrap {
@@ -292,17 +227,29 @@
   margin-top: var(--space-1);
 }
 
-/* ---- AI-suggested field state ---- */
+/* ---- Field hint text (e.g. Concurrence Required Departments) ---- */
 
-.step1-ai-suggested-box {
+.step1-field-hint {
   margin-top: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* ---- AI-recommended departments banner ---- */
+
+.dept-ai-banner:empty {
+  margin: 0;
+}
+
+.dept-ai-banner-inner {
+  margin-top: var(--space-3);
   padding: var(--space-3);
   border: 1px dashed var(--color-green-400);
   background: var(--color-green-50);
   border-radius: var(--radius-md);
 }
 
-.step1-ai-suggested-label {
+.dept-ai-banner-label {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -312,95 +259,62 @@
   margin-bottom: var(--space-2);
 }
 
-.step1-ai-suggested-text {
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  white-space: pre-wrap;
+.dept-ai-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
 
-.step1-ai-suggested-actions {
-  display: flex;
-  gap: var(--space-2);
+.dept-ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-card);
+  border: 1px solid var(--color-green-300);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 4px 6px 4px 10px;
+  border-radius: var(--radius-full);
 }
 
-.step1-ai-action-btn {
+.dept-ai-chip-add,
+.dept-ai-chip-dismiss {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 10px;
+}
+
+.dept-ai-chip-add { color: var(--color-success-600); }
+.dept-ai-chip-add:hover { background: var(--color-green-100); }
+.dept-ai-chip-dismiss { color: var(--text-tertiary); }
+.dept-ai-chip-dismiss:hover { background: var(--surface-hover); color: var(--text-primary); }
+
+.dept-ai-add-all-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   height: 28px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-green-500);
   background: var(--surface-card);
+  color: var(--color-green-700);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-}
-
-.step1-ai-action-btn.accept { border-color: var(--color-success-500); color: var(--color-success-600); }
-.step1-ai-action-btn.reject { border-color: var(--color-error-500); color: var(--color-error-600); }
-.step1-ai-action-btn.edit { color: var(--text-secondary); }
-.step1-ai-action-btn:hover { background: var(--surface-hover); }
-
-/* ---- Checkbox cards (Section 3) ---- */
-
-.checkbox-card {
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
-}
-
-.checkbox-card:last-child {
-  margin-bottom: 0;
-}
-
-.checkbox-card-header {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  cursor: pointer;
-}
-
-.checkbox-card-checkbox {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  border: 1.5px solid var(--border-strong);
-  flex-shrink: 0;
-  margin-top: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-neutral-0);
-}
-
-.checkbox-card.checked .checkbox-card-checkbox {
-  background: var(--color-green-600);
-  border-color: var(--color-green-600);
-}
-
-.checkbox-card-title {
-  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
+  cursor: pointer;
 }
 
-.checkbox-card-desc {
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-
-.checkbox-card-reveal {
-  margin-top: var(--space-4);
-  padding-left: 30px;
-  display: none;
-}
-
-.checkbox-card.checked .checkbox-card-reveal {
-  display: block;
+.dept-ai-add-all-btn:hover {
+  background: var(--color-green-50);
 }
 
 /* ---- Section 4: timeline ---- */
