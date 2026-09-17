@@ -1,7 +1,9 @@
 /*
   Step 3 - Scope of Work controller.
-  Depends on: data-store.js, dialog.js, toast.js, wizard-shell.js (loaded
-  before this file).
+  Depends on: data-store.js, dialog.js, toast.js, ai-generate.js (for the
+  shared showAiRibbon/showAiUndoButton ribbon+Undo helpers, reused after
+  the section-level review modal below applies), wizard-shell.js (all
+  loaded before this file).
 */
 
 const SOW_CARDS = [
@@ -139,10 +141,12 @@ function renderSowPage() {
         <div class="sow-header-title">Scope of Work</div>
         <div class="sow-header-desc">Define the project scope, deliverables, locations, standards, timelines, and other requirements for this procurement.</div>
       </div>
-      <button type="button" class="sow-ai-section-btn" id="sow-section-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+      <div class="aig-toolbar-row">
+        <button type="button" class="sow-ai-section-btn" id="sow-section-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+        <button type="button" class="aig-undo-btn" id="undo-sow-section"></button>
+        <div class="aig-ribbon" id="ribbon-sow-section"></div>
+      </div>
     </div>
-    <div class="aig-ribbon" id="ribbon-sow-section"></div>
-    <button type="button" class="aig-undo-btn" id="undo-sow-section"></button>
 
     <div class="sow-cards-stack">
       ${SOW_CARDS.map((card) => `
@@ -153,12 +157,14 @@ function renderSowPage() {
             <div class="sow-field">
               <div class="sow-field-toolbar">
                 <span class="sow-field-label">${field.label}</span>
-                <button type="button" class="sow-field-ai-btn" data-field-ai="${field.key}"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+                <div class="aig-toolbar-row">
+                  <button type="button" class="sow-field-ai-btn" data-field-ai="${field.key}"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+                  <button type="button" class="aig-undo-btn" id="undo-sow-${field.key}"></button>
+                  <div class="aig-ribbon" id="ribbon-sow-${field.key}"></div>
+                </div>
               </div>
               <textarea class="sow-textarea" id="sow-f-${field.key}" data-field-key="${field.key}" placeholder="${field.placeholder}" maxlength="2000">${sow.formData[field.key] || ''}</textarea>
               <div class="sow-char-count" id="sow-count-${field.key}">${(sow.formData[field.key] || '').length} / 2000</div>
-              <div class="aig-ribbon" id="ribbon-sow-${field.key}"></div>
-              <button type="button" class="aig-undo-btn" id="undo-sow-${field.key}"></button>
             </div>
           `).join('')}
         </div>
@@ -193,20 +199,163 @@ function runFieldAi(field) {
   });
 }
 
-/* ---- Section-level AI: same pattern across all 13 fields at once ---- */
-
+/*
+  Section-level AI: unlike every other page's section-level "Generate with
+  AI" (a single confirm -> silently fill -> ribbon), Scope of Work shows a
+  per-field review modal instead — each suggested field can be individually
+  Approved, Edited, or Rejected, plus bulk Approve all/Reject all, before
+  anything is written to the actual textareas. Only currently-empty fields
+  are ever suggested (never overwrites a user-entered value). Applying
+  still ends in the same shared success ribbon + outlined Undo button used
+  everywhere else, for consistency with the rest of the app.
+*/
 function runSectionAi() {
-  runSectionAiGenerate({
-    ribbonMountId: 'ribbon-sow-section',
-    undoMountId: 'undo-sow-section',
-    fieldDefs: ALL_SOW_FIELDS.map((field) => ({
-      key: field.key,
-      isApplicable: () => true,
-      isEmpty: () => !sow.formData[field.key] || !sow.formData[field.key].trim(),
-      generate: () => SOW_GENERATORS[field.key](),
-      apply: (text) => commitSowField(field, text),
-    })),
+  const eligibleFields = ALL_SOW_FIELDS.filter((f) => !sow.formData[f.key] || !sow.formData[f.key].trim());
+
+  if (eligibleFields.length === 0) {
+    showAiRibbon('ribbon-sow-section', 'Nothing to update — this section is already filled in.', false);
+    return;
+  }
+
+  const items = eligibleFields.map((field) => ({
+    key: field.key,
+    label: field.label,
+    cardTitle: SOW_CARDS.find((c) => c.fields.includes(field)).title,
+    text: SOW_GENERATORS[field.key](),
+    status: 'approved', // 'approved' | 'rejected'
+    editing: false,
+  }));
+
+  openSowReviewDialog(items);
+}
+
+function escapeHtmlSow(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
+function openSowReviewDialog(items) {
+  openDialog({
+    title: 'Generate with AI — Review Suggestions',
+    size: 'large',
+    bodyHtml: buildSowReviewHtml(items),
   });
+  wireSowReviewDialog(items);
+}
+
+function buildSowReviewHtml(items) {
+  const approvedCount = items.filter((i) => i.status === 'approved').length;
+  return `
+    <p class="sow-review-subtext">Review each suggested field below, then approve, edit, or reject it before applying.</p>
+    <div class="sow-review-toolbar">
+      <span class="sow-review-count" id="sow-review-count">${approvedCount} of ${items.length} approved</span>
+      <div class="sow-review-bulk-actions">
+        <button type="button" class="sow-review-bulk-btn" id="sow-review-approve-all">Approve all</button>
+        <button type="button" class="sow-review-bulk-btn" id="sow-review-reject-all">Reject all</button>
+      </div>
+    </div>
+    <div class="sow-review-groups" id="sow-review-groups">${buildSowReviewGroupsHtml(items)}</div>
+    <div class="sow-modal-footer">
+      <button type="button" class="sow-btn-cancel" id="sow-review-cancel">Cancel</button>
+      <button type="button" class="sow-btn-primary" id="sow-review-apply" ${approvedCount === 0 ? 'disabled' : ''}>Apply approved (<span id="sow-review-apply-count">${approvedCount}</span>)</button>
+    </div>
+  `;
+}
+
+function buildSowReviewGroupsHtml(items) {
+  const groups = SOW_CARDS
+    .map((card) => ({ title: card.title, items: items.filter((i) => i.cardTitle === card.title) }))
+    .filter((g) => g.items.length > 0);
+
+  return groups.map((g) => `
+    <div class="sow-review-group">
+      <div class="sow-review-group-title">${escapeHtmlSow(g.title)}</div>
+      ${g.items.map((item) => buildSowReviewItemHtml(item)).join('')}
+    </div>
+  `).join('');
+}
+
+function buildSowReviewItemHtml(item) {
+  return `
+    <div class="sow-review-item status-${item.status}" data-key="${item.key}">
+      <div class="sow-review-item-header">
+        <span class="sow-review-item-label">${escapeHtmlSow(item.label)}</span>
+        <div class="sow-review-item-actions">
+          <button type="button" class="sow-review-item-btn approve${item.status === 'approved' && !item.editing ? ' active' : ''}" data-act="approve" data-key="${item.key}"><i class="fa-solid fa-check"></i> Approve</button>
+          <button type="button" class="sow-review-item-btn edit${item.editing ? ' active' : ''}" data-act="edit" data-key="${item.key}"><i class="fa-solid fa-pen"></i> Edit</button>
+          <button type="button" class="sow-review-item-btn reject${item.status === 'rejected' ? ' active' : ''}" data-act="reject" data-key="${item.key}"><i class="fa-solid fa-xmark"></i> Reject</button>
+        </div>
+      </div>
+      ${item.editing
+        ? `<textarea class="sow-review-edit-textarea" data-edit-key="${item.key}">${escapeHtmlSow(item.text)}</textarea>`
+        : `<div class="sow-review-item-text">${escapeHtmlSow(item.text)}</div>`
+      }
+    </div>
+  `;
+}
+
+function wireSowReviewDialog(items) {
+  const findItem = (key) => items.find((i) => i.key === key);
+
+  function wireEditTextareas() {
+    document.querySelectorAll('[data-edit-key]').forEach((ta) => {
+      ta.addEventListener('input', (e) => {
+        const item = findItem(ta.dataset.editKey);
+        if (item) item.text = e.target.value;
+      });
+    });
+  }
+
+  function rerender() {
+    document.getElementById('sow-review-groups').innerHTML = buildSowReviewGroupsHtml(items);
+    const approvedCount = items.filter((i) => i.status === 'approved').length;
+    document.getElementById('sow-review-count').textContent = `${approvedCount} of ${items.length} approved`;
+    document.getElementById('sow-review-apply-count').textContent = approvedCount;
+    document.getElementById('sow-review-apply').disabled = approvedCount === 0;
+    wireEditTextareas();
+  }
+
+  document.getElementById('sow-review-groups').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const item = findItem(btn.dataset.key);
+    if (!item) return;
+    if (btn.dataset.act === 'approve') { item.status = 'approved'; item.editing = false; }
+    else if (btn.dataset.act === 'reject') { item.status = 'rejected'; item.editing = false; }
+    else if (btn.dataset.act === 'edit') {
+      item.editing = !item.editing;
+      if (item.editing) item.status = 'approved';
+    }
+    rerender();
+  });
+
+  document.getElementById('sow-review-approve-all').addEventListener('click', () => {
+    items.forEach((i) => { i.status = 'approved'; i.editing = false; });
+    rerender();
+  });
+  document.getElementById('sow-review-reject-all').addEventListener('click', () => {
+    items.forEach((i) => { i.status = 'rejected'; i.editing = false; });
+    rerender();
+  });
+
+  document.getElementById('sow-review-cancel').addEventListener('click', closeDialog);
+
+  document.getElementById('sow-review-apply').addEventListener('click', () => {
+    const approved = items.filter((i) => i.status === 'approved');
+    if (approved.length === 0) return;
+    approved.forEach((i) => commitSowField(ALL_SOW_FIELDS.find((f) => f.key === i.key), i.text));
+    closeDialog();
+    showAiRibbon('ribbon-sow-section', 'Data updated successfully', true);
+    showAiUndoButton('undo-sow-section', () => {
+      approved.forEach((i) => commitSowField(ALL_SOW_FIELDS.find((f) => f.key === i.key), ''));
+      hideAiRibbon('ribbon-sow-section');
+      hideAiUndoButton('undo-sow-section');
+    });
+    showToast(`${approved.length} field${approved.length > 1 ? 's' : ''} updated from AI suggestions.`);
+  });
+
+  wireEditTextareas();
 }
 
 function commitSowField(field, text) {

@@ -9,8 +9,8 @@
   let the step's own script update footer state afterward (autosave ticks,
   validation changes).
   Depends on: data-store.js (WIZARD_STEPS/WizardStore), stepper.js,
-  copilot-drawer.js, dialog.js, and pages/ai-assistant.js (for
-  openAiAssistantModal(), behind "Try a new experience").
+  copilot-drawer.js, dialog.js. "Try a new experience" navigates to the
+  standalone pages/ai-assistant.html.
 */
 
 function wizardNextStep(currentStepId) {
@@ -99,10 +99,10 @@ function renderWizardShell({ mountId, currentStepId, onSaveDraft, onContinue, fo
 
   document.getElementById('wizard-copilot-btn').addEventListener('click', openCopilotDrawer);
   document.getElementById('wizard-new-experience-btn').addEventListener('click', () => {
-    // Opens the scripted Procurement AI Assistant inline (see
-    // pages/ai-assistant.js: openAiAssistantModal()) rather than
-    // navigating to the standalone page.
-    openAiAssistantModal();
+    // Navigates to the standalone Procurement AI Assistant page (see
+    // pages/ai-assistant.html/.js) — reverted from the earlier in-modal
+    // version per explicit follow-up request.
+    window.location.href = 'ai-assistant.html';
   });
 
   document.getElementById('wizard-save-draft-btn').addEventListener('click', () => {

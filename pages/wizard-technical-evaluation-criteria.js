@@ -142,12 +142,14 @@ function renderTecPage() {
       </div>
       <div class="tec-header-right">
         <span class="tec-total-badge state-${tecOverallState()}" id="tec-total-badge">${tecOverallLabel()}</span>
-        <button type="button" class="tec-ai-btn" id="tec-generate-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+        <div class="aig-toolbar-row">
+          <button type="button" class="tec-ai-btn" id="tec-generate-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+          <button type="button" class="aig-undo-btn" id="undo-tec-section"></button>
+          <div class="aig-ribbon" id="ribbon-tec-section"></div>
+        </div>
         <button type="button" class="tec-btn-primary" id="tec-add-segment-btn"><i class="fa-solid fa-plus"></i> Add Criterion</button>
       </div>
     </div>
-    <div class="aig-ribbon" id="ribbon-tec-section"></div>
-    <button type="button" class="aig-undo-btn" id="undo-tec-section"></button>
 
     <div class="tec-passing-card">
       <div>
@@ -231,9 +233,9 @@ function buildSegmentCardHtml(seg) {
         rowKey: (r) => r.id,
         emptyText: 'No criteria in this segment.',
       })}
-      <button type="button" class="tec-add-criterion-link" data-add-crit="${seg.id}"><i class="fa-solid fa-plus"></i> Add criterion</button>
-      <div class="row-actions" style="margin-top: var(--space-2);">
-        <button class="row-action row-action-delete" data-delete-segment="${seg.id}" title="Delete segment"><i class="fa-solid fa-trash"></i> Delete segment</button>
+      <div class="tec-segment-footer-row">
+        <button type="button" class="tec-add-criterion-link" data-add-crit="${seg.id}"><i class="fa-solid fa-plus"></i> Add criterion</button>
+        <button type="button" class="tec-delete-segment-btn" data-delete-segment="${seg.id}" title="Delete segment"><i class="fa-solid fa-trash"></i> Delete segment</button>
       </div>
     </div>
   `;

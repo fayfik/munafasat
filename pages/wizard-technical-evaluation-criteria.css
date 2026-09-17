@@ -199,7 +199,6 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-3);
   border: none;
   background: transparent;
   color: var(--color-green-700);
@@ -207,8 +206,38 @@
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   padding: var(--space-2);
+  white-space: nowrap;
 }
 .tec-add-criterion-link:hover { text-decoration: underline; }
+
+.tec-segment-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.tec-delete-segment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--color-error-500);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.tec-delete-segment-btn:hover {
+  background: var(--color-error-50);
+  color: var(--color-error-600);
+}
 
 .tec-empty-state {
   display: flex;

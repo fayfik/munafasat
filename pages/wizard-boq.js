@@ -76,6 +76,7 @@ const boq = {
   undoSnapshot: null, // JSON snapshot of `items` before the last bulk action (AI/import/clear); null = nothing to undo
   pendingImportFile: null,
   budgetedSelects: {},
+  columnWidths: {}, // { [columnIndex]: px } — ephemeral per-session, not persisted to WizardStore
 };
 
 /* ---- Persistence ---- */
@@ -174,16 +175,17 @@ function renderBoqPage() {
             <div class="boq-dropdown-item" id="boq-menu-similar-rfps">Import BOQ from similar RFPs</div>
             <div class="boq-dropdown-item" id="boq-menu-change-view">Change view</div>
             <div class="boq-dropdown-item danger" id="boq-menu-clear-table">Clear table</div>
-          </div>
-        </div>
-        <div class="boq-dropdown" id="boq-download-dropdown">
-          <button type="button" class="boq-btn-outline" id="boq-download-btn"><i class="fa-solid fa-download"></i> Download <i class="fa-solid fa-chevron-down"></i></button>
-          <div class="boq-dropdown-menu" id="boq-download-menu">
-            <div class="boq-dropdown-item" id="boq-dl-etimad">Material - Etimad templates prefilled</div>
-            <!-- Only the Etimad option above is confirmed by the source doc;
-                 the two below are plausible additions, flagged as placeholders. -->
-            <div class="boq-dropdown-item" id="boq-dl-blank">Standard BOQ Template (blank)</div>
-            <div class="boq-dropdown-item" id="boq-dl-summary">BOQ Summary Report</div>
+            <div class="boq-dropdown-divider"></div>
+            <div class="boq-dropdown-item boq-dropdown-submenu-trigger" id="boq-menu-download-toggle">
+              <span>Download</span> <i class="fa-solid fa-chevron-right"></i>
+            </div>
+            <div class="boq-dropdown-submenu" id="boq-download-submenu">
+              <div class="boq-dropdown-item" id="boq-dl-etimad">Material - Etimad templates prefilled</div>
+              <!-- Only the Etimad option above is confirmed by the source doc;
+                   the two below are plausible additions, flagged as placeholders. -->
+              <div class="boq-dropdown-item" id="boq-dl-blank">Standard BOQ Template (blank)</div>
+              <div class="boq-dropdown-item" id="boq-dl-summary">BOQ Summary Report</div>
+            </div>
           </div>
         </div>
       </div>
@@ -196,7 +198,11 @@ function renderBoqPage() {
   document.getElementById('boq-undo-btn').addEventListener('click', handleUndoClick);
 
   setupDropdown('boq-viewmore-dropdown', 'boq-viewmore-btn', 'boq-viewmore-menu');
-  setupDropdown('boq-download-dropdown', 'boq-download-btn', 'boq-download-menu');
+
+  document.getElementById('boq-menu-download-toggle').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('boq-download-submenu').classList.toggle('open');
+  });
 
   document.getElementById('boq-menu-similar-rfps').addEventListener('click', () => { closeAllBoqMenus(); openSimilarRfpsModal(); });
   document.getElementById('boq-menu-change-view').addEventListener('click', () => { closeAllBoqMenus(); toggleChangeView(); });
@@ -210,12 +216,14 @@ function renderBoqPage() {
 
 function closeAllBoqMenus() {
   document.querySelectorAll('.boq-dropdown-menu.open').forEach((m) => m.classList.remove('open'));
+  document.getElementById('boq-download-submenu')?.classList.remove('open');
 }
 
 function toggleChangeView() {
   // "Change view" has no further detail in the source spec — implemented
   // as a full/compact column toggle as a plausible placeholder behavior.
   boq.viewMode = boq.viewMode === 'compact' ? 'full' : 'compact';
+  boq.columnWidths = {}; // column set changes between views, so indices no longer line up
   renderSectionCard();
   showToast(`Switched to ${boq.viewMode === 'compact' ? 'compact' : 'full'} view.`);
 }
@@ -235,6 +243,9 @@ function renderSectionCard() {
       rows: boq.items,
       rowKey: (r) => r.id,
       emptyText: 'No items yet.',
+      resizable: true,
+      tableId: 'boq-items-table',
+      columnWidths: boq.columnWidths,
     })}
     ${boq.items.length > 0 ? `<button type="button" class="boq-add-row-btn" id="boq-add-row-btn"><i class="fa-solid fa-plus"></i> Add New Item</button>` : ''}
     ${boq.items.length > 0 ? `
@@ -251,6 +262,7 @@ function renderSectionCard() {
   wireTableCellEvents();
   wireBudgetedItemSelects();
   wireImportCards();
+  enableColumnResize('boq-items-table', boq.columnWidths);
 }
 
 function boqAnyBrandName() {
@@ -370,8 +382,10 @@ function wireTableCellEvents() {
     if (toggleBtn) {
       const item = boq.items.find((it) => it.id === toggleBtn.dataset.toggleBrand);
       if (item) {
+        const hadBrandColumn = boqAnyBrandName();
         item.hasBrandName = !item.hasBrandName;
         if (!item.hasBrandName) item.brandJustification = '';
+        if (hadBrandColumn !== boqAnyBrandName()) boq.columnWidths = {}; // column set is shifting, indices no longer line up
         persistBoq();
         renderSectionCard(); // structural: Brand Justification column visibility may change
       }
@@ -704,7 +718,7 @@ function mockBoqItemsForRfp(rfp) {
 }
 
 function openSimilarRfpsModal() {
-  openDialog({ title: 'Import BOQ from Similar RFPs', size: 'large', bodyHtml: buildSimilarRfpsHtml() });
+  openDialog({ title: 'Import BOQ from Similar RFPs', size: 'xl', bodyHtml: buildSimilarRfpsHtml() });
   wireSimilarRfpsModal();
 }
 
@@ -934,12 +948,21 @@ function handleContinue() {
   if (boq.items.length === 0) return;
   WizardStore.setStepStatus('boq', 'completed');
   const next = wizardNextStep('boq');
-  WizardStore.setStepStatus(next ? next.id : 'scope-of-work', 'current');
-  // On the Souq Etimad path (see Step 1) BOQ is the final visible step —
-  // wizardNextStep() returns null there, so fall through to the standalone
-  // scope-of-work page (still safe to visit directly; it's just not on the
-  // rail). Non-Souq-Etimad path behaves exactly as before.
-  window.location.href = next ? next.href : 'wizard-scope-of-work.html';
+
+  if (!next) {
+    // Souq Etimad path (see Step 1): BOQ is the final visible step, so
+    // there's nowhere further in the wizard to go — Scope of Work/Payments/
+    // etc. stay hidden and must never be reached from here. There's no real
+    // submission backend in this prototype, so this is a placeholder
+    // "finish" action (same pending-wording note as the footer button
+    // itself) rather than a real submit.
+    showToast('Souq Etimad request submitted successfully.');
+    window.location.href = 'my-requests.html';
+    return;
+  }
+
+  WizardStore.setStepStatus(next.id, 'current');
+  window.location.href = next.href;
 }
 
 /* ---- Init ---- */

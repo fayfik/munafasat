@@ -27,25 +27,6 @@
   flex-shrink: 0;
 }
 
-.dashboard-cta-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 38px;
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-md);
-  border: none;
-  background: var(--color-green-600);
-  color: var(--color-neutral-0);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-}
-
-.dashboard-cta-btn:hover {
-  background: var(--color-green-700);
-}
-
 .dashboard-cta-menu {
   position: absolute;
   top: calc(100% + var(--space-2));

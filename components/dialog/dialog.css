@@ -31,10 +31,16 @@
   max-width: 1100px;
 }
 
+.dialog-panel.size-xl {
+  max-width: 92vw;
+  width: 92vw;
+}
+
 .dialog-panel.size-large .dialog-body {
   padding: var(--space-4);
   overflow-y: hidden;
   display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 

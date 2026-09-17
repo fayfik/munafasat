@@ -73,6 +73,10 @@ async function renderHeader() {
 
   setupDropdown('create-dropdown', 'create-btn', 'create-menu');
   setupDropdown('user-dropdown', 'user-btn', 'user-menu');
+
+  document.querySelector('#create-menu [data-action="create-request"]').addEventListener('click', () => {
+    window.location.href = 'create-request.html';
+  });
 }
 
 function setupDropdown(containerId, triggerId, menuId) {

@@ -1,13 +1,23 @@
 /*
   Shared "Generate with AI" confirm -> apply -> success ribbon -> Undo
   pattern, used by every AI touchpoint across the wizard steps.
+
+  `.aig-toolbar-row` wraps the trigger button together with its `.aig-ribbon`
+  and `.aig-undo-btn` so Undo renders inline right next to the button that
+  triggered it, instead of stacked on its own line below.
 */
+
+.aig-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
 
 .aig-ribbon {
   display: none;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -42,7 +52,6 @@
   gap: var(--space-2);
   height: 32px;
   padding: 0 var(--space-3);
-  margin-top: var(--space-2);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-strong);
   background: var(--surface-card);
@@ -50,6 +59,8 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .aig-undo-btn.show {

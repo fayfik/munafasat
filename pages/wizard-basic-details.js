@@ -307,12 +307,14 @@ function renderStep1() {
         <div class="step1-field">
           <label class="step1-field-label">Business Justification <span class="step1-required">*</span></label>
           <div class="step1-textarea-toolbar">
-            <button type="button" class="step1-generate-ai-btn" id="ai-gen-justification"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+            <div class="aig-toolbar-row">
+              <button type="button" class="step1-generate-ai-btn" id="ai-gen-justification"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+              <button type="button" class="aig-undo-btn" id="undo-businessJustification"></button>
+              <div class="aig-ribbon" id="ribbon-businessJustification"></div>
+            </div>
           </div>
           <textarea class="step1-textarea" id="field-business-justification" placeholder="Kindly provide justification for the RFP." maxlength="1200">${f.businessJustification || ''}</textarea>
           <div class="step1-char-count" id="count-businessJustification">${(f.businessJustification || '').length} / 1200</div>
-          <div class="aig-ribbon" id="ribbon-businessJustification"></div>
-          <button type="button" class="aig-undo-btn" id="undo-businessJustification"></button>
           <div class="step1-field-error" id="err-businessJustification"></div>
         </div>
       </div>
@@ -540,7 +542,7 @@ function renderCostCentreSelect() {
     patchForm({ costCentreId: null });
   }
 
-  const optionDefs = options.map((o) => ({ value: o.id, label: o.name }));
+  const optionDefs = options.map((o) => ({ value: o.id, label: o.code ? `${o.code} — ${o.name}` : o.name }));
   if (step1.selects.costCentre) {
     step1.selects.costCentre.setOptions(optionDefs);
     step1.selects.costCentre.setSelected(current || null);
@@ -665,21 +667,17 @@ function onProjectChange(projectId) {
     budgetedItemIds: [],
     costCentreId: null,
   };
-  // Auto-populate Concurrence Required Department(s) from the project, but
-  // only if the user hasn't already customized the field (don't clobber
-  // their edits).
-  if (project && (!step1.formData.concurrenceDepartments || step1.formData.concurrenceDepartments.length === 0)) {
-    patch.concurrenceDepartments = [...project.suggestedCategories];
-  }
+  // Concurrence Required Department(s) is no longer silently pre-filled
+  // here — it's now populated entirely through the AI-recommendation
+  // banner ("Add all" / per-chip Add), so the banner reliably has
+  // something to show as soon as a project is selected instead of only
+  // surfacing item-driven extras the auto-fill hadn't already absorbed.
   step1.dismissedDepartmentRecommendations = new Set();
   step1.formData = { ...step1.formData, ...patch };
   WizardStore.updateFormData(patch);
   scheduleSave();
 
   document.getElementById('field-department').value = patch.department;
-  if (step1.selects.concurrenceDepartments && patch.concurrenceDepartments) {
-    step1.selects.concurrenceDepartments.setSelected(patch.concurrenceDepartments);
-  }
   renderBudgetedItemsSelect();
   renderCostCentreSelect();
   refreshAutoFetchedFields();

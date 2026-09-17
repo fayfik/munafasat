@@ -80,7 +80,9 @@ function openDialog({ title, bodyHtml, size }) {
   dialogLastFocused = document.activeElement;
   document.getElementById('dialog-title').textContent = title || '';
   document.getElementById('dialog-body').innerHTML = bodyHtml || '';
-  document.querySelector('#dialog-root .dialog-panel').classList.toggle('size-large', size === 'large');
+  const panel = document.querySelector('#dialog-root .dialog-panel');
+  panel.classList.toggle('size-large', size === 'large' || size === 'xl');
+  panel.classList.toggle('size-xl', size === 'xl');
   root.classList.add('open');
 
   // Move focus inside the dialog so keyboard/screen-reader users land

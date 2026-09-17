@@ -228,15 +228,17 @@ async function renderAttachmentsPage() {
         <div class="att-field">
           <div class="att-field-toolbar">
             <label class="att-field-label" style="margin-bottom:0;">Other (not in list)</label>
-            <button type="button" class="att-ai-btn" id="att-tech-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+            <div class="aig-toolbar-row">
+              <button type="button" class="att-ai-btn" id="att-tech-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+              <button type="button" class="aig-undo-btn" id="undo-att-tech"></button>
+              <div class="aig-ribbon" id="ribbon-att-tech"></div>
+            </div>
           </div>
           <div class="att-other-row">
             <input type="text" class="att-input" id="att-tech-other-input" placeholder="Type document name and press Add">
             <button type="button" class="att-add-btn" id="att-tech-other-add"><i class="fa-solid fa-plus"></i> Add</button>
           </div>
           <div class="att-field-error" id="att-tech-other-error"></div>
-          <div class="aig-ribbon" id="ribbon-att-tech"></div>
-          <button type="button" class="aig-undo-btn" id="undo-att-tech"></button>
         </div>
 
         <div class="att-chip-row" id="att-tech-chips"></div>

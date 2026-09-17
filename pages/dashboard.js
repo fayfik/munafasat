@@ -16,19 +16,7 @@ function renderGreeting() {
       <h1 class="dashboard-greeting-title">Good morning, ${firstName} 👋</h1>
       <p class="dashboard-greeting-sub">Here's what's happening with your procurement items today.</p>
     </div>
-    <div class="dashboard-cta-wrap" id="dashboard-cta-wrap">
-      <button class="dashboard-cta-btn" id="dashboard-cta-btn">
-        <i class="fa-solid fa-plus"></i>
-        <span>New RFP / Request</span>
-      </button>
-      <div class="dashboard-cta-menu" id="dashboard-cta-menu">
-        <div class="dashboard-cta-menu-item"><i class="fa-solid fa-file-circle-plus"></i><span>New RFP</span></div>
-        <div class="dashboard-cta-menu-item"><i class="fa-solid fa-cart-plus"></i><span>New Purchase Request</span></div>
-      </div>
-    </div>
   `;
-
-  setupDropdownLike('dashboard-cta-wrap', 'dashboard-cta-btn', 'dashboard-cta-menu');
 }
 
 const RECENT_TABLE_COLUMNS = [

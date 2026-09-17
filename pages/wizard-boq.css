@@ -218,26 +218,37 @@
 
 /* ---- Totals ---- */
 
+/* Grid (not flex) so every row's label/value share the same two columns —
+   `display: contents` on each row makes its two <span>s direct grid items,
+   which is what keeps every value right-edge-aligned and every row's
+   content on one line regardless of label length (e.g. "Grand Total (incl.
+   VAT)" is longer than "Subtotal"). */
 .boq-totals {
   margin-top: var(--space-4);
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-default);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-1);
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: end;
+  column-gap: var(--space-6);
+  row-gap: var(--space-1);
 }
 
 .boq-totals-row {
-  display: flex;
-  gap: var(--space-6);
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  width: 260px;
-  justify-content: space-between;
+  display: contents;
 }
 
-.boq-totals-row.grand {
+.boq-totals-row span {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.boq-totals-row span:last-child {
+  text-align: right;
+}
+
+.boq-totals-row.grand span {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
@@ -766,6 +777,36 @@
   color: var(--color-error-600);
 }
 
+.boq-dropdown-divider {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--border-default);
+}
+
+.boq-dropdown-submenu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.boq-dropdown-submenu-trigger i {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.boq-dropdown-submenu {
+  display: none;
+  flex-direction: column;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border-default);
+  margin: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+}
+
+.boq-dropdown-submenu.open {
+  display: flex;
+}
+
 /* ---- Import Data modal (2-pane: green hero + 2-step stepper) ---- */
 
 .boq-import-data-layout {
@@ -877,16 +918,16 @@
 
 .boq-similar-modal {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: var(--space-4);
-  min-height: 360px;
+  min-height: 55vh;
 }
 
 .boq-similar-list {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   overflow-y: auto;
-  max-height: 420px;
+  max-height: 65vh;
 }
 
 .boq-similar-list-item {

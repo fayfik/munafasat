@@ -106,9 +106,9 @@ function renderQcPage() {
       <button type="button" class="qc-ai-section-btn" id="qc-generate-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Qualification Criteria</button>
       <button type="button" class="qc-ai-section-btn" id="qc-review-weightage-btn"><i class="fa-solid fa-scale-balanced"></i> Review weightage</button>
       <button type="button" class="qc-ai-section-btn" id="qc-check-btn"><i class="fa-solid fa-circle-check"></i> Check qualification criteria</button>
+      <button type="button" class="aig-undo-btn" id="undo-qc-section"></button>
+      <div class="aig-ribbon" id="ribbon-qc-section"></div>
     </div>
-    <div class="aig-ribbon" id="ribbon-qc-section"></div>
-    <button type="button" class="aig-undo-btn" id="undo-qc-section"></button>
 
     <div class="qc-passing-card">
       <div>
