@@ -1,4 +1,4 @@
-/* Step 6 - Qualification Criteria */
+/* Step 5 - Qualification Criteria */
 
 .qc-header-card {
   background: var(--surface-card);
@@ -25,10 +25,42 @@
   margin-top: 2px;
 }
 
-.qc-header-right {
+.qc-header-card {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.qc-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.qc-header-total-badge {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+}
+
+.qc-header-total-badge.state-warning { background: var(--color-warning-100); color: var(--color-warning-700); }
+.qc-header-total-badge.state-success { background: var(--color-success-100); color: var(--color-success-700); }
+.qc-header-total-badge.state-error { background: var(--color-error-100); color: var(--color-error-700); }
+
+.qc-header-actions-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
 }
 
 /* Navy "+ Add Category" primary action — deliberately distinct from the
@@ -154,21 +186,6 @@
   color: var(--text-tertiary);
   white-space: nowrap;
 }
-
-.qc-insight-view-btn {
-  height: 36px;
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-green-500);
-  background: var(--surface-card);
-  color: var(--color-green-700);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.qc-insight-view-btn:hover { background: var(--color-green-50); }
 
 .qc-passing-card {
   background: var(--surface-card);
@@ -441,3 +458,156 @@
 }
 
 .qc-footer-back-btn:hover { color: var(--text-primary); }
+
+/* ---- AI review dialogs (Generate Qualification Criteria / Review weightage) ---- */
+
+.qc-review-subtext {
+  margin: 0 0 var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.qc-review-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.qc-review-count {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.qc-review-bulk-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.qc-review-bulk-btn {
+  height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.qc-review-bulk-btn:hover { background: var(--surface-hover); }
+
+.qc-review-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+
+.qc-review-group-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: var(--space-2);
+}
+
+.qc-review-item {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.qc-review-item:last-child { margin-bottom: 0; }
+
+.qc-review-item.status-approved {
+  border-color: var(--color-green-300);
+  background: var(--color-green-50);
+}
+
+.qc-review-item.status-rejected { opacity: 0.55; }
+
+.qc-review-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.qc-review-item-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.qc-review-item-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.qc-review-item-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.qc-review-item-btn:hover { background: var(--surface-hover); }
+
+.qc-review-item-btn.approve.active { border-color: var(--color-success-500); background: var(--color-success-50); color: var(--color-success-700); }
+.qc-review-item-btn.reject.active { border-color: var(--color-error-500); background: var(--color-error-50); color: var(--color-error-700); }
+.qc-review-item-btn.edit.active { border-color: var(--color-green-500); background: var(--color-green-50); color: var(--color-green-700); }
+
+.qc-review-item-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qc-review-edit-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.qc-review-edit-input {
+  flex: 1 1 140px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-green-400);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+}
+
+.qc-review-edit-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-green-50);
+}
+
+.qc-review-edit-pct {
+  flex: 0 0 70px;
+}
