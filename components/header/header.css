@@ -27,10 +27,24 @@
 }
 
 .app-header-logo {
-  height: 26px;
+  height: 24px;
   width: auto;
   /* PNG is full-color; whiten it for the green gradient header */
   filter: brightness(0) invert(1);
+  flex-shrink: 0;
+}
+
+.app-header-app-name {
+  color: var(--text-on-brand);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+}
+
+.app-header-title-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.3);
   flex-shrink: 0;
 }
 
@@ -41,8 +55,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-inline-start: var(--space-4);
-  border-inline-start: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .app-header-right {
@@ -233,6 +245,8 @@
     gap: var(--space-2);
   }
 
+  .app-header-app-name,
+  .app-header-title-divider,
   .app-header-title {
     display: none;
   }

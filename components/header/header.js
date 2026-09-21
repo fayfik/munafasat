@@ -44,7 +44,9 @@ async function renderHeader() {
   mount.innerHTML = `
     <header class="app-header">
       <div class="app-header-left">
-        <img class="app-header-logo" src="../assets/reference/Color=Full color, Size=Large, Type=Full logo.png" alt="SIDF">
+        <img class="app-header-logo" src="../assets/reference/Color=Full color, Size=Large, Type=Icon.png" alt="Munafasat">
+        <span class="app-header-app-name">Munafasat</span>
+        <span class="app-header-title-divider"></span>
         <span class="app-header-title">${pageTitle}</span>
       </div>
       <div class="app-header-right">

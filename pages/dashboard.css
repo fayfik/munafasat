@@ -84,9 +84,26 @@
   min-width: 0;
 }
 
+.dashboard-row-split {
+  display: flex;
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+.dashboard-row-split > .dashboard-section {
+  flex: 1;
+  min-width: 0;
+}
+
 @media (max-width: 960px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-row-split {
+    flex-direction: column;
   }
 }
 

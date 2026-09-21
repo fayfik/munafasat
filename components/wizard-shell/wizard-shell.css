@@ -116,6 +116,69 @@
   inset-inline-start: 50%;
 }
 
+/* Collapsed-only step tooltip: a pill that overlays the number/check
+   circle and grows to the right to reveal the step title, colored to
+   match that step's own status (not a generic dark tooltip bubble) —
+   hidden whenever the title/description are already visible (expanded). */
+.stepper-tooltip {
+  display: none;
+}
+
+.wizard-stepper-card.collapsed .stepper-tooltip {
+  display: flex;
+  align-items: center;
+  position: absolute;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  top: 0;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-neutral-200);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  opacity: 0;
+  max-width: 32px;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease, max-width 180ms ease;
+  z-index: var(--z-dropdown);
+}
+
+.wizard-stepper-card.collapsed .stepper-step.current .stepper-tooltip {
+  background: var(--color-green-600);
+  color: var(--color-neutral-0);
+}
+
+.wizard-stepper-card.collapsed .stepper-step.completed .stepper-tooltip {
+  background: var(--color-green-100);
+  color: var(--color-green-700);
+}
+
+.wizard-stepper-card.collapsed .stepper-step.error .stepper-tooltip {
+  background: var(--color-error-500);
+  color: var(--color-neutral-0);
+}
+
+.wizard-stepper-card.collapsed .stepper-step:hover .stepper-tooltip {
+  opacity: 1;
+  max-width: 260px;
+}
+
+.stepper-tooltip-indicator {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stepper-tooltip-label {
+  padding-inline-end: var(--space-3);
+}
+
 .wizard-content-card {
   background: var(--surface-card);
   border: 1px solid var(--border-default);

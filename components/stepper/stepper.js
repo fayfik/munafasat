@@ -20,12 +20,16 @@ function renderVerticalStepper({ containerId, steps, statuses, onStepClick = () 
         else if (status === 'error') indicatorContent = '<i class="fa-solid fa-exclamation"></i>';
 
         return `
-          <div class="stepper-step ${status}" data-step-id="${step.id}" title="${step.title}" ${isCompleted ? 'role="button" tabindex="0"' : ''}>
+          <div class="stepper-step ${status}" data-step-id="${step.id}" ${isCompleted ? 'role="button" tabindex="0"' : ''}>
             <span class="stepper-indicator">${indicatorContent}</span>
             <div class="stepper-content">
               <div class="stepper-title">${step.title}</div>
               <div class="stepper-description">${step.description}</div>
             </div>
+            <span class="stepper-tooltip">
+              <span class="stepper-tooltip-indicator">${indicatorContent}</span>
+              <span class="stepper-tooltip-label">${step.title}</span>
+            </span>
           </div>
         `;
       }).join('')}
