@@ -1,4 +1,4 @@
-/* Step 5 - Attachments (Certificates and Documents) */
+/* Step 8 - Supporting Documents (final step) */
 
 .att-header-row {
   margin-bottom: var(--space-4);
@@ -30,10 +30,24 @@
   padding: var(--space-4);
 }
 
+.att-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .att-card-title {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
+}
+
+.att-card-optional-tag {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  margin-inline-start: var(--space-2);
 }
 
 .att-card-desc {

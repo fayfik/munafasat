@@ -1,12 +1,17 @@
 /*
-  Step 8 - Supporting Documents controller.
+  Step 8 - Supporting Documents controller (final wizard step).
   Depends on: data-store.js, dialog.js, toast.js, file-upload.js,
   wizard-shell.js (all loaded before this file).
 
   Required Certificates and Technical Documents used to live here as two
   extra cards, but moved to Step 2 - Scope of Work (Card 6) — this step now
-  only holds the optional Supporting documents upload plus the wizard's
-  final completion state.
+  only holds the optional Supporting documents upload. The header title/
+  description below is a deliberate carryover from that old combined step
+  (per spec) even though this step now only contains Supporting Documents.
+
+  "Submit RFP" is the real, final submission action — there's no backend
+  to submit to in this prototype, so it simulates success with a toast and
+  an in-page confirmation screen rather than navigating anywhere broken.
 */
 
 let supportingDocsUpload = null;
@@ -26,14 +31,16 @@ async function renderAttachmentsPage() {
   const mount = document.getElementById('wizard-step-content');
   mount.innerHTML = `
     <div class="att-header-row">
-      <div class="att-header-title">Supporting Documents</div>
-      <div class="att-header-desc">Optionally attach any additional reference documents for this RFP.</div>
+      <div class="att-header-title">Certificates and Documents</div>
+      <div class="att-header-desc">Select the certificates and technical documents vendors must submit as part of this RFP.</div>
     </div>
 
     <div class="att-cards-stack">
       <div class="att-card">
-        <div class="att-card-title">Supporting documents <span style="font-weight:400; color:var(--text-tertiary);">(optional)</span></div>
-        <div class="att-card-desc">Attach TOR, quotations, and technical specification.</div>
+        <div class="att-card-title-row">
+          <div class="att-card-title">Supporting documents <span class="att-card-optional-tag">Optional · Last section</span></div>
+        </div>
+        <div class="att-card-desc">Here you can attach the additional or reference documents that will be submitted to Vendor.</div>
         <div id="att-supporting-docs-upload"></div>
       </div>
     </div>
@@ -48,15 +55,15 @@ async function renderAttachmentsPage() {
   });
 }
 
-/* ---- Completion state (this is now the wizard's final step) ---- */
+/* ---- Completion state (this is the wizard's final step) ---- */
 
 function renderAttCompletionState() {
   const mount = document.getElementById('wizard-step-content');
   mount.innerHTML = `
     <div class="att-completion-state">
       <div class="att-completion-icon"><i class="fa-solid fa-check"></i></div>
-      <div class="att-completion-title">RFP Creation Complete</div>
-      <div class="att-completion-desc">All 8 steps have been completed. Your request is ready for the next stage of the procurement workflow.</div>
+      <div class="att-completion-title">RFP Submitted Successfully</div>
+      <div class="att-completion-desc">Your request has been submitted and is ready for the next stage of the procurement workflow.</div>
       <button type="button" class="att-btn-primary" id="att-go-to-requests">Go to My Requests</button>
     </div>
   `;
@@ -72,14 +79,15 @@ function saveDraft() {
   showToast('Request saved as draft successfully.');
 }
 
-// Final step now (per the new 8-step order) — there's no next step to hand
-// off to, so this marks the whole wizard complete and swaps in an in-page
-// completion state instead of navigating anywhere.
+// Final step (per the new 8-step order) — "Submit RFP" is the real
+// submission action. There's no backend to submit to in this prototype,
+// so this simulates a successful submission (toast + in-page confirmation
+// screen) rather than navigating anywhere broken.
 function handleContinue() {
   WizardStore.setStepStatus('attachments', 'completed');
   attCompleted = true;
   renderAttCompletionState();
-  showToast('RFP created successfully.');
+  showToast('RFP submitted successfully.');
 }
 
 /* ---- Init ---- */
@@ -105,10 +113,9 @@ async function initAttachments() {
   });
 
   // Final step: the footer's default "Continue: <next step>" label doesn't
-  // apply (there's no next step) — use the placeholder CTA text pending
-  // exact copy from the source spec.
+  // apply (there's no next step) — this is the real, final submission CTA.
   const continueBtn = document.getElementById('wizard-continue-btn');
-  if (continueBtn) continueBtn.innerHTML = 'Complete RFP Creation <i class="fa-solid fa-arrow-right"></i>';
+  if (continueBtn) continueBtn.innerHTML = 'Submit RFP <i class="fa-solid fa-arrow-right"></i>';
 
   await renderAttachmentsPage();
   setWizardContinueEnabled(true); // neither field is mandatory
