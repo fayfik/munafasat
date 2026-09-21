@@ -1,15 +1,13 @@
 /*
-  Step 8 - Technical Evaluation Criteria controller (final wizard step).
-  Depends on: data-store.js, dialog.js, toast.js, table.js, wizard-shell.js
-  (all loaded before this file).
+  Step 7 - Technical Evaluation Criteria controller.
+  Depends on: data-store.js, dialog.js, toast.js, table.js, ai-generate.js
+  (for the shared showAiRibbon/showAiUndoButton ribbon+Undo helpers),
+  wizard-shell.js (all loaded before this file).
 
-  NOTE on the header's "0% total" badge: the source spec calls for a single
-  running-total badge (same 3-state treatment as Step 6) even though the
-  actual business rule is per-segment ("total weightage per segment must
-  equal 100%"). With one segment the badge shows that segment's own total,
-  same as Step 6; with multiple segments it shows how many segments are
-  complete instead of a single misleading percentage. Each segment card
-  also carries its own local total, which is what actually gates Continue.
+  Flat structure: a single table of criteria, no per-BOQ-item
+  segmentation, no "Applies To" column, no "Define new segment" — an
+  earlier build had that per-item segmentation and it's been cut from the
+  spec entirely, not just hidden.
 */
 
 function newTecId(prefix) {
@@ -23,83 +21,52 @@ function escapeHtmlTec(str) {
 }
 
 const tec = {
-  segments: [],
+  criteria: [],
   passingPercent: '',
-  boqItems: [],
-  collapsedSegments: new Set(),
+  rfpFd: {},
 };
 
 /* ---- Persistence ---- */
 
 function loadTecState() {
   const fd = WizardStore.getFormData();
-  tec.boqItems = fd.boqItems || [];
-  tec.segments = fd.technicalEvaluationSegments || seedTecSegments();
+  tec.rfpFd = fd;
+  tec.criteria = fd.technicalEvaluationCriteria || seedTecCriteria();
   tec.passingPercent = fd.technicalEvaluationPassingPercent ?? '';
 }
 
 function persistTec() {
   WizardStore.updateFormData({
-    technicalEvaluationSegments: tec.segments,
+    technicalEvaluationCriteria: tec.criteria,
     technicalEvaluationPassingPercent: tec.passingPercent,
   });
   updateTecContinueState();
 }
 
-function seedTecSegments() {
-  const firstItemId = tec.boqItems[0]?.id || null;
+function seedTecCriteria() {
   return [
-    {
-      id: newTecId('tec-seg'), name: 'SAP S/4HANA Implementation',
-      appliesToAll: !firstItemId, appliesToItemIds: firstItemId ? [firstItemId] : [],
-      criteria: [
-        { id: newTecId('tec-crit'), description: 'Implementation methodology', howApplied: 'Scored 0-10 based on documented methodology maturity.', weightage: 40 },
-        { id: newTecId('tec-crit'), description: 'Solution architecture', howApplied: 'Scored 0-10 based on scalability and integration approach.', weightage: 30 },
-        { id: newTecId('tec-crit'), description: 'Data migration approach', howApplied: 'Scored 0-10 based on migration plan completeness.', weightage: 30 },
-      ],
-    },
-    {
-      id: newTecId('tec-seg'), name: 'SAP AMS',
-      appliesToAll: true, appliesToItemIds: [],
-      criteria: [
-        { id: newTecId('tec-crit'), description: 'Support methodology', howApplied: 'Scored 0-10 based on ticket triage and escalation process.', weightage: 50 },
-        { id: newTecId('tec-crit'), description: 'SLA coverage', howApplied: 'Scored 0-10 based on response/resolution SLA commitments.', weightage: 50 },
-      ],
-    },
+    { id: newTecId('tec-crit'), description: 'Solution & Implementation Approach', howApplied: 'Scored 0-10 based on documented methodology and depth of detail.', weightage: 25 },
+    { id: newTecId('tec-crit'), description: 'Relevant SAP S/4HANA Experience', howApplied: 'Scored 0-10 based on past project references and domain expertise.', weightage: 20 },
   ];
 }
 
 /* ---- Totals / validation ---- */
 
-function segTotal(seg) {
-  return Math.round(seg.criteria.reduce((s, c) => s + (Number(c.weightage) || 0), 0) * 100) / 100;
+function tecTotal() {
+  return Math.round(tec.criteria.reduce((s, c) => s + (Number(c.weightage) || 0), 0) * 100) / 100;
 }
 
-function segState(seg) {
-  const total = segTotal(seg);
+function tecTotalState() {
+  const total = tecTotal();
   if (total > 100) return 'error';
   if (total === 100) return 'success';
   return 'warning';
 }
 
-function segValid(seg) {
-  return seg.criteria.length > 0 && segTotal(seg) === 100
-    && seg.criteria.every((c) => c.description && c.description.trim() && c.howApplied && c.howApplied.trim() && c.weightage !== '' && c.weightage !== null);
-}
-
-function tecOverallState() {
-  if (tec.segments.length === 0) return 'warning';
-  const states = tec.segments.map(segState);
-  if (states.includes('error')) return 'error';
-  if (states.every((s) => s === 'success')) return 'success';
-  return 'warning';
-}
-
-function tecOverallLabel() {
-  if (tec.segments.length === 0) return '0% total';
-  if (tec.segments.length === 1) return `${segTotal(tec.segments[0])}% total`;
-  const complete = tec.segments.filter((s) => segState(s) === 'success').length;
-  return `${complete}/${tec.segments.length} segments at 100%`;
+function tecCriteriaValid() {
+  return tec.criteria.length > 0 && tec.criteria.every((c) =>
+    c.description && c.description.trim() && c.howApplied && c.howApplied.trim() && c.weightage !== '' && c.weightage !== null
+  );
 }
 
 function tecPassingValid() {
@@ -107,21 +74,11 @@ function tecPassingValid() {
 }
 
 function tecValid() {
-  return tec.segments.length > 0 && tec.segments.every(segValid) && tecPassingValid();
+  return tecCriteriaValid() && tecTotal() === 100 && tecPassingValid();
 }
 
 function updateTecContinueState() {
-  const btn = document.getElementById('wizard-continue-btn');
-  if (btn) btn.disabled = !tecValid();
-}
-
-/* ---- Applicability helpers ---- */
-
-function appliesToLabel(seg) {
-  if (seg.appliesToAll || tec.boqItems.length === 0) return 'All Items';
-  if (seg.appliesToItemIds.length === 0) return 'No items selected';
-  const names = seg.appliesToItemIds.map((id) => tec.boqItems.find((it) => it.id === id)?.name).filter(Boolean);
-  return names.join(', ') || 'No items selected';
+  setWizardContinueEnabled(tecValid());
 }
 
 /* ---- Rendering ---- */
@@ -136,13 +93,13 @@ function renderTecPage() {
         <div class="tec-header-sub">Define how technical submissions will be evaluated and weighted.</div>
       </div>
       <div class="tec-header-right">
-        <span class="tec-total-badge state-${tecOverallState()}" id="tec-total-badge">${tecOverallLabel()}</span>
+        <span class="tec-total-badge state-${tecTotalState()}" id="tec-total-badge">${tecTotal()}% total</span>
         <div class="aig-toolbar-row">
           <button type="button" class="tec-ai-btn" id="tec-generate-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
           <button type="button" class="aig-undo-btn" id="undo-tec-section"></button>
           <div class="aig-ribbon" id="ribbon-tec-section"></div>
         </div>
-        <button type="button" class="tec-btn-primary" id="tec-add-segment-btn"><i class="fa-solid fa-plus"></i> Add Criterion</button>
+        <button type="button" class="tec-btn-primary" id="tec-add-criterion-btn"><i class="fa-solid fa-plus"></i> Add Criterion</button>
       </div>
     </div>
 
@@ -157,10 +114,10 @@ function renderTecPage() {
       </div>
     </div>
 
-    <div id="tec-segments-mount"></div>
+    <div class="tec-section-card" id="tec-section-card"></div>
   `;
 
-  document.getElementById('tec-add-segment-btn').addEventListener('click', () => addSegment());
+  document.getElementById('tec-add-criterion-btn').addEventListener('click', addCriterion);
   document.getElementById('tec-generate-btn').addEventListener('click', runGenerateEvaluationCriteria);
 
   const passingInput = document.getElementById('tec-passing-input');
@@ -169,288 +126,296 @@ function renderTecPage() {
     persistTec();
   });
 
-  renderSegments();
+  renderTecTable();
 }
 
 function refreshTecTotalBadge() {
   const badge = document.getElementById('tec-total-badge');
   if (!badge) return;
-  badge.textContent = tecOverallLabel();
-  badge.className = `tec-total-badge state-${tecOverallState()}`;
+  badge.textContent = `${tecTotal()}% total`;
+  badge.className = `tec-total-badge state-${tecTotalState()}`;
 }
 
-function renderSegments() {
-  const mount = document.getElementById('tec-segments-mount');
-  if (tec.segments.length === 0) {
-    mount.innerHTML = `
+function renderTecTable() {
+  const card = document.getElementById('tec-section-card');
+  if (tec.criteria.length === 0) {
+    card.innerHTML = `
       <div class="tec-empty-state">
         <i class="fa-regular fa-folder-open"></i>
-        <h3>No evaluation segments yet</h3>
-        <p>Click Add Criterion, or Generate with AI, to define your first segment.</p>
+        <h3>No evaluation criteria yet</h3>
+        <p>Click Add Criterion, or Generate with AI.</p>
       </div>
-      <button type="button" class="tec-define-segment-btn" id="tec-define-segment-btn"><i class="fa-solid fa-plus"></i> Define new segment</button>
     `;
-    document.getElementById('tec-define-segment-btn').addEventListener('click', () => addSegment());
     return;
   }
 
-  mount.innerHTML = tec.segments.map((seg) => buildSegmentCardHtml(seg)).join('')
-    + `<button type="button" class="tec-define-segment-btn" id="tec-define-segment-btn"><i class="fa-solid fa-plus"></i> Define new segment</button>`;
-
-  document.getElementById('tec-define-segment-btn').addEventListener('click', () => addSegment());
-  tec.segments.forEach((seg) => wireSegmentCard(seg));
-}
-
-function buildSegmentCardHtml(seg) {
-  const collapsed = tec.collapsedSegments.has(seg.id);
-  return `
-    <div class="tec-segment-card${collapsed ? ' collapsed' : ''}" data-seg-id="${seg.id}">
-      <div class="tec-segment-header">
-        <div class="tec-segment-header-left">
-          <i class="fa-solid fa-chevron-down tec-segment-chevron" data-toggle-seg="${seg.id}"></i>
-          <input type="text" class="tec-segment-name-input" data-seg-name="${seg.id}" value="${escapeHtmlTec(seg.name)}" placeholder="Segment name">
-        </div>
-        <span class="tec-segment-total state-${segState(seg)}" data-seg-total="${seg.id}">${segTotal(seg)}% of this segment</span>
-      </div>
-
-      <div class="tec-segment-body">
-        <div class="tec-applicability">
-          <div class="tec-applicability-radios">
-            <label><input type="radio" name="applies-${seg.id}" data-applies-all="${seg.id}" ${seg.appliesToAll ? 'checked' : ''}> All Items</label>
-            <label><input type="radio" name="applies-${seg.id}" data-applies-specific="${seg.id}" ${!seg.appliesToAll ? 'checked' : ''} ${tec.boqItems.length === 0 ? 'disabled' : ''}> Specific item(s)</label>
-          </div>
-          ${tec.boqItems.length === 0
-            ? `<span class="tec-no-items-note">No BOQ items found in Step 2 — applies to all items by default.</span>`
-            : `<div class="tec-item-checkboxes" data-item-checkboxes="${seg.id}" style="${seg.appliesToAll ? 'display:none;' : ''}">
-                ${tec.boqItems.map((it) => `<label><input type="checkbox" data-item-check="${seg.id}" value="${it.id}" ${seg.appliesToItemIds.includes(it.id) ? 'checked' : ''}> ${escapeHtmlTec(it.name)}</label>`).join('')}
-              </div>`
-          }
-        </div>
-
-        ${buildTableHtml({
-          columns: tecColumns(seg),
-          rows: seg.criteria,
-          rowKey: (r) => r.id,
-          emptyText: 'No criteria in this segment.',
-        })}
-        <div class="tec-segment-footer-row">
-          <button type="button" class="tec-add-criterion-link" data-add-crit="${seg.id}"><i class="fa-solid fa-plus"></i> Add criterion</button>
-          <button type="button" class="tec-delete-segment-btn" data-delete-segment="${seg.id}" title="Delete segment"><i class="fa-solid fa-trash"></i> Delete segment</button>
-        </div>
-      </div>
-    </div>
+  card.innerHTML = `
+    ${buildTableHtml({
+      columns: tecColumns(),
+      rows: tec.criteria,
+      rowKey: (r) => r.id,
+      resizable: true,
+      tableId: 'tec-criteria-table',
+      columnWidths: tec.columnWidths || (tec.columnWidths = {}),
+    })}
+    <button type="button" class="tec-add-criterion-link" id="tec-add-criterion-link"><i class="fa-solid fa-plus"></i> Add Criterion</button>
   `;
+
+  document.getElementById('tec-add-criterion-link').addEventListener('click', addCriterion);
+  wireTecTable();
+  enableColumnResize('tec-criteria-table', tec.columnWidths);
 }
 
-function tecColumns(seg) {
+function tecColumns() {
   return [
-    { key: 'sl', label: 'SL No.', render: (r) => String(seg.criteria.indexOf(r) + 1) },
-    { key: 'appliesTo', label: 'Applies To', cellClass: 'cell-muted', render: () => escapeHtmlTec(appliesToLabel(seg)) },
-    { key: 'description', label: 'Description', render: (r) => `<input type="text" class="tec-cell-input${!r.description || !r.description.trim() ? ' has-error' : ''}" data-field="description" data-seg="${seg.id}" data-id="${r.id}" value="${escapeHtmlTec(r.description)}" placeholder="Criterion description">` },
+    { key: 'sl', label: 'SL No.', render: (r) => String(tec.criteria.indexOf(r) + 1) },
+    {
+      key: 'description', label: 'Description', render: (r) => `
+        <textarea class="tec-cell-textarea${!r.description || !r.description.trim() ? ' has-error' : ''}" data-field="description" data-id="${r.id}" placeholder="Criterion description" rows="1">${escapeHtmlTec(r.description || '')}</textarea>
+      `,
+    },
     {
       key: 'howApplied', label: 'How Criteria is Applied', render: (r) => `
         <div class="tec-how-applied-cell">
-          <input type="text" class="tec-cell-input${!r.howApplied || !r.howApplied.trim() ? ' has-error' : ''}" data-field="howApplied" data-seg="${seg.id}" data-id="${r.id}" value="${escapeHtmlTec(r.howApplied || '')}" placeholder="e.g. Scored 0-10 based on…">
-          <button type="button" class="tec-recommend-btn" data-recommend="${seg.id}:${r.id}" title="Recommend evaluation method"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+          <textarea class="tec-cell-textarea${!r.howApplied || !r.howApplied.trim() ? ' has-error' : ''}" data-field="howApplied" data-id="${r.id}" placeholder="e.g. Scored 0-10 based on…" rows="1">${escapeHtmlTec(r.howApplied || '')}</textarea>
+          <button type="button" class="tec-recommend-btn" data-recommend="${r.id}" title="Recommend evaluation method"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
         </div>`,
     },
-    { key: 'weightage', label: 'Weightage (%)', render: (r) => `<input type="number" min="0" max="100" class="tec-cell-input" data-field="weightage" data-seg="${seg.id}" data-id="${r.id}" value="${r.weightage ?? ''}">` },
+    { key: 'weightage', label: 'Weightage (%)', render: (r) => `<input type="number" min="0" max="100" class="tec-cell-input" data-field="weightage" data-id="${r.id}" value="${r.weightage ?? ''}">` },
     {
       key: 'actions', label: 'Actions', render: (r) => `
         <div class="row-actions">
-          <button class="row-action" data-duplicate-crit="${seg.id}:${r.id}" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
-          <button class="row-action row-action-delete" data-delete-crit="${seg.id}:${r.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          <button class="row-action" data-duplicate-crit="${r.id}" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
+          <button class="row-action row-action-delete" data-delete-crit="${r.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
         </div>
       `,
     },
   ];
 }
 
-function wireSegmentCard(seg) {
-  const card = document.querySelector(`.tec-segment-card[data-seg-id="${seg.id}"]`);
-  if (!card) return;
+function wireTecTable() {
+  const tbody = document.querySelector('#tec-section-card tbody');
+  if (!tbody) return;
 
-  card.querySelector(`[data-toggle-seg="${seg.id}"]`).addEventListener('click', () => {
-    if (tec.collapsedSegments.has(seg.id)) tec.collapsedSegments.delete(seg.id);
-    else tec.collapsedSegments.add(seg.id);
-    card.classList.toggle('collapsed');
-  });
-
-  card.querySelector(`[data-seg-name="${seg.id}"]`).addEventListener('input', (e) => {
-    seg.name = e.target.value;
+  tbody.addEventListener('input', (e) => {
+    const el = e.target;
+    if (!el.classList.contains('tec-cell-input') && !el.classList.contains('tec-cell-textarea')) return;
+    const crit = tec.criteria.find((c) => c.id === el.dataset.id);
+    if (!crit) return;
+    crit[el.dataset.field] = el.value;
+    if (el.dataset.field === 'description' || el.dataset.field === 'howApplied') {
+      el.classList.toggle('has-error', !el.value.trim());
+    }
     persistTec();
+    refreshTecTotalBadge();
   });
 
-  card.querySelector(`[data-applies-all="${seg.id}"]`).addEventListener('change', () => {
-    seg.appliesToAll = true;
-    const boxes = card.querySelector(`[data-item-checkboxes="${seg.id}"]`);
-    if (boxes) boxes.style.display = 'none';
-    persistTec();
-    refreshAppliesToCells(seg);
-  });
-  const specificRadio = card.querySelector(`[data-applies-specific="${seg.id}"]`);
-  if (specificRadio) {
-    specificRadio.addEventListener('change', () => {
-      seg.appliesToAll = false;
-      const boxes = card.querySelector(`[data-item-checkboxes="${seg.id}"]`);
-      if (boxes) boxes.style.display = '';
-      persistTec();
-      refreshAppliesToCells(seg);
-    });
-  }
-  card.querySelectorAll(`[data-item-check="${seg.id}"]`).forEach((cb) => {
-    cb.addEventListener('change', () => {
-      seg.appliesToItemIds = Array.from(card.querySelectorAll(`[data-item-check="${seg.id}"]:checked`)).map((c) => c.value);
-      persistTec();
-      refreshAppliesToCells(seg);
-    });
-  });
+  tbody.addEventListener('click', (e) => {
+    const recBtn = e.target.closest('[data-recommend]');
+    if (recBtn) { recommendEvaluationMethod(recBtn.dataset.recommend); return; }
 
-  card.querySelectorAll('.tec-cell-input').forEach((input) => {
-    input.addEventListener('input', () => {
-      const crit = seg.criteria.find((c) => c.id === input.dataset.id);
-      if (!crit) return;
-      crit[input.dataset.field] = input.value;
-      input.classList.toggle('has-error', (input.dataset.field === 'description' || input.dataset.field === 'howApplied') && !input.value.trim());
-      persistTec();
-      refreshSegmentTotal(seg);
-      refreshTecTotalBadge();
-    });
-  });
-
-  card.querySelectorAll('[data-recommend]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const [segId, critId] = btn.dataset.recommend.split(':');
-      recommendEvaluationMethod(segId, critId);
-    });
-  });
-
-  card.querySelectorAll('[data-duplicate-crit]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const [segId, critId] = btn.dataset.duplicateCrit.split(':');
-      const s = tec.segments.find((x) => x.id === segId);
-      if (!s) return;
-      const idx = s.criteria.findIndex((c) => c.id === critId);
+    const dupBtn = e.target.closest('[data-duplicate-crit]');
+    if (dupBtn) {
+      const idx = tec.criteria.findIndex((c) => c.id === dupBtn.dataset.duplicateCrit);
       if (idx >= 0) {
-        s.criteria.splice(idx + 1, 0, { ...s.criteria[idx], id: newTecId('tec-crit') });
+        tec.criteria.splice(idx + 1, 0, { ...tec.criteria[idx], id: newTecId('tec-crit') });
         persistTec();
-        renderSegments();
+        renderTecTable();
         refreshTecTotalBadge();
       }
-    });
-  });
+      return;
+    }
 
-  card.querySelectorAll('[data-delete-crit]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const [segId, critId] = btn.dataset.deleteCrit.split(':');
-      const s = tec.segments.find((x) => x.id === segId);
-      if (!s) return;
-      s.criteria = s.criteria.filter((c) => c.id !== critId);
+    const delBtn = e.target.closest('[data-delete-crit]');
+    if (delBtn) {
+      tec.criteria = tec.criteria.filter((c) => c.id !== delBtn.dataset.deleteCrit);
       persistTec();
-      renderSegments();
+      renderTecTable();
       refreshTecTotalBadge();
-    });
-  });
-
-  const addCritBtn = card.querySelector(`[data-add-crit="${seg.id}"]`);
-  if (addCritBtn) {
-    addCritBtn.addEventListener('click', () => {
-      seg.criteria.push({ id: newTecId('tec-crit'), description: '', howApplied: '', weightage: '' });
-      persistTec();
-      renderSegments();
-      refreshTecTotalBadge();
-    });
-  }
-
-  const deleteSegBtn = card.querySelector(`[data-delete-segment="${seg.id}"]`);
-  if (deleteSegBtn) {
-    deleteSegBtn.addEventListener('click', () => {
-      tec.segments = tec.segments.filter((s) => s.id !== seg.id);
-      persistTec();
-      renderSegments();
-      refreshTecTotalBadge();
-    });
-  }
-}
-
-function refreshSegmentTotal(seg) {
-  const el = document.querySelector(`[data-seg-total="${seg.id}"]`);
-  if (el) {
-    el.textContent = `${segTotal(seg)}% of this segment`;
-    el.className = `tec-segment-total state-${segState(seg)}`;
-  }
-}
-
-function refreshAppliesToCells(seg) {
-  document.querySelectorAll(`.tec-segment-card[data-seg-id="${seg.id}"] tbody tr`).forEach((tr, i) => {
-    const cell = tr.children[1];
-    if (cell) cell.textContent = appliesToLabel(seg);
+    }
   });
 }
 
-function addSegment() {
-  tec.segments.push({ id: newTecId('tec-seg'), name: 'New Segment', appliesToAll: true, appliesToItemIds: [], criteria: [] });
+function addCriterion() {
+  tec.criteria.push({ id: newTecId('tec-crit'), description: '', howApplied: '', weightage: '' });
   persistTec();
-  renderSegments();
+  renderTecTable();
   refreshTecTotalBadge();
+  document.querySelector('#tec-section-card tbody tr:last-child .tec-cell-textarea')?.focus();
 }
 
 /* ---- Recommend Evaluation Method (per-row AI action) ---- */
 
 const TEC_METHOD_KEYWORDS = [
   { keywords: ['methodology', 'approach', 'plan'], method: 'Scored 0-10 based on documented methodology and depth of detail.' },
-  { keywords: ['architecture', 'design', 'scalability'], method: 'Scored 0-10 based on architecture soundness and scalability.' },
-  { keywords: ['support', 'sla', 'response'], method: 'Scored 0-10 based on SLA commitments and support coverage.' },
-  { keywords: ['team', 'staff', 'resource', 'certified'], method: 'Scored 0-10 based on proposed team qualifications and certifications.' },
+  { keywords: ['architecture', 'design', 'scalability', 'solution'], method: 'Scored 0-10 based on architecture soundness and scalability.' },
+  { keywords: ['support', 'sla', 'response', 'knowledge transfer'], method: 'Scored 0-10 based on SLA commitments and support/knowledge-transfer coverage.' },
+  { keywords: ['team', 'staff', 'resource', 'certified', 'certification'], method: 'Scored 0-10 based on proposed team qualifications and certifications.' },
   { keywords: ['migration', 'data'], method: 'Scored 0-10 based on data migration plan completeness and risk mitigation.' },
+  { keywords: ['experience'], method: 'Scored 0-10 based on past project references and domain expertise.' },
+  { keywords: ['risk'], method: 'Scored 0-10 based on identified risks and quality of mitigation strategies.' },
 ];
 
-function recommendEvaluationMethod(segId, critId) {
-  const seg = tec.segments.find((s) => s.id === segId);
-  const crit = seg?.criteria.find((c) => c.id === critId);
+function recommendEvaluationMethod(critId) {
+  const crit = tec.criteria.find((c) => c.id === critId);
   if (!crit) return;
   if (!crit.description || !crit.description.trim()) { showToast('Enter a description first.'); return; }
   const text = crit.description.toLowerCase();
   const match = TEC_METHOD_KEYWORDS.find((m) => m.keywords.some((k) => text.includes(k)));
   crit.howApplied = match ? match.method : 'Scored 0-10 by the evaluation committee against documented submission quality.';
   persistTec();
-  renderSegments();
+  renderTecTable();
   refreshTecTotalBadge();
   showToast('Evaluation method recommended.');
 }
 
-/* ---- Generate with AI: adds a new segment (global pattern: confirm -> apply -> ribbon -> Undo) ---- */
+/* ---- AI: Generate with AI (review dialog, Accept/Decline/Edit, Undo after applying) ----
+   Analyzes Project, BOQ Items, Item descriptions, Technical Requirements,
+   Qualification Criteria, Scope of Work, and Supporting documents (per
+   spec) — in this prototype that's simulated with one representative
+   canned criteria set, since there's no real model call to reason over
+   that context. */
+
+const TEC_GENERATED_CRITERIA = [
+  { description: 'Solution & Implementation Approach', howApplied: 'Scored 0-10 based on documented methodology, depth of detail, and fit to project scope.', weightage: 25 },
+  { description: 'Relevant SAP S/4HANA Experience', howApplied: 'Scored 0-10 based on past project references and domain expertise.', weightage: 20 },
+  { description: 'Project Methodology & Delivery Plan', howApplied: 'Scored 0-10 based on completeness and realism of the proposed delivery plan.', weightage: 20 },
+  { description: 'Proposed Team & Certifications', howApplied: 'Scored 0-10 based on proposed team qualifications and certifications.', weightage: 15 },
+  { description: 'Support & Knowledge Transfer', howApplied: 'Scored 0-10 based on post-go-live support and knowledge transfer plan.', weightage: 10 },
+  { description: 'Risk Management', howApplied: 'Scored 0-10 based on identified risks and quality of mitigation strategies.', weightage: 10 },
+];
 
 function runGenerateEvaluationCriteria() {
-  runAiGenerate({
-    confirmMessage: 'Would you like AI to generate a new evaluation segment with criteria and weights based on your RFP?',
-    ribbonMountId: 'ribbon-tec-section',
-    undoMountId: 'undo-tec-section',
-    hasWork: () => true,
-    performApply: () => {
-      const uncovered = tec.boqItems.find((it) => !tec.segments.some((s) => !s.appliesToAll && s.appliesToItemIds.includes(it.id)));
-      const newSeg = {
-        id: newTecId('tec-seg'),
-        name: uncovered ? uncovered.name : 'General Technical Evaluation',
-        appliesToAll: !uncovered,
-        appliesToItemIds: uncovered ? [uncovered.id] : [],
-        criteria: [
-          { id: newTecId('tec-crit'), description: 'Compliance with technical requirements', howApplied: 'Scored 0-10 based on coverage of Step 7 technical requirements.', weightage: 50 },
-          { id: newTecId('tec-crit'), description: 'Quality of proposed solution', howApplied: 'Scored 0-10 by the evaluation committee against documented submission quality.', weightage: 50 },
-        ],
-      };
-      tec.segments.push(newSeg);
-      persistTec();
-      renderSegments();
-      refreshTecTotalBadge();
-      return () => {
-        tec.segments = tec.segments.filter((s) => s.id !== newSeg.id);
-        persistTec();
-        renderSegments();
-        refreshTecTotalBadge();
-      };
-    },
+  const existing = new Set(tec.criteria.map((c) => (c.description || '').trim().toLowerCase()));
+  const items = TEC_GENERATED_CRITERIA.filter((c) => !existing.has(c.description.trim().toLowerCase())).map((c) => ({
+    key: newTecId('sugg'),
+    description: c.description,
+    howApplied: c.howApplied,
+    weightage: c.weightage,
+    status: 'approved', // 'approved' | 'rejected'
+    editing: false,
+  }));
+
+  if (items.length === 0) {
+    showAiRibbon('ribbon-tec-section', 'Nothing new to suggest — your evaluation criteria already cover these areas.', false);
+    return;
+  }
+
+  openDialog({ title: 'Generate with AI — Review Suggested Evaluation Criteria', size: 'large', bodyHtml: buildTecReviewHtml(items) });
+  wireTecGenerateDialog(items);
+}
+
+function buildTecReviewHtml(items) {
+  const approvedCount = items.filter((i) => i.status === 'approved').length;
+  return `
+    <p class="tec-review-subtext">Review each suggested criterion below, then approve, edit, or decline it before applying.</p>
+    <div class="tec-review-toolbar">
+      <span class="tec-review-count" id="tec-generate-count">${approvedCount} of ${items.length} approved</span>
+      <div class="tec-review-bulk-actions">
+        <button type="button" class="tec-review-bulk-btn" id="tec-generate-approve-all">Approve all</button>
+        <button type="button" class="tec-review-bulk-btn" id="tec-generate-reject-all">Decline all</button>
+      </div>
+    </div>
+    <div class="tec-review-list" id="tec-generate-list">${buildTecReviewRows(items)}</div>
+    <div class="tec-modal-footer" style="justify-content: space-between;">
+      <button class="tec-btn-cancel" id="tec-generate-cancel">Cancel</button>
+      <button class="tec-btn-save" id="tec-generate-apply" ${approvedCount === 0 ? 'disabled' : ''}>Apply approved (<span id="tec-generate-apply-count">${approvedCount}</span>)</button>
+    </div>
+  `;
+}
+
+function buildTecReviewRows(items) {
+  return items.map((it) => `
+    <div class="tec-review-item status-${it.status}" data-key="${it.key}">
+      <div class="tec-review-item-header">
+        <span class="tec-review-item-label">${escapeHtmlTec(it.description)}</span>
+        <div class="tec-review-item-actions">
+          <button type="button" class="tec-review-item-btn approve${it.status === 'approved' && !it.editing ? ' active' : ''}" data-act="approve" data-key="${it.key}"><i class="fa-solid fa-check"></i> Approve</button>
+          <button type="button" class="tec-review-item-btn edit${it.editing ? ' active' : ''}" data-act="edit" data-key="${it.key}"><i class="fa-solid fa-pen"></i> Edit</button>
+          <button type="button" class="tec-review-item-btn reject${it.status === 'rejected' ? ' active' : ''}" data-act="reject" data-key="${it.key}"><i class="fa-solid fa-xmark"></i> Decline</button>
+        </div>
+      </div>
+      ${it.editing ? `
+        <div class="tec-review-edit-row">
+          <input type="text" class="tec-review-edit-input" data-edit-field="description" data-key="${it.key}" value="${escapeHtmlTec(it.description)}" placeholder="Description">
+          <input type="text" class="tec-review-edit-input" data-edit-field="howApplied" data-key="${it.key}" value="${escapeHtmlTec(it.howApplied)}" placeholder="How criteria is applied">
+          <input type="number" min="0" max="100" class="tec-review-edit-input tec-review-edit-pct" data-edit-field="weightage" data-key="${it.key}" value="${it.weightage}">
+        </div>
+      ` : `<div class="tec-review-item-text">${escapeHtmlTec(it.howApplied)} · ${it.weightage}%</div>`}
+    </div>
+  `).join('');
+}
+
+function wireTecGenerateDialog(items) {
+  const findItem = (key) => items.find((i) => i.key === key);
+
+  function wireEditInputs() {
+    document.querySelectorAll('[data-edit-field]').forEach((inp) => {
+      inp.addEventListener('input', (e) => {
+        const it = findItem(inp.dataset.key);
+        if (!it) return;
+        it[inp.dataset.editField] = inp.dataset.editField === 'weightage' ? (Number(e.target.value) || 0) : e.target.value;
+      });
+    });
+  }
+
+  function rerender() {
+    document.getElementById('tec-generate-list').innerHTML = buildTecReviewRows(items);
+    const approvedCount = items.filter((i) => i.status === 'approved').length;
+    document.getElementById('tec-generate-count').textContent = `${approvedCount} of ${items.length} approved`;
+    document.getElementById('tec-generate-apply-count').textContent = approvedCount;
+    document.getElementById('tec-generate-apply').disabled = approvedCount === 0;
+    wireEditInputs();
+  }
+
+  document.getElementById('tec-generate-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const it = findItem(btn.dataset.key);
+    if (!it) return;
+    if (btn.dataset.act === 'approve') { it.status = 'approved'; it.editing = false; }
+    else if (btn.dataset.act === 'reject') { it.status = 'rejected'; it.editing = false; }
+    else if (btn.dataset.act === 'edit') { it.editing = !it.editing; if (it.editing) it.status = 'approved'; }
+    rerender();
   });
+
+  document.getElementById('tec-generate-approve-all').addEventListener('click', () => {
+    items.forEach((i) => { i.status = 'approved'; i.editing = false; });
+    rerender();
+  });
+  document.getElementById('tec-generate-reject-all').addEventListener('click', () => {
+    items.forEach((i) => { i.status = 'rejected'; i.editing = false; });
+    rerender();
+  });
+
+  document.getElementById('tec-generate-cancel').addEventListener('click', closeDialog);
+  document.getElementById('tec-generate-apply').addEventListener('click', () => {
+    const approved = items.filter((i) => i.status === 'approved');
+    if (approved.length === 0) return;
+
+    const addedIds = approved.map((it) => {
+      const id = newTecId('tec-crit');
+      tec.criteria.push({ id, description: it.description, howApplied: it.howApplied, weightage: it.weightage });
+      return id;
+    });
+
+    persistTec();
+    closeDialog();
+    renderTecTable();
+    refreshTecTotalBadge();
+    showAiRibbon('ribbon-tec-section', 'Data updated successfully', true);
+    showAiUndoButton('undo-tec-section', () => {
+      tec.criteria = tec.criteria.filter((c) => !addedIds.includes(c.id));
+      persistTec();
+      renderTecTable();
+      refreshTecTotalBadge();
+      hideAiRibbon('ribbon-tec-section');
+      hideAiUndoButton('undo-tec-section');
+    });
+    showToast(`${approved.length} criterion${approved.length > 1 ? 's' : ''} added from AI suggestions.`);
+  });
+
+  wireEditInputs();
 }
 
 /* ---- Footer ---- */
@@ -460,9 +425,6 @@ function saveDraft() {
   showToast('Request saved as draft successfully.');
 }
 
-// No longer the wizard's final step (Supporting documents is, per the new
-// 8-step order) — behaves like every other step now: validate, mark
-// completed, and hand off to whatever wizardNextStep() resolves to.
 function handleContinue() {
   if (!tecValid()) return;
   WizardStore.setStepStatus('technical-evaluation-criteria', 'completed');

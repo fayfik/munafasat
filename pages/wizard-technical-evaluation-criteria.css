@@ -1,4 +1,4 @@
-/* Step 8 - Technical Evaluation Criteria */
+/* Step 7 - Technical Evaluation Criteria */
 
 .tec-header-card {
   background: var(--surface-card);
@@ -34,7 +34,7 @@
 .tec-total-badge.state-success { background: var(--color-success-100); color: var(--color-success-700); }
 .tec-total-badge.state-error { background: var(--color-error-100); color: var(--color-error-700); }
 
-/* Navy primary action — matches Steps 6/7's toolbar treatment */
+/* Navy primary action — matches Steps 5/6's toolbar treatment */
 .tec-btn-primary {
   display: inline-flex; align-items: center; gap: var(--space-2); height: 38px; padding: 0 var(--space-4);
   border-radius: var(--radius-md); border: none; background: var(--color-blue-900); color: var(--color-neutral-0);
@@ -75,126 +75,18 @@
   height: 100%; display: flex; align-items: center; border-left: 1px solid var(--border-default);
 }
 
-.tec-segment-card {
+/* ---- Flat criteria table ---- */
+
+.tec-section-card {
   background: var(--surface-card);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  margin-bottom: var(--space-4);
-  overflow: hidden;
-}
-
-/* Accordion header — full-bleed band, chevron toggles the body */
-.tec-segment-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-sidebar);
-  flex-wrap: wrap;
-}
-
-.tec-segment-header-left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-  flex: 1;
-}
-
-.tec-segment-chevron {
-  color: var(--text-secondary);
-  font-size: 13px;
-  flex-shrink: 0;
-  cursor: pointer;
-  transition: transform 150ms ease;
-}
-
-.tec-segment-card.collapsed .tec-segment-chevron {
-  transform: rotate(-90deg);
-}
-
-.tec-segment-body {
   padding: var(--space-4);
-}
-
-.tec-segment-card.collapsed .tec-segment-body {
-  display: none;
-}
-
-.tec-segment-name-input {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-2);
-  background: transparent;
-  min-width: 220px;
-}
-.tec-segment-name-input:hover { border-color: var(--border-default); }
-.tec-segment-name-input:focus { outline: none; border-color: var(--color-green-600); background: var(--surface-card); box-shadow: 0 0 0 3px var(--color-green-50); }
-
-.tec-segment-total {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-
-.tec-segment-total.state-success { color: var(--color-success-700); }
-.tec-segment-total.state-warning { color: var(--color-warning-700); }
-.tec-segment-total.state-error { color: var(--color-error-700); }
-
-.tec-applicability {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
-  padding: var(--space-3);
-  background: var(--surface-app-bg);
-  border-radius: var(--radius-md);
-}
-
-.tec-applicability-radios {
-  display: flex;
-  gap: var(--space-4);
-  flex-shrink: 0;
-}
-
-.tec-applicability-radios label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.tec-item-checkboxes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  flex: 1;
-  min-width: 200px;
-}
-
-.tec-item-checkboxes label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.tec-no-items-note {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
 }
 
 .tec-cell-input {
   width: 100%;
-  min-width: 140px;
+  min-width: 100px;
   height: 34px;
   padding: 0 var(--space-2);
   border: 1px solid transparent;
@@ -209,8 +101,32 @@
 .tec-cell-input:focus { outline: none; border-color: var(--color-green-600); background: var(--surface-card); box-shadow: 0 0 0 3px var(--color-green-50); }
 .tec-cell-input.has-error { border-color: var(--color-error-500); }
 
-.tec-how-applied-cell { display: flex; align-items: center; gap: var(--space-2); }
-.tec-how-applied-cell .tec-cell-input { flex: 1; }
+/* Description / How Applied cells wrap naturally instead of forcing the
+   column to grow — width stays whatever the table (or a manual column
+   resize) gives it. */
+.tec-cell-textarea {
+  width: 100%;
+  min-width: 160px;
+  min-height: 34px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  resize: vertical;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+}
+
+.tec-cell-textarea:hover { border-color: var(--border-default); }
+.tec-cell-textarea:focus { outline: none; border-color: var(--color-green-600); background: var(--surface-card); box-shadow: 0 0 0 3px var(--color-green-50); }
+.tec-cell-textarea.has-error { border-color: var(--color-error-500); }
+
+.tec-how-applied-cell { display: flex; align-items: flex-start; gap: var(--space-2); }
+.tec-how-applied-cell .tec-cell-textarea { flex: 1; }
 
 .tec-recommend-btn {
   flex-shrink: 0;
@@ -224,6 +140,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: 3px;
 }
 .tec-recommend-btn:hover { background: var(--color-green-100); }
 
@@ -231,6 +148,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  margin-top: var(--space-3);
   border: none;
   background: transparent;
   color: var(--color-green-700);
@@ -241,35 +159,6 @@
   white-space: nowrap;
 }
 .tec-add-criterion-link:hover { text-decoration: underline; }
-
-.tec-segment-footer-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.tec-delete-segment-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  border: none;
-  background: transparent;
-  color: var(--color-error-500);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  padding: var(--space-2);
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
-}
-
-.tec-delete-segment-btn:hover {
-  background: var(--color-error-50);
-  color: var(--color-error-600);
-}
 
 .tec-empty-state {
   display: flex;
@@ -284,25 +173,6 @@
 .tec-empty-state h3 { margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--text-primary); }
 .tec-empty-state p { margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm); }
 
-.tec-define-segment-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 38px;
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px dashed var(--color-green-400);
-  background: var(--color-green-50);
-  color: var(--color-green-700);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  width: 100%;
-  justify-content: center;
-}
-.tec-define-segment-btn:hover { background: var(--color-green-100); }
-
-
 /* ---- Shared modal / button primitives ---- */
 
 .tec-modal-footer { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-4); }
@@ -311,6 +181,12 @@
   background: var(--surface-card); color: var(--text-primary); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); cursor: pointer;
 }
 .tec-btn-cancel:hover { background: var(--surface-hover); }
+.tec-btn-save {
+  height: 38px; padding: 0 var(--space-4); border-radius: var(--radius-md); border: none;
+  background: var(--color-green-600); color: var(--color-neutral-0); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); cursor: pointer;
+}
+.tec-btn-save:hover:not(:disabled) { background: var(--color-green-700); }
+.tec-btn-save:disabled { background: var(--color-neutral-200); color: var(--text-tertiary); cursor: not-allowed; }
 
 .tec-footer-back-btn {
   display: inline-flex;
@@ -324,3 +200,131 @@
   cursor: pointer;
 }
 .tec-footer-back-btn:hover { color: var(--text-primary); }
+
+/* ---- "Generate with AI" review dialog ---- */
+
+.tec-review-subtext {
+  margin: 0 0 var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.tec-review-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.tec-review-count {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.tec-review-bulk-actions { display: flex; gap: var(--space-2); }
+
+.tec-review-bulk-btn {
+  height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.tec-review-bulk-btn:hover { background: var(--surface-hover); }
+
+.tec-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+
+.tec-review-item {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.tec-review-item.status-approved {
+  border-color: var(--color-green-300);
+  background: var(--color-green-50);
+}
+
+.tec-review-item.status-rejected { opacity: 0.55; }
+
+.tec-review-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.tec-review-item-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.tec-review-item-actions { display: flex; gap: var(--space-1); }
+
+.tec-review-item-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.tec-review-item-btn:hover { background: var(--surface-hover); }
+
+.tec-review-item-btn.approve.active { border-color: var(--color-success-500); background: var(--color-success-50); color: var(--color-success-700); }
+.tec-review-item-btn.reject.active { border-color: var(--color-error-500); background: var(--color-error-50); color: var(--color-error-700); }
+.tec-review-item-btn.edit.active { border-color: var(--color-green-500); background: var(--color-green-50); color: var(--color-green-700); }
+
+.tec-review-item-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.tec-review-edit-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.tec-review-edit-input {
+  flex: 1 1 140px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-green-400);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+}
+
+.tec-review-edit-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-green-50);
+}
+
+.tec-review-edit-pct { flex: 0 0 70px; }
