@@ -1007,3 +1007,110 @@
 .boq-footer-back-btn:hover {
   color: var(--text-primary);
 }
+
+/* ---- Column configuration drawer ---- */
+
+.boq-colcfg-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(27, 31, 25, 0.35);
+  z-index: var(--z-overlay);
+  display: none;
+}
+
+.boq-colcfg-overlay.open {
+  display: block;
+}
+
+.boq-colcfg-panel {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 200ms ease;
+}
+
+.boq-colcfg-overlay.open .boq-colcfg-panel {
+  transform: translateX(0);
+}
+
+.boq-colcfg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.boq-colcfg-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.boq-colcfg-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.boq-colcfg-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.boq-colcfg-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-5);
+}
+
+.boq-colcfg-section-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.boq-colcfg-section-label:first-child {
+  margin-top: 0;
+}
+
+.boq-colcfg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.boq-colcfg-row:last-child {
+  border-bottom: none;
+}
+
+.boq-colcfg-row-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.boq-colcfg-row .boq-toggle-switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

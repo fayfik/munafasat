@@ -66,6 +66,31 @@ const SIMILAR_RFP_ITEM_POOL = {
   ],
 };
 
+// The 4 hideable columns from Column configuration; every other column
+// (Item No., Item Name, Description, Budgeted item, Quantity, Unit Price,
+// Delivery Date, Has Brand Name, Total, Actions) is mandatory and always
+// shown. Brand Name Justification is a separate table-wide conditional
+// column (only exists once a row has Has Brand Name = Yes) and isn't part
+// of this toggleable set.
+const BOQ_COLUMN_CONFIG = [
+  { key: 'itemNo', label: 'Item No.', mandatory: true },
+  { key: 'name', label: 'Item Name', mandatory: true },
+  { key: 'description', label: 'Description', mandatory: true },
+  { key: 'budgetedItem', label: 'Budgeted item', mandatory: true },
+  { key: 'procurementType', label: 'Procurement type', mandatory: false },
+  { key: 'purchaseGroup', label: 'Purchase group', mandatory: false },
+  { key: 'materialGroup', label: 'Material group', mandatory: false },
+  { key: 'uom', label: 'UOM', mandatory: false },
+  { key: 'quantity', label: 'Quantity', mandatory: true },
+  { key: 'unitPrice', label: 'Unit Price (SAR)', mandatory: true },
+  { key: 'deliveryDate', label: 'Delivery Date', mandatory: true },
+  { key: 'hasBrandName', label: 'Has Brand Name', mandatory: true },
+  { key: 'total', label: 'Total (SAR)', mandatory: true },
+  { key: 'actions', label: 'Actions', mandatory: true },
+];
+
+const BOQ_COLVIS_STORAGE_KEY = 'munafasat.boqColumnVisibility';
+
 const boq = {
   items: [],
   importBatches: [],
@@ -77,7 +102,25 @@ const boq = {
   pendingImportFile: null,
   budgetedSelects: {},
   columnWidths: {}, // { [columnIndex]: px } — ephemeral per-session, not persisted to WizardStore
+  hiddenColumns: new Set(), // optional column keys the user has hidden via Column configuration
 };
+
+/* ---- Column configuration: visibility persisted for the browser session
+   (sessionStorage), independent of the RFP's own formData — this is a
+   table display preference, not RFP content. ---- */
+
+function loadColumnVisibility() {
+  try {
+    const raw = sessionStorage.getItem(BOQ_COLVIS_STORAGE_KEY);
+    boq.hiddenColumns = new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    boq.hiddenColumns = new Set();
+  }
+}
+
+function persistColumnVisibility() {
+  sessionStorage.setItem(BOQ_COLVIS_STORAGE_KEY, JSON.stringify([...boq.hiddenColumns]));
+}
 
 /* ---- Persistence ---- */
 
@@ -188,14 +231,29 @@ function renderBoqPage() {
             </div>
           </div>
         </div>
+        <button type="button" class="boq-undo-icon-btn" id="boq-colcfg-btn" title="Column configuration"><i class="fa-solid fa-table-columns"></i></button>
       </div>
     </div>
     <div class="boq-section-card" id="boq-section-card"></div>
+    <div class="boq-colcfg-overlay" id="boq-colcfg-overlay">
+      <div class="boq-colcfg-panel">
+        <div class="boq-colcfg-header">
+          <div class="boq-colcfg-title">Column configuration</div>
+          <button type="button" class="boq-colcfg-close" id="boq-colcfg-close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="boq-colcfg-body" id="boq-colcfg-body"></div>
+      </div>
+    </div>
   `;
 
   document.getElementById('boq-import-data-btn').addEventListener('click', openImportDataModal);
   document.getElementById('boq-generate-ai-btn').addEventListener('click', openGenerateAiPreview);
   document.getElementById('boq-undo-btn').addEventListener('click', handleUndoClick);
+  document.getElementById('boq-colcfg-btn').addEventListener('click', openColumnConfigDrawer);
+  document.getElementById('boq-colcfg-close').addEventListener('click', closeColumnConfigDrawer);
+  document.getElementById('boq-colcfg-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'boq-colcfg-overlay') closeColumnConfigDrawer();
+  });
 
   setupDropdown('boq-viewmore-dropdown', 'boq-viewmore-btn', 'boq-viewmore-menu');
 
@@ -329,7 +387,49 @@ function getBoqColumns() {
     `,
   });
 
-  return cols;
+  return cols.filter((c) => !boq.hiddenColumns.has(c.key));
+}
+
+/* ---- Column configuration drawer ---- */
+
+function buildColCfgBodyHtml() {
+  const rowHtml = (col) => {
+    const on = col.mandatory || !boq.hiddenColumns.has(col.key);
+    return `
+      <div class="boq-colcfg-row">
+        <span class="boq-colcfg-row-label">${col.label}</span>
+        <button type="button" class="boq-toggle-switch${on ? ' on' : ''}" data-colcfg-toggle="${col.key}" ${col.mandatory ? 'disabled title="Always shown"' : ''}></button>
+      </div>
+    `;
+  };
+  const mandatory = BOQ_COLUMN_CONFIG.filter((c) => c.mandatory);
+  const optional = BOQ_COLUMN_CONFIG.filter((c) => !c.mandatory);
+  return `
+    <div class="boq-colcfg-section-label">Default columns</div>
+    ${mandatory.map(rowHtml).join('')}
+    <div class="boq-colcfg-section-label">Optional columns</div>
+    ${optional.map(rowHtml).join('')}
+  `;
+}
+
+function openColumnConfigDrawer() {
+  document.getElementById('boq-colcfg-body').innerHTML = buildColCfgBodyHtml();
+  document.querySelectorAll('[data-colcfg-toggle]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.colcfgToggle;
+      if (boq.hiddenColumns.has(key)) boq.hiddenColumns.delete(key);
+      else boq.hiddenColumns.add(key);
+      btn.classList.toggle('on');
+      persistColumnVisibility();
+      boq.columnWidths = {}; // column set is shifting, indices no longer line up
+      renderSectionCard();
+    });
+  });
+  document.getElementById('boq-colcfg-overlay').classList.add('open');
+}
+
+function closeColumnConfigDrawer() {
+  document.getElementById('boq-colcfg-overlay')?.classList.remove('open');
 }
 
 /* ---- Per-row Budgeted Item searchable-select ---- */
@@ -405,8 +505,19 @@ function wireTableCellEvents() {
 
 /* ---- Per-row AI sparkle: auto-fill from Item Name + Description ---- */
 
+// Scope of Work is filled in (Step 2) before BOQ is reached, so its text
+// fields are folded into the same keyword corpus as Item Name/Description
+// when suggesting Budgeted item / Procurement type / Purchase group /
+// Material group / Quantity — a line item whose own name/description is
+// generic but whose project's In Scope or Project Scope text names the
+// relevant category still gets matched correctly.
+function boqScopeOfWorkText() {
+  const fd = boq.step1FormData;
+  return [fd.executiveSummary, fd.projectScope, fd.inScope].filter(Boolean).join(' ').toLowerCase();
+}
+
 function suggestRowAiFields(item) {
-  const text = `${item.name} ${item.description || ''}`.toLowerCase();
+  const text = `${item.name} ${item.description || ''} ${boqScopeOfWorkText()}`.toLowerCase();
   const budgetedOptions = boqBudgetedItemOptions();
   const matchedBudgeted = budgetedOptions.find((o) => text.includes(o.label.toLowerCase())) || budgetedOptions[0] || null;
 
@@ -456,7 +567,7 @@ function buildEmptyStateHtml() {
       <div class="boq-empty-actions">
         <button type="button" class="boq-btn-primary" id="boq-empty-add-btn"><i class="fa-solid fa-plus"></i> Add New Item</button>
       </div>
-      <div class="boq-similar-touchpoint" id="boq-similar-touchpoint">
+      <div class="boq-similar-touchpoint" id="boq-similar-touchpoint" title="Similarity now also weighs this RFP's Scope of Work, not just its Project/Item selection">
         <i class="fa-solid fa-wand-magic-sparkles"></i>
         <span><strong>3 similar RFPs</strong> created, would you like to add the BOQs by referring it?</span>
       </div>
@@ -616,13 +727,18 @@ function generateBoqFromBudgetedItems() {
   return selectedIds.map((id) => {
     const budgetedItem = project.budgetedItems.find((i) => i.id === id);
     const name = budgetedItem ? budgetedItem.name : 'Procurement item';
+    const description = `Line item covering ${name} for ${project.name}.`;
+    // Reuse the same keyword heuristic as the per-row AI sparkle (which now
+    // also folds in Scope of Work text) so toolbar-generated suggestions and
+    // row-level auto-fill land on consistent categorization.
+    const suggested = suggestRowAiFields({ name, description, budgetedItemId: id, unitPrice: null, quantity: null });
     return {
       name,
-      description: `Line item covering ${name} for ${project.name}.`,
+      description,
       budgetedItemId: id,
-      procurementType: 'Services',
-      purchaseGroup: 'IT Procurement',
-      materialGroup: 'Consulting Services',
+      procurementType: suggested.procurementType,
+      purchaseGroup: suggested.purchaseGroup,
+      materialGroup: suggested.materialGroup,
       uom: 'Uni',
       quantity: 1,
       unitPrice: 50000,
@@ -991,8 +1107,13 @@ async function initBoq() {
 
   boq.step1FormData = WizardStore.getFormData();
   boq.projects = await DataStore.getAllProjects();
+  // "Similar RFPs" is a canned slice in this prototype (no real backend
+  // similarity search) — conceptually it now weighs this RFP's Scope of
+  // Work in addition to Project/Item, since Step 2 fills that in before
+  // BOQ is reached.
   boq.similarRfps = (await DataStore.getAllRfps()).slice(0, 12);
   loadBoqState();
+  loadColumnVisibility();
 
   renderBoqPage();
   updateContinueState();
