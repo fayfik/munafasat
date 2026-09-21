@@ -69,6 +69,51 @@
   padding: var(--space-4);
   position: sticky;
   top: calc(var(--header-height) + var(--space-4));
+  transition: width 150ms ease, padding-inline 150ms ease;
+}
+
+/* ---- Stepper rail collapse/expand ---- */
+
+.wizard-body.stepper-collapsed {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.wizard-stepper-toggle {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  margin-inline-start: auto;
+  margin-block-end: var(--space-2);
+  transition: transform 150ms ease;
+}
+
+.wizard-stepper-toggle:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.wizard-stepper-card.collapsed .wizard-stepper-toggle {
+  transform: scaleX(-1);
+  margin-inline: auto;
+}
+
+.wizard-stepper-card.collapsed .stepper-content {
+  display: none;
+}
+
+.wizard-stepper-card.collapsed .stepper-step {
+  justify-content: center;
+}
+
+.wizard-stepper-card.collapsed .stepper-step:not(:last-child)::before {
+  inset-inline-start: 50%;
 }
 
 .wizard-content-card {

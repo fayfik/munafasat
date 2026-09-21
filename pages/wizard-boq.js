@@ -209,9 +209,8 @@ function renderBoqPage() {
         <div class="boq-header-sub">Add one or more line items to this RFP</div>
       </div>
       <div class="boq-header-actions">
-        <button type="button" class="boq-btn-outline" id="boq-import-data-btn"><i class="fa-solid fa-file-import"></i> Import data</button>
-        <button type="button" class="boq-ai-section-btn" id="boq-generate-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
         <button type="button" class="boq-undo-icon-btn" id="boq-undo-btn" title="Undo last change" ${boq.undoSnapshot ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
+        <button type="button" class="boq-undo-icon-btn" id="boq-colcfg-btn" title="Column configuration"><i class="fa-solid fa-table-columns"></i></button>
         <div class="boq-dropdown" id="boq-viewmore-dropdown">
           <button type="button" class="boq-btn-outline" id="boq-viewmore-btn">View more <i class="fa-solid fa-chevron-down"></i></button>
           <div class="boq-dropdown-menu" id="boq-viewmore-menu">
@@ -224,14 +223,12 @@ function renderBoqPage() {
             </div>
             <div class="boq-dropdown-submenu" id="boq-download-submenu">
               <div class="boq-dropdown-item" id="boq-dl-etimad">Material - Etimad templates prefilled</div>
-              <!-- Only the Etimad option above is confirmed by the source doc;
-                   the two below are plausible additions, flagged as placeholders. -->
-              <div class="boq-dropdown-item" id="boq-dl-blank">Standard BOQ Template (blank)</div>
-              <div class="boq-dropdown-item" id="boq-dl-summary">BOQ Summary Report</div>
+              <div class="boq-dropdown-item" id="boq-dl-blank">Below listed items</div>
             </div>
           </div>
         </div>
-        <button type="button" class="boq-undo-icon-btn" id="boq-colcfg-btn" title="Column configuration"><i class="fa-solid fa-table-columns"></i></button>
+        <button type="button" class="boq-btn-outline" id="boq-import-data-btn"><i class="fa-solid fa-file-import"></i> Import data</button>
+        <button type="button" class="boq-ai-section-btn" id="boq-generate-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
       </div>
     </div>
     <div class="boq-section-card" id="boq-section-card"></div>
@@ -266,8 +263,11 @@ function renderBoqPage() {
   document.getElementById('boq-menu-change-view').addEventListener('click', () => { closeAllBoqMenus(); toggleChangeView(); });
   document.getElementById('boq-menu-clear-table').addEventListener('click', () => { closeAllBoqMenus(); confirmClearTable(); });
   document.getElementById('boq-dl-etimad').addEventListener('click', () => { closeAllBoqMenus(); downloadEtimadPrefilledTemplate(); });
+  // "Below listed items" per the source doc's Download submenu (exact
+  // intent beyond that label wasn't detailed) — reuses the same blank
+  // template export the Import Data modal's own "Download Template" step
+  // uses, listing the standard BOQ columns.
   document.getElementById('boq-dl-blank').addEventListener('click', () => { closeAllBoqMenus(); exportBoqTemplate(); });
-  document.getElementById('boq-dl-summary').addEventListener('click', () => { closeAllBoqMenus(); downloadSummaryReport(); });
 
   renderSectionCard();
 }
@@ -936,22 +936,6 @@ function downloadEtimadPrefilledTemplate() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Etimad BOQ');
   XLSX.writeFile(wb, 'Material-Etimad-Template.xlsx');
-}
-
-function downloadSummaryReport() {
-  // Placeholder: only the Etimad-prefilled option is confirmed by the
-  // source doc; this summary export is a plausible addition pending spec.
-  const totals = computeTotals();
-  const ws = XLSX.utils.aoa_to_sheet([
-    ['Metric', 'Value'],
-    ['Total items', boq.items.length],
-    ['Subtotal (SAR)', totals.subtotal],
-    ['VAT (SAR)', totals.vat],
-    ['Grand Total (SAR)', totals.grand],
-  ]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'BOQ Summary');
-  XLSX.writeFile(wb, 'BOQ-Summary-Report.xlsx');
 }
 
 /* ---- Import Data (redesigned 2-step modal, replaces the old Excel import) ----

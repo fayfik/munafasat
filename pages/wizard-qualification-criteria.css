@@ -57,7 +57,7 @@
 .qc-header-actions-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-3);
   flex-wrap: wrap;
   margin-top: var(--space-4);
@@ -84,38 +84,25 @@
 
 .qc-btn-primary:hover { background: var(--color-blue-800); }
 
-.qc-btn-primary .fa-chevron-down {
-  font-size: 10px;
-  opacity: 0.85;
-  margin-left: 2px;
-}
-
-/* Purple "Generate/Review with AI" pills */
-.qc-ai-section-btn {
+/* White/subtle-grey outline "Generate/Review with AI" buttons — right-
+   aligned next to Add Category, per spec (was a purple pill). */
+.qc-ai-outline-btn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   height: 38px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
-  border: 1px solid var(--color-purple-100);
-  background: var(--color-purple-50);
-  color: var(--color-purple-700);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   white-space: nowrap;
 }
 
-.qc-ai-section-btn:hover { background: var(--color-purple-100); }
-
-.qc-ai-actions-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-4);
-}
+.qc-ai-outline-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
 
 /* ---- AI Insight summary banner ---- */
 
@@ -312,6 +299,26 @@
   color: var(--text-primary);
 }
 
+.qc-category-title-input {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  padding: 2px var(--space-2);
+  min-width: 160px;
+}
+
+.qc-category-title-input:hover { border-color: var(--border-default); }
+
+.qc-category-title-input:focus {
+  outline: none;
+  border-color: var(--color-green-600);
+  background: var(--surface-card);
+  box-shadow: 0 0 0 3px var(--color-green-50);
+}
+
 .qc-category-subtotal {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
@@ -367,6 +374,14 @@
 
 .qc-cell-input.has-error { border-color: var(--color-error-500); }
 
+/* Default (locked) criteria: name is shown as plain view-only text. */
+.qc-cell-locked-text {
+  display: block;
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
 .qc-empty-state {
   display: flex;
   flex-direction: column;
@@ -386,19 +401,6 @@
 .qc-empty-state h3 { margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--text-primary); }
 .qc-empty-state p { margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm); }
 
-/* ---- Shared modal primitives (self-contained, mirrors wizard-boq.css) ---- */
-
-.qc-field-row { display: flex; gap: var(--space-4); margin-bottom: var(--space-4); flex-wrap: wrap; }
-.qc-field { flex: 1 1 auto; min-width: 0; }
-.qc-field.full { flex-basis: 100%; }
-.qc-field-label { display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-primary); margin-bottom: var(--space-2); }
-.qc-input, .qc-select {
-  width: 100%; height: 42px; padding: 0 var(--space-3); border: 1px solid var(--border-default);
-  border-radius: var(--radius-md); background: var(--surface-card); color: var(--text-primary);
-  font-size: var(--font-size-sm); font-family: inherit;
-}
-.qc-input:focus, .qc-select:focus { outline: none; border-color: var(--color-green-600); box-shadow: 0 0 0 3px var(--color-green-50); }
-.qc-field-error { font-size: var(--font-size-xs); color: var(--color-error-600); margin-top: var(--space-1); }
 
 .qc-modal-footer { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-4); }
 .qc-btn-cancel {

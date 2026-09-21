@@ -8,6 +8,7 @@
   gap: var(--space-4);
   margin-bottom: var(--space-4);
   flex-wrap: wrap;
+  animation: slide-fade-in 220ms ease;
 }
 
 .step1-field-row:last-child {
@@ -440,6 +441,39 @@
 }
 
 /* ---- Browse-all-projects modal ---- */
+
+.step1-browse-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 38px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-app-bg);
+  margin-bottom: var(--space-3);
+}
+
+.step1-browse-search i {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.step1-browse-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.step1-browse-empty {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
 
 .step1-browse-scroll {
   flex: 1;

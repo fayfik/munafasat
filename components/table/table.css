@@ -106,6 +106,16 @@
   color: var(--text-primary);
 }
 
+.row-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.row-action:disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
 .row-action-delete {
   color: var(--color-error-500);
 }

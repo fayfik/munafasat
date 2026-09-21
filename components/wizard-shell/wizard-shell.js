@@ -39,6 +39,31 @@ function renderWizardStepperRail(currentStepId) {
   });
 }
 
+// Vertical stepper rail collapse/expand — persisted per browser session
+// (not per-RFP data) so it stays collapsed as the requestor moves between
+// steps, matching the app sidebar's own collapse convention.
+const STEPPER_COLLAPSE_KEY = 'munafasat.stepperCollapsed';
+
+function isStepperCollapsed() {
+  try {
+    return sessionStorage.getItem(STEPPER_COLLAPSE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function setStepperCollapsedChrome(collapsed) {
+  try {
+    sessionStorage.setItem(STEPPER_COLLAPSE_KEY, collapsed ? '1' : '0');
+  } catch {
+    /* sessionStorage unavailable — collapse state just won't persist */
+  }
+  document.getElementById('wizard-stepper-card')?.classList.toggle('collapsed', collapsed);
+  document.getElementById('wizard-body')?.classList.toggle('stepper-collapsed', collapsed);
+  const toggleBtn = document.getElementById('wizard-stepper-toggle');
+  if (toggleBtn) toggleBtn.setAttribute('title', collapsed ? 'Expand steps' : 'Collapse steps');
+}
+
 // Re-renders the stepper rail and the footer's "Continue: <next step>"
 // label after something changes which steps are visible — currently only
 // Step 1's procurement category radio (Souq Etimad collapses the rail to
@@ -85,8 +110,13 @@ function renderWizardShell({ mountId, currentStepId, onSaveDraft, onContinue, fo
         </div>
       </div>
 
-      <div class="wizard-body">
-        <div class="wizard-stepper-card" id="wizard-stepper-mount"></div>
+      <div class="wizard-body" id="wizard-body">
+        <div class="wizard-stepper-card" id="wizard-stepper-card">
+          <button type="button" class="wizard-stepper-toggle" id="wizard-stepper-toggle" title="Collapse steps" aria-label="Collapse steps">
+            <i class="fa-solid fa-angles-left"></i>
+          </button>
+          <div id="wizard-stepper-mount"></div>
+        </div>
         <div class="wizard-content-card" id="wizard-step-content">
           <div class="wizard-content-placeholder">This step's fields will be built in a follow-up phase.</div>
         </div>
@@ -106,6 +136,10 @@ function renderWizardShell({ mountId, currentStepId, onSaveDraft, onContinue, fo
   `;
 
   renderWizardStepperRail(currentStepId);
+  setStepperCollapsedChrome(isStepperCollapsed());
+  document.getElementById('wizard-stepper-toggle').addEventListener('click', () => {
+    setStepperCollapsedChrome(!isStepperCollapsed());
+  });
 
   document.getElementById('wizard-copilot-btn').addEventListener('click', openCopilotDrawer);
   document.getElementById('wizard-new-experience-btn').addEventListener('click', () => {

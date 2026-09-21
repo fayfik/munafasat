@@ -135,20 +135,22 @@ function renderSectionCard() {
         <p>Define how payment for this RFP will be staged.</p>
         <div class="pay-empty-actions">
           <button type="button" class="pay-btn-primary" id="pay-empty-add-btn"><i class="fa-solid fa-plus"></i> Add payment schedule</button>
+          <button type="button" class="pay-btn-outline" id="pay-empty-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
         </div>
       </div>
     `;
     document.getElementById('pay-empty-add-btn').addEventListener('click', addNewStageRow);
+    document.getElementById('pay-empty-ai-btn').addEventListener('click', runFullScheduleAi);
     updateContinueGate();
     return;
   }
 
   card.innerHTML = `
-    <div class="pay-add-stage-row">
-      <button type="button" class="pay-btn-outline" id="pay-add-stage-btn"><i class="fa-solid fa-plus"></i> Add Stage</button>
-    </div>
     <div class="pay-table-wrap">
       ${buildTableHtml({ columns: PAY_COLUMNS, rows: pay.stages, rowKey: (r) => r.id })}
+    </div>
+    <div class="pay-add-stage-row">
+      <button type="button" class="pay-btn-outline" id="pay-add-stage-btn"><i class="fa-solid fa-plus"></i> Add Stage</button>
     </div>
     <div class="pay-total-block">
       ${buildTotalBlockInnerHtml()}

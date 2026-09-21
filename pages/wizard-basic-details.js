@@ -663,7 +663,7 @@ async function renderProjectSuggestions() {
     <div class="step1-suggestions">
       <div class="step1-suggestions-label"><i class="fa-solid fa-wand-magic-sparkles"></i> Similar past projects</div>
       ${top3.map((r) => buildSuggestionCardHtml(r)).join('')}
-      <button type="button" class="step1-browse-link" id="step1-browse-all">Browse all projects <i class="fa-solid fa-arrow-right"></i></button>
+      <button type="button" class="step1-browse-link" id="step1-browse-all">Browse all projects with similar RFPs <i class="fa-solid fa-arrow-right"></i></button>
     </div>
   `;
 
@@ -689,37 +689,61 @@ function buildSuggestionCardHtml(rfp) {
   `;
 }
 
+function buildBrowseRowsHtml(rfps) {
+  if (rfps.length === 0) {
+    return `<div class="step1-browse-empty">No matching RFPs.</div>`;
+  }
+  return rfps.map((r) => `
+    <div class="step1-browse-row">
+      <div class="step1-browse-main">
+        <div class="step1-browse-title">${escapeHtmlStep1(r.title)}</div>
+        <div class="step1-browse-meta">${escapeHtmlStep1(r.id)} · Created ${formatDate(r.createdDate)}</div>
+      </div>
+      <div class="step1-browse-actions">
+        <button type="button" class="step1-browse-view-btn" data-view="${r.id}">View details</button>
+        <button type="button" class="step1-browse-import-btn" data-import="${r.id}">Import</button>
+      </div>
+    </div>
+  `).join('');
+}
+
 function openBrowseProjectsModal(eligibleRfps) {
   openDialog({
-    title: 'Browse similar past projects',
+    title: 'Browse all projects with similar RFPs',
     size: 'large',
     bodyHtml: `
-      <div class="step1-browse-scroll">
-        ${eligibleRfps.map((r) => `
-          <div class="step1-browse-row">
-            <div class="step1-browse-main">
-              <div class="step1-browse-title">${escapeHtmlStep1(r.title)}</div>
-              <div class="step1-browse-meta">${escapeHtmlStep1(r.id)} · Created ${formatDate(r.createdDate)}</div>
-            </div>
-            <div class="step1-browse-actions">
-              <button type="button" class="step1-browse-view-btn" data-view="${r.id}">View details</button>
-              <button type="button" class="step1-browse-import-btn" data-import="${r.id}">Import</button>
-            </div>
-          </div>
-        `).join('')}
+      <div class="step1-browse-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="step1-browse-search-input" placeholder="Search by request name, project name or RFP number">
       </div>
+      <div class="step1-browse-scroll" id="step1-browse-list">${buildBrowseRowsHtml(eligibleRfps)}</div>
     `,
   });
 
+  wireBrowseRows(eligibleRfps);
+
+  document.getElementById('step1-browse-search-input').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    const filtered = !q ? eligibleRfps : eligibleRfps.filter((r) => {
+      return (r.title || '').toLowerCase().includes(q)
+        || (r.id || '').toLowerCase().includes(q)
+        || (r.project || '').toLowerCase().includes(q);
+    });
+    document.getElementById('step1-browse-list').innerHTML = buildBrowseRowsHtml(filtered);
+    wireBrowseRows(filtered);
+  });
+}
+
+function wireBrowseRows(rfps) {
   document.querySelectorAll('[data-view]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const rfp = eligibleRfps.find((r) => r.id === btn.dataset.view);
+      const rfp = rfps.find((r) => r.id === btn.dataset.view);
       if (rfp) openRfpDetailPreview(rfp);
     });
   });
   document.querySelectorAll('[data-import]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const rfp = eligibleRfps.find((r) => r.id === btn.dataset.import);
+      const rfp = rfps.find((r) => r.id === btn.dataset.import);
       if (rfp) {
         closeDialog();
         importRfpIntoStep1(rfp);

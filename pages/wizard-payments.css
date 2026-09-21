@@ -128,7 +128,7 @@
 }
 
 .pay-add-stage-row {
-  margin-bottom: var(--space-3);
+  margin-top: var(--space-3);
   display: flex;
   justify-content: flex-end;
 }

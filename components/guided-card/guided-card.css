@@ -97,6 +97,7 @@
   padding-block-end: var(--space-4);
   border-top: 1px solid var(--border-default);
   padding-block-start: var(--space-4);
+  animation: slide-fade-in 220ms ease;
 }
 
 .guided-card-body:empty {
