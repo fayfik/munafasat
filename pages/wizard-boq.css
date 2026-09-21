@@ -31,6 +31,29 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Plain, borderless icon button — pinned to the extreme right of the
+   toolbar row regardless of how many buttons precede it. */
+.boq-colcfg-icon-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  margin-inline-start: auto;
+}
+
+.boq-colcfg-icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .boq-btn-outline {

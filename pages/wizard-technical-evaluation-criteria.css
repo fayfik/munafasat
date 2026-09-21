@@ -115,7 +115,8 @@
   color: var(--text-primary);
   font-size: var(--font-size-sm);
   font-family: inherit;
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
   white-space: pre-wrap;
   overflow-wrap: break-word;
   line-height: 1.4;

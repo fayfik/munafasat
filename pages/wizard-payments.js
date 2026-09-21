@@ -372,6 +372,7 @@ function runFullScheduleAi() {
     ribbonMountId: 'ribbon-pay-section',
     undoMountId: 'undo-pay-section',
     emptyMessage: 'A payment schedule already exists — clear it first to generate a new one.',
+    emptyState: 'warning',
     hasWork: () => pay.stages.length === 0,
     performApply: () => {
       const schedule = generateFullScheduleSuggestion();

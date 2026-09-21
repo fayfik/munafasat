@@ -1,12 +1,7 @@
 /* Step 3 - Scope of Work */
 
 .sow-header-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
 }
 
 .sow-header-title {
@@ -20,6 +15,13 @@
   color: var(--text-secondary);
   margin-top: 4px;
   max-width: 640px;
+}
+
+/* The AI button now sits on its own row directly under the title/desc
+   (was squeezed beside them in a space-between row, which visibly shifted
+   the button's own position once the ribbon/Undo appeared next to it). */
+.sow-header-ai-row {
+  margin-bottom: var(--space-4);
 }
 
 .sow-ai-section-btn {

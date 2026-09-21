@@ -103,9 +103,9 @@ function evaluateRequirementAi(text) {
 function renderAiCheckIconHtml(r) {
   if (!r.aiCheck) return '';
   if (r.aiCheck.valid) {
-    return `<i class="fa-solid fa-circle-check tr-ai-check-icon valid" title="${escapeHtmlTr(r.aiCheck.reason)}"></i>`;
+    return `<span class="tr-ai-check-tag valid" title="${escapeHtmlTr(r.aiCheck.reason)}"><i class="fa-solid fa-circle-check tr-ai-check-icon valid"></i>Good to have</span>`;
   }
-  return `<i class="fa-solid fa-circle-xmark tr-ai-check-icon invalid" title="${escapeHtmlTr(`The added technical requirement is invalid because ${r.aiCheck.reason}`)}"></i>`;
+  return `<span class="tr-ai-check-tag invalid" title="${escapeHtmlTr(`The added technical requirement is invalid because ${r.aiCheck.reason}`)}"><i class="fa-solid fa-circle-xmark tr-ai-check-icon invalid"></i>Not suggested</span>`;
 }
 
 function updateRowAiCheckIcon(item) {

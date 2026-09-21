@@ -210,7 +210,6 @@ function renderBoqPage() {
       </div>
       <div class="boq-header-actions">
         <button type="button" class="boq-undo-icon-btn" id="boq-undo-btn" title="Undo last change" ${boq.undoSnapshot ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
-        <button type="button" class="boq-undo-icon-btn" id="boq-colcfg-btn" title="Column configuration"><i class="fa-solid fa-table-columns"></i></button>
         <div class="boq-dropdown" id="boq-viewmore-dropdown">
           <button type="button" class="boq-btn-outline" id="boq-viewmore-btn">View more <i class="fa-solid fa-chevron-down"></i></button>
           <div class="boq-dropdown-menu" id="boq-viewmore-menu">
@@ -229,6 +228,7 @@ function renderBoqPage() {
         </div>
         <button type="button" class="boq-btn-outline" id="boq-import-data-btn"><i class="fa-solid fa-file-import"></i> Import data</button>
         <button type="button" class="boq-ai-section-btn" id="boq-generate-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+        <button type="button" class="boq-colcfg-icon-btn" id="boq-colcfg-btn" title="Column configuration"><i class="fa-solid fa-table-columns"></i></button>
       </div>
     </div>
     <div class="boq-section-card" id="boq-section-card"></div>

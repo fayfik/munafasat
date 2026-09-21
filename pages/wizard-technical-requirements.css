@@ -205,7 +205,6 @@
 
 .tr-ai-check-mount {
   flex-shrink: 0;
-  width: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -218,6 +217,19 @@
 
 .tr-ai-check-icon.valid { color: var(--color-success-600); }
 .tr-ai-check-icon.invalid { color: var(--color-error-500); }
+
+.tr-ai-check-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  cursor: help;
+}
+
+.tr-ai-check-tag.valid { color: var(--color-success-600); }
+.tr-ai-check-tag.invalid { color: var(--color-error-500); }
 
 .tr-cell-input {
   width: 100%;

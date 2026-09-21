@@ -97,7 +97,36 @@ function createSearchableSelect({
 
     if (mode === 'multi' && showChips) renderChips();
     wireEvents();
-    if (isOpen) document.getElementById(`${mountId}-search`).focus();
+    if (isOpen) {
+      document.getElementById(`${mountId}-search`).focus();
+      positionDropdown();
+    }
+  }
+
+  // The dropdown panel is `position: fixed`, positioned here from the
+  // trigger's live bounding rect instead of relying on CSS `position:
+  // absolute` relative to `.sel-field` — an ancestor with overflow other
+  // than visible (e.g. a horizontally-scrollable table wrapper, or a
+  // rounded card that clips its own corners) would otherwise crop the
+  // dropdown instead of letting it float above everything.
+  function positionDropdown() {
+    const trigger = document.getElementById(`${mountId}-trigger`);
+    const dropdown = document.getElementById(`${mountId}-dropdown`);
+    if (!trigger || !dropdown) return;
+    const rect = trigger.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const dropdownHeight = dropdown.offsetHeight;
+    dropdown.style.position = 'fixed';
+    dropdown.style.left = `${rect.left}px`;
+    dropdown.style.right = 'auto';
+    dropdown.style.width = `${rect.width}px`;
+    if (spaceBelow < dropdownHeight && rect.top > spaceBelow) {
+      dropdown.style.top = 'auto';
+      dropdown.style.bottom = `${window.innerHeight - rect.top + 4}px`;
+    } else {
+      dropdown.style.bottom = 'auto';
+      dropdown.style.top = `${rect.bottom + 4}px`;
+    }
   }
 
   function renderChips() {

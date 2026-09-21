@@ -418,15 +418,13 @@ function renderSowPage() {
   const mount = document.getElementById('wizard-step-content');
   mount.innerHTML = `
     <div class="sow-header-row">
-      <div>
-        <div class="sow-header-title">Scope of Work</div>
-        <div class="sow-header-desc">Define the project scope, deliverables, locations, standards, timelines, and other requirements for this procurement.</div>
-      </div>
-      <div class="aig-toolbar-row">
-        <button type="button" class="sow-ai-section-btn" id="sow-section-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
-        <button type="button" class="aig-undo-btn" id="undo-sow-section"></button>
-        <div class="aig-ribbon" id="ribbon-sow-section"></div>
-      </div>
+      <div class="sow-header-title">Scope of Work</div>
+      <div class="sow-header-desc">Define the project scope, deliverables, locations, standards, timelines, and other requirements for this procurement.</div>
+    </div>
+    <div class="aig-toolbar-row sow-header-ai-row">
+      <button type="button" class="sow-ai-section-btn" id="sow-section-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+      <button type="button" class="aig-undo-btn" id="undo-sow-section"></button>
+      <div class="aig-ribbon" id="ribbon-sow-section"></div>
     </div>
 
     <div class="sow-cards-stack">

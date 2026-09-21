@@ -46,6 +46,15 @@
   color: var(--text-tertiary);
 }
 
+.aig-ribbon.warning {
+  background: var(--color-warning-50);
+  color: var(--color-warning-700);
+}
+
+.aig-ribbon.warning i {
+  color: var(--color-warning-500);
+}
+
 .aig-undo-btn {
   display: none;
   align-items: center;

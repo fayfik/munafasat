@@ -103,6 +103,8 @@ function renderTecPage() {
       </div>
     </div>
 
+    <div class="tec-section-card" id="tec-section-card"></div>
+
     <div class="tec-passing-card">
       <div>
         <div class="tec-passing-label">Technical Evaluation Passing %</div>
@@ -113,8 +115,6 @@ function renderTecPage() {
         <span>%</span>
       </div>
     </div>
-
-    <div class="tec-section-card" id="tec-section-card"></div>
   `;
 
   document.getElementById('tec-add-criterion-btn').addEventListener('click', addCriterion);
@@ -164,6 +164,17 @@ function renderTecTable() {
   document.getElementById('tec-add-criterion-link').addEventListener('click', addCriterion);
   wireTecTable();
   enableColumnResize('tec-criteria-table', tec.columnWidths);
+  autoGrowTecTextareas();
+}
+
+// Rows must never force-crop typed content, so every description/how-applied
+// textarea grows to fit its value both on initial render (pre-filled/seeded
+// content) and reactively as the user types.
+function autoGrowTecTextareas() {
+  document.querySelectorAll('#tec-section-card .tec-cell-textarea').forEach((el) => {
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  });
 }
 
 function tecColumns() {
@@ -205,6 +216,8 @@ function wireTecTable() {
     crit[el.dataset.field] = el.value;
     if (el.dataset.field === 'description' || el.dataset.field === 'howApplied') {
       el.classList.toggle('has-error', !el.value.trim());
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
     }
     persistTec();
     refreshTecTotalBadge();

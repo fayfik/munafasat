@@ -142,7 +142,11 @@ const step1 = {
   lastSavedAt: null,
   recommendedIncludes: [],
   dismissedIncludesRecommendations: new Set(),
-  section1Expanded: false,
+  // Section 1 stays expanded even once it's "completed" (a Budgeted Item
+  // is selected) — sections must never auto-collapse anywhere in the
+  // app; the user can still manually collapse a completed section by
+  // clicking its header, this just doesn't happen automatically.
+  section1Expanded: true,
 };
 
 function getProject() {
@@ -205,9 +209,15 @@ function validateStep1() {
 
 function updateContinueState() {
   setWizardContinueEnabled(validateStep1());
+  showFieldErrors();
 }
 
+// Clears every field-error slot first, then repopulates only the ones
+// still failing — previously this only ever wrote text in, never cleared
+// it back out, so a resolved error (e.g. "Select at least one item"
+// after the user adds one) stayed on screen until the next full render.
 function showFieldErrors() {
+  document.querySelectorAll('.step1-field-error').forEach((el) => { el.textContent = ''; });
   Object.keys(step1.errors).forEach((key) => {
     const el = document.getElementById(`err-${key}`);
     if (el) el.textContent = step1.errors[key];
@@ -641,18 +651,29 @@ function isFromScratchMode() {
   return WizardStore.getState().mode !== 'previous';
 }
 
+// Similar-RFPs eligibility, scoped to the selected project. The mock RFP
+// records mostly don't link to a specific project by id/name, so "within
+// this project" is approximated by department + category — the closest
+// proxy available, and consistent with how "similar" is already canned/
+// heuristic everywhere else this prototype simulates AI.
+function findRfpsSimilarToProject(allRfps, project) {
+  const eligible = allRfps.filter((r) => r.approvalStatus && r.approvalStatus !== 'Draft');
+  const sameDeptAndCategory = eligible.filter((r) => r.department === project.department && r.category === project.category);
+  const pool = sameDeptAndCategory.length > 0 ? sameDeptAndCategory : eligible.filter((r) => r.department === project.department);
+  return pool.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+}
+
 async function renderProjectSuggestions() {
   const mount = document.getElementById('project-suggestions');
   if (!mount) return;
-  if (step1.formData.projectId || !isFromScratchMode()) {
+  const project = getProject();
+  if (!project || !isFromScratchMode()) {
     mount.innerHTML = '';
     return;
   }
 
   const allRfps = await DataStore.getAllRfps();
-  const eligible = allRfps
-    .filter((r) => r.approvalStatus && r.approvalStatus !== 'Draft')
-    .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+  const eligible = findRfpsSimilarToProject(allRfps, project);
   const top3 = eligible.slice(0, 3);
   if (top3.length === 0) {
     mount.innerHTML = '';
@@ -661,9 +682,9 @@ async function renderProjectSuggestions() {
 
   mount.innerHTML = `
     <div class="step1-suggestions">
-      <div class="step1-suggestions-label"><i class="fa-solid fa-wand-magic-sparkles"></i> Similar past projects</div>
+      <div class="step1-suggestions-label"><i class="fa-solid fa-wand-magic-sparkles"></i> Similar RFPs created within this project</div>
       ${top3.map((r) => buildSuggestionCardHtml(r)).join('')}
-      <button type="button" class="step1-browse-link" id="step1-browse-all">Browse all projects with similar RFPs <i class="fa-solid fa-arrow-right"></i></button>
+      <button type="button" class="step1-browse-link" id="step1-browse-all">Browse all RFPs <i class="fa-solid fa-arrow-right"></i></button>
     </div>
   `;
 
@@ -709,7 +730,7 @@ function buildBrowseRowsHtml(rfps) {
 
 function openBrowseProjectsModal(eligibleRfps) {
   openDialog({
-    title: 'Browse all projects with similar RFPs',
+    title: 'Similar RFPs created within this project',
     size: 'large',
     bodyHtml: `
       <div class="step1-browse-search">
@@ -1037,6 +1058,16 @@ async function initStep1() {
   step1.projectsById = Object.fromEntries(step1.projects.map((p) => [p.id, p]));
   step1.formData = WizardStore.getFormData();
   migrateLegacyRfpFields();
+
+  // The Duration type <select> visually defaults to its first option
+  // ("Days") before the user ever touches it, but formData.durationType
+  // stayed undefined until a real 'change' event fired — so the tentative
+  // closure date calculation fell through to the final "else" branch
+  // (Year) instead of the "Days" branch it looked like was selected.
+  if (!step1.formData.durationType) {
+    step1.formData.durationType = 'Days';
+    WizardStore.updateFormData({ durationType: 'Days' });
+  }
 
   renderStep1();
   updateContinueState();

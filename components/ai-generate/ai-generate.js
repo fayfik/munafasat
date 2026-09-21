@@ -28,9 +28,12 @@
     ribbonMountId: string,            // empty <div> already in the page
     undoMountId: string,              // empty <div> (or a <button> slot) already in the page
     emptyMessage?: string,            // shown instead of the ribbon when hasWork() is false
+    emptyState?: 'warning',           // pass 'warning' when the empty-state message is
+                                       // blocking rather than just informational (e.g.
+                                       // "clear it first") — renders red/orange, not grey.
   })
 */
-function runAiGenerate({ confirmMessage, hasWork, performApply, ribbonMountId, undoMountId, emptyMessage }) {
+function runAiGenerate({ confirmMessage, hasWork, performApply, ribbonMountId, undoMountId, emptyMessage, emptyState }) {
   openDialog({
     title: 'Generate with AI',
     bodyHtml: `
@@ -47,7 +50,7 @@ function runAiGenerate({ confirmMessage, hasWork, performApply, ribbonMountId, u
     closeDialog();
 
     if (!hasWork()) {
-      showAiRibbon(ribbonMountId, emptyMessage || 'Nothing to update — everything already has a value.', false);
+      showAiRibbon(ribbonMountId, emptyMessage || 'Nothing to update — everything already has a value.', emptyState || false);
       return;
     }
 
@@ -98,11 +101,16 @@ function runFieldAiGenerate({ ribbonMountId, undoMountId, isEmpty, generate, app
   });
 }
 
-function showAiRibbon(mountId, message, success) {
+// `state`: `true` -> success (green), `'warning'` -> attention-seeking
+// (red/orange, for messages that block an action rather than just
+// informing), anything else (including plain `false`) -> neutral.
+function showAiRibbon(mountId, message, state) {
   const el = document.getElementById(mountId);
   if (!el) return;
-  el.className = `aig-ribbon show ${success ? 'success' : 'neutral'}`;
-  el.innerHTML = `<i class="fa-solid ${success ? 'fa-circle-check' : 'fa-circle-info'}"></i><span>${message}</span>`;
+  const cls = state === true ? 'success' : state === 'warning' ? 'warning' : 'neutral';
+  const icon = cls === 'success' ? 'fa-circle-check' : cls === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
+  el.className = `aig-ribbon show ${cls}`;
+  el.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
 }
 
 function hideAiRibbon(mountId) {
