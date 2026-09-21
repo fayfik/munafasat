@@ -1,15 +1,20 @@
 /*
   Step 4 - Payments controller.
-  Depends on: data-store.js, dialog.js, toast.js, date-picker.js, table.js,
+  Depends on: data-store.js, dialog.js, toast.js, table.js, ai-generate.js,
   wizard-shell.js (all loaded before this file).
+
+  Every payment stage row is inline-editable directly in the table, same
+  approach as BOQ (Step 3) — there's no Add/Edit Stage popup. "+ Add Stage"
+  appends a new blank row straight to the table; each row also has its own
+  AI-suggestion sparkle (next to the Stage name) that fills that one row,
+  in addition to the header's section-level "Generate with AI" for a full
+  starter schedule.
 */
 
 const pay = {
   stages: [],
   totalRfpValue: 0,
   step1Fd: {},
-  editingStageId: null,
-  modalDatePicker: null,
 };
 
 /* ---- Persistence ---- */
@@ -28,7 +33,13 @@ function newStageId() {
   return `pay-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-/* ---- Total RFP/BOQ value (read from Step 2's data, same formula it displays) ---- */
+function escapeHtmlPay(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
+/* ---- Total RFP/BOQ value (read from Step 3's data, same formula it displays) ---- */
 
 function computeTotalRfpValue() {
   const items = pay.step1Fd.boqItems || [];
@@ -50,7 +61,8 @@ function percentFromAmount(amount) {
   return pay.totalRfpValue > 0 ? Math.round(((Number(amount) || 0) / pay.totalRfpValue * 100) * 100) / 100 : 0;
 }
 
-/* ---- Totals / progress ---- */
+/* ---- Totals / progress (3 states: warning under 100%, success at exactly
+   100%, error over 100%) ---- */
 
 function percentTotal() {
   return Math.round(pay.stages.reduce((sum, s) => sum + (Number(s.percentage) || 0), 0) * 100) / 100;
@@ -77,36 +89,40 @@ function renderPayPage() {
         <div class="pay-header-title">Payment Schedule</div>
         <div class="pay-header-desc">Define payment stages - percentages must total 100%.</div>
       </div>
+      <div class="aig-toolbar-row">
+        <button type="button" class="pay-ai-btn" id="pay-section-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+        <button type="button" class="aig-undo-btn" id="undo-pay-section"></button>
+        <div class="aig-ribbon" id="ribbon-pay-section"></div>
+      </div>
     </div>
-    <div class="aig-ribbon" id="ribbon-pay-section"></div>
-    <button type="button" class="aig-undo-btn" id="undo-pay-section"></button>
     <div class="pay-section-card" id="pay-section-card"></div>
   `;
+  document.getElementById('pay-section-ai-btn').addEventListener('click', runFullScheduleAi);
   renderSectionCard();
 }
 
 const PAY_COLUMNS = [
   { key: 'sno', label: 'S.No', render: (r) => String(pay.stages.indexOf(r) + 1) },
-  { key: 'stageName', label: 'Stage', render: (r) => `<span class="cell-truncate" title="${escapeHtmlPay(r.stageName)}">${escapeHtmlPay(r.stageName)}</span>` },
-  { key: 'itemDeliverable', label: 'Item / Deliverable', cellClass: 'cell-muted', render: (r) => `<span class="cell-truncate" title="${escapeHtmlPay(r.itemDeliverable || '')}">${escapeHtmlPay(r.itemDeliverable || '—')}</span>` },
-  { key: 'startDate', label: 'Start Date', cellClass: 'cell-muted', render: (r) => formatDate(r.startDate) },
-  { key: 'durationDays', label: 'Duration (days)', cellClass: 'cell-muted', render: (r) => (r.durationDays ?? '—') },
-  { key: 'percentage', label: 'Percentage (%)', render: (r) => `${Number(r.percentage) || 0}%` },
-  { key: 'amount', label: 'Amount (SAR)', render: (r) => `<strong>${formatPaySAR(r.amount)}</strong>` },
+  {
+    key: 'stageName', label: 'Stage', render: (r) => `
+      <div class="pay-desc-cell">
+        <input type="text" class="pay-cell-input" data-field="stageName" data-id="${r.id}" value="${escapeHtmlPay(r.stageName)}" placeholder="e.g. Advance Payment">
+        <button type="button" class="pay-row-ai-btn" data-ai-row="${r.id}" title="Suggest this stage with AI"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+      </div>`,
+  },
+  { key: 'itemDeliverable', label: 'Item / Deliverable', render: (r) => `<input type="text" class="pay-cell-input" data-field="itemDeliverable" data-id="${r.id}" value="${escapeHtmlPay(r.itemDeliverable || '')}" placeholder="What is delivered at this stage">` },
+  { key: 'startDate', label: 'Start Date', render: (r) => `<input type="date" class="pay-cell-input" data-field="startDate" data-id="${r.id}" value="${r.startDate || ''}">` },
+  { key: 'durationDays', label: 'Duration (days)', render: (r) => `<input type="number" min="0" step="1" class="pay-cell-input pay-cell-num" data-field="durationDays" data-id="${r.id}" value="${r.durationDays ?? ''}">` },
+  { key: 'percentage', label: 'Percentage (%)', render: (r) => `<input type="number" min="0" max="100" step="1" class="pay-cell-input pay-cell-num" data-field="percentage" data-id="${r.id}" value="${r.percentage ?? ''}">` },
+  { key: 'amount', label: 'Amount (SAR)', render: (r) => `<input type="number" min="0" step="0.01" class="pay-cell-input pay-cell-num" data-field="amount" data-id="${r.id}" value="${r.amount ?? ''}">` },
   {
     key: 'actions', label: 'Actions', render: (r) => `
       <div class="row-actions">
-        <button class="row-action row-action-delete" data-action="delete" title="Delete"><i class="fa-solid fa-trash"></i></button>
+        <button class="row-action row-action-delete" data-action="delete" data-id="${r.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
       </div>
     `,
   },
 ];
-
-function escapeHtmlPay(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
 
 function renderSectionCard() {
   const card = document.getElementById('pay-section-card');
@@ -118,20 +134,14 @@ function renderSectionCard() {
         <h3>No payment stages yet</h3>
         <p>Define how payment for this RFP will be staged.</p>
         <div class="pay-empty-actions">
-          <button type="button" class="pay-btn-primary" id="pay-empty-add-btn"><i class="fa-solid fa-plus"></i> Add Stage</button>
-          <button type="button" class="pay-ai-btn" id="pay-empty-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+          <button type="button" class="pay-btn-primary" id="pay-empty-add-btn"><i class="fa-solid fa-plus"></i> Add payment schedule</button>
         </div>
       </div>
     `;
-    document.getElementById('pay-empty-add-btn').addEventListener('click', () => openStageModal(null));
-    document.getElementById('pay-empty-ai-btn').addEventListener('click', runFullScheduleAi);
+    document.getElementById('pay-empty-add-btn').addEventListener('click', addNewStageRow);
     updateContinueGate();
     return;
   }
-
-  const total = percentTotal();
-  const state = totalState();
-  const pct = Math.min(100, total);
 
   card.innerHTML = `
     <div class="pay-add-stage-row">
@@ -141,44 +151,93 @@ function renderSectionCard() {
       ${buildTableHtml({ columns: PAY_COLUMNS, rows: pay.stages, rowKey: (r) => r.id })}
     </div>
     <div class="pay-total-block">
-      <div class="pay-total-summary">
-        <span class="pay-total-label">Total must equal 100%</span>
-        <span class="pay-total-detail state-${state}">
-          ${state === 'error' ? `Payment percentages cannot exceed 100%. (${total}%)`
-            : state === 'success' ? 'Payment schedule totals 100%.'
-            : `Payment percentages must total 100% — ${(100 - total).toFixed(2).replace(/\.00$/, '')}% remaining`}
-        </span>
-      </div>
-      <div class="pay-progress-track">
-        <div class="pay-progress-fill state-${state}" style="width:${pct}%;"></div>
-      </div>
+      ${buildTotalBlockInnerHtml()}
     </div>
   `;
 
-  document.getElementById('pay-add-stage-btn').addEventListener('click', () => openStageModal(null));
-  wireTableRowEvents();
+  document.getElementById('pay-add-stage-btn').addEventListener('click', addNewStageRow);
+  wireTableCellEvents();
   updateContinueGate();
 }
 
-function wireTableRowEvents() {
+function buildTotalBlockInnerHtml() {
+  const total = percentTotal();
+  const state = totalState();
+  const pct = Math.min(100, total);
+  const detailText = state === 'error' ? `Payment percentages cannot exceed 100%. (${total}%)`
+    : state === 'success' ? 'Payment schedule totals 100%.'
+    : `Payment percentages must total 100% — ${(100 - total).toFixed(2).replace(/\.00$/, '')}% remaining`;
+
+  return `
+    <div class="pay-total-summary">
+      <span class="pay-total-label">Total must equal 100%</span>
+      <span class="pay-total-detail state-${state}">${detailText}</span>
+    </div>
+    <div class="pay-progress-track">
+      <div class="pay-progress-fill state-${state}" style="width:${pct}%;"></div>
+    </div>
+  `;
+}
+
+// Targeted update (no full re-render) so editing a percentage/amount cell
+// doesn't steal focus from whatever input the user is still typing in.
+function refreshTotalsBlock() {
+  const block = document.querySelector('.pay-total-block');
+  if (block) block.innerHTML = buildTotalBlockInnerHtml();
+  updateContinueGate();
+}
+
+/* ---- Cell edit event delegation (mirrors BOQ's inline-table pattern) ---- */
+
+function wireTableCellEvents() {
   const tbody = document.querySelector('#pay-section-card tbody');
   if (!tbody) return;
-  tbody.addEventListener('click', (event) => {
-    const actionBtn = event.target.closest('.row-action');
-    const tr = event.target.closest('tr[data-row-key]');
-    if (!tr) return;
-    const stage = pay.stages.find((s) => s.id === tr.dataset.rowKey);
-    if (!stage) return;
 
-    if (actionBtn) {
-      if (actionBtn.dataset.action === 'delete') confirmDeleteStage(stage);
-      return;
+  tbody.addEventListener('input', (e) => {
+    const el = e.target;
+    if (!el.classList.contains('pay-cell-input')) return;
+    const stage = pay.stages.find((s) => s.id === el.dataset.id);
+    if (!stage) return;
+    const field = el.dataset.field;
+    stage[field] = el.value;
+
+    if (field === 'percentage' && pay.totalRfpValue > 0) {
+      stage.amount = amountFromPercent(el.value);
+      const amtEl = tbody.querySelector(`[data-field="amount"][data-id="${stage.id}"]`);
+      if (amtEl) amtEl.value = stage.amount;
+    } else if (field === 'amount' && pay.totalRfpValue > 0) {
+      stage.percentage = percentFromAmount(el.value);
+      const pctEl = tbody.querySelector(`[data-field="percentage"][data-id="${stage.id}"]`);
+      if (pctEl) pctEl.value = stage.percentage;
     }
-    openStageModal(stage);
+
+    if (field === 'percentage' || field === 'amount') refreshTotalsBlock();
+    persistPay();
+  });
+
+  tbody.addEventListener('click', (e) => {
+    const aiBtn = e.target.closest('[data-ai-row]');
+    if (aiBtn) { runRowAi(aiBtn.dataset.aiRow); return; }
+
+    const delBtn = e.target.closest('[data-action="delete"]');
+    if (delBtn) {
+      const stage = pay.stages.find((s) => s.id === delBtn.dataset.id);
+      if (stage) confirmDeleteStage(stage);
+    }
   });
 }
 
-/* ---- Delete ---- */
+/* ---- Add / Delete stage rows ---- */
+
+function emptyStage() {
+  return { stageName: '', itemDeliverable: '', startDate: null, durationDays: '', percentage: '', amount: '' };
+}
+
+function addNewStageRow() {
+  pay.stages.push({ id: newStageId(), ...emptyStage() });
+  persistPay();
+  renderSectionCard();
+}
 
 function confirmDeleteStage(stage) {
   openDialog({
@@ -201,192 +260,6 @@ function confirmDeleteStage(stage) {
     renderSectionCard();
     showToast('Payment stage removed.');
   });
-}
-
-/* ---- Add / Edit Stage modal ---- */
-
-function emptyStage() {
-  return { id: null, stageName: '', itemDeliverable: '', startDate: null, durationDays: '', percentage: '', amount: '' };
-}
-
-function openStageModal(stage, draftValues) {
-  const isEdit = !!stage;
-  pay.editingStageId = isEdit ? stage.id : null;
-  const values = draftValues || (stage ? { ...stage } : emptyStage());
-
-  openDialog({
-    title: isEdit ? 'Edit Payment Stage' : 'Add Stage',
-    bodyHtml: buildStageModalHtml(values, isEdit),
-  });
-  wireStageModal(values, isEdit);
-}
-
-function buildStageModalHtml(v, isEdit) {
-  return `
-    <p class="pay-modal-subtext">${isEdit ? 'Update the payment stage details, schedule, and payment allocation.' : "Define a new payment stage, its deliverable, schedule, duration, and payment allocation."}</p>
-    ${!isEdit ? `
-      <div class="pay-modal-toolbar">
-        <button type="button" class="pay-ai-btn" id="pay-modal-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
-      </div>
-      <div id="pay-modal-ai-suggestion"></div>
-    ` : ''}
-
-    <div class="pay-field-row">
-      <div class="pay-field full">
-        <label class="pay-field-label">Stage</label>
-        <input type="text" class="pay-input" id="pay-f-stage-name" placeholder="e.g. Advance Payment" value="${escapeHtmlPay(v.stageName)}">
-        <div class="pay-field-error" id="pay-err-stageName"></div>
-      </div>
-    </div>
-
-    <div class="pay-field-row">
-      <div class="pay-field full">
-        <label class="pay-field-label">Item / Deliverable</label>
-        <textarea class="pay-textarea" id="pay-f-deliverable" placeholder="What is delivered at this stage...">${escapeHtmlPay(v.itemDeliverable || '')}</textarea>
-      </div>
-    </div>
-
-    <div class="pay-field-row">
-      <div class="pay-field half">
-        <label class="pay-field-label">Start Date</label>
-        <div id="pay-dp-start"></div>
-      </div>
-      <div class="pay-field half">
-        <label class="pay-field-label">Stage Duration (days)</label>
-        <div class="pay-number-input">
-          <input type="number" id="pay-f-duration" min="0" step="1" value="${v.durationDays ?? ''}">
-          <div class="pay-number-steppers">
-            <button type="button" id="pay-duration-up"><i class="fa-solid fa-chevron-up"></i></button>
-            <button type="button" id="pay-duration-down"><i class="fa-solid fa-chevron-down"></i></button>
-          </div>
-        </div>
-        <div class="pay-field-error" id="pay-err-durationDays"></div>
-      </div>
-    </div>
-
-    <div class="pay-field-row">
-      <div class="pay-field half">
-        <label class="pay-field-label">Duration %</label>
-        <div class="pay-number-input has-suffix">
-          <input type="number" id="pay-f-percentage" min="0" max="100" step="1" value="${v.percentage ?? ''}">
-          <span class="pay-number-suffix">%</span>
-          <div class="pay-number-steppers">
-            <button type="button" id="pay-pct-up"><i class="fa-solid fa-chevron-up"></i></button>
-            <button type="button" id="pay-pct-down"><i class="fa-solid fa-chevron-down"></i></button>
-          </div>
-        </div>
-        <div class="pay-field-error" id="pay-err-percentage"></div>
-      </div>
-      <div class="pay-field half">
-        <label class="pay-field-label">Amount SAR</label>
-        <div class="pay-number-input has-prefix">
-          <span class="pay-number-prefix">SAR</span>
-          <input type="number" id="pay-f-amount" min="0" step="0.01" value="${v.amount ?? ''}">
-          <div class="pay-number-steppers">
-            <button type="button" id="pay-amt-up"><i class="fa-solid fa-chevron-up"></i></button>
-            <button type="button" id="pay-amt-down"><i class="fa-solid fa-chevron-down"></i></button>
-          </div>
-        </div>
-        <div class="pay-field-error" id="pay-err-amount"></div>
-      </div>
-    </div>
-
-    <div class="pay-modal-footer">
-      <button class="pay-btn-cancel" id="pay-modal-cancel">Cancel</button>
-      <button class="pay-btn-save" id="pay-modal-save">${isEdit ? 'Save Changes' : 'Add stage'}</button>
-    </div>
-  `;
-}
-
-function readStageModalValues() {
-  return {
-    stageName: document.getElementById('pay-f-stage-name').value.trim(),
-    itemDeliverable: document.getElementById('pay-f-deliverable').value,
-    startDate: pay.modalDatePicker.getValue(),
-    durationDays: document.getElementById('pay-f-duration').value,
-    percentage: document.getElementById('pay-f-percentage').value,
-    amount: document.getElementById('pay-f-amount').value,
-  };
-}
-
-function wireStageModal(v, isEdit) {
-  pay.modalDatePicker = createDatePicker({ mountId: 'pay-dp-start', value: v.startDate, onChange: () => {} });
-
-  const pctInput = document.getElementById('pay-f-percentage');
-  const amtInput = document.getElementById('pay-f-amount');
-
-  pctInput.addEventListener('input', () => {
-    if (pay.totalRfpValue > 0) amtInput.value = amountFromPercent(pctInput.value);
-  });
-  amtInput.addEventListener('input', () => {
-    if (pay.totalRfpValue > 0) pctInput.value = percentFromAmount(amtInput.value);
-  });
-
-  document.getElementById('pay-duration-up').addEventListener('click', () => stepPayNumber('pay-f-duration', 1, 0));
-  document.getElementById('pay-duration-down').addEventListener('click', () => stepPayNumber('pay-f-duration', -1, 0));
-  document.getElementById('pay-pct-up').addEventListener('click', () => { stepPayNumber('pay-f-percentage', 1, 0); pctInput.dispatchEvent(new Event('input')); });
-  document.getElementById('pay-pct-down').addEventListener('click', () => { stepPayNumber('pay-f-percentage', -1, 0); pctInput.dispatchEvent(new Event('input')); });
-  document.getElementById('pay-amt-up').addEventListener('click', () => { stepPayNumber('pay-f-amount', 1, 0); amtInput.dispatchEvent(new Event('input')); });
-  document.getElementById('pay-amt-down').addEventListener('click', () => { stepPayNumber('pay-f-amount', -1, 0); amtInput.dispatchEvent(new Event('input')); });
-
-  document.getElementById('pay-modal-cancel').addEventListener('click', closeDialog);
-  document.getElementById('pay-modal-save').addEventListener('click', () => handleStageModalSave(isEdit));
-
-  const aiBtn = document.getElementById('pay-modal-ai-btn');
-  if (aiBtn) aiBtn.addEventListener('click', runAddStageAi);
-}
-
-function stepPayNumber(id, delta, min) {
-  const el = document.getElementById(id);
-  const next = Math.max(min, (Number(el.value) || 0) + delta);
-  el.value = next;
-}
-
-function validateStageModal(values) {
-  const errors = {};
-  if (!values.stageName) errors.stageName = 'Stage name is required.';
-  if (values.durationDays !== '' && Number(values.durationDays) < 0) errors.durationDays = 'Duration cannot be negative.';
-  if (values.percentage === '' || Number(values.percentage) < 0 || Number(values.percentage) > 100) errors.percentage = 'Enter a percentage between 0 and 100.';
-  if (values.amount !== '' && Number(values.amount) < 0) errors.amount = 'Amount cannot be negative.';
-  return errors;
-}
-
-function handleStageModalSave(isEdit) {
-  const values = readStageModalValues();
-  const errors = validateStageModal(values);
-  if (Object.keys(errors).length > 0) {
-    Object.keys(errors).forEach((k) => {
-      const el = document.getElementById(`pay-err-${k}`);
-      if (el) el.textContent = errors[k];
-      const fieldMap = { stageName: 'pay-f-stage-name', durationDays: 'pay-f-duration', percentage: 'pay-f-percentage', amount: 'pay-f-amount' };
-      document.getElementById(fieldMap[k])?.classList.add('has-error');
-    });
-    return;
-  }
-
-  const record = {
-    stageName: values.stageName,
-    itemDeliverable: values.itemDeliverable,
-    startDate: values.startDate,
-    durationDays: values.durationDays === '' ? 0 : Number(values.durationDays),
-    percentage: Number(values.percentage),
-    amount: values.amount === '' ? amountFromPercent(values.percentage) : Number(values.amount),
-  };
-
-  if (isEdit) {
-    const idx = pay.stages.findIndex((s) => s.id === pay.editingStageId);
-    if (idx >= 0) pay.stages[idx] = { ...pay.stages[idx], ...record };
-    persistPay();
-    closeDialog();
-    renderSectionCard();
-    showToast('Payment stage updated.');
-  } else {
-    pay.stages.push({ id: newStageId(), ...record });
-    persistPay();
-    closeDialog();
-    renderSectionCard();
-    showToast('Payment stage added.');
-  }
 }
 
 /* ---- Context helpers for AI ---- */
@@ -417,23 +290,22 @@ function boqPayItemNames() {
   return (pay.step1Fd.boqItems || []).map((i) => i.name).filter(Boolean);
 }
 
-/* ---- AI: single stage suggestion (inside Add Stage popup only) ---- */
+/* ---- Per-row AI sparkle: suggest this one stage in place ---- */
 
-function runAddStageAi() {
-  const suggestion = generateSingleStageSuggestion();
-  const mount = document.getElementById('pay-modal-ai-suggestion');
-  renderAddStageAiBox(mount, suggestion);
-}
-
-function generateSingleStageSuggestion() {
+function generateSingleStageSuggestion(stage) {
+  const idx = pay.stages.indexOf(stage);
   const names = ['Advance Payment', 'Delivery and Installation', 'Final Acceptance'];
-  const name = names[pay.stages.length] || 'Additional Payment Stage';
-  const remaining = Math.max(0, 100 - percentTotal());
+  const name = names[idx] || 'Additional Payment Stage';
+
+  const otherTotal = Math.round(
+    pay.stages.filter((s) => s.id !== stage.id).reduce((sum, s) => sum + (Number(s.percentage) || 0), 0) * 100
+  ) / 100;
+  const remaining = Math.max(0, 100 - otherTotal);
   const percentage = remaining >= 30 ? 30 : remaining;
 
-  const last = pay.stages[pay.stages.length - 1];
-  const startDate = last
-    ? addDaysIso(last.startDate, last.durationDays || 0)
+  const prevStage = pay.stages[idx - 1];
+  const startDate = prevStage
+    ? addDaysIso(prevStage.startDate, prevStage.durationDays || 0)
     : (pay.step1Fd.projectStartDate || new Date().toISOString().slice(0, 10));
   const durationDays = 30;
 
@@ -446,7 +318,7 @@ function generateSingleStageSuggestion() {
 
   return {
     stageName: name,
-    itemDeliverable: deliverableByIndex[pay.stages.length] || 'Additional payment milestone.',
+    itemDeliverable: deliverableByIndex[idx] || 'Additional payment milestone.',
     startDate,
     durationDays,
     percentage,
@@ -454,36 +326,16 @@ function generateSingleStageSuggestion() {
   };
 }
 
-function renderAddStageAiBox(mount, suggestion) {
-  mount.innerHTML = `
-    <div class="pay-ai-suggested-box">
-      <div class="pay-ai-suggested-label"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-suggested stage</div>
-      <div><strong>${escapeHtmlPay(suggestion.stageName)}</strong> — ${suggestion.percentage}% (${formatPaySAR(suggestion.amount)})</div>
-      <div style="color: var(--text-secondary); font-size: var(--font-size-sm); margin-top: 4px;">${escapeHtmlPay(suggestion.itemDeliverable)}</div>
-      <div style="color: var(--text-tertiary); font-size: var(--font-size-xs); margin-top: 4px;">Start ${formatDate(suggestion.startDate)} · ${suggestion.durationDays} days</div>
-      <div class="pay-ai-suggested-actions">
-        <button type="button" class="pay-btn-save" id="pay-ai-accept">Accept &amp; Apply</button>
-        <button type="button" class="pay-btn-cancel" id="pay-ai-regenerate">Regenerate</button>
-        <button type="button" class="pay-btn-cancel" id="pay-ai-cancel">Cancel</button>
-      </div>
-    </div>
-  `;
-  document.getElementById('pay-ai-accept').addEventListener('click', () => {
-    document.getElementById('pay-f-stage-name').value = suggestion.stageName;
-    document.getElementById('pay-f-deliverable').value = suggestion.itemDeliverable;
-    document.getElementById('pay-f-duration').value = suggestion.durationDays;
-    document.getElementById('pay-f-percentage').value = suggestion.percentage;
-    document.getElementById('pay-f-amount').value = suggestion.amount;
-    pay.modalDatePicker.setValue(suggestion.startDate);
-    mount.innerHTML = '';
-  });
-  document.getElementById('pay-ai-regenerate').addEventListener('click', () => {
-    renderAddStageAiBox(mount, generateSingleStageSuggestion());
-  });
-  document.getElementById('pay-ai-cancel').addEventListener('click', () => { mount.innerHTML = ''; });
+function runRowAi(id) {
+  const stage = pay.stages.find((s) => s.id === id);
+  if (!stage) return;
+  Object.assign(stage, generateSingleStageSuggestion(stage));
+  persistPay();
+  renderSectionCard();
+  showToast('Stage suggested by AI.');
 }
 
-/* ---- AI: full starter schedule (section-level) ---- */
+/* ---- AI: full starter schedule (section-level, header toolbar) ---- */
 
 function generateFullScheduleSuggestion() {
   const totalDays = totalStep1DurationDays();
@@ -508,14 +360,16 @@ function generateFullScheduleSuggestion() {
 
 /*
   Like BOQ, this adds new rows rather than filling field values — "empty"
-  means "no stages exist yet" (the button itself is only shown in the
-  empty state). Undo removes exactly the stages this run added.
+  means "no stages exist yet" (a schedule already in progress is left
+  alone rather than appending a conflicting second plan on top of it).
+  Undo removes exactly the stages this run added.
 */
 function runFullScheduleAi() {
   runAiGenerate({
     confirmMessage: 'Would you like AI to fill this section using the information already provided in your RFP?',
     ribbonMountId: 'ribbon-pay-section',
     undoMountId: 'undo-pay-section',
+    emptyMessage: 'A payment schedule already exists — clear it first to generate a new one.',
     hasWork: () => pay.stages.length === 0,
     performApply: () => {
       const schedule = generateFullScheduleSuggestion();
