@@ -121,15 +121,19 @@ const WizardStore = (() => {
   return { STEPS: WIZARD_STEPS, start, getState, setStepStatus, getFormData, updateFormData, clear, getVisibleSteps };
 })();
 
-// Fixed category list for Section 2's "Categories" field. `approverRoles` is
-// stored for a future approval-routing phase — not displayed yet.
+// Fixed category list for Step 1's "What does this project include" field.
+// The requestor picks what the work/project includes (not department names
+// directly) — the backend maps the relevant approving departments from the
+// selection, tracked here via `approverRoles` (not displayed yet, reserved
+// for a future approval-routing phase). Each option needs both a name and a
+// description shown together in the dropdown.
 const CATEGORY_OPTIONS = [
-  { name: 'Cybersecurity infrastructure', approverRoles: ['Cyber TL', 'RISK'] },
-  { name: 'Network infrastructure', approverRoles: ['OP'] },
-  { name: 'Software licenses', approverRoles: ['OP'] },
-  { name: 'CONSULTING SERVICES', approverRoles: ['OP', 'RISK'] },
-  { name: 'Managed services', approverRoles: ['OP'] },
-  { name: 'Cloud services', approverRoles: ['Cyber TL', 'OP'] },
+  { name: 'Cybersecurity infrastructure', description: 'Security controls, monitoring, or protective systems for the organization\'s infrastructure.', approverRoles: ['Cyber TL', 'RISK'] },
+  { name: 'Network infrastructure', description: 'Switches, cabling, wireless, or other networking/connectivity components.', approverRoles: ['OP'] },
+  { name: 'Software licenses', description: 'Procurement of software from third-party vendors like Google, Oracle & SAP.', approverRoles: ['OP'] },
+  { name: 'Consulting services', description: 'Advisory, legal, or compliance engagements delivered by an external consultant.', approverRoles: ['OP', 'RISK'] },
+  { name: 'Managed services', description: 'Ongoing third-party operation, support, or maintenance of a system or service.', approverRoles: ['OP'] },
+  { name: 'Cloud services', description: 'Cloud hosting, storage, or platform subscriptions.', approverRoles: ['Cyber TL', 'OP'] },
 ];
 
 const DataStore = (() => {

@@ -1,38 +1,7 @@
 /* Step 1 - Basic Details */
 
-.step1-section {
-  padding-bottom: var(--space-6);
-  margin-bottom: var(--space-6);
-  border-bottom: 1px solid var(--border-default);
-}
-
-.step1-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-.step1-section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-}
-
-.step1-section-title {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-}
-
-.step1-section-desc {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-
-/* ---- Field groups ---- */
+/* ---- Field groups (rendered inside GuidedCard bodies — see
+   components/guided-card/guided-card.css for the card/header chrome) ---- */
 
 .step1-field-row {
   display: flex;
@@ -172,10 +141,6 @@
 
 /* ---- Textarea ---- */
 
-.step1-textarea-wrap {
-  position: relative;
-}
-
 .step1-textarea-toolbar {
   display: flex;
   align-items: center;
@@ -227,7 +192,7 @@
   margin-top: var(--space-1);
 }
 
-/* ---- Field hint text (e.g. Concurrence Required Departments) ---- */
+/* ---- Field hint text (e.g. "What does this project include") ---- */
 
 .step1-field-hint {
   margin-top: var(--space-2);
@@ -235,13 +200,72 @@
   color: var(--text-secondary);
 }
 
-/* ---- AI-recommended departments banner ---- */
+/* ---- "What does this project include" chips (check icon + name + remove) ---- */
 
-.dept-ai-banner:empty {
+.step1-incl-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.step1-incl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-green-50);
+  border: 1px solid var(--color-green-300);
+  color: var(--color-green-800);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+}
+
+.step1-incl-chip i.fa-check {
+  color: var(--color-green-600);
+  font-size: 10px;
+}
+
+.step1-incl-chip-remove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 10px;
+  color: var(--color-green-700);
+}
+
+.step1-incl-chip-remove:hover {
+  background: var(--color-green-100);
+}
+
+.step1-incl-chip-overflow {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.step1-incl-chip-overflow:hover {
+  color: var(--text-primary);
+}
+
+/* ---- AI-recommended "what this project includes" banner ---- */
+
+.incl-ai-banner:empty {
   margin: 0;
 }
 
-.dept-ai-banner-inner {
+.incl-ai-banner-inner {
   margin-top: var(--space-3);
   padding: var(--space-3);
   border: 1px dashed var(--color-green-400);
@@ -249,7 +273,7 @@
   border-radius: var(--radius-md);
 }
 
-.dept-ai-banner-label {
+.incl-ai-banner-label {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -259,14 +283,14 @@
   margin-bottom: var(--space-2);
 }
 
-.dept-ai-chip-row {
+.incl-ai-chip-row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
 
-.dept-ai-chip {
+.incl-ai-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -279,8 +303,8 @@
   border-radius: var(--radius-full);
 }
 
-.dept-ai-chip-add,
-.dept-ai-chip-dismiss {
+.incl-ai-chip-add,
+.incl-ai-chip-dismiss {
   border: none;
   background: transparent;
   cursor: pointer;
@@ -293,12 +317,12 @@
   font-size: 10px;
 }
 
-.dept-ai-chip-add { color: var(--color-success-600); }
-.dept-ai-chip-add:hover { background: var(--color-green-100); }
-.dept-ai-chip-dismiss { color: var(--text-tertiary); }
-.dept-ai-chip-dismiss:hover { background: var(--surface-hover); color: var(--text-primary); }
+.incl-ai-chip-add { color: var(--color-success-600); }
+.incl-ai-chip-add:hover { background: var(--color-green-100); }
+.incl-ai-chip-dismiss { color: var(--text-tertiary); }
+.incl-ai-chip-dismiss:hover { background: var(--surface-hover); color: var(--text-primary); }
 
-.dept-ai-add-all-btn {
+.incl-ai-add-all-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -313,11 +337,210 @@
   cursor: pointer;
 }
 
-.dept-ai-add-all-btn:hover {
+.incl-ai-add-all-btn:hover {
   background: var(--color-green-50);
 }
 
-/* ---- Section 4: timeline ---- */
+/* ---- Similar-projects AI suggestions (Field 3 - Select project) ---- */
+
+.step1-suggestions {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sidebar);
+}
+
+.step1-suggestions-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.step1-suggestions-label i {
+  color: var(--color-purple-600);
+}
+
+.step1-suggestion-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  margin-bottom: var(--space-2);
+}
+
+.step1-suggestion-card:last-child {
+  margin-bottom: 0;
+}
+
+.step1-suggestion-card:hover {
+  border-color: var(--color-green-400);
+}
+
+.step1-suggestion-main {
+  min-width: 0;
+}
+
+.step1-suggestion-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.step1-suggestion-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.step1-suggestion-import-btn {
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-green-500);
+  background: var(--surface-card);
+  color: var(--color-green-700);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.step1-suggestion-import-btn:hover {
+  background: var(--color-green-50);
+}
+
+.step1-browse-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-link);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  padding: 4px 0 0;
+}
+
+.step1-browse-link:hover {
+  text-decoration: underline;
+}
+
+/* ---- Browse-all-projects modal ---- */
+
+.step1-browse-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-inline-end: var(--space-1);
+}
+
+.step1-browse-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  margin-bottom: var(--space-2);
+}
+
+.step1-browse-row:last-child {
+  margin-bottom: 0;
+}
+
+.step1-browse-main {
+  min-width: 0;
+}
+
+.step1-browse-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.step1-browse-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.step1-browse-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.step1-browse-view-btn,
+.step1-browse-import-btn {
+  height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.step1-browse-view-btn {
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+
+.step1-browse-view-btn:hover {
+  background: var(--surface-hover);
+}
+
+.step1-browse-import-btn {
+  border: 1px solid var(--color-green-500);
+  background: var(--surface-card);
+  color: var(--color-green-700);
+}
+
+.step1-browse-import-btn:hover {
+  background: var(--color-green-50);
+}
+
+.step1-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-default);
+  font-size: var(--font-size-sm);
+}
+
+.step1-detail-row:last-child {
+  border-bottom: none;
+}
+
+.step1-detail-label {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.step1-detail-value {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+  text-align: end;
+}
+
+/* ---- Section 4 (within Section 2): timeline ---- */
 
 .step1-closure-note {
   margin-top: var(--space-2);
@@ -382,60 +605,4 @@
 
 .step1-number-steppers button:hover {
   background: var(--surface-hover);
-}
-
-/* ---- Split RFP toggle card ---- */
-
-.split-rfp-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  margin-top: var(--space-4);
-}
-
-.split-rfp-title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-}
-
-.split-rfp-desc {
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-
-.toggle-switch {
-  width: 44px;
-  height: 24px;
-  border-radius: var(--radius-full);
-  background: var(--color-neutral-300);
-  border: none;
-  cursor: pointer;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.toggle-switch::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--color-neutral-0);
-  transition: transform 150ms ease;
-}
-
-.toggle-switch.on {
-  background: var(--color-green-600);
-}
-
-.toggle-switch.on::after {
-  transform: translateX(20px);
 }
