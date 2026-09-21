@@ -424,3 +424,176 @@
   box-shadow: 0 0 0 3px var(--color-green-50);
 }
 .sow-review-status.rejected { color: var(--color-error-600); }
+
+/* ---- Card 6: Required certificates / Technical Documents ---- */
+
+.sow-subcard-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sow-subcard {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.sow-subcard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.sow-subcard-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.sow-subcard-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.sow-doc-ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-purple-600);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  padding: 4px 6px;
+  white-space: nowrap;
+}
+
+.sow-doc-ai-btn:hover {
+  text-decoration: underline;
+}
+
+.sow-doc-field {
+  margin-bottom: var(--space-4);
+}
+
+.sow-doc-field:last-child {
+  margin-bottom: 0;
+}
+
+.sow-doc-field-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.sow-doc-other-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.sow-doc-input {
+  flex: 1;
+  height: 42px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+}
+
+.sow-doc-input:focus {
+  outline: none;
+  border-color: var(--color-green-600);
+  box-shadow: 0 0 0 3px var(--color-green-50);
+}
+
+.sow-doc-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 42px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--color-green-600);
+  color: var(--color-neutral-0);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sow-doc-add-btn:hover {
+  background: var(--color-green-700);
+}
+
+.sow-doc-field-error {
+  font-size: var(--font-size-xs);
+  color: var(--color-error-600);
+  margin-top: var(--space-1);
+}
+
+.sow-doc-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.sow-doc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  background: var(--color-green-50);
+  color: var(--color-green-800);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 5px 6px 5px 10px;
+  border-radius: var(--radius-full);
+}
+
+.sow-doc-chip.source-custom {
+  background: var(--color-blue-50);
+  color: var(--color-blue-700);
+}
+
+.sow-doc-chip.source-ai {
+  background: var(--surface-sidebar);
+  color: var(--text-primary);
+  border: 1px dashed var(--color-purple-500);
+}
+
+.sow-doc-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sow-doc-chip i.sow-doc-chip-remove {
+  cursor: pointer;
+  font-size: 10px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.sow-doc-chip i.sow-doc-chip-remove:hover {
+  opacity: 1;
+}
+
+.sow-doc-chip i.fa-wand-magic-sparkles {
+  font-size: 10px;
+  flex-shrink: 0;
+}
