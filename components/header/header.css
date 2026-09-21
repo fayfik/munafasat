@@ -3,8 +3,8 @@
 .app-header {
   position: fixed;
   top: 0;
-  left: var(--sidebar-width-collapsed);
-  right: 0;
+  inset-inline-start: var(--sidebar-width-collapsed);
+  inset-inline-end: 0;
   height: var(--header-height);
   background: var(--surface-header);
   display: flex;
@@ -12,11 +12,11 @@
   justify-content: space-between;
   padding: 0 var(--space-5);
   z-index: var(--z-header);
-  transition: left var(--transition-shell);
+  transition: inset-inline-start var(--transition-shell);
 }
 
 .app-shell.sidebar-expanded .app-header {
-  left: var(--sidebar-width-expanded);
+  inset-inline-start: var(--sidebar-width-expanded);
 }
 
 .app-header-left {
@@ -41,8 +41,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-left: var(--space-4);
-  border-left: 1px solid rgba(255, 255, 255, 0.3);
+  padding-inline-start: var(--space-4);
+  border-inline-start: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .app-header-right {
@@ -69,6 +69,12 @@
 
 .app-header-icon-btn:hover {
   background: rgba(255, 255, 255, 0.16);
+}
+
+#lang-toggle-btn {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
 }
 
 .app-header-ai-btn {
@@ -129,7 +135,7 @@
 .app-header-menu {
   position: absolute;
   top: calc(100% + var(--space-2));
-  right: 0;
+  inset-inline-end: 0;
   min-width: 200px;
   background: var(--surface-card);
   border: 1px solid var(--border-default);

@@ -1,0 +1,98 @@
+/*
+  GuidedCard — reusable progressive-disclosure section wrapper.
+  Written with logical properties (margin-inline-*, padding-inline-*,
+  text-align: start) so it flips correctly under dir="rtl" with no
+  per-locale override needed.
+*/
+
+.guided-card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  margin-block-end: var(--space-4);
+  overflow: hidden;
+  background: var(--surface-card);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.guided-card:last-child {
+  margin-block-end: 0;
+}
+
+.guided-card.state-locked {
+  background: var(--surface-sidebar);
+}
+
+.guided-card.state-active {
+  border-color: var(--color-green-400);
+  box-shadow: 0 0 0 3px var(--color-green-50);
+}
+
+.guided-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  text-align: start;
+}
+
+.guided-card.state-completed .guided-card-header {
+  cursor: pointer;
+}
+
+.guided-card.state-completed .guided-card-header:hover {
+  background: var(--surface-hover);
+}
+
+.guided-card.state-locked .guided-card-header {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.guided-card-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.guided-card-check {
+  color: var(--color-success-600);
+  font-size: 16px;
+  margin-block-start: 2px;
+  flex-shrink: 0;
+}
+
+.guided-card-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.guided-card-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-block-start: 2px;
+}
+
+.guided-card-chevron {
+  color: var(--text-secondary);
+  font-size: 13px;
+  flex-shrink: 0;
+  transition: transform 150ms ease;
+}
+
+.guided-card.expanded .guided-card-chevron {
+  transform: rotate(180deg);
+}
+
+.guided-card-body {
+  padding-inline: var(--space-4);
+  padding-block-end: var(--space-4);
+  border-top: 1px solid var(--border-default);
+  padding-block-start: var(--space-4);
+}
+
+.guided-card-body:empty {
+  display: none;
+}

@@ -26,7 +26,6 @@ const tec = {
   segments: [],
   passingPercent: '',
   boqItems: [],
-  completed: false,
   collapsedSegments: new Set(),
 };
 
@@ -129,11 +128,6 @@ function appliesToLabel(seg) {
 
 function renderTecPage() {
   const mount = document.getElementById('wizard-step-content');
-
-  if (tec.completed) {
-    renderCompletionState(mount);
-    return;
-  }
 
   mount.innerHTML = `
     <div class="tec-header-card">
@@ -459,22 +453,6 @@ function runGenerateEvaluationCriteria() {
   });
 }
 
-/* ---- Completion state ---- */
-
-function renderCompletionState(mount) {
-  mount.innerHTML = `
-    <div class="tec-completion-state">
-      <div class="tec-completion-icon"><i class="fa-solid fa-check"></i></div>
-      <div class="tec-completion-title">RFP Creation Complete</div>
-      <div class="tec-completion-desc">All 8 steps have been completed. Your request is ready for the next stage of the procurement workflow.</div>
-      <button type="button" class="tec-btn-save" id="tec-go-to-requests">Go to My Requests</button>
-    </div>
-  `;
-  document.getElementById('tec-go-to-requests').addEventListener('click', () => {
-    window.location.href = 'my-requests.html';
-  });
-}
-
 /* ---- Footer ---- */
 
 function saveDraft() {
@@ -482,12 +460,16 @@ function saveDraft() {
   showToast('Request saved as draft successfully.');
 }
 
-function handleFinalContinue() {
+// No longer the wizard's final step (Supporting documents is, per the new
+// 8-step order) — behaves like every other step now: validate, mark
+// completed, and hand off to whatever wizardNextStep() resolves to.
+function handleContinue() {
   if (!tecValid()) return;
-  WizardStore.STEPS.forEach((s) => WizardStore.setStepStatus(s.id, 'completed'));
-  tec.completed = true;
-  renderTecPage();
-  showToast('RFP created successfully.');
+  WizardStore.setStepStatus('technical-evaluation-criteria', 'completed');
+  const next = wizardNextStep('technical-evaluation-criteria');
+  if (!next) return;
+  WizardStore.setStepStatus(next.id, 'current');
+  window.location.href = next.href;
 }
 
 /* ---- Init ---- */
@@ -495,30 +477,26 @@ function handleFinalContinue() {
 async function initTec() {
   WizardStore.setStepStatus('technical-evaluation-criteria', 'current');
 
+  const prev = wizardPrevStep('technical-evaluation-criteria');
   renderWizardShell({
     mountId: 'wizard-shell-mount',
     currentStepId: 'technical-evaluation-criteria',
     onSaveDraft: saveDraft,
-    onContinue: handleFinalContinue,
+    onContinue: handleContinue,
     footerLeftHtml: `
       <button type="button" class="tec-footer-back-btn" id="tec-back-btn">
         <i class="fa-solid fa-arrow-left"></i>
-        <span>Technical Requirements</span>
+        <span>${prev.title}</span>
       </button>
     `,
   });
   document.getElementById('tec-back-btn').addEventListener('click', () => {
-    window.location.href = 'wizard-technical-requirements.html';
+    window.location.href = prev.href;
   });
 
   loadTecState();
   renderTecPage();
   updateTecContinueState();
-
-  // Final step: the footer's default "Continue: <next step>" label doesn't
-  // apply (there's no next step) — use the placeholder CTA text per spec.
-  const btn = document.getElementById('wizard-continue-btn');
-  if (btn) btn.innerHTML = 'Complete RFP Creation <i class="fa-solid fa-arrow-right"></i>';
 }
 
 document.addEventListener('DOMContentLoaded', initTec);

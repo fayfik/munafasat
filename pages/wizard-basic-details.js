@@ -698,8 +698,12 @@ function handleContinue() {
   if (!valid) return;
 
   WizardStore.setStepStatus('basic-details', 'completed');
-  WizardStore.setStepStatus('boq', 'current');
-  window.location.href = 'wizard-boq.html';
+  // Dynamic: normally goes to Scope of Work, but the Souq Etimad path (see
+  // the procurement-category radio above) skips straight to BOQ instead.
+  const next = wizardNextStep('basic-details');
+  if (!next) return;
+  WizardStore.setStepStatus(next.id, 'current');
+  window.location.href = next.href;
 }
 
 /* ---- Legacy "Create from Previous Request" field migration ----

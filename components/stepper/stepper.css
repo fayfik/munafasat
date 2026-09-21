@@ -19,7 +19,7 @@
 .stepper-step:not(:last-child)::before {
   content: '';
   position: absolute;
-  left: 15px;
+  inset-inline-start: 15px;
   top: 32px;
   bottom: 0;
   width: 2px;

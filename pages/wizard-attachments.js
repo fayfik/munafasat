@@ -146,6 +146,7 @@ function makeAttachmentCard({ key, mountPrefix, options, initialItems }) {
 let certCardCtl = null;
 let techCardCtl = null;
 let supportingDocsUpload = null;
+let attCompleted = false;
 
 function persistAttachments() {
   WizardStore.updateFormData({
@@ -301,6 +302,23 @@ function runTechDocsAi() {
   });
 }
 
+/* ---- Completion state (this is now the wizard's final step) ---- */
+
+function renderAttCompletionState() {
+  const mount = document.getElementById('wizard-step-content');
+  mount.innerHTML = `
+    <div class="att-completion-state">
+      <div class="att-completion-icon"><i class="fa-solid fa-check"></i></div>
+      <div class="att-completion-title">RFP Creation Complete</div>
+      <div class="att-completion-desc">All 8 steps have been completed. Your request is ready for the next stage of the procurement workflow.</div>
+      <button type="button" class="att-btn-primary" id="att-go-to-requests">Go to My Requests</button>
+    </div>
+  `;
+  document.getElementById('att-go-to-requests').addEventListener('click', () => {
+    window.location.href = 'my-requests.html';
+  });
+}
+
 /* ---- Footer ---- */
 
 function saveDraft() {
@@ -308,10 +326,14 @@ function saveDraft() {
   showToast('Request saved as draft successfully.');
 }
 
+// Final step now (per the new 8-step order) — there's no next step to hand
+// off to, so this marks the whole wizard complete and swaps in an in-page
+// completion state instead of navigating anywhere.
 function handleContinue() {
   WizardStore.setStepStatus('attachments', 'completed');
-  WizardStore.setStepStatus('qualification-criteria', 'current');
-  window.location.href = 'wizard-qualification-criteria.html';
+  attCompleted = true;
+  renderAttCompletionState();
+  showToast('RFP created successfully.');
 }
 
 /* ---- Init ---- */
@@ -319,6 +341,7 @@ function handleContinue() {
 async function initAttachments() {
   WizardStore.setStepStatus('attachments', 'current');
 
+  const prev = wizardPrevStep('attachments');
   renderWizardShell({
     mountId: 'wizard-shell-mount',
     currentStepId: 'attachments',
@@ -327,13 +350,19 @@ async function initAttachments() {
     footerLeftHtml: `
       <button type="button" class="att-footer-back-btn" id="att-back-btn">
         <i class="fa-solid fa-arrow-left"></i>
-        <span>Payments</span>
+        <span>${prev.title}</span>
       </button>
     `,
   });
   document.getElementById('att-back-btn').addEventListener('click', () => {
-    window.location.href = 'wizard-payments.html';
+    window.location.href = prev.href;
   });
+
+  // Final step: the footer's default "Continue: <next step>" label doesn't
+  // apply (there's no next step) — use the placeholder CTA text pending
+  // exact copy from the source spec.
+  const continueBtn = document.getElementById('wizard-continue-btn');
+  if (continueBtn) continueBtn.innerHTML = 'Complete RFP Creation <i class="fa-solid fa-arrow-right"></i>';
 
   await renderAttachmentsPage();
   setWizardContinueEnabled(true); // neither field is mandatory

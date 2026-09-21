@@ -103,8 +103,8 @@
 
 .wizard-footer {
   position: fixed;
-  left: var(--sidebar-width-collapsed);
-  right: 0;
+  inset-inline-start: var(--sidebar-width-collapsed);
+  inset-inline-end: 0;
   bottom: 0;
   height: 72px;
   background: var(--surface-card);
@@ -114,11 +114,11 @@
   justify-content: space-between;
   padding: 0 var(--space-6);
   z-index: var(--z-header);
-  transition: left var(--transition-shell);
+  transition: inset-inline-start var(--transition-shell);
 }
 
 .app-shell.sidebar-expanded .wizard-footer {
-  left: var(--sidebar-width-expanded);
+  inset-inline-start: var(--sidebar-width-expanded);
 }
 
 .wizard-footer-save-state {

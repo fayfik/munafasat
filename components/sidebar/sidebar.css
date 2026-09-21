@@ -3,11 +3,11 @@
 .sidebar {
   position: fixed;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
   bottom: 0;
   width: var(--sidebar-width-collapsed);
   background: var(--surface-sidebar);
-  border-right: 1px solid var(--surface-sidebar-border);
+  border-inline-end: 1px solid var(--surface-sidebar-border);
   z-index: var(--z-sidebar);
   display: flex;
   flex-direction: column;
@@ -103,7 +103,7 @@
 .sidebar-nav-item.active::before {
   content: '';
   position: absolute;
-  left: -8px;
+  inset-inline-start: -8px;
   top: 6px;
   bottom: 6px;
   width: 3px;
@@ -131,7 +131,7 @@
 /* Tooltip shown only while collapsed */
 .sidebar-tooltip {
   position: absolute;
-  left: calc(var(--sidebar-width-collapsed) + var(--space-2));
+  inset-inline-start: calc(var(--sidebar-width-collapsed) + var(--space-2));
   top: 50%;
   transform: translateY(-50%);
   background: var(--color-neutral-900);

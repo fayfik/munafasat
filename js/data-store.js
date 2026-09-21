@@ -27,19 +27,23 @@ const STATUS_COLOR_VAR = {
 };
 
 // The 8 RFP creation wizard steps — shared by the stepper rail and the
-// wizard shell's footer ("Continue: [next step name]"). `href` pages for
-// steps 2-8 don't exist yet (built in later phases); this is safe because
-// only completed/current steps are ever rendered as clickable, and nothing
-// is completed on a fresh wizard.
+// wizard shell's footer ("Continue: [next step name]"). This list's ORDER
+// is the single source of truth for wizard navigation (see wizardNextStep/
+// wizardPrevStep in wizard-shell.js) — reordering here is sufficient to
+// reorder the whole flow, no page needs its own hardcoded notion of what
+// comes next. `id`s are stable identifiers used by stepStatuses and by
+// getVisibleSteps() below; they intentionally don't change even where a
+// title changed (e.g. 'attachments' is now titled "Supporting documents"),
+// since the underlying page files aren't being restructured in this phase.
 const WIZARD_STEPS = [
   { id: 'basic-details', title: 'Basic details', description: 'Project, category and RFP identification', href: 'wizard-basic-details.html' },
+  { id: 'scope-of-work', title: 'Scope of work', description: 'Deliverables, boundaries, standards and required certificates/documents', href: 'wizard-scope-of-work.html' },
   { id: 'boq', title: 'Bill of Quantity', description: 'Items, quantities and specifications', href: 'wizard-boq.html' },
-  { id: 'scope-of-work', title: 'Scope of work', description: 'Deliverables, boundaries and standards', href: 'wizard-scope-of-work.html' },
   { id: 'payments', title: 'Payments', description: 'Payment stages and schedule', href: 'wizard-payments.html' },
-  { id: 'attachments', title: 'Attachments', description: 'Required certificates and documents', href: 'wizard-attachments.html' },
   { id: 'qualification-criteria', title: 'Qualification criteria', description: 'Vendor eligibility requirements', href: 'wizard-qualification-criteria.html' },
   { id: 'technical-requirements', title: 'Technical requirements', description: 'Technical specifications and evaluation inputs', href: 'wizard-technical-requirements.html' },
   { id: 'technical-evaluation-criteria', title: 'Technical evaluation criteria', description: 'Scoring and evaluation methodology', href: 'wizard-technical-evaluation-criteria.html' },
+  { id: 'attachments', title: 'Supporting documents', description: 'Optional reference documents, final submission', href: 'wizard-attachments.html' },
 ];
 
 const WIZARD_STORAGE_KEY = 'munafasat.wizardState';

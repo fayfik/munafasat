@@ -259,8 +259,10 @@ function saveDraft() {
 function handleContinue() {
   if (!trValid()) return;
   WizardStore.setStepStatus('technical-requirements', 'completed');
-  WizardStore.setStepStatus('technical-evaluation-criteria', 'current');
-  window.location.href = 'wizard-technical-evaluation-criteria.html';
+  const next = wizardNextStep('technical-requirements');
+  if (!next) return;
+  WizardStore.setStepStatus(next.id, 'current');
+  window.location.href = next.href;
 }
 
 /* ---- Init ---- */
@@ -268,6 +270,7 @@ function handleContinue() {
 async function initTr() {
   WizardStore.setStepStatus('technical-requirements', 'current');
 
+  const prev = wizardPrevStep('technical-requirements');
   renderWizardShell({
     mountId: 'wizard-shell-mount',
     currentStepId: 'technical-requirements',
@@ -276,12 +279,12 @@ async function initTr() {
     footerLeftHtml: `
       <button type="button" class="tr-footer-back-btn" id="tr-back-btn">
         <i class="fa-solid fa-arrow-left"></i>
-        <span>Qualification Criteria</span>
+        <span>${prev.title}</span>
       </button>
     `,
   });
   document.getElementById('tr-back-btn').addEventListener('click', () => {
-    window.location.href = 'wizard-qualification-criteria.html';
+    window.location.href = prev.href;
   });
 
   loadTrState();

@@ -140,13 +140,14 @@ function appendMessage(from, text) {
 }
 
 /*
-  Renders an inline "AI suggestion" card with Accept / Edit / Reject —
+  Renders an inline "AI suggestion" card with Accept / Edit / Decline —
   even though the value came from a scripted match rather than a real
   model, the review-before-commit interaction pattern is the real thing
   this page is meant to demonstrate.
 
-  `onResolve(action, value)` is called with action = 'accept' | 'reject',
-  and the (possibly user-edited) value when accepted.
+  `onResolve(action, value)` is called with action = 'accept' | 'reject'
+  (internal action name kept as-is; only the visible "Decline" label
+  changed), and the (possibly user-edited) value when accepted.
 */
 function appendSuggestion({ label, value, onResolve }) {
   const list = document.getElementById('aia-messages');
@@ -160,14 +161,14 @@ function appendSuggestion({ label, value, onResolve }) {
     <div class="aia-suggestion-actions" id="${id}-actions">
       <button type="button" class="aia-suggestion-btn accept" data-act="accept"><i class="fa-solid fa-check"></i> Accept</button>
       <button type="button" class="aia-suggestion-btn edit" data-act="edit"><i class="fa-solid fa-pen"></i> Edit</button>
-      <button type="button" class="aia-suggestion-btn reject" data-act="reject"><i class="fa-solid fa-xmark"></i> Reject</button>
+      <button type="button" class="aia-suggestion-btn reject" data-act="reject"><i class="fa-solid fa-xmark"></i> Decline</button>
     </div>
   `;
   list.appendChild(card);
   list.scrollTop = list.scrollHeight;
 
   function resolve(action, finalValue) {
-    document.getElementById(`${id}-actions`).outerHTML = `<div class="aia-suggestion-resolved-note ${action === 'accept' ? 'accepted' : 'rejected'}">${action === 'accept' ? 'Accepted' : 'Rejected'}</div>`;
+    document.getElementById(`${id}-actions`).outerHTML = `<div class="aia-suggestion-resolved-note ${action === 'accept' ? 'accepted' : 'rejected'}">${action === 'accept' ? 'Accepted' : 'Declined'}</div>`;
     onResolve(action, finalValue);
   }
 

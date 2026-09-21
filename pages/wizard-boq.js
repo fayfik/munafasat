@@ -970,6 +970,9 @@ function handleContinue() {
 async function initBoq() {
   WizardStore.setStepStatus('boq', 'current');
 
+  // Dynamic: normally Scope of Work, but Basic Details directly on the
+  // Souq Etimad path (Scope of Work is hidden there).
+  const prev = wizardPrevStep('boq');
   renderWizardShell({
     mountId: 'wizard-shell-mount',
     currentStepId: 'boq',
@@ -978,12 +981,12 @@ async function initBoq() {
     footerLeftHtml: `
       <button type="button" class="boq-footer-back-btn" id="boq-back-btn">
         <i class="fa-solid fa-arrow-left"></i>
-        <span>Basic Details</span>
+        <span>${prev ? prev.title : 'Basic Details'}</span>
       </button>
     `,
   });
   document.getElementById('boq-back-btn').addEventListener('click', () => {
-    window.location.href = 'wizard-basic-details.html';
+    window.location.href = prev ? prev.href : 'wizard-basic-details.html';
   });
 
   boq.step1FormData = WizardStore.getFormData();

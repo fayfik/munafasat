@@ -33,6 +33,15 @@ ul {
   padding: 0;
 }
 
+/* Directional glyphs (back/continue arrows) don't flip on their own under
+   dir="rtl" — logical properties reposition elements, but an icon FONT
+   GLYPH still points the way it was drawn. Mirror the ones this app uses
+   for "back"/"forward" navigation so they still point the right way. */
+:root[dir="rtl"] .fa-arrow-right,
+:root[dir="rtl"] .fa-arrow-left {
+  transform: scaleX(-1);
+}
+
 /* ---- Shell layout ---- */
 
 .app-shell {
@@ -40,14 +49,14 @@ ul {
 }
 
 .app-main {
-  margin-left: var(--sidebar-width-collapsed);
+  margin-inline-start: var(--sidebar-width-collapsed);
   padding-top: var(--header-height);
   min-height: 100vh;
-  transition: margin-left var(--transition-shell);
+  transition: margin-inline-start var(--transition-shell);
 }
 
 .app-shell.sidebar-expanded .app-main {
-  margin-left: var(--sidebar-width-expanded);
+  margin-inline-start: var(--sidebar-width-expanded);
 }
 
 .app-page {

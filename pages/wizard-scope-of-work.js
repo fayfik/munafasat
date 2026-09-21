@@ -247,12 +247,12 @@ function openSowReviewDialog(items) {
 function buildSowReviewHtml(items) {
   const approvedCount = items.filter((i) => i.status === 'approved').length;
   return `
-    <p class="sow-review-subtext">Review each suggested field below, then approve, edit, or reject it before applying.</p>
+    <p class="sow-review-subtext">Review each suggested field below, then approve, edit, or decline it before applying.</p>
     <div class="sow-review-toolbar">
       <span class="sow-review-count" id="sow-review-count">${approvedCount} of ${items.length} approved</span>
       <div class="sow-review-bulk-actions">
         <button type="button" class="sow-review-bulk-btn" id="sow-review-approve-all">Approve all</button>
-        <button type="button" class="sow-review-bulk-btn" id="sow-review-reject-all">Reject all</button>
+        <button type="button" class="sow-review-bulk-btn" id="sow-review-reject-all">Decline all</button>
       </div>
     </div>
     <div class="sow-review-groups" id="sow-review-groups">${buildSowReviewGroupsHtml(items)}</div>
@@ -284,7 +284,7 @@ function buildSowReviewItemHtml(item) {
         <div class="sow-review-item-actions">
           <button type="button" class="sow-review-item-btn approve${item.status === 'approved' && !item.editing ? ' active' : ''}" data-act="approve" data-key="${item.key}"><i class="fa-solid fa-check"></i> Approve</button>
           <button type="button" class="sow-review-item-btn edit${item.editing ? ' active' : ''}" data-act="edit" data-key="${item.key}"><i class="fa-solid fa-pen"></i> Edit</button>
-          <button type="button" class="sow-review-item-btn reject${item.status === 'rejected' ? ' active' : ''}" data-act="reject" data-key="${item.key}"><i class="fa-solid fa-xmark"></i> Reject</button>
+          <button type="button" class="sow-review-item-btn reject${item.status === 'rejected' ? ' active' : ''}" data-act="reject" data-key="${item.key}"><i class="fa-solid fa-xmark"></i> Decline</button>
         </div>
       </div>
       ${item.editing
@@ -377,8 +377,10 @@ function saveDraft() {
 
 function handleContinue() {
   WizardStore.setStepStatus('scope-of-work', 'completed');
-  WizardStore.setStepStatus('payments', 'current');
-  window.location.href = 'wizard-payments.html';
+  const next = wizardNextStep('scope-of-work');
+  if (!next) return;
+  WizardStore.setStepStatus(next.id, 'current');
+  window.location.href = next.href;
 }
 
 /* ---- Init ---- */
@@ -386,17 +388,18 @@ function handleContinue() {
 async function initSow() {
   WizardStore.setStepStatus('scope-of-work', 'current');
 
+  const prev = wizardPrevStep('scope-of-work');
   renderWizardShell({
     mountId: 'wizard-shell-mount',
     currentStepId: 'scope-of-work',
     onSaveDraft: saveDraft,
     onContinue: handleContinue,
-    footerLeftHtml: `
+    footerLeftHtml: prev ? `
       <button type="button" class="sow-footer-back-btn" id="sow-back-btn">
         <i class="fa-solid fa-arrow-left"></i>
-        <span>Bill of Quantity</span>
+        <span>${prev.title}</span>
       </button>
-    `,
+    ` : '',
     footerActionsPrefixHtml: `
       <div class="sow-footer-save-state" id="wizard-save-state">
         <i class="fa-solid fa-circle-check"></i>
@@ -404,8 +407,8 @@ async function initSow() {
       </div>
     `,
   });
-  document.getElementById('sow-back-btn').addEventListener('click', () => {
-    window.location.href = 'wizard-boq.html';
+  document.getElementById('sow-back-btn')?.addEventListener('click', () => {
+    window.location.href = prev.href;
   });
 
   sow.formData = WizardStore.getFormData();

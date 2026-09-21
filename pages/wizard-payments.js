@@ -545,8 +545,10 @@ function saveDraft() {
 function handleContinue() {
   if (pay.stages.length === 0 || percentTotal() !== 100) return;
   WizardStore.setStepStatus('payments', 'completed');
-  WizardStore.setStepStatus('attachments', 'current');
-  window.location.href = 'wizard-attachments.html';
+  const next = wizardNextStep('payments');
+  if (!next) return;
+  WizardStore.setStepStatus(next.id, 'current');
+  window.location.href = next.href;
 }
 
 /* ---- Init ---- */
@@ -554,6 +556,7 @@ function handleContinue() {
 async function initPayments() {
   WizardStore.setStepStatus('payments', 'current');
 
+  const prev = wizardPrevStep('payments');
   renderWizardShell({
     mountId: 'wizard-shell-mount',
     currentStepId: 'payments',
@@ -562,12 +565,12 @@ async function initPayments() {
     footerLeftHtml: `
       <button type="button" class="pay-footer-back-btn" id="pay-back-btn">
         <i class="fa-solid fa-arrow-left"></i>
-        <span>Scope of Work</span>
+        <span>${prev.title}</span>
       </button>
     `,
   });
   document.getElementById('pay-back-btn').addEventListener('click', () => {
-    window.location.href = 'wizard-scope-of-work.html';
+    window.location.href = prev.href;
   });
 
   pay.step1Fd = WizardStore.getFormData();

@@ -111,83 +111,136 @@
   background: var(--color-green-700);
 }
 
-/* ---- Previous request picker modal ---- */
-
-.cr-picker-subtext {
-  margin: -8px 0 var(--space-4);
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.cr-picker-search {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 38px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--surface-app-bg);
-  margin-bottom: var(--space-3);
-}
-
-.cr-picker-search i {
-  color: var(--text-tertiary);
-  font-size: 13px;
-}
-
-.cr-picker-search input {
-  border: none;
-  outline: none;
-  background: transparent;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  width: 100%;
-}
-
-.cr-picker-list {
-  max-height: 320px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.cr-picker-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-
-.cr-picker-item:hover {
-  background: var(--surface-hover);
-}
-
-.cr-picker-item-main {
-  min-width: 0;
-}
-
-.cr-picker-item-id {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-link);
-}
-
-.cr-picker-item-title {
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* ---- Create from Previous Request modal ---- */
 
 .cr-picker-empty {
   padding: var(--space-6);
   text-align: center;
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
+}
+
+/* Scrollable body above the fixed footer — relies on dialog.css's
+   .size-large .dialog-body being a column flexbox already. */
+.cr-modal-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-inline-end: var(--space-1);
+}
+
+.cr-modal-section {
+  margin-block-end: var(--space-5);
+}
+
+.cr-modal-section:last-child {
+  margin-block-end: 0;
+}
+
+.cr-modal-section-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-block-end: var(--space-3);
+}
+
+.cr-req-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cr-req-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.cr-req-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.cr-req-card:has(input:checked) {
+  border-color: var(--color-green-500);
+  background: var(--color-green-50);
+}
+
+.cr-req-card input[type="radio"] {
+  accent-color: var(--color-green-600);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.cr-req-card-body {
+  min-width: 0;
+}
+
+.cr-req-card-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.cr-req-card-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-block-start: 2px;
+}
+
+/* Fixed footer — pinned to the bottom of the modal, not the page. */
+.cr-modal-footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding-block-start: var(--space-4);
+  margin-block-start: var(--space-2);
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-card);
+}
+
+.cr-btn-cancel {
+  height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.cr-btn-cancel:hover {
+  background: var(--surface-hover);
+}
+
+.cr-btn-primary {
+  height: 40px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--color-green-600);
+  color: var(--color-neutral-0);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.cr-btn-primary:hover:not(:disabled) {
+  background: var(--color-green-700);
+}
+
+.cr-btn-primary:disabled {
+  background: var(--color-neutral-200);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
 }

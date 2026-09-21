@@ -2,7 +2,36 @@
   Header component — app shell top bar.
   Renders into <div id="app-header"></div>. Reads the page title from
   document.body.dataset.pageTitle (set inline on each page).
+
+  Also owns the app-wide bilingual (EN/AR) direction stub: applyLangDirection()
+  sets `dir`/`lang` on <html> from localStorage, and the header's EN/AR
+  button flips it live. Full field-by-field Arabic translation is out of
+  scope for this phase — this is only the structural LTR/RTL capability.
 */
+
+const LANG_STORAGE_KEY = 'munafasat.lang';
+
+function getLang() {
+  return localStorage.getItem(LANG_STORAGE_KEY) || 'en';
+}
+
+function applyLangDirection() {
+  const lang = getLang();
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.lang = lang;
+}
+
+function toggleLangDirection() {
+  localStorage.setItem(LANG_STORAGE_KEY, getLang() === 'ar' ? 'en' : 'ar');
+  applyLangDirection();
+  const btn = document.getElementById('lang-toggle-btn');
+  if (btn) btn.textContent = getLang() === 'ar' ? 'EN' : 'AR';
+}
+
+// Applied as soon as this script runs (before renderHeader's own async
+// fetch resolves) so the rest of the page's own markup isn't left
+// mismatched with the header while notifications are still loading.
+applyLangDirection();
 
 async function renderHeader() {
   const mount = document.getElementById('app-header');
@@ -19,6 +48,8 @@ async function renderHeader() {
         <span class="app-header-title">${pageTitle}</span>
       </div>
       <div class="app-header-right">
+        <button class="app-header-icon-btn" id="lang-toggle-btn" title="Switch language (EN/AR) — layout direction only, full translation not yet built">${getLang() === 'ar' ? 'EN' : 'AR'}</button>
+
         <button class="app-header-ai-btn" id="ai-assistant-btn" title="AI Assistant">
           <i class="fa-solid fa-wand-magic-sparkles"></i>
           <span>AI Assistant</span>
@@ -77,6 +108,8 @@ async function renderHeader() {
   document.querySelector('#create-menu [data-action="create-request"]').addEventListener('click', () => {
     window.location.href = 'create-request.html';
   });
+
+  document.getElementById('lang-toggle-btn').addEventListener('click', toggleLangDirection);
 }
 
 function setupDropdown(containerId, triggerId, menuId) {

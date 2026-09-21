@@ -531,8 +531,10 @@ function saveDraft() {
 function handleContinue() {
   if (!qcValid()) return;
   WizardStore.setStepStatus('qualification-criteria', 'completed');
-  WizardStore.setStepStatus('technical-requirements', 'current');
-  window.location.href = 'wizard-technical-requirements.html';
+  const next = wizardNextStep('qualification-criteria');
+  if (!next) return;
+  WizardStore.setStepStatus(next.id, 'current');
+  window.location.href = next.href;
 }
 
 /* ---- Init ---- */
@@ -540,6 +542,7 @@ function handleContinue() {
 async function initQc() {
   WizardStore.setStepStatus('qualification-criteria', 'current');
 
+  const prev = wizardPrevStep('qualification-criteria');
   renderWizardShell({
     mountId: 'wizard-shell-mount',
     currentStepId: 'qualification-criteria',
@@ -548,12 +551,12 @@ async function initQc() {
     footerLeftHtml: `
       <button type="button" class="qc-footer-back-btn" id="qc-back-btn">
         <i class="fa-solid fa-arrow-left"></i>
-        <span>Attachments</span>
+        <span>${prev.title}</span>
       </button>
     `,
   });
   document.getElementById('qc-back-btn').addEventListener('click', () => {
-    window.location.href = 'wizard-attachments.html';
+    window.location.href = prev.href;
   });
 
   loadQcState();

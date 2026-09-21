@@ -19,6 +19,16 @@ function wizardNextStep(currentStepId) {
   return idx >= 0 && idx < steps.length - 1 ? steps[idx + 1] : null;
 }
 
+// Mirrors wizardNextStep() — every page's "back" link should resolve its
+// target through this (and its next-step counterpart above) rather than a
+// hardcoded sibling page, so the step ORDER in WIZARD_STEPS is the only
+// place a reorder has to happen.
+function wizardPrevStep(currentStepId) {
+  const steps = WizardStore.getVisibleSteps();
+  const idx = steps.findIndex((s) => s.id === currentStepId);
+  return idx > 0 ? steps[idx - 1] : null;
+}
+
 function renderWizardStepperRail(currentStepId) {
   const state = WizardStore.getState();
   renderVerticalStepper({
