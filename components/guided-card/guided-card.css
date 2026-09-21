@@ -9,7 +9,6 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   margin-block-end: var(--space-4);
-  overflow: hidden;
   background: var(--surface-card);
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
@@ -34,6 +33,13 @@
   gap: var(--space-3);
   padding: var(--space-4);
   text-align: start;
+  /* The card itself no longer clips overflow (that broke dropdowns
+     opened from within a card, e.g. Step 1's Cost centre/Project
+     selects — their absolutely-positioned panel was getting cropped by
+     the card's own bounds). Round the header's own top corners to match
+     instead, so its hover background still respects the card shape. */
+  border-start-start-radius: var(--radius-lg);
+  border-start-end-radius: var(--radius-lg);
 }
 
 .guided-card.state-completed .guided-card-header {
