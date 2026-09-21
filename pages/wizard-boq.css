@@ -34,13 +34,24 @@
   flex-wrap: wrap;
 }
 
+/* Section card wrapper — lets the column configuration icon float in the
+   table's title row corner, pinned there regardless of horizontal/vertical
+   table scroll (it sits outside the scrolling table, not inside it). */
+.boq-section-wrap {
+  position: relative;
+}
+
 /* Plain, borderless icon button — pinned to the extreme right of the
-   toolbar row regardless of how many buttons precede it. */
+   table's title row, above the column headers, independent of scroll. */
 .boq-colcfg-icon-btn {
-  width: 32px;
-  height: 32px;
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 2;
+  width: 28px;
+  height: 28px;
   border: none;
-  background: transparent;
+  background: var(--surface-card);
   color: var(--text-secondary);
   cursor: pointer;
   display: inline-flex;
@@ -48,12 +59,16 @@
   justify-content: center;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
-  margin-inline-start: auto;
 }
 
 .boq-colcfg-icon-btn:hover {
   background: var(--surface-hover);
   color: var(--text-primary);
+}
+
+/* No title row to pin against in the empty state. */
+.boq-section-wrap:has(.boq-empty-state) .boq-colcfg-icon-btn {
+  display: none;
 }
 
 .boq-btn-outline {
@@ -108,6 +123,12 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
+}
+
+/* Reserve room so the floating column-config icon never overlaps the
+   last header cell's label. */
+.boq-section-card:has(.data-table) {
+  padding-right: calc(var(--space-4) + 40px);
 }
 
 /* ---- Empty state ---- */

@@ -112,9 +112,13 @@ const boq = {
 function loadColumnVisibility() {
   try {
     const raw = sessionStorage.getItem(BOQ_COLVIS_STORAGE_KEY);
-    boq.hiddenColumns = new Set(raw ? JSON.parse(raw) : []);
+    // Optional columns default to hidden until the user has ever touched
+    // Column configuration this session — first-time visitors (including
+    // mid AI-generate/import) see only the default columns, not every
+    // optional one turned on.
+    boq.hiddenColumns = new Set(raw ? JSON.parse(raw) : BOQ_COLUMN_CONFIG.filter((c) => !c.mandatory).map((c) => c.key));
   } catch {
-    boq.hiddenColumns = new Set();
+    boq.hiddenColumns = new Set(BOQ_COLUMN_CONFIG.filter((c) => !c.mandatory).map((c) => c.key));
   }
 }
 
@@ -209,7 +213,9 @@ function renderBoqPage() {
         <div class="boq-header-sub">Add one or more line items to this RFP</div>
       </div>
       <div class="boq-header-actions">
+        <button type="button" class="boq-ai-section-btn" id="boq-generate-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
         <button type="button" class="boq-undo-icon-btn" id="boq-undo-btn" title="Undo last change" ${boq.undoSnapshot ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
+        <button type="button" class="boq-btn-outline" id="boq-import-data-btn"><i class="fa-solid fa-file-import"></i> Import data</button>
         <div class="boq-dropdown" id="boq-viewmore-dropdown">
           <button type="button" class="boq-btn-outline" id="boq-viewmore-btn">View more <i class="fa-solid fa-chevron-down"></i></button>
           <div class="boq-dropdown-menu" id="boq-viewmore-menu">
@@ -226,12 +232,12 @@ function renderBoqPage() {
             </div>
           </div>
         </div>
-        <button type="button" class="boq-btn-outline" id="boq-import-data-btn"><i class="fa-solid fa-file-import"></i> Import data</button>
-        <button type="button" class="boq-ai-section-btn" id="boq-generate-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
-        <button type="button" class="boq-colcfg-icon-btn" id="boq-colcfg-btn" title="Column configuration"><i class="fa-solid fa-table-columns"></i></button>
       </div>
     </div>
-    <div class="boq-section-card" id="boq-section-card"></div>
+    <div class="boq-section-wrap">
+      <button type="button" class="boq-colcfg-icon-btn" id="boq-colcfg-btn" title="Column configuration"><i class="fa-solid fa-table-columns"></i></button>
+      <div class="boq-section-card" id="boq-section-card"></div>
+    </div>
     <div class="boq-colcfg-overlay" id="boq-colcfg-overlay">
       <div class="boq-colcfg-panel">
         <div class="boq-colcfg-header">
