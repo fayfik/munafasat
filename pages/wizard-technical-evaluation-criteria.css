@@ -34,19 +34,21 @@
 .tec-total-badge.state-success { background: var(--color-success-100); color: var(--color-success-700); }
 .tec-total-badge.state-error { background: var(--color-error-100); color: var(--color-error-700); }
 
+/* Navy primary action — matches Steps 6/7's toolbar treatment */
 .tec-btn-primary {
   display: inline-flex; align-items: center; gap: var(--space-2); height: 38px; padding: 0 var(--space-4);
-  border-radius: var(--radius-md); border: none; background: var(--color-green-600); color: var(--color-neutral-0);
+  border-radius: var(--radius-md); border: none; background: var(--color-blue-900); color: var(--color-neutral-0);
   font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); cursor: pointer; white-space: nowrap;
 }
-.tec-btn-primary:hover { background: var(--color-green-700); }
+.tec-btn-primary:hover { background: var(--color-blue-800); }
 
+/* Purple "Generate with AI" pill */
 .tec-ai-btn {
   display: inline-flex; align-items: center; gap: var(--space-2); height: 38px; padding: 0 var(--space-3);
-  border-radius: var(--radius-md); border: 1px solid var(--color-green-300); background: var(--color-green-50);
-  color: var(--color-green-700); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); cursor: pointer; white-space: nowrap;
+  border-radius: var(--radius-md); border: 1px solid var(--color-purple-100); background: var(--color-purple-50);
+  color: var(--color-purple-700); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); cursor: pointer; white-space: nowrap;
 }
-.tec-ai-btn:hover { background: var(--color-green-100); }
+.tec-ai-btn:hover { background: var(--color-purple-100); }
 
 .tec-passing-card {
   background: var(--surface-card);
@@ -77,17 +79,47 @@
   background: var(--surface-card);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  padding: var(--space-4);
   margin-bottom: var(--space-4);
+  overflow: hidden;
 }
 
+/* Accordion header — full-bleed band, chevron toggles the body */
 .tec-segment-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-sidebar);
   flex-wrap: wrap;
+}
+
+.tec-segment-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1;
+}
+
+.tec-segment-chevron {
+  color: var(--text-secondary);
+  font-size: 13px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 150ms ease;
+}
+
+.tec-segment-card.collapsed .tec-segment-chevron {
+  transform: rotate(-90deg);
+}
+
+.tec-segment-body {
+  padding: var(--space-4);
+}
+
+.tec-segment-card.collapsed .tec-segment-body {
+  display: none;
 }
 
 .tec-segment-name-input {

@@ -37,6 +37,14 @@
   --color-blue-800: #17344F;
   --color-blue-900: #0E1E2E;
 
+  /* ---- AI accent (purple) — used for "Generate/Review with AI" actions
+     on Steps 6-8, visually distinct from the green brand/primary scale ---- */
+  --color-purple-50: #F2EEFC;
+  --color-purple-100: #E4D9F9;
+  --color-purple-500: #7C5CE0;
+  --color-purple-600: #6A47D6;
+  --color-purple-700: #5636B0;
+
   /* ---- Semantic: Error / Warning / Success ---- */
   --color-error-50: #FCEBEA;
   --color-error-100: #F8CFCC;

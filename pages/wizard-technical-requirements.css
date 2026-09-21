@@ -31,6 +31,7 @@
   gap: var(--space-2);
 }
 
+/* Navy primary action — matches Steps 6/8's toolbar treatment */
 .tr-btn-primary {
   display: inline-flex;
   align-items: center;
@@ -39,7 +40,7 @@
   padding: 0 var(--space-4);
   border-radius: var(--radius-md);
   border: none;
-  background: var(--color-green-600);
+  background: var(--color-blue-900);
   color: var(--color-neutral-0);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
@@ -47,8 +48,9 @@
   white-space: nowrap;
 }
 
-.tr-btn-primary:hover { background: var(--color-green-700); }
+.tr-btn-primary:hover { background: var(--color-blue-800); }
 
+/* Purple "Generate/Review with AI" pills */
 .tr-ai-btn {
   display: inline-flex;
   align-items: center;
@@ -56,21 +58,21 @@
   height: 38px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
-  border: 1px solid var(--color-green-300);
-  background: var(--color-green-50);
-  color: var(--color-green-700);
+  border: 1px solid var(--color-purple-100);
+  background: var(--color-purple-50);
+  color: var(--color-purple-700);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   white-space: nowrap;
 }
 
-.tr-ai-btn:hover { background: var(--color-green-100); }
+.tr-ai-btn:hover { background: var(--color-purple-100); }
 
-.tr-ai-btn-light {
-  border-color: var(--border-default);
-  background: var(--surface-card);
-  color: var(--text-secondary);
+.tr-footer-count {
+  margin-top: var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
 }
 
 .tr-section-card {

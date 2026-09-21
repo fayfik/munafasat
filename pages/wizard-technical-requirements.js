@@ -57,7 +57,7 @@ function renderTrPage() {
         <div class="tr-header-sub">List all technical specifications vendors must comply with.</div>
       </div>
       <div class="tr-header-actions">
-        <button type="button" class="tr-ai-btn tr-ai-btn-light" id="tr-review-btn"><i class="fa-solid fa-magnifying-glass"></i> Review with AI</button>
+        <button type="button" class="tr-ai-btn" id="tr-review-btn"><i class="fa-solid fa-magnifying-glass"></i> Review with AI</button>
         <button type="button" class="tr-ai-btn" id="tr-generate-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
         <button type="button" class="tr-btn-primary" id="tr-add-btn"><i class="fa-solid fa-plus"></i> Add Requirement</button>
       </div>
@@ -95,6 +95,7 @@ function renderTrCard() {
     })}
     <button type="button" class="tr-add-row-btn" id="tr-add-row-link"><i class="fa-solid fa-plus"></i> Add Requirement</button>
     ${anyBlank ? `<div class="tr-validation-note">Every requirement needs text before you can continue.</div>` : ''}
+    <div class="tr-footer-count">${tr.requirements.length} requirement${tr.requirements.length === 1 ? '' : 's'} defined</div>
     <div id="tr-ai-panel-mount"></div>
   `;
 
@@ -109,6 +110,7 @@ function trColumns() {
     {
       key: 'actions', label: 'Actions', render: (r) => `
         <div class="row-actions">
+          <button class="row-action" data-action="duplicate" data-id="${r.id}" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
           <button class="row-action row-action-delete" data-action="delete" data-id="${r.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
         </div>
       `,
@@ -137,6 +139,17 @@ function wireTrTableEvents() {
   });
 
   tbody.addEventListener('click', (e) => {
+    const dupBtn = e.target.closest('[data-action="duplicate"]');
+    if (dupBtn) {
+      const idx = tr.requirements.findIndex((r) => r.id === dupBtn.dataset.id);
+      if (idx >= 0) {
+        tr.requirements.splice(idx + 1, 0, { id: newTrId(), text: tr.requirements[idx].text });
+        persistTr();
+        renderTrCard();
+      }
+      return;
+    }
+
     const delBtn = e.target.closest('[data-action="delete"]');
     if (!delBtn) return;
     tr.requirements = tr.requirements.filter((r) => r.id !== delBtn.dataset.id);

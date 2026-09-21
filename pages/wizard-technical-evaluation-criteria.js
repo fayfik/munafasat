@@ -27,6 +27,7 @@ const tec = {
   passingPercent: '',
   boqItems: [],
   completed: false,
+  collapsedSegments: new Set(),
 };
 
 /* ---- Persistence ---- */
@@ -207,35 +208,41 @@ function renderSegments() {
 }
 
 function buildSegmentCardHtml(seg) {
+  const collapsed = tec.collapsedSegments.has(seg.id);
   return `
-    <div class="tec-segment-card" data-seg-id="${seg.id}">
+    <div class="tec-segment-card${collapsed ? ' collapsed' : ''}" data-seg-id="${seg.id}">
       <div class="tec-segment-header">
-        <input type="text" class="tec-segment-name-input" data-seg-name="${seg.id}" value="${escapeHtmlTec(seg.name)}" placeholder="Segment name">
+        <div class="tec-segment-header-left">
+          <i class="fa-solid fa-chevron-down tec-segment-chevron" data-toggle-seg="${seg.id}"></i>
+          <input type="text" class="tec-segment-name-input" data-seg-name="${seg.id}" value="${escapeHtmlTec(seg.name)}" placeholder="Segment name">
+        </div>
         <span class="tec-segment-total state-${segState(seg)}" data-seg-total="${seg.id}">${segTotal(seg)}% of this segment</span>
       </div>
 
-      <div class="tec-applicability">
-        <div class="tec-applicability-radios">
-          <label><input type="radio" name="applies-${seg.id}" data-applies-all="${seg.id}" ${seg.appliesToAll ? 'checked' : ''}> All Items</label>
-          <label><input type="radio" name="applies-${seg.id}" data-applies-specific="${seg.id}" ${!seg.appliesToAll ? 'checked' : ''} ${tec.boqItems.length === 0 ? 'disabled' : ''}> Specific item(s)</label>
+      <div class="tec-segment-body">
+        <div class="tec-applicability">
+          <div class="tec-applicability-radios">
+            <label><input type="radio" name="applies-${seg.id}" data-applies-all="${seg.id}" ${seg.appliesToAll ? 'checked' : ''}> All Items</label>
+            <label><input type="radio" name="applies-${seg.id}" data-applies-specific="${seg.id}" ${!seg.appliesToAll ? 'checked' : ''} ${tec.boqItems.length === 0 ? 'disabled' : ''}> Specific item(s)</label>
+          </div>
+          ${tec.boqItems.length === 0
+            ? `<span class="tec-no-items-note">No BOQ items found in Step 2 — applies to all items by default.</span>`
+            : `<div class="tec-item-checkboxes" data-item-checkboxes="${seg.id}" style="${seg.appliesToAll ? 'display:none;' : ''}">
+                ${tec.boqItems.map((it) => `<label><input type="checkbox" data-item-check="${seg.id}" value="${it.id}" ${seg.appliesToItemIds.includes(it.id) ? 'checked' : ''}> ${escapeHtmlTec(it.name)}</label>`).join('')}
+              </div>`
+          }
         </div>
-        ${tec.boqItems.length === 0
-          ? `<span class="tec-no-items-note">No BOQ items found in Step 2 — applies to all items by default.</span>`
-          : `<div class="tec-item-checkboxes" data-item-checkboxes="${seg.id}" style="${seg.appliesToAll ? 'display:none;' : ''}">
-              ${tec.boqItems.map((it) => `<label><input type="checkbox" data-item-check="${seg.id}" value="${it.id}" ${seg.appliesToItemIds.includes(it.id) ? 'checked' : ''}> ${escapeHtmlTec(it.name)}</label>`).join('')}
-            </div>`
-        }
-      </div>
 
-      ${buildTableHtml({
-        columns: tecColumns(seg),
-        rows: seg.criteria,
-        rowKey: (r) => r.id,
-        emptyText: 'No criteria in this segment.',
-      })}
-      <div class="tec-segment-footer-row">
-        <button type="button" class="tec-add-criterion-link" data-add-crit="${seg.id}"><i class="fa-solid fa-plus"></i> Add criterion</button>
-        <button type="button" class="tec-delete-segment-btn" data-delete-segment="${seg.id}" title="Delete segment"><i class="fa-solid fa-trash"></i> Delete segment</button>
+        ${buildTableHtml({
+          columns: tecColumns(seg),
+          rows: seg.criteria,
+          rowKey: (r) => r.id,
+          emptyText: 'No criteria in this segment.',
+        })}
+        <div class="tec-segment-footer-row">
+          <button type="button" class="tec-add-criterion-link" data-add-crit="${seg.id}"><i class="fa-solid fa-plus"></i> Add criterion</button>
+          <button type="button" class="tec-delete-segment-btn" data-delete-segment="${seg.id}" title="Delete segment"><i class="fa-solid fa-trash"></i> Delete segment</button>
+        </div>
       </div>
     </div>
   `;
@@ -257,6 +264,7 @@ function tecColumns(seg) {
     {
       key: 'actions', label: 'Actions', render: (r) => `
         <div class="row-actions">
+          <button class="row-action" data-duplicate-crit="${seg.id}:${r.id}" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
           <button class="row-action row-action-delete" data-delete-crit="${seg.id}:${r.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
         </div>
       `,
@@ -267,6 +275,12 @@ function tecColumns(seg) {
 function wireSegmentCard(seg) {
   const card = document.querySelector(`.tec-segment-card[data-seg-id="${seg.id}"]`);
   if (!card) return;
+
+  card.querySelector(`[data-toggle-seg="${seg.id}"]`).addEventListener('click', () => {
+    if (tec.collapsedSegments.has(seg.id)) tec.collapsedSegments.delete(seg.id);
+    else tec.collapsedSegments.add(seg.id);
+    card.classList.toggle('collapsed');
+  });
 
   card.querySelector(`[data-seg-name="${seg.id}"]`).addEventListener('input', (e) => {
     seg.name = e.target.value;
@@ -314,6 +328,21 @@ function wireSegmentCard(seg) {
     btn.addEventListener('click', () => {
       const [segId, critId] = btn.dataset.recommend.split(':');
       recommendEvaluationMethod(segId, critId);
+    });
+  });
+
+  card.querySelectorAll('[data-duplicate-crit]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const [segId, critId] = btn.dataset.duplicateCrit.split(':');
+      const s = tec.segments.find((x) => x.id === segId);
+      if (!s) return;
+      const idx = s.criteria.findIndex((c) => c.id === critId);
+      if (idx >= 0) {
+        s.criteria.splice(idx + 1, 0, { ...s.criteria[idx], id: newTecId('tec-crit') });
+        persistTec();
+        renderSegments();
+        refreshTecTotalBadge();
+      }
     });
   });
 
