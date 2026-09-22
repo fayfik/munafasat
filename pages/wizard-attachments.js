@@ -79,15 +79,23 @@ function saveDraft() {
   showToast('Request saved as draft successfully.');
 }
 
-// Final step (per the new 8-step order) — "Submit RFP" is the real
-// submission action. There's no backend to submit to in this prototype,
-// so this simulates a successful submission (toast + in-page confirmation
-// screen) rather than navigating anywhere broken.
-function handleContinue() {
+// The actual, final submission — invoked from the RFP Summary modal's
+// "Submit Request" CTA, not directly from the footer button (see
+// handleContinue below). There's no backend to submit to in this
+// prototype, so this simulates a successful submission (toast + in-page
+// confirmation screen) rather than navigating anywhere broken.
+function performSubmission() {
   WizardStore.setStepStatus('attachments', 'completed');
   attCompleted = true;
   renderAttCompletionState();
   showToast('RFP submitted successfully.');
+}
+
+// Final step (per the new 8-step order) — "Submit RFP" no longer submits
+// immediately; it opens the RFP Summary review modal first, and the modal
+// itself performs the real submission once the creator confirms.
+function handleContinue() {
+  openRfpSummaryModal({ onSubmit: performSubmission });
 }
 
 /* ---- Init ---- */
