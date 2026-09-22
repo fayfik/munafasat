@@ -113,6 +113,10 @@ async function buildRfpSummaryModel() {
   const boqVat = boqSubtotal * 0.15;
   const boq = {
     title: 'Bill of Quantity',
+    // Line items are the primary content here — the reader wants the
+    // itemized table first and the rolled-up totals as a summary
+    // underneath it, not the other way around.
+    fieldsPosition: 'after',
     fields: [
       { label: 'Line Items', value: String(boqItems.length) },
       { label: 'Subtotal', value: rsMoney(boqSubtotal) },
@@ -211,11 +215,12 @@ function rsSectionHtml(section) {
     </div>
   ` : '';
 
+  const orderedHtml = section.fieldsPosition === 'after' ? [tableHtml, fieldsHtml] : [fieldsHtml, tableHtml];
+
   return `
     <div class="rs-section">
       <div class="rs-section-title">${rsEscapeHtml(section.title)}</div>
-      ${fieldsHtml}
-      ${tableHtml}
+      ${orderedHtml.join('')}
     </div>
   `;
 }
@@ -322,6 +327,40 @@ function downloadRfpSummaryPdf(model) {
   doc.text(`${model.requestName} · Generated ${model.generatedAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`, marginX, y);
   y += 18;
 
+  // Field/value pairs render as a real 2-column autotable — same grid the
+  // on-screen modal uses — so every value lands on one straight vertical
+  // line regardless of how long its label is, instead of drifting per-row
+  // the way freehand-positioned text would.
+  function drawFieldsTable(section) {
+    if (!section.fields || !section.fields.length) return;
+    doc.autoTable({
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      body: section.fields.map((f) => [f.label, String(f.value)]),
+      columnStyles: {
+        0: { cellWidth: 160, fontStyle: 'bold', textColor: [110, 110, 110] },
+        1: { cellWidth: 'auto', textColor: [30, 30, 30] },
+      },
+      styles: { fontSize: 9, cellPadding: { top: 4, bottom: 4, left: 0, right: 8 } },
+      theme: 'plain',
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  }
+
+  function drawItemsTable(section) {
+    if (!section.table) return;
+    doc.autoTable({
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      head: [section.table.columns],
+      body: section.table.rows,
+      styles: { fontSize: 8, cellPadding: 4 },
+      headStyles: { fillColor: [238, 244, 232], textColor: [63, 93, 39] },
+      theme: 'grid',
+    });
+    y = doc.lastAutoTable.finalY + 20;
+  }
+
   model.sections.forEach((section) => {
     if (y > 720) { doc.addPage(); y = 40; }
 
@@ -331,38 +370,15 @@ function downloadRfpSummaryPdf(model) {
     doc.text(section.title, marginX, y);
     y += 14;
 
-    if (section.fields && section.fields.length) {
-      doc.setFontSize(9.5);
-      section.fields.forEach((f) => {
-        if (y > 770) { doc.addPage(); y = 40; }
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(60, 60, 60);
-        const label = `${f.label}:`;
-        doc.text(label, marginX, y);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(30, 30, 30);
-        const labelWidth = doc.getTextWidth(label) + 6;
-        const valueLines = doc.splitTextToSize(String(f.value), pageWidth - marginX * 2 - labelWidth);
-        doc.text(valueLines, marginX + labelWidth, y);
-        y += valueLines.length * 12 + 2;
-      });
-      y += 4;
-    }
-
-    if (section.table) {
-      doc.autoTable({
-        startY: y,
-        margin: { left: marginX, right: marginX },
-        head: [section.table.columns],
-        body: section.table.rows,
-        styles: { fontSize: 8, cellPadding: 4 },
-        headStyles: { fillColor: [238, 244, 232], textColor: [63, 93, 39] },
-        theme: 'grid',
-      });
-      y = doc.lastAutoTable.finalY + 20;
+    const hadContent = (section.fields && section.fields.length) || section.table;
+    if (section.fieldsPosition === 'after') {
+      drawItemsTable(section);
+      drawFieldsTable(section);
     } else {
-      y += 10;
+      drawFieldsTable(section);
+      drawItemsTable(section);
     }
+    if (!hadContent) y += 10;
   });
 
   doc.save(`${(model.requestName || 'RFP-Summary').replace(/[^\w\- ]+/g, '')}.pdf`);

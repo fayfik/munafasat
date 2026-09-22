@@ -132,9 +132,16 @@
   margin-bottom: var(--space-3);
 }
 
+/* Table (when it comes first, e.g. Bill of Quantity) needs its own
+   breathing room before the summary fields grid that follows it. */
+.rs-table-scroll + .rs-fields-grid {
+  margin-top: var(--space-4);
+}
+
 .rs-field-label {
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
 }
 
 .rs-field-value {
@@ -227,10 +234,6 @@
   .rs-fields-grid {
     grid-template-columns: 1fr;
     row-gap: 2px;
-  }
-
-  .rs-field-label {
-    font-weight: var(--font-weight-medium);
   }
 
   .rs-footer {
