@@ -80,7 +80,8 @@
 }
 
 .rs-title-row {
-  padding: var(--space-4) var(--space-5) 0;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  background: var(--color-green-50);
   flex-shrink: 0;
 }
 
