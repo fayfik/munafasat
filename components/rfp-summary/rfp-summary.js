@@ -119,12 +119,16 @@ async function buildRfpSummaryModel() {
     fieldsPosition: 'after',
     fields: [
       { label: 'Line Items', value: String(boqItems.length) },
-      { label: 'Subtotal', value: rsMoney(boqSubtotal) },
-      { label: 'VAT (15%)', value: rsMoney(boqVat) },
-      { label: 'Grand Total (incl. VAT)', value: rsMoney(boqSubtotal + boqVat) },
+      { label: 'Subtotal', value: rsMoney(boqSubtotal), emphasis: 'bold' },
+      { label: 'VAT (15%)', value: rsMoney(boqVat), emphasis: 'bold' },
+      { label: 'Grand Total (incl. VAT)', value: rsMoney(boqSubtotal + boqVat), emphasis: 'grand' },
     ],
     table: boqItems.length ? {
       columns: ['#', 'Item Name', 'Description', 'Budgeted Item', 'UOM', 'Qty', 'Unit Price', 'Delivery Date', 'Brand Name?', 'Total'],
+      // The Total column is the one figure worth making stand out against
+      // the rest of the row — flagged by label so both renderers can
+      // style it without hardcoding a column index.
+      emphasizeColumnLabel: 'Total',
       rows: boqItems.map((it, i) => {
         const budgetedItem = project ? project.budgetedItems.find((b) => b.id === it.budgetedItemId) : null;
         return [
@@ -201,16 +205,17 @@ function rsSectionHtml(section) {
     <div class="rs-fields-grid">
       ${section.fields.map((f) => `
         <div class="rs-field-label">${rsEscapeHtml(f.label)}</div>
-        <div class="rs-field-value">${rsEscapeHtml(f.value)}</div>
+        <div class="rs-field-value${f.emphasis ? ` rs-field-value-${f.emphasis}` : ''}">${rsEscapeHtml(f.value)}</div>
       `).join('')}
     </div>
   ` : '';
 
+  const emphasizeColIdx = section.table?.emphasizeColumnLabel ? section.table.columns.indexOf(section.table.emphasizeColumnLabel) : -1;
   const tableHtml = section.table ? `
     <div class="rs-table-scroll">
       <table class="rs-table">
         <thead><tr>${section.table.columns.map((c) => `<th>${rsEscapeHtml(c)}</th>`).join('')}</tr></thead>
-        <tbody>${section.table.rows.map((row) => `<tr>${row.map((cell) => `<td>${rsEscapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
+        <tbody>${section.table.rows.map((row) => `<tr>${row.map((cell, i) => `<td${i === emphasizeColIdx ? ' class="rs-cell-emphasis"' : ''}>${rsEscapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
       </table>
     </div>
   ` : '';
@@ -338,17 +343,32 @@ function downloadRfpSummaryPdf(model) {
       margin: { left: marginX, right: marginX },
       body: section.fields.map((f) => [f.label, String(f.value)]),
       columnStyles: {
-        0: { cellWidth: 160, fontStyle: 'bold', textColor: [110, 110, 110] },
+        0: { cellWidth: 160, fontStyle: 'bold', textColor: [0, 0, 0] }, // labels: black, not gray — prints cleaner
         1: { cellWidth: 'auto', textColor: [30, 30, 30] },
       },
       styles: { fontSize: 9, cellPadding: { top: 4, bottom: 4, left: 0, right: 8 } },
       theme: 'plain',
+      // Per-row emphasis (BOQ's Subtotal/VAT bold, Grand Total bold + a
+      // touch larger) — driven by the same `emphasis` flag the on-screen
+      // renderer reads, so the two can't drift apart.
+      didParseCell: (data) => {
+        if (data.column.index !== 1) return;
+        const emphasis = section.fields[data.row.index]?.emphasis;
+        if (emphasis === 'bold' || emphasis === 'grand') {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.textColor = [0, 0, 0];
+        }
+        if (emphasis === 'grand') {
+          data.cell.styles.fontSize = 12;
+        }
+      },
     });
     y = doc.lastAutoTable.finalY + 8;
   }
 
   function drawItemsTable(section) {
     if (!section.table) return;
+    const emphasizeColIdx = section.table.emphasizeColumnLabel ? section.table.columns.indexOf(section.table.emphasizeColumnLabel) : -1;
     doc.autoTable({
       startY: y,
       margin: { left: marginX, right: marginX },
@@ -357,6 +377,12 @@ function downloadRfpSummaryPdf(model) {
       styles: { fontSize: 8, cellPadding: 4 },
       headStyles: { fillColor: [238, 244, 232], textColor: [63, 93, 39] },
       theme: 'grid',
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === emphasizeColIdx) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.textColor = [0, 0, 0];
+        }
+      },
     });
     y = doc.lastAutoTable.finalY + 20;
   }

@@ -141,8 +141,8 @@
 
 .rs-field-label {
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-tertiary);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
 }
 
 .rs-field-value {
@@ -150,6 +150,15 @@
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.rs-field-value-bold {
+  font-weight: var(--font-weight-bold);
+}
+
+.rs-field-value-grand {
+  font-weight: var(--font-weight-bold);
+  font-size: calc(var(--font-size-sm) + 3px);
 }
 
 .rs-table-scroll {
@@ -181,6 +190,11 @@
 
 .rs-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.rs-cell-emphasis {
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
 }
 
 .rs-footer {
