@@ -1,0 +1,570 @@
+<title>Munafasat Prompt Kit</title>
+<meta name="description" content="Sequenced prompts to rebuild the Munafasat RFP wizard in Figma Make.">
+<style>
+  :root {
+    --green-50: #EEF4E8; --green-100: #DCE9D2; --green-300: #99C280; --green-600: #699843; --green-700: #517632; --green-900: #2E441C;
+    --blue-600: #2A6193; --blue-900: #0E1E2E;
+    --amber-50: #FDF3E0; --amber-600: #B87200;
+    --red-50: #FCEBEA; --red-600: #C22C18;
+    --bg: #F9FAF8; --card: #FFFFFF; --border: #E7EAE3; --border-strong: #D5D9D0;
+    --text-1: #1B1F19; --text-2: #656C60; --text-3: #868D80;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --shadow-sm: 0 1px 2px rgba(27,31,25,0.06);
+    --shadow-md: 0 4px 12px rgba(27,31,25,0.08);
+    --nav-w: 272px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14170F; --card: #1B1F19; --border: #2E332B; --border-strong: #3A4035;
+      --text-1: #F3F5EF; --text-2: #B7BDAE; --text-3: #868D80;
+      --green-50: #1E2A16; --green-100: #253421; --amber-50: #2E2410; --red-50: #2E1613;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14170F; --card: #1B1F19; --border: #2E332B; --border-strong: #3A4035;
+    --text-1: #F3F5EF; --text-2: #B7BDAE; --text-3: #868D80;
+    --green-50: #1E2A16; --green-100: #253421; --amber-50: #2E2410; --red-50: #2E1613;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text-1); font-family: var(--sans); margin: 0; padding-inline: 16px; }
+  a { color: var(--blue-600); }
+  h1, h2, h3 { text-wrap: balance; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; display: flex; gap: 32px; align-items: flex-start; padding-block: 32px 80px; }
+
+  /* ---- Nav ---- */
+  nav.toc {
+    position: sticky; top: 24px; width: var(--nav-w); flex-shrink: 0;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; max-height: calc(100vh - 48px); overflow-y: auto;
+  }
+  nav.toc .toc-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin: 4px 8px 10px; }
+  nav.toc a {
+    display: flex; align-items: baseline; gap: 8px; text-decoration: none; color: var(--text-2);
+    font-size: 13px; padding: 6px 8px; border-radius: 8px; line-height: 1.35;
+  }
+  nav.toc a:hover { background: var(--green-50); color: var(--text-1); }
+  nav.toc a.active { background: var(--green-100); color: var(--green-900); font-weight: 600; }
+  :root[data-theme="dark"] nav.toc a.active, @media (prefers-color-scheme: dark) { }
+  nav.toc a .n { font-family: var(--mono); font-size: 11px; color: var(--text-3); flex-shrink: 0; width: 16px; }
+  nav.toc hr { border: none; border-top: 1px solid var(--border); margin: 10px 4px; }
+
+  main { flex: 1; min-width: 0; }
+
+  /* ---- Header / intro ---- */
+  .kicker { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--green-700); margin-bottom: 8px; }
+  h1 { font-size: 32px; font-weight: 700; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .lede { font-size: 16px; color: var(--text-2); max-width: 68ch; line-height: 1.6; margin: 0 0 28px; }
+
+  .intro-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 24px; margin-bottom: 40px; box-shadow: var(--shadow-sm);
+  }
+  .intro-card h2 { font-size: 15px; margin: 0 0 10px; }
+  .intro-card ol { margin: 0; padding-inline-start: 20px; color: var(--text-2); font-size: 14px; line-height: 1.7; }
+  .intro-card ol li strong { color: var(--text-1); }
+  .sources { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--text-3); }
+  .sources a { color: var(--text-3); }
+
+  /* ---- Prompt sections ---- */
+  section.prompt { scroll-margin-top: 24px; margin-bottom: 36px; }
+  .prompt-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; box-shadow: var(--shadow-sm);
+  }
+  .prompt-head {
+    display: flex; align-items: center; gap: 14px; padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .prompt-num {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 999px;
+    background: var(--green-600); color: #fff; font-family: var(--mono); font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .prompt-head .titles { flex: 1; min-width: 0; }
+  .prompt-head h2 { font-size: 16px; margin: 0 0 2px; }
+  .prompt-head .goal { font-size: 13px; color: var(--text-2); margin: 0; }
+  .prompt-tag {
+    flex-shrink: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 999px; color: var(--green-700); background: var(--green-50); border: 1px solid var(--green-100);
+  }
+  .prompt-tag.optional { color: var(--amber-600); background: var(--amber-50); border-color: var(--amber-50); }
+
+  .copy-row { display: flex; justify-content: flex-end; padding: 12px 20px 0; }
+  .copy-btn {
+    display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 12.5px; font-weight: 600;
+    color: var(--text-2); background: var(--bg); border: 1px solid var(--border-strong); border-radius: 7px;
+    padding: 6px 11px; cursor: pointer;
+  }
+  .copy-btn:hover { background: var(--green-50); color: var(--green-700); border-color: var(--green-100); }
+  .copy-btn.copied { color: var(--green-700); background: var(--green-50); border-color: var(--green-100); }
+
+  .promptbox {
+    margin: 12px 20px 20px; padding: 16px 18px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 9px; font-family: var(--mono); font-size: 12.8px; line-height: 1.65; color: var(--text-1);
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .promptbox b { font-weight: 700; }
+
+  footer.end { text-align: center; color: var(--text-3); font-size: 12.5px; padding-top: 16px; }
+
+  /* ---- Mobile ---- */
+  @media (max-width: 860px) {
+    .wrap { flex-direction: column; }
+    nav.toc { position: static; width: 100%; max-height: none; order: 2; }
+    main { order: 1; }
+    .toc-mobile-hint { display: block; }
+  }
+  @media (max-width: 480px) {
+    h1 { font-size: 26px; }
+    .prompt-head { flex-wrap: wrap; }
+  }
+</style>
+
+<div class="wrap">
+  <nav class="toc" id="toc">
+    <div class="toc-title">Build order</div>
+    <a href="#p1"><span class="n">01</span> Design system &amp; shell</a>
+    <a href="#p2"><span class="n">02</span> Dashboard</a>
+    <a href="#p3"><span class="n">03</span> Wizard shell &amp; stepper</a>
+    <hr>
+    <a href="#p4"><span class="n">04</span> Step 1 · Basic details</a>
+    <a href="#p5"><span class="n">05</span> Step 2 · Scope of work</a>
+    <a href="#p6"><span class="n">06</span> Step 3 · Bill of Quantity</a>
+    <a href="#p7"><span class="n">07</span> Step 4 · Payments</a>
+    <a href="#p8"><span class="n">08</span> Step 5 · Qualification criteria</a>
+    <a href="#p9"><span class="n">09</span> Step 6 · Technical requirements</a>
+    <a href="#p10"><span class="n">10</span> Step 7 · Technical evaluation</a>
+    <a href="#p11"><span class="n">11</span> Step 8 · Supporting documents</a>
+    <hr>
+    <a href="#p12"><span class="n">12</span> RFP Summary modal <b>· new</b></a>
+    <hr>
+    <a href="#p13"><span class="n">13</span> Create Request chooser</a>
+    <a href="#p14"><span class="n">14</span> My Requests</a>
+    <a href="#p15"><span class="n">15</span> Inbox &amp; Reports</a>
+    <a href="#p16"><span class="n">16</span> AI Assistant page</a>
+  </nav>
+
+  <main>
+    <div class="kicker">Figma Make prompt sequence</div>
+    <h1>Munafasat Prompt Kit</h1>
+    <p class="lede">16 prompts, in build order, to regenerate the Munafasat RFP wizard in one Figma Make session — rewritten from the current app, including the new RFP Summary review modal that wasn't in the last version of this kit.</p>
+
+    <div class="intro-card">
+      <h2>How to use this</h2>
+      <ol>
+        <li><strong>One Figma Make session, pasted in order.</strong> Start a single Make file and paste prompts 1 → 16 one at a time, waiting for each to finish before sending the next — this is a sequence, not sixteen unrelated sessions. Figma Make itself works best this way: a complete first prompt establishes the design system, and every later prompt can just say "match the existing design system" instead of re-specifying colors and type.</li>
+        <li><strong>Don't skip Prompt 1.</strong> It defines the color/type/spacing tokens and the app shell every other screen sits inside. Everything after it is intentionally shorter because it leans on that foundation.</li>
+        <li><strong>Prompts 4–11 assume Prompt 3 already exists.</strong> Each wizard-step prompt only describes what's inside that step's content card — the stepper rail, footer, and collapse/hover behavior come from Prompt 3.</li>
+        <li><strong>Prompt 12 is the headline addition.</strong> The RFP Summary review modal is the newest piece of the real app and the main reason this kit needed rebuilding — give it its own attention rather than rushing past it.</li>
+        <li><strong>16 is marked optional.</strong> The standalone AI Assistant page is the lowest-value screen to regenerate; build it last, or skip it if you're short on time.</li>
+        <li>If a screen comes out wrong, prefer a small precise correction over a re-send of the whole prompt — e.g. "move the Grand Total row's font size up 3px" lands better than repeating the paragraph it came from.</li>
+      </ol>
+      <div class="sources">Prompting approach based on: <a href="https://www.figma.com/blog/8-ways-to-build-with-figma-make/" target="_blank" rel="noopener">Figma — 8 ways to build with Figma Make</a> · <a href="https://mantlr.com/blog/figma-make-prompts-2026" target="_blank" rel="noopener">Mantlr — Figma Make prompts, 2026 guide</a></div>
+    </div>
+
+    <section class="prompt" id="p1">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">01</div>
+          <div class="titles"><h2>Design system &amp; app shell</h2><p class="goal">Foundation — tokens, sidebar, header. Everything else builds on this.</p></div>
+          <div class="prompt-tag">Foundation</div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t1"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t1">Build the foundation for a web app called Munafasat — an enterprise RFP (Request for Proposal) procurement management tool for a Saudi government development bank (SIDF branding). This is a desktop-first internal tool, not a marketing site.
+
+DESIGN SYSTEM
+Font: Inter (weights 400/500/600/700) from Google Fonts, falling back to system UI sans-serif.
+Type scale: 12 / 13 / 14 (body default) / 16 / 18 / 22px.
+Primary brand green scale, light to dark: #EEF4E8, #DCE9D2, #BBD6A9, #99C280, #82B564, #6BA548, #699843, #517632, #3F5D27, #2E441C. Use #699843 and #517632 as the two primary action-green shades.
+Neutrals: off-white app background #F9FAF8, card white #FFFFFF, sidebar background #F6F8F4, borders #E7EAE3, text primary #1B1F19, text secondary #656C60, text tertiary #868D80.
+Semantic colors: success green text #17784A on bg #E9F5EE, warning amber text #B87200 on bg #FDF3E0, error red text #C22C18 on bg #FCEBEA, link blue #2A6193.
+Spacing scale: 4/8/12/16/20/24/32/40px. Radius scale: 6px small, 8px medium, 12px large, fully-rounded for pills/avatars. Shadows: a subtle 1px/2px blur near-black at low opacity, and a medium 4px/12px blur version for hover/elevated cards.
+
+APP SHELL
+Fixed left sidebar, 64px wide collapsed / 240px expanded, off-white background (#F6F8F4), right border. Top: a small interlocking-hexagon brand mark icon (green), centered; when expanded, "Munafasat" wordmark appears beside it in bold. Below that, a toggle row: a circular pin button (thumbtack icon, only visible when expanded — highlights green when pinned/active) and a circular chevron toggle that flips 180° to expand/collapse. The expanded state can be "pinned" to persist across visits; otherwise it's session-only.
+
+Below that, 4 nav items stacked, each 40px tall with 12px inner padding and rounded corners: Dashboard (grid/tiles icon), My Requests (document-list icon), Inbox (inbox-tray icon), Reports (bar-chart icon). Each uses a line/outline icon by default and switches to a solid filled icon in brand green (#517632) when that page is active, with a light green (#E7F0E1) active background and a 3px green rounded rail on the left edge. Labels fade in as the sidebar expands. Collapsed sidebar shows a small dark tooltip with the label on hover.
+
+Fixed top header bar, 64px tall, spanning from the sidebar's edge to the right edge, background a left-to-right green gradient (#699843 → #517632). Left side: the same small hex brand mark rendered white, "Munafasat" in bold white, a thin vertical divider (white at 30% opacity), then the current page's title in white 16px semibold. Right side, left to right: a small "EN"/"AR" language toggle button, an outlined semi-transparent "✨ AI Assistant" pill button (white text, white 35%-opacity border, white 12%-opacity fill), a solid white pill "+ Create" button with a dropdown chevron (green text/icon, drop-shadow), a vertical divider, a notification bell icon button with a small red unread-count badge top-right, and an avatar circle button (user initials "AM" on white circle, green text) with a small white chevron-down beside it.
+
+Main content area sits to the right of the sidebar and below the header, off-white background (#F9FAF8), with 24px padding around page content, and shifts its left margin when the sidebar expands.
+
+Build this as the base shell only — I'll add individual pages into the main content area in follow-up prompts.</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p2">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">02</div>
+          <div class="titles"><h2>Dashboard</h2><p class="goal">The landing page — stat row, status donut, activity feed, recent requests table.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t2"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t2">Build the Dashboard page inside the app shell's main content area (header page title: "Dashboard"). Match the existing design system.
+
+Top: a greeting — bold 22px heading "Good morning, Ahmed 👋" with a lighter 14px subtitle "Here's what's happening with your procurement items today."
+
+Below that, a row of 5 stat cards (wrap responsively, each min 200px wide, white card, border, 12px radius, 16px padding):
+1. My Drafts — file-pencil icon in a light-green 32px rounded chip, big bold 22px number "6", label "My Drafts" 13px, small muted sub-text "2 updated today". Has a chevron-down and is clickable — clicking expands a compact drill-down table below the whole row (columns: RFP ID / RFP Title / Last updated / Action "Continue").
+2. My Submissions — paper-plane icon, number "8", label "My Submissions", sub "4 awaiting approval". Clickable, drill-down columns RFP ID / RFP Title / Last updated / Action (a colored status chip: "Awaiting Approval" blue, "Under Review" amber, "Approved" green).
+3. Awaiting your Approvals — clock icon, number "4", label "Awaiting your Approvals", sub "Requires your attention" rendered in red. Clickable, drill-down columns RFP ID / RFP Title / Submitted By / Pending Since / Action "Review".
+4. Total RFP Value — money-sack icon, value "500,000 SAR", label "Total RFP Value", sub "10 RFPs". Not clickable, no chevron.
+5. Total PO Value — money-sack icon, value "300,000 SAR", label "Total PO Value", sub "200K optimized for 10 RFPs". Not clickable.
+
+Below the stat row, a two-column layout: a flexible left column and a fixed ~320px right rail.
+
+LEFT COLUMN:
+— A row with two side-by-side cards, equal width:
+  • "Requests by Status" — a ring/donut chart built with a conic-gradient (no chart library), 168px, with a punched-out white center showing total count "32" bold and label "Total" below it in muted small text. A legend list beside the ring: colored dot + status label + count + percent, for Draft (grey), Submitted (blue), Under Review (amber), Active RFP (green), Awarded (dark green). Include a cosmetic "This Year" dropdown and a "⋮" overflow menu in the card header.
+  • "RFPs Closing Soon" — a vertical list of 3 rows, each: RFP ID as a blue link + bold title text + "Due {date}" in small muted text on the left, and a colored rounded pill on the right reading "{n} days left" (red background if ≤2 days, amber if ≤5, green otherwise). Example: RFP-2024-045 "IT Hardware & Networking", due 22 May 2024, "2 days left" red; RFP-2024-038 "Annual Office Maintenance", due 25 May 2024, "5 days left" amber; RFP-2024-031 "Cloud Services Subscription", due 26 May 2024, "6 days left" green.
+— Below that row, full width: "My Recent 10 Requests" card. Header row: title, a search input (magnifying-glass icon, placeholder "Search requests…"), a "Filter" button (funnel icon), a sort dropdown ("Last Updated (Newest)"), and a "View all →" link. Table columns: Request/RFP ID (blue link), Description, Type (muted), Stage (muted), Status (colored pill badge matching the donut's palette), Last Updated (muted date), and a trailing "View" link with no header label. Include ~10 rows mixing "RFP-2024-0xx" and "PR-2024-1xx" ids, statuses Draft/Submitted/Active RFP, with realistic descriptions like "Enroll and manage staff mobile devices centrally", "Interactive security awareness training for all staff", "Off-site backup and DR services for core systems", "Network switches and access points for HQ floors 3-5".
+
+RIGHT RAIL (top to bottom, each its own card):
+— "Recent Activity" — a vertical timeline: a thin connecting line down the left, each entry a small 32px circular icon (green checkmark for approvals, blue paper-plane/upload for submissions, amber refresh for status changes), a description line with the RFP ID as a bold link, and a muted small relative-time caption. Example entries: "RFP-2024-044 Approved by Mohammed Al-Drees" (10 mins ago), "RFP-2024-041 approved by Finance-Mohammed Fuzan" (1 hour ago), "RFP-2024-038 received a new vendor proposal" (3 hours ago), "RFP-2024-031 moved to Under Review" (5 hours ago), "PR-2024-112 submitted for approval" (Yesterday). Header has a "View all activity →" link.
+— "Quick Actions" — 3 simple rows, each a small blue icon chip + label: "Create New RFP", "View Overdue RFPs", "View New Vendors".
+— "AI Assistant Suggestions" — 3 rows, each a small green icon chip + a short suggestion sentence + a green action link on its own line below the text: "Based on your past activity, you can create this RFP 40% faster using AI." → "Try AI Draft →"; "3 similar RFPs found. Reuse details and save time." → "View Suggestions →"; and one using a warning-triangle icon instead: "RFP23231 – Is overdue with finance for 56 days." → "View RFP →".</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p3">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">03</div>
+          <div class="titles"><h2>Wizard shell &amp; stepper</h2><p class="goal">The reusable frame every one of the 8 wizard steps sits inside.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t3"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t3">Build the shared frame for a multi-step "Create Request" wizard, matching the existing design system. I'll fill in each step's own content in later prompts — build the reusable shell now, with a placeholder in the content area.
+
+Header row above the shell: plain text "Create new request" (18px bold) on the left; on the right, two secondary outline buttons, "Copilot" (sparkle icon) and "Try a new experience" (different sparkle icon).
+
+Below that, a two-column layout: a left rail (~300px, sticky) and a right content card filling the remaining width (white, border, 12px radius, min-height ~420px, padding 24px).
+
+LEFT RAIL — vertical stepper, 8 steps stacked top to bottom, each a numbered circle (32px) connected to the next by a vertical line, with a title (14px semibold) and description (12px muted) beside each circle:
+1. Basic details — "Project, category and RFP identification"
+2. Scope of work — "Deliverables, boundaries, standards and required certificates/documents"
+3. Bill of Quantity — "Items, quantities and specifications"
+4. Payments — "Payment stages and schedule"
+5. Qualification criteria — "Vendor eligibility requirements"
+6. Technical requirements — "Technical specifications and evaluation inputs"
+7. Technical evaluation criteria — "Scoring and evaluation methodology"
+8. Supporting documents — "Optional reference documents, final submission"
+
+States: an upcoming step shows a plain grey-filled circle with the number, muted grey title/description text, not clickable. The current step shows a solid brand-green filled circle with the number in white and a soft green glow ring around it; its title is bold black. A completed step shows a light-green-outlined circle with a green checkmark instead of a number, its connecting line to the next step turns green, and it IS clickable (jumps back to that step).
+
+The rail has a small double-chevron collapse toggle in its top-right corner. Collapsed state: the rail shrinks to a narrow column showing only the circles, centered, with titles/descriptions hidden entirely. In this collapsed state, hovering any circle should reveal an animated pill growing out from directly over that circle — starting at just the circle's width and expanding to show the circle's number/icon plus the step's full title as text, colored to match that step's own status (solid green fill + white text for the current step, light green fill + dark green text for a completed step, red fill + white text for an error step, plain light grey otherwise). The pill should feel like it's overlaying/extending from the indicator itself, not a separate floating tooltip box.
+
+RIGHT CONTENT CARD: for this prompt, just show empty placeholder text "Step content goes here."
+
+FIXED FOOTER bar spanning the content width, white background, top border, ~72px tall: left side shows a small autosave indicator — a checkmark icon + "Saved just now" text (12px muted), or a spinner + "Saving…" while saving. Right side: an outline "Save as Draft" button, then a solid brand-green primary button reading "Continue: {next step name} →" — greyed out/disabled until the current step's required fields are valid.</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p4">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">04</div>
+          <div class="titles"><h2>Step 1 · Basic details</h2><p class="goal">Project/category pickers, AI-suggested similar RFPs, business justification.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t4"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t4">In the wizard's right content card from the previous prompt, build Step 1's content (the rail's first step, "Basic details", is current). Two stacked collapsible section cards — a completed section collapses to just its header (with a green checkmark) but stays clickable to re-expand; a locked section shows greyed-out/muted with no visible fields until unlocked.
+
+SECTION 1 — "Project &amp; Item details", subtitle "Provide the following basic details to proceed with procurement request." (starts expanded/active). Fields reveal one at a time as the field above is filled:
+1. "What is the category of the procurement? *" — two side-by-side selectable radio cards, each with a title and one-line description: "Procurement requests" ("This covers the IT related procurements, general procurements RFP &amp; Direct Purchases") and "Souq Etimad" ("Procure in the E-marketplace with defined suppliers from Etimad."). The selected card gets a green border and light-green fill with a filled radio dot.
+2. "Cost centre *" — a searchable dropdown select field with a search box inside the open panel.
+3. "Select project *" — a searchable dropdown; each option shows the project name on one line and a project code / department on a smaller second line. Once a project is picked, show an AI panel directly below the field: a small "✨ Similar RFPs created within this project" label, up to 3 suggestion cards (RFP title, small meta line "{RFP id} · Created {date}", and an outline "Import" button), then a "Browse all RFPs →" link.
+4. "Select Budgeted items *" — a multi-select producing removable pill chips below the field once items are picked.
+
+SECTION 2 — "Request details", subtitle "Kindly provide justification &amp; need for the request." (locked/greyed until Section 1 has at least one budgeted item, then becomes active/expanded):
+5. "Request name (En) *" and "Request name (Ar) *" — side by side, half-width each, both styled as disabled/read-only inputs (auto-filled, not manually typed); the Arabic field is right-to-left text.
+6. "Business Justification *" — a large textarea (placeholder "Kindly provide justification for the RFP.", 1200-character limit with a live "n / 1200" counter bottom-right). Small toolbar above it: a "✨ Generate with AI" text-link button, and once used, an "Undo changes" outline button plus a small green success ribbon reading "Data updated successfully" appear beside it.
+7. "Department *" — disabled/read-only input, auto-filled.
+8. "What does this project include *" — a multi-select producing removable check-icon chips below it (with a "+N…" overflow toggle past several chips), a small muted hint line below the chips ("The system routes RFP approvals to the departments relevant to what's selected here."), and below that a dashed-green-bordered panel: "✨ AI-recommended based on the selected project/items" label, a row of suggested category chips (each with its own small + add button and × dismiss button), and an "Add all" button.
+9. "Project start date *" — a date field that opens a calendar popup on click, with a small Gregorian/Hijri tab toggle at the top of the popup, month navigation, and a highlighted selected day.
+10. "Duration type" — a plain select (Days / Weeks / Months / Year, defaulting to Days) and beside it "Duration" — a number input with small up/down stepper chevrons on its right edge. Below both, a computed note: "Tentative project closure: **{date}**" with the date bolded.</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p5">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">05</div>
+          <div class="titles"><h2>Step 2 · Scope of work</h2><p class="goal">Five narrative fields plus the required-certificates chip collections.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t5"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t5">Build Step 2's content ("Scope of work" is now the current rail step). Header: title "Scope of Work" (18px bold), description "Define the project scope, deliverables, locations, standards, timelines, and other requirements for this procurement." Directly below, on its own full-width row (not squeezed beside the title), a light-green pill button "✨ Generate with AI" with an "Undo changes" button slot and a success-ribbon slot beside it.
+
+5 stacked white cards. Every textarea field has a small "✨ Generate with AI" text link next to its label (top-right of the field), and shows a live character counter (max 2000) bottom-right of the textarea:
+1. "Project Overview" card — "Executive Summary" textarea (placeholder "Provide a high-level overview of the project objectives and background...") and "Project Scope" textarea (placeholder "Describe in detail what is included - activities, deliverables, services, systems, or goods to be procured...").
+2. "Scope Boundaries" card — "In Scope" textarea (placeholder "List all items, activities, and deliverables explicitly included in this contract..."), a horizontal divider, then "Out of Scope" textarea (placeholder "List items or activities explicitly excluded from this contract...").
+3. "Location and Delivery" card — "Location / Region" textarea (placeholder "Specify the work location or region where goods and services will be delivered...").
+4. "Project program" card — one textarea (placeholder "Explain about the project timeline, deliverables per timeline.").
+5. "Contract Conditions" card — "Special Conditions" textarea (placeholder "Any special conditions, exceptions, or non-standard requirements the vendor must comply with...") and "Penalties" textarea (placeholder "Define penalty clauses for delays, non-performance, breach of SLA, or failure to deliver...").
+
+A 6th card, "Required certificates", containing two identical stacked sub-sections — "Required Certificates" (desc "Select the compliance and legal certificates vendors must provide.") and "Technical Documents" (desc "Select the technical documents and evidence vendors must submit."). Each sub-section has: a small purple "✨ Recommended certificates" text-link button in its header; a "Select from list" searchable multi-select; an "Other (not in list)" text input with a green "+ Add" button beside it; and below both controls, one unified row of removable pill chips merging everything picked — plain green fill for items chosen from the list, a blue tint for custom-typed entries, and a dashed-purple border with a tiny sparkle icon for AI-suggested entries — every chip has a small × to remove it.</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p6">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">06</div>
+          <div class="titles"><h2>Step 3 · Bill of Quantity</h2><p class="goal">The line-item table — the wizard's densest, most data-heavy step.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t6"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t6">Build Step 3's content ("Bill of Quantity" is now the current rail step). Header card: title "Bill of Quantity" (18px bold), subtitle "Add one or more line items to this RFP." Toolbar on the right, in this exact left-to-right order: a light-green "✨ Generate with AI" pill, a circular grey Undo icon button (rotate-left icon, greyed/disabled when there's nothing to undo), an outline "⬆ Import data" button, and a "View more ⌄" dropdown button.
+
+A small plain 28px icon button (table-columns icon, no border, no background fill) floats pinned to the extreme top-right corner of the table card itself — not inside the toolbar above — positioned so it stays fixed in that corner even if the table scrolls horizontally underneath it. This is the "column configuration" trigger. Don't show this icon when the table is empty.
+
+Below, a data table with these columns in order: Item No. (auto-numbered "01", "02"…, muted), Item Name (text input), Description (text input with a small sparkle-icon button beside it), Budgeted Item (dropdown select), UOM (dropdown select), Quantity (number input), Unit Price SAR (number input), Delivery Date (date input), Has Brand Name (a small pill-style on/off toggle switch), Total SAR (bold, right-aligned, computed as quantity × unit price, formatted "SAR n,nnn.nn"), Actions (a red trash icon). Include 2 example rows with realistic SAP-implementation line items (e.g. "SAP FI/CO Module" and "SAP MM Module"), quantity 1 each, unit prices in the hundreds-of-thousands SAR range. Add a "+ Add New Item" text-link with a plus icon below the table.
+
+Below the table, a totals block, right-aligned, three rows: "Subtotal" / SAR amount, "VAT (15%)" / SAR amount, and a visually bolder, slightly larger "Grand Total (incl. VAT)" / SAR amount row on top of a thin divider separating it from the two rows above.
+
+Also design the EMPTY STATE (shown instead of the table when there are zero items): a folder-open icon, "No items yet" (bold), "Click Add Item or Import data to add BOQ items." (muted), a solid green "+ Add New Item" button, and below that a light-green dashed-border strip with a sparkle icon reading "3 similar RFPs created, would you like to add the BOQs by referring it?" with a chevron/arrow at the end suggesting it's clickable.</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p7">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">07</div>
+          <div class="titles"><h2>Step 4 · Payments</h2><p class="goal">Payment stages that must sum to 100%, plus an attention-seeking warning state.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t7"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t7">Build Step 4's content ("Payments" is now the current rail step). Header: title "Payment Schedule" (18px bold), subtitle "Define payment stages - percentages must total 100%." Right side: a light-green "✨ Generate with AI" pill with an Undo-button slot beside it.
+
+A stage table with columns: S.No (auto), Stage (text input with a small sparkle-icon button beside it, tooltip "Suggest this stage with AI"), Item / Deliverable (text input), Start Date (date input), Duration (days) (number input), Percentage (%) (number input), Amount (SAR) (number input), Actions (delete icon). Include 2 example rows: "Advance Payment" / "Kickoff" / 0 days / 20% / "SAR 86,000.00", and "Go-Live" / "System go-live" / 60 days / 80% / "SAR 344,000.00". Add an outline "+ Add Stage" button below the table.
+
+Below the table, a total-progress block: a label "Total must equal 100%" on the left with a colored detail sentence beside/below it (e.g. amber "Payment percentages must total 100% — 20% remaining", or green "Payment schedule totals 100%.", or red "Payment percentages cannot exceed 100%."), and a horizontal progress bar underneath filled to the current total percent, colored to match the state (amber under 100, green at exactly 100, red if somehow over).
+
+Also design: the EMPTY STATE — folder-open icon, "No payment stages yet" (bold), "Define how payment for this RFP will be staged." (muted), two buttons side by side — a solid green "+ Add payment schedule" and an outline "✨ Generate with AI". And an ATTENTION-SEEKING WARNING RIBBON variant (used when "Generate with AI" is clicked but a schedule already exists) — an amber/red-tinted rounded banner with a triangle-warning icon, reading "A payment schedule already exists — clear it first to generate a new one." — this should read as clearly more urgent/blocking than the plain green success ribbon used elsewhere in the app.</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p8">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">08</div>
+          <div class="titles"><h2>Step 5 · Qualification criteria</h2><p class="goal">Locked default categories with weighted criteria and an AI weightage reviewer.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t8"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t8">Build Step 5's content ("Qualification criteria" is now the current rail step). Header: title "Qualification Criteria" (18px bold), subtitle "Fill in the range and percentage for each criterion.", and a total badge pill top-right reading "60% total" (colored amber/green/red depending on how close to 100% it is). Below that, an actions row: on the left a "✨ Generate Qualification Criteria" outline pill and a "⚖ Review weightage" outline pill; on the right a dark-navy solid "+ Add Category" primary button (this one uses a deep navy blue, not the app's usual green, to stand apart as a structural add-action).
+
+A static "AI Insight" banner card: a purple circular sparkle icon, title "AI Insight" bold, description "Based on your RFP details, here's a suggested qualification framework. Review and adjust as needed." Beside/below the text, 3 small stat tiles in a row: "Criteria" count, "Categories" count, "Weight assigned" percent.
+
+3 accordion category cards (chevron to expand/collapse, a green subtotal-percent badge pill in each header):
+— "Previous Experience": rows "Number of years of experience", "Number of projects implemented during the last three years", "Total value of projects during the last three years"
+— "Existing Contractual Obligations": rows "Number of existing projects", "The value of existing projects"
+— "HR": rows "Number of Employees", "Percentage of Saudi employees"
+Each row inside a category's table: the criterion name as plain locked text (not editable), a "Range / Requirement" text input (empty by default, gets a red border if left blank), a "Percentage" number input (empty by default), and duplicate + delete icon actions (delete is disabled/greyed with a tooltip "This default criterion cannot be deleted"). Below each category's table, a "+ Add criterion to {category name}" text link.
+
+At the bottom, a "Technical Passing %" card: a label with a small info-tooltip icon, a bordered number input with a "%" suffix box beside it, and on the right a total-summary line with an icon (e.g. "Total: 60% · 40% remaining to reach 100%").</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p9">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">09</div>
+          <div class="titles"><h2>Step 6 · Technical requirements</h2><p class="goal">Requirement rows with an inline "Good to have / Not suggested" AI validation tag.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t9"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t9">Build Step 6's content ("Technical requirements" is now the current rail step). Header: title "Technical Requirements" (18px bold), subtitle "List all technical specifications vendors must comply with." Right side (only shown once at least one requirement exists): a purple "🔍 Review with AI" pill, a purple "✨ Generate with AI" pill, and a dark-navy solid "+ Add Requirement" button.
+
+A requirement table: SL No. (auto), Requirement (text input, gets a red border if left blank, placeholder "Describe the requirement…"), Actions (duplicate + delete icons). Next to a filled-in requirement's input, show a small rounded validation tag: a green check-circle icon + the words "Good to have" for a specific, well-worded requirement, or a red x-circle icon + the words "Not suggested" for one that reads as too vague or short. Include 2 example rows: "Minimum 10 years of experience in SAP S/4HANA implementation." tagged "Good to have", and a short vague placeholder example tagged "Not suggested". Below the table: a "+ Add Requirement" text link and a small muted footer line "n requirement(s) defined".
+
+Also design: the EMPTY STATE — folder-open icon, "No requirements yet" (bold), "Start from a template, or let AI suggest requirements from your RFP." (muted), two buttons — a dark-navy solid "📚 Add with templates" and an outline "✨ Generate with AI". And an inline (not modal) dashed-green-bordered "✨ AI-suggested requirements" panel showing a checklist of ~4-6 canned candidate requirements with checkboxes (all pre-checked), each a full sentence like "Vendor must provide 24/7 technical support with a maximum 4-hour response time for critical issues.", with "Cancel" and a solid green "Add selected" button at the bottom.</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p10">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">10</div>
+          <div class="titles"><h2>Step 7 · Technical evaluation criteria</h2><p class="goal">Auto-growing description cells; the passing-% card now sits below the table.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t10"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t10">Build Step 7's content ("Technical evaluation criteria" is now the current rail step). Header: title "Technical Evaluation Criteria" (18px bold), subtitle "Define how technical submissions will be evaluated and weighted.", a total badge pill top-right reading "45% total", a purple "✨ Generate with AI" pill, and a dark-navy solid "+ Add Criterion" button.
+
+A table with resizable column dividers: SL No. (auto), Description (a multi-line text area that visibly grows taller to fit its content — both on initial load and live as you type — never cropping or scrolling its own text), How Criteria is Applied (same auto-growing text area, placeholder "e.g. Scored 0-10 based on…", plus a small "Recommend evaluation method" sparkle-icon button beside it), Weightage (%) (number input), Actions (duplicate + delete). Include 1 example row: "Solution & Implementation Approach" / "Scored 0-10 based on documented methodology and depth of detail." / 25%. Add a "+ Add Criterion" text link below the table.
+
+Below the table (not above it — this is a deliberate, recent layout decision), a separate "Technical Evaluation Passing %" card: label, description "Minimum technical score a vendor must reach to be considered.", and a bordered number input with a "%" suffix box.
+
+Also design the EMPTY STATE: folder-open icon, "No evaluation criteria yet" (bold), "Click Add Criterion, or Generate with AI." (muted).</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p11">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">11</div>
+          <div class="titles"><h2>Step 8 · Supporting documents</h2><p class="goal">The final step — file upload plus the post-submission success screen.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t11"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t11">Build Step 8's content ("Supporting documents" is now the current rail step, the last one). Header: title "Certificates and Documents" (18px bold), subtitle "Select the certificates and technical documents vendors must submit as part of this RFP."
+
+One card: title "Supporting documents" with a small muted tag "Optional · Last section" beside it, description "Here you can attach the additional or reference documents that will be submitted to Vendor." Below it, a file-upload dropzone: dashed border, a cloud-upload icon, "Click to upload or drag and drop" (14px), a caption below it "SUPPORTED DOCS: PDF, XLSX, DOCX — MAX 25 MB EACH" (11px, uppercase, muted, letter-spaced). Below the dropzone, 1-2 example uploaded-file cards: a file-type icon on the left (PDF/Excel icon), filename and formatted size text, and a red trash delete icon on the right.
+
+On this step specifically, the wizard footer's primary button (from Prompt 3) reads "Submit RFP →" instead of "Continue: …".
+
+Also design the POST-SUBMISSION COMPLETION SCREEN that replaces this entire step's content once submitted: a centered card, a large 72px circular green badge with a bold white checkmark icon inside it, a bold title "RFP Submitted Successfully" (18-22px), a muted description "Your request has been submitted and is ready for the next stage of the procurement workflow.", and a solid green primary button "Go to My Requests" below it.</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p12">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">12</div>
+          <div class="titles"><h2>RFP Summary review modal</h2><p class="goal">The newest screen — a full recap shown before final submission, with a PDF export.</p></div>
+          <div class="prompt-tag">New</div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t12"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t12">Build a centered modal dialog titled "RFP Summary". This opens when "Submit RFP" is clicked on the last wizard step, BEFORE the real submission happens — it's a final read-through/review screen, not a form. Roughly 860px wide, up to 90% of viewport height, with a scrollable body and a fixed header and footer.
+
+Very top edge: a thin 4px solid brand-green bar spanning the full width of the modal.
+
+Header row directly below that (bottom border under it): on the left, a small official-looking logo mark next to a thin vertical divider and "Munafasat" in bold — treat this like a formal document header, distinct from the app's usual sidebar/header branding. On the right, a plain × close button.
+
+Below the header, a light-green background band (full width, noticeably more bottom padding than top) containing: a large bold title "RFP Summary" and, right under it, a smaller muted subtitle line "{Request Name} · Generated {date}".
+
+Scrollable body: one section per wizard step, each with a bold green section-title line and a horizontal divider before the next section begins, generous vertical spacing between one section's last row and the next section's title. Every section lays its fields out as label/value pairs in two aligned columns — a fixed-width left column (around 220px) with bold BLACK labels (not grey — this needs to print/export cleanly), and a right column with the values — so that because every section shares the same fixed label-column width, every value in the entire modal lines up on one straight vertical line all the way down. Sections, in this order:
+— Basic Details: Procurement Category, Cost Centre, Project, Budgeted Items, Request Name (En), Request Name (Ar), Business Justification, Department, "What this project includes", Project Start Date, Duration, Tentative Project Closure.
+— Scope of Work: Executive Summary, Project Scope, In Scope, Out of Scope, Location / Region, Project Program, Special Conditions, Penalties, Required Certificates, Technical Documents.
+— Bill of Quantity: an itemized data table FIRST (same columns as Step 3, with the Total column visually bolder/blacker than the rest of that row), THEN below the table the summary fields — Line Items count, Subtotal (bold black), VAT (15%) (bold black), and Grand Total (incl. VAT) rendered noticeably larger (a few points bigger) and bolder than the other two totals so it's the clear standout figure.
+— Payments: Payment Stages count, then a stage table (Stage / Item-Deliverable / Start Date / Duration / Percentage / Amount).
+— Qualification Criteria: Passing Percentage, then a table (Category / Criterion / Range-Requirement / Percentage).
+— Technical Requirements: Requirements count, then a table with an "AI Validation" column showing "Good to have" or "Not suggested" per row.
+— Technical Evaluation Criteria: Total Weightage and Passing Percentage, then a table (Description / How Criteria is Applied / Weightage).
+— Supporting Documents: a File Name / Size table, or the plain text "None attached" if nothing was uploaded.
+
+Footer, right-aligned, top border: an outline "Close" button, an outline "⬇ Download as PDF" button, and a solid green primary "✈ Submit Request" button — the only button that actually performs the submission and closes the modal into the completion screen from Prompt 11.</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p13">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">13</div>
+          <div class="titles"><h2>Create Request chooser</h2><p class="goal">The entry screen into the wizard — from scratch, or from a previous request.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t13"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t13">Build the "Create New Request" entry page, matching the existing design system. A small breadcrumb trail "My Requests &gt; Create New Request" (the first part a muted link, the last part bold current-page text), an outline "← Back" button below it, then a centered heading block: "How would you like to create your request?" (bold, 24-28px) with a muted subtitle "Choose how you'd like to start creating your RFP."
+
+Two side-by-side option cards, centered as a pair, each about 340-360px wide, white background, border, generous padding, a small illustration/icon at the top (~120px):
+1. "From Scratch" — description "Create a new request by filling out the form manually.", a solid green "Create from Scratch" button at the bottom.
+2. "Create from Previous Request" — description "Reuse an existing request as a starting point and update the required details.", an outline "Start with Previous Request" button at the bottom.</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p14">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">14</div>
+          <div class="titles"><h2>My Requests</h2><p class="goal">The RFP list/table page with search, filters, and pagination.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t14"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t14">Build the "My Requests" page, matching the existing design system. First card, a header row: a green 40px icon chip (document-lines icon) beside a title "My requests" (18px bold) with subtitle "View, manage and track all the Requests for Proposal you have created" underneath; on the right, a search input (placeholder "Search your requests here by request number or name"), a filter icon button (with a small red dot indicator that appears when a filter is active), and a solid green "+ Create request" button.
+
+Second card: a table with columns Request Number (blue link), Request Name, Project Name, Department, Created On, Status (a colored pill — grey "Draft", amber "Submitted", green "Approved", red "Rejected"), and a row-actions column on the right (a pencil edit icon and red trash delete icon, shown only on Draft rows, plus a download icon shown on every row). Include 8-10 realistic rows with varied statuses and departments (Information Technology, Facilities Management, Human Resources, etc.).
+
+Below the table, a pagination bar with a top border: left side "Showing 1–8 of 24 requests" text plus a small page-size dropdown (8/20/32); right side Previous/Next buttons and numbered page buttons, with the current page shown as a filled green circle/square and others as plain outline buttons.</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p15">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">15</div>
+          <div class="titles"><h2>Inbox &amp; Reports</h2><p class="goal">Two lightweight placeholder pages sharing one "coming soon" pattern.</p></div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t15"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t15">Build two simple placeholder pages that share one pattern, matching the existing design system: a centered illustration (~220px wide), a bold heading "Coming soon" below it, and a muted description sentence below that (max ~420px wide, centered), all vertically centered in the page below the header.
+
+Inbox page — description: "The Inbox is under construction. You'll be able to review messages and approvals related to your requests here."
+
+Reports page — description: "Reports and analytics for your procurement activity are on the way."</div>
+      </div>
+    </section>
+
+    <section class="prompt" id="p16">
+      <div class="prompt-card">
+        <div class="prompt-head">
+          <div class="prompt-num">16</div>
+          <div class="titles"><h2>AI Assistant page</h2><p class="goal">Standalone chat-based drafting experience. Build last, or skip.</p></div>
+          <div class="prompt-tag optional">Optional</div>
+        </div>
+        <div class="copy-row"><button class="copy-btn" data-copy="t16"><span class="ic">⧉</span> Copy prompt</button></div>
+        <div class="promptbox" id="t16">Build the standalone "Procurement AI Assistant" page, matching the existing design system — this is the lowest-priority screen, build it last if time allows. A two-column layout filling the space below the header: a ~300px left panel and a flexible right panel, full remaining viewport height.
+
+LEFT PANEL, "RFP Progress": a horizontal progress bar near the top with a percent label beside it, then below that a vertical checklist of the 8 wizard sections (Basic details, Scope of work, Bill of Quantity, Payments, Qualification criteria, Technical requirements, Technical evaluation criteria, Supporting documents), each row showing a small status dot plus the label — grey dot "Not started", amber dot "In progress", blue dot "Partially complete", or a green checkmark "Complete".
+
+RIGHT PANEL: a header row — a sparkle icon, title "Procurement AI Assistant" (bold), subtitle "Extracts structured data into RFP sections as you converse" (muted, small), and a solid green "Continue with Form →" button on the right. Below that, a scrolling message list: AI messages left-aligned in light-grey rounded bubbles, user messages right-aligned in green rounded bubbles. Include occasional inline "AI suggestion" cards within the message flow — a dashed green border, light-green background, a short suggested value, and three small buttons: Accept / Edit / Decline. At the very bottom, an input row: a large rounded pill text field placeholder "Type your message…" and a circular solid-green send button (paper-plane icon) beside it.
+
+Seed the conversation with this opening AI message: "Hi! I'll help you create your RFP. You can share information in any order - I'll organize it across the different sections and only ask for what's still needed. What are you looking to procure?"</div>
+      </div>
+    </section>
+
+    <footer class="end">That's the full sequence — 16 prompts, one Figma Make session, pasted in order.</footer>
+  </main>
+</div>
+
+<script>
+(function () {
+  try {
+    document.querySelectorAll('.copy-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-copy');
+        var el = document.getElementById(id);
+        if (!el) return;
+        var text = el.innerText;
+        var done = function () {
+          var original = btn.innerHTML;
+          btn.classList.add('copied');
+          btn.innerHTML = '<span class="ic">✓</span> Copied';
+          setTimeout(function () {
+            btn.classList.remove('copied');
+            btn.innerHTML = original;
+          }, 1600);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(function () {});
+        } else {
+          try {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            done();
+          } catch (e) {}
+        }
+      });
+    });
+  } catch (e) {}
+
+  try {
+    var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+    var sections = links.map(function (a) {
+      return document.getElementById(a.getAttribute('href').slice(1));
+    });
+    if ('IntersectionObserver' in window) {
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          var idx = sections.indexOf(entry.target);
+          if (idx === -1) return;
+          if (entry.isIntersecting) {
+            links.forEach(function (l) { l.classList.remove('active'); });
+            links[idx].classList.add('active');
+          }
+        });
+      }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+      sections.forEach(function (s) { if (s) observer.observe(s); });
+    }
+  } catch (e) {}
+})();
+</script>
