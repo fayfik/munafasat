@@ -361,8 +361,12 @@ function downloadRfpSummaryPdf(model) {
     y = doc.lastAutoTable.finalY + 20;
   }
 
-  model.sections.forEach((section) => {
-    if (y > 720) { doc.addPage(); y = 40; }
+  model.sections.forEach((section, i) => {
+    // Fair breathing room between one section's last table/field row and
+    // the next section's title — previously the next title landed right
+    // against the prior content with no visual gap between them.
+    if (i > 0) y += 22;
+    if (y > 700) { doc.addPage(); y = 40; }
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
