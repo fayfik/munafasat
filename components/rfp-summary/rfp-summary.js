@@ -40,13 +40,18 @@ function rsVal(v) {
   return String(v);
 }
 
-/* ---- Model: one structured description of the whole RFP, read from
-   WizardStore.getFormData() + the project directory — every section below
-   maps 1:1 to a wizard step. `fields` are simple label/value pairs;
-   `table` (when present) is a { columns, rows } grid for itemized data. */
+/* ---- Model: one structured description of the whole RFP, built from a
+   plain formData object (WizardStore.getFormData()'s own shape) + the
+   project directory — every section below maps 1:1 to a wizard step.
+   `fields` are simple label/value pairs; `table` (when present) is a
+   { columns, rows } grid for itemized data.
 
-async function buildRfpSummaryModel() {
-  const fd = WizardStore.getFormData();
+   `fd` is passed in rather than read internally so this same model can
+   be built from either the live wizard session (the modal below) or a
+   persisted mock record carrying the same field shape (Request Detail's
+   Overview tab, for a request that was fully filled out). */
+
+async function buildRfpSummaryModel(fd) {
   const projects = await DataStore.getAllProjects();
   const project = fd.projectId ? projects.find((p) => p.id === fd.projectId) : null;
 
@@ -200,7 +205,10 @@ async function buildRfpSummaryModel() {
 
 /* ---- On-screen modal ---- */
 
-function rsSectionHtml(section) {
+// The fields-grid + table body for one section, with no title/outer
+// wrapper — reused as-is by the Request Detail page's Overview tab
+// (wrapped in its own `.rd-card`), not just the modal below.
+function rsSectionBodyHtml(section) {
   const fieldsHtml = section.fields && section.fields.length ? `
     <div class="rs-fields-grid">
       ${section.fields.map((f) => `
@@ -220,12 +228,15 @@ function rsSectionHtml(section) {
     </div>
   ` : '';
 
-  const orderedHtml = section.fieldsPosition === 'after' ? [tableHtml, fieldsHtml] : [fieldsHtml, tableHtml];
+  const ordered = section.fieldsPosition === 'after' ? [tableHtml, fieldsHtml] : [fieldsHtml, tableHtml];
+  return ordered.join('');
+}
 
+function rsSectionHtml(section) {
   return `
     <div class="rs-section">
       <div class="rs-section-title">${rsEscapeHtml(section.title)}</div>
-      ${orderedHtml.join('')}
+      ${rsSectionBodyHtml(section)}
     </div>
   `;
 }
@@ -279,7 +290,7 @@ async function openRfpSummaryModal({ onSubmit }) {
   `;
   root.classList.add('open');
 
-  const model = await buildRfpSummaryModel();
+  const model = await buildRfpSummaryModel(WizardStore.getFormData());
   document.getElementById('rs-subtitle').textContent = `${model.requestName} · Generated ${model.generatedAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
   document.getElementById('rs-body').innerHTML = model.sections.map(rsSectionHtml).join('');
 

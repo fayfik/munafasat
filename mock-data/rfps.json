@@ -704,5 +704,101 @@
     "lastUpdatedDate": "2024-10-30",
     "pendingApproval": false,
     "approvalStatus": "Approved"
+  },
+  {
+    "id": "RFP-2024-053",
+    "title": "Procurement of SAP Modules Implementation",
+    "status": "Under Review",
+    "category": "Cloud & IT Services",
+    "department": "Information Technology",
+    "estimatedBudgetSAR": 701500,
+    "createdDate": "2026-09-20",
+    "submissionDeadline": "2026-10-15",
+    "vendorsInvited": 6,
+    "vendorsResponded": 3,
+    "owner": "Ahmed Al-Mutairi",
+    "type": "RFP",
+    "stage": "Technical Evaluation in Progress",
+    "nextStep": "Await vendor technical evaluation",
+    "project": "Implementation of SAP",
+    "description": "End-to-end SAP S/4HANA implementation across finance, procurement, and materials management",
+    "lastUpdatedDate": "2026-09-23",
+    "pendingApproval": false,
+    "approvalStatus": "Submitted",
+    "wizardData": {
+      "procurementCategory": "procurement-requests",
+      "costCentreId": "CC-1001",
+      "projectId": "proj-01",
+      "budgetedItemIds": ["itm-01a", "itm-01b"],
+      "requestNameEn": "Procurement of SAP Modules Implementation",
+      "requestNameAr": "مشتريات تنفيذ وحدات ساب",
+      "businessJustification": "This request is raised to support the Implementation of SAP project, replacing an end-of-life legacy ERP system to ensure continuity of financial operations, improve reporting accuracy, and meet the department's committed modernization timeline.",
+      "department": "Information Technology",
+      "projectIncludes": ["Software licenses", "Managed services"],
+      "projectStartDate": "2026-10-01",
+      "durationType": "Days",
+      "durationValue": 210,
+      "executiveSummary": "This RFP covers the end-to-end implementation of SAP S/4HANA modules across finance, procurement, and materials management, replacing the organization's legacy ERP system.",
+      "projectScope": "The scope includes system configuration, data migration from the legacy platform, integration with existing enterprise systems, user acceptance testing, training, and post-go-live support.",
+      "inScope": "SAP FI/CO and MM module configuration, historical data migration, integration with existing HR and payroll systems, end-user training, and 12 months of application managed services.",
+      "outOfScope": "Hardware procurement, network infrastructure upgrades, and third-party licensing costs outside the SAP ecosystem.",
+      "locationRegion": "Riyadh, Saudi Arabia (on-site kickoff and go-live support; remote delivery permitted for configuration and development work).",
+      "projectProgram": "Phase 1: Design (8 weeks). Phase 2: Build & Configuration (10 weeks). Phase 3: Testing & Training (6 weeks). Phase 4: Go-Live & Hypercare (4 weeks).",
+      "specialConditions": "Vendor must comply with SIDF data residency requirements and assign a dedicated project manager for the duration of the engagement.",
+      "penalties": "A penalty of 1% of the contract value per week of delay shall apply for late delivery, up to a maximum of 10% of the total contract value.",
+      "scopeCertificates": [
+        { "id": "cert-1", "label": "ISO 27001", "source": "predefined" },
+        { "id": "cert-2", "label": "SAP Partner Certification", "source": "custom" }
+      ],
+      "scopeTechnicalDocuments": [
+        { "id": "doc-1", "label": "Technical Architecture Document", "source": "predefined" },
+        { "id": "doc-2", "label": "Data Migration Plan", "source": "predefined" }
+      ],
+      "boqItems": [
+        { "id": "boq-1", "name": "SAP FI/CO Module", "description": "Finance and controlling module", "budgetedItemId": "itm-01a", "uom": "Unit", "quantity": 1, "unitPrice": 250000, "deliveryDate": "2026-11-15", "hasBrandName": true },
+        { "id": "boq-2", "name": "SAP MM Module", "description": "Materials management module", "budgetedItemId": "itm-01a", "uom": "Unit", "quantity": 1, "unitPrice": 180000, "deliveryDate": "2026-11-30", "hasBrandName": false },
+        { "id": "boq-3", "name": "Application Managed Services", "description": "Post-go-live managed support, 12 months", "budgetedItemId": "itm-01b", "uom": "Unit", "quantity": 12, "unitPrice": 15000, "deliveryDate": "2026-12-15", "hasBrandName": false }
+      ],
+      "paymentStages": [
+        { "id": "pay-1", "stageName": "Advance Payment", "itemDeliverable": "Kickoff", "startDate": "2026-10-01", "durationDays": 0, "percentage": 20, "amount": 140300 },
+        { "id": "pay-2", "stageName": "Go-Live", "itemDeliverable": "System go-live and UAT sign-off", "startDate": "2027-01-15", "durationDays": 90, "percentage": 50, "amount": 350750 },
+        { "id": "pay-3", "stageName": "Final Acceptance", "itemDeliverable": "Post-implementation support handover", "startDate": "2027-04-01", "durationDays": 165, "percentage": 30, "amount": 210450 }
+      ],
+      "qualificationCriteria": [
+        { "id": "qc-cat-1", "name": "Previous Experience", "locked": true, "criteria": [
+          { "id": "qc-1", "name": "Number of years of experience", "range": "5+ years", "percentage": 15 },
+          { "id": "qc-2", "name": "Number of projects implemented during the last three years", "range": "3+ projects", "percentage": 10 },
+          { "id": "qc-3", "name": "Total value of projects during the last three years", "range": "SAR 2M+", "percentage": 10 }
+        ] },
+        { "id": "qc-cat-2", "name": "Existing Contractual Obligations", "locked": true, "criteria": [
+          { "id": "qc-4", "name": "Number of existing projects", "range": "Max 5 concurrent", "percentage": 10 },
+          { "id": "qc-5", "name": "The value of existing projects", "range": "Max SAR 10M", "percentage": 5 }
+        ] },
+        { "id": "qc-cat-3", "name": "HR", "locked": true, "criteria": [
+          { "id": "qc-6", "name": "Number of Employees", "range": "50+", "percentage": 5 },
+          { "id": "qc-7", "name": "Percentage of Saudi employees", "range": "30%+", "percentage": 5 }
+        ] }
+      ],
+      "qualificationPassingPercent": 60,
+      "technicalRequirements": [
+        { "id": "tr-1", "text": "Minimum 10 years of experience in SAP S/4HANA implementation.", "aiCheck": { "valid": true, "reason": "Specific and enforceable." } },
+        { "id": "tr-2", "text": "Vendor must provide 24/7 technical support with a maximum 4-hour response time for critical issues.", "aiCheck": { "valid": true, "reason": "Specific and enforceable." } },
+        { "id": "tr-3", "text": "Proposed solution must support single sign-on (SSO) integration with existing enterprise identity provider.", "aiCheck": { "valid": true, "reason": "Specific and enforceable." } },
+        { "id": "tr-4", "text": "Solution must comply with applicable Saudi data residency and cybersecurity regulations.", "aiCheck": { "valid": true, "reason": "Specific and enforceable." } }
+      ],
+      "technicalEvaluationCriteria": [
+        { "id": "tec-1", "description": "Solution & Implementation Approach", "howApplied": "Scored 0-10 based on documented methodology and depth of detail.", "weightage": 25 },
+        { "id": "tec-2", "description": "Relevant SAP S/4HANA Experience", "howApplied": "Scored 0-10 based on past project references and domain expertise.", "weightage": 20 },
+        { "id": "tec-3", "description": "Project Methodology & Delivery Plan", "howApplied": "Scored 0-10 based on completeness and realism of the proposed delivery plan.", "weightage": 20 },
+        { "id": "tec-4", "description": "Proposed Team & Certifications", "howApplied": "Scored 0-10 based on proposed team qualifications and certifications.", "weightage": 15 },
+        { "id": "tec-5", "description": "Support & Knowledge Transfer", "howApplied": "Scored 0-10 based on post-go-live support and knowledge transfer plan.", "weightage": 10 },
+        { "id": "tec-6", "description": "Risk Management", "howApplied": "Scored 0-10 based on identified risks and quality of mitigation strategies.", "weightage": 10 }
+      ],
+      "technicalEvaluationPassingPercent": 70,
+      "supportingDocuments": [
+        { "name": "RFP-Annex-A-Technical-Architecture.pdf", "size": 312000, "type": "application/pdf" },
+        { "name": "Vendor-Evaluation-Scorecard.xlsx", "size": 84500, "type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }
+      ]
+    }
   }
 ]

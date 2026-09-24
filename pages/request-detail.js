@@ -186,6 +186,22 @@ function rdRfpOverviewHtml(r) {
   `;
 }
 
+/* ---- Overview: full wizard-data field-set (a request created all the way
+   through the 8-step wizard) — one `.rd-card` per wizard step, reusing the
+   exact same model + field/table rendering the RFP Summary modal uses
+   (components/rfp-summary/rfp-summary.js), just re-homed from a live
+   wizard session into a persisted mock record's `wizardData`. ---- */
+
+async function rdFullWizardOverviewHtml(wizardData) {
+  const model = await buildRfpSummaryModel(wizardData);
+  return model.sections.map((section) => `
+    <div class="rd-card">
+      <div class="rd-card-title">${rdEscapeHtml(section.title)}</div>
+      ${rsSectionBodyHtml(section)}
+    </div>
+  `).join('');
+}
+
 /* ---- Tab bodies ---- */
 
 function rdStubTabHtml(tab) {
@@ -225,7 +241,7 @@ function rdRenderBody() {
   rdRenderTabBody();
 }
 
-function rdRenderTabBody() {
+async function rdRenderTabBody() {
   const body = document.getElementById('rd-tab-body');
   document.querySelectorAll('.rd-tab').forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === rdActiveTab));
 
@@ -236,9 +252,15 @@ function rdRenderTabBody() {
   }
 
   const r = rdRecord;
+  const overviewHtml = r.type === 'PR'
+    ? rdPrOverviewHtml(r)
+    : r.wizardData
+      ? await rdFullWizardOverviewHtml(r.wizardData)
+      : rdRfpOverviewHtml(r);
+
   body.innerHTML = `
     <div id="rd-pipeline"></div>
-    ${r.type === 'PR' ? rdPrOverviewHtml(r) : rdRfpOverviewHtml(r)}
+    ${overviewHtml}
   `;
 
   const stages = r.type === 'PR' ? PR_STAGES : STATUS_ORDER;
