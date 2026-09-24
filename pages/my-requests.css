@@ -114,6 +114,41 @@
   right: -3px;
 }
 
+.mr-view-toggle {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.mr-view-btn {
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: var(--surface-card);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mr-view-btn:not(:last-child) {
+  border-inline-end: 1px solid var(--border-default);
+}
+
+.mr-view-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.mr-view-btn.active {
+  background: var(--color-green-50);
+  color: var(--color-green-700);
+}
+
 .mr-create-btn {
   display: inline-flex;
   align-items: center;
@@ -151,6 +186,69 @@
 
 .mr-table-card .data-table td {
   color: var(--text-primary);
+}
+
+/* ---- Card view ---- */
+
+.mr-req-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
+.mr-req-card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.mr-req-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.mr-req-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.mr-req-card-id {
+  font-weight: var(--font-weight-semibold);
+}
+
+.mr-req-card-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.mr-req-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.mr-req-card-meta i {
+  width: 14px;
+  color: var(--text-tertiary);
+}
+
+.mr-req-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
 }
 
 /* ---- Empty states ---- */

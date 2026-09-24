@@ -14,6 +14,9 @@
 <link rel="stylesheet" href="../components/header/header.css">
 <link rel="stylesheet" href="../components/badge/badge.css">
 <link rel="stylesheet" href="../components/breadcrumbs/breadcrumbs.css">
+<link rel="stylesheet" href="../components/process-pipeline/process-pipeline.css">
+<link rel="stylesheet" href="../components/toast/toast.css">
+<link rel="stylesheet" href="request-detail.css">
 </head>
 <body data-page="my-requests" data-page-title="Request Details">
   <div class="app-shell">
@@ -22,11 +25,7 @@
     <main class="app-main">
       <div class="app-page">
         <div id="request-detail-breadcrumbs"></div>
-        <div class="placeholder-state" id="request-detail-placeholder">
-          <img src="../assets/state illustrations/Name=Files, Theme=Light.png" alt="">
-          <h2 id="request-detail-heading">Request details — coming soon</h2>
-          <p id="request-detail-text">The full request detail view will be built in a follow-up phase.</p>
-        </div>
+        <div id="request-detail-root"></div>
       </div>
     </main>
   </div>
@@ -34,26 +33,10 @@
   <script src="../js/data-store.js"></script>
   <script src="../components/badge/badge.js"></script>
   <script src="../components/breadcrumbs/breadcrumbs.js"></script>
+  <script src="../components/process-pipeline/process-pipeline.js"></script>
+  <script src="../components/toast/toast.js"></script>
   <script src="../components/sidebar/sidebar.js"></script>
   <script src="../components/header/header.js"></script>
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const requestId = params.get('id');
-    const mode = params.get('mode');
-
-    renderBreadcrumbs('request-detail-breadcrumbs', [
-      { label: 'My Requests', href: 'my-requests.html' },
-      { label: requestId || 'Request Details' },
-    ]);
-
-    if (requestId) {
-      document.getElementById('request-detail-heading').textContent =
-        mode === 'edit' ? `Edit ${requestId} — coming soon` : 'Request details — coming soon';
-      document.getElementById('request-detail-text').textContent =
-        mode === 'edit'
-          ? `The edit flow for ${requestId} will be built in a follow-up phase.`
-          : `${requestId} — the full request detail view will be built in a follow-up phase.`;
-    }
-  </script>
+  <script src="request-detail.js"></script>
 </body>
 </html>

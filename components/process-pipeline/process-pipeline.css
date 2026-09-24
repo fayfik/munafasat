@@ -1,0 +1,53 @@
+/* Process Pipeline component — horizontal chevron/arrow stage tracker */
+
+.pp-track {
+  display: flex;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: var(--space-4);
+}
+
+.pp-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 var(--space-5);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  flex: 1;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%);
+}
+
+.pp-segment:not(:first-child) {
+  margin-inline-start: -14px;
+}
+
+.pp-segment:first-child {
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+  flex: 0 0 auto;
+  padding-inline-end: calc(var(--space-5) + 14px);
+}
+
+.pp-segment:last-child {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
+}
+
+.pp-segment.pp-completed {
+  background: var(--color-green-600);
+  color: var(--color-neutral-0);
+  font-size: 13px;
+}
+
+.pp-segment.pp-current {
+  background: var(--color-blue-900);
+  color: var(--color-neutral-0);
+  font-weight: var(--font-weight-semibold);
+  z-index: 1;
+}
+
+.pp-segment.pp-upcoming {
+  background: var(--surface-sidebar);
+  color: var(--text-tertiary);
+}

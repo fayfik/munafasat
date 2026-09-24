@@ -4,12 +4,15 @@
   filter-panel.js, pagination.js (all loaded before this file).
 */
 
+const MR_VIEW_STORAGE_KEY = 'munafasat.myRequestsView';
+
 const mrState = {
   allRows: [],
   search: '',
   filters: { status: [], project: [], dateFrom: '', dateTo: '' },
   page: 1,
   pageSize: 20,
+  view: sessionStorage.getItem(MR_VIEW_STORAGE_KEY) === 'card' ? 'card' : 'list',
 };
 
 function mrFilteredRows() {
@@ -70,6 +73,28 @@ function mrEmptyHtml() {
   `;
 }
 
+function mrCardHtml(r) {
+  return `
+    <div class="mr-req-card" data-row-key="${r.id}">
+      <div class="mr-req-card-top">
+        <a class="table-link mr-req-card-id" href="${requestDetailHref(r.id)}">${r.id}</a>
+        ${renderApprovalChip(r.approvalStatus)}
+      </div>
+      <div class="mr-req-card-title">${r.title}</div>
+      <div class="mr-req-card-meta">
+        <div><i class="fa-solid fa-diagram-project"></i> ${r.project}</div>
+        <div><i class="fa-solid fa-building"></i> ${r.department}</div>
+        <div><i class="fa-regular fa-calendar"></i> ${formatDate(r.createdDate)}</div>
+      </div>
+      <div class="mr-req-card-actions">
+        ${r.approvalStatus === 'Draft' ? `<button class="row-action" data-action="edit" title="Edit"><i class="fa-solid fa-pen"></i></button>` : ''}
+        ${r.approvalStatus === 'Draft' ? `<button class="row-action row-action-delete" data-action="delete" title="Delete"><i class="fa-solid fa-trash"></i></button>` : ''}
+        <button class="row-action" data-action="download" title="Download"><i class="fa-solid fa-download"></i></button>
+      </div>
+    </div>
+  `;
+}
+
 function mrRenderTable() {
   const filtered = mrFilteredRows();
   const totalPages = Math.max(1, Math.ceil(filtered.length / mrState.pageSize));
@@ -78,12 +103,20 @@ function mrRenderTable() {
   const pageRows = filtered.slice(start, start + mrState.pageSize);
 
   const tableMount = document.getElementById('mr-table-mount');
-  tableMount.innerHTML = buildTableHtml({
-    columns: MR_COLUMNS,
-    rows: pageRows,
-    rowKey: (r) => r.id,
-    emptyHtml: mrEmptyHtml(),
-  });
+  document.querySelectorAll('.mr-view-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.view === mrState.view));
+
+  if (pageRows.length === 0) {
+    tableMount.innerHTML = mrEmptyHtml();
+  } else if (mrState.view === 'card') {
+    tableMount.innerHTML = `<div class="mr-req-card-grid">${pageRows.map(mrCardHtml).join('')}</div>`;
+  } else {
+    tableMount.innerHTML = buildTableHtml({
+      columns: MR_COLUMNS,
+      rows: pageRows,
+      rowKey: (r) => r.id,
+      emptyHtml: mrEmptyHtml(),
+    });
+  }
 
   const clearBtn = document.getElementById('mr-clear-filters-btn');
   if (clearBtn) {
@@ -112,14 +145,16 @@ function mrRenderTable() {
 }
 
 function wireTableRowEvents() {
-  const tbody = document.querySelector('#mr-table-mount tbody');
-  if (!tbody) return;
+  const mount = document.getElementById('mr-table-mount');
+  if (!mount || mount.dataset.wired) return;
+  mount.dataset.wired = 'true';
 
-  tbody.addEventListener('click', (event) => {
+  mount.addEventListener('click', (event) => {
+    if (event.target.closest('a')) return; // let the ID link navigate itself
     const actionBtn = event.target.closest('.row-action');
-    const tr = event.target.closest('tr[data-row-key]');
-    if (!tr) return;
-    const id = tr.dataset.rowKey;
+    const row = event.target.closest('[data-row-key]');
+    if (!row) return;
+    const id = row.dataset.rowKey;
 
     if (actionBtn) {
       const action = actionBtn.dataset.action;
@@ -214,6 +249,14 @@ async function initMyRequests() {
   });
 
   document.getElementById('mr-filter-btn').addEventListener('click', mrOpenFilterPanel);
+
+  document.querySelectorAll('.mr-view-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      mrState.view = btn.dataset.view;
+      sessionStorage.setItem(MR_VIEW_STORAGE_KEY, mrState.view);
+      mrRenderTable();
+    });
+  });
 
   mrRenderTable();
 }

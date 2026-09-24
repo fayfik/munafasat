@@ -23,6 +23,7 @@
   {
     "id": "PR-2024-126",
     "title": "Office Chairs for New Team",
+    "titleAr": "كراسي مكتبية للفريق الجديد",
     "status": "Submitted",
     "category": "Furniture",
     "department": "Facilities Management",
@@ -39,6 +40,18 @@
     "description": "Ergonomic seating for the new onboarding team",
     "lastUpdatedDate": "2024-11-11",
     "pendingApproval": false,
+    "costCenter": "FCT002 – Facilities Operations",
+    "projectManagerName": "Fahad Al-Zahrani",
+    "prDocumentType": "Asset",
+    "requestType": ["Single vendor", "Capital expenditure"],
+    "contractStartDate": "2024-12-01",
+    "durationLabel": "1 month",
+    "technicalMemberName": "Layla Mansour",
+    "placeOfWork": "Riyadh",
+    "qualificationSpecification": false,
+    "safetySpecification": true,
+    "scopeOfWork": "Supply and install ergonomic office chairs for the new onboarding team, including delivery, assembly, and a one-year warranty on all furniture provided.",
+    "processStageIndex": 1,
     "approvalStatus": "Submitted"
   },
   {
@@ -640,6 +653,7 @@
   {
     "id": "PR-2024-127",
     "title": "Branded Merchandise for Conference",
+    "titleAr": "هدايا ترويجية للمؤتمر",
     "status": "Draft",
     "category": "Professional Services",
     "department": "Administration",
@@ -656,6 +670,18 @@
     "description": "Branded giveaways for the annual industry conference",
     "lastUpdatedDate": "2024-11-12",
     "pendingApproval": false,
+    "costCenter": "ADM001 – Administration",
+    "projectManagerName": "Yousef Al-Harthi",
+    "prDocumentType": "Goods",
+    "requestType": ["Single vendor"],
+    "contractStartDate": "2025-01-15",
+    "durationLabel": "2 weeks",
+    "technicalMemberName": "Huda Al-Otaibi",
+    "placeOfWork": "Jeddah",
+    "qualificationSpecification": false,
+    "safetySpecification": false,
+    "scopeOfWork": "Design, produce, and deliver branded promotional merchandise (bags, notebooks, pens) for the annual industry conference, including packaging and on-site delivery before the event date.",
+    "processStageIndex": 0,
     "approvalStatus": "Rejected"
   },
   {
