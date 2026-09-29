@@ -12,7 +12,7 @@ import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiBoq, type AiBoqRow } from '../lib/aiTender';
 import { saveFile, aiErrorMessage } from '../lib/claudeRuntime';
 import { checkEtimadAvailability, isStale, needsJustification } from '../lib/etimadCheck';
-import EtimadPanel from '../components/EtimadPanel';
+import EtimadPanel, { EtimadCheckButton } from '../components/EtimadPanel';
 import BoqSheet from '../components/BoqSheet';
 import { useBoqLayout, setBoqLayout } from '../lib/boqLayout';
 
@@ -566,14 +566,18 @@ export default function BillOfQuantities() {
 
         {/* Accordion groups */}
         {layout === 'cards' && groups.length > 0 && (
-          <div className="rounded-xl border border-neutral-200 overflow-hidden divide-y divide-neutral-200">
+          <div>
             {groups.map((group, gi) => {
               const isExpanded = expandedGroups.has(group.key);
+              // Collapsed groups stay joined in one block; an open group becomes its own card with space around it.
+              const breakBefore = gi === 0 || isExpanded || expandedGroups.has(groups[gi - 1].key);
+              const breakAfter = gi === groups.length - 1 || isExpanded || expandedGroups.has(groups[gi + 1].key);
+              const blockCls = `border-x border-t border-neutral-200 overflow-hidden ${breakBefore ? 'rounded-t-xl' : ''} ${breakAfter ? 'rounded-b-xl border-b' : ''} ${breakBefore && gi > 0 ? 'mt-3' : ''}`;
               const subtotal = group.rows.reduce((s, r) => s + rowTotal(r), 0);
               const dotColor = GROUP_COLORS[gi % GROUP_COLORS.length];
 
               return (
-                <div key={group.key}>
+                <div key={group.key} className={blockCls}>
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.key)}
@@ -595,7 +599,7 @@ export default function BillOfQuantities() {
                   {isExpanded && (
                     <div>
                       {/* Column headers */}
-                      <div className="grid grid-cols-[1fr_52px_104px_136px_60px] px-5 py-2 bg-white border-b border-neutral-100">
+                      <div className="grid grid-cols-[1fr_64px_104px_136px_60px] px-5 py-2 bg-white border-b border-neutral-100">
                         <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wide">{t('Item', 'البند')}</span>
                         <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wide text-center">{t('Qty', 'الكمية')}</span>
                         <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wide text-end">{t('Unit Price', 'سعر الوحدة')}</span>
@@ -608,12 +612,19 @@ export default function BillOfQuantities() {
                         {group.rows.map((row) => {
                           const total = rowTotal(row);
                           const unitPrice = typeof row.unitPrice === 'number' ? row.unitPrice : 0;
+                          const showCheckTop = !row.etimadCheck || isStale(row);
                           return (
                             <div key={row.id} className="bg-white">
                             {editingId === row.id ? renderItemForm('edit') : (<>
-                            <div className="grid grid-cols-[1fr_52px_104px_136px_60px] items-center px-5 pt-3.5 pb-2 bg-white hover:bg-neutral-50/40 transition-colors group/row">
+                            <div className="grid grid-cols-[1fr_64px_104px_136px_60px] items-center px-5 pt-3.5 pb-2 bg-white hover:bg-neutral-50/40 transition-colors group/row">
+                              {/* Check Etimad — top right of the block until the row has a current result */}
+                              {showCheckTop && (
+                                <div className="col-start-2 col-span-4 row-start-1 self-start pb-1">
+                                  <EtimadCheckButton row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} />
+                                </div>
+                              )}
                               {/* Item */}
-                              <div className="pe-4">
+                              <div className={`pe-4 col-start-1 ${showCheckTop ? 'row-start-1 row-span-2' : ''}`}>
                                 <p className="text-sm font-semibold text-neutral-900 leading-snug">{row.itemName || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
                                 {row.itemDescription && (
                                   <p className="text-xs text-neutral-400 mt-0.5 leading-snug">{row.itemDescription}</p>
@@ -641,10 +652,13 @@ export default function BillOfQuantities() {
                               </div>
 
                               {/* Qty */}
-                              <div className="text-center">
-                                <span className="text-sm text-neutral-700 tabular-nums">
+                              <div className="text-center leading-tight">
+                                <span className="block text-sm text-neutral-700 tabular-nums">
                                   {row.quantity !== '' ? row.quantity : '—'}
                                 </span>
+                                {row.unitOfMeasure && (
+                                  <span className="block text-[11px] text-neutral-400 mt-0.5 truncate" title={row.unitOfMeasure}>{row.unitOfMeasure}</span>
+                                )}
                               </div>
 
                               {/* Unit Price */}
@@ -683,8 +697,9 @@ export default function BillOfQuantities() {
                                 </button>
                               </div>
                             </div>
-                            <div className="px-5 pb-3.5">
+                            <div className={`px-5 ${showCheckTop ? 'pb-1.5' : 'pb-3.5'}`}>
                               <EtimadPanel
+                                hideUnchecked
                                 row={row}
                                 checking={checkingIds.has(row.id)}
                                 onCheck={() => runEtimadCheck([row])}

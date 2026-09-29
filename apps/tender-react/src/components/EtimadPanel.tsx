@@ -10,10 +10,32 @@ interface Props {
   onCheck: () => void;
   onMove: () => Promise<'moved' | 'preview' | 'error'>;
   onUpdate: (patch: Partial<BOQRow>) => void;
+  /** Render nothing until the row has a current check (the caller shows EtimadCheckButton elsewhere). */
+  hideUnchecked?: boolean;
+}
+
+/** "Check Etimad availability" button on its own, for rows without a current check. */
+export function EtimadCheckButton({ row, checking, onCheck }: { row: BOQRow; checking: boolean; onCheck: () => void }) {
+  const t = useT();
+  const stale = isStale(row);
+  return (
+    <div className="flex items-center justify-end gap-2 flex-wrap">
+      {stale && <span className="text-[11px] text-warning-700">{t('Item changed since the last check.', 'تغيّر البند منذ آخر تحقق.')}</span>}
+      <button
+        type="button"
+        onClick={onCheck}
+        disabled={checking}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-ai-50 text-ai-700 border border-ai-200 hover:bg-ai-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <SparklesIcon className={`w-3 h-3 ${checking ? 'spin-slow' : ''}`} />
+        {checking ? t('Checking Etimad…', 'جاري التحقق من اعتماد…') : stale ? t('Check again', 'تحقق مجدداً') : t('Check Etimad availability', 'التحقق من التوفر في اعتماد')}
+      </button>
+    </div>
+  );
 }
 
 /** "Check Etimad availability" control and verdict for one BOQ item. */
-export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate }: Props) {
+export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, hideUnchecked }: Props) {
   const t = useT();
   const [moving, setMoving] = useState(false);
   const [moveMsg, setMoveMsg] = useState('');
@@ -39,6 +61,7 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate }
   ) : null;
 
   if (!check || stale) {
+    if (hideUnchecked) return null;
     return (
       <div className="flex items-center gap-2 flex-wrap">
         {checkButton(t('Check Etimad availability', 'التحقق من التوفر في اعتماد'))}
