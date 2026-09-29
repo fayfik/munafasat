@@ -1,0 +1,10 @@
+{
+  "description": "Streamline tender creation for enterprise procurement teams with an intuitive, AI-assisted platform that simplifies form completion and enhances workflow efficiency.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

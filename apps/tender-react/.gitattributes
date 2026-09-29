@@ -1,0 +1,5 @@
+# Binary assets are committed directly (no Git LFS).
+*.png binary
+*.jpg binary
+*.pdf binary
+*.woff2 binary
