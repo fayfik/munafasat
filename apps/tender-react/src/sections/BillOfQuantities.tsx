@@ -4,7 +4,7 @@ import { useTender } from '../context/TenderContext';
 import { useT } from '../context/LanguageContext';
 import { PROJECTS, UNITS_OF_MEASURE } from '../data/mockData';
 import { FormField, SectionCard, AIButton, InfoBanner, Input, Select, Textarea } from '../components/ui';
-import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, PencilIcon, InfoIcon } from '../components/Icons';
+import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, PencilIcon, InfoIcon, GridIcon, TableIcon } from '../components/Icons';
 import HoverNote from '../components/HoverNote';
 import type { BOQRow } from '../types/tender';
 import { useLanguage } from '../context/LanguageContext';
@@ -417,13 +417,16 @@ export default function BillOfQuantities() {
           </div>
         }
       >
-        {/* A/B layout switch */}
-        <div className="flex items-center justify-end gap-2 mb-3">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t('Layout', 'طريقة العرض')}</span>
-          <div role="radiogroup" aria-label={t('BOQ layout', 'طريقة عرض جدول الكميات')} className="inline-flex rounded-lg border border-neutral-300 bg-neutral-50 p-0.5">
-            {([['cards', t('A · Grouped + form', 'أ · مجمّع + نموذج')], ['sheet', t('B · Sheet', 'ب · جدول')]] as const).map(([v, label]) => (
+        {/* Layout switch: Grid (grouped items + form) or Table (spreadsheet) */}
+        <div className="flex items-center justify-end mb-3">
+          <div role="radiogroup" aria-label={t('BOQ view', 'طريقة عرض جدول الكميات')} className="inline-flex rounded-lg border border-neutral-300 bg-neutral-50 p-0.5">
+            {([
+              ['cards', t('Grid', 'شبكة'), <GridIcon key="i" className="w-3.5 h-3.5" />],
+              ['sheet', t('Table', 'جدول'), <TableIcon key="i" className="w-3.5 h-3.5" />],
+            ] as const).map(([v, label, icon]) => (
               <button key={v} type="button" role="radio" aria-checked={layout === v} onClick={() => setBoqLayout(v)}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${layout === v ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${layout === v ? 'bg-white text-brand-700 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>
+                {icon}
                 {label}
               </button>
             ))}

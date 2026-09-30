@@ -218,3 +218,12 @@ export function PanelLeftIcon({ className = 'w-4 h-4', ...p }: IconProps) {
     </svg>
   );
 }
+
+export function TableIcon({ className = 'w-4 h-4', ...p }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <rect x="3" y="3.5" width="14" height="13" rx="2" />
+      <path d="M3 8h14M3 12.25h14M8 8v8.5" />
+    </svg>
+  );
+}
