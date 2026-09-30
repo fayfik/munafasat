@@ -238,12 +238,12 @@ function RecentRow({ tender, onOpen }: { tender: TenderDraft; onOpen: () => void
   const t = useT();
   const isReturned = tender.status === 'returned';
 
-  const STATUS_LABELS: Record<TenderStatus, { en: string; ar: string; variant: 'success' | 'warning' | 'error' | 'info' | 'default' }> = {
-    draft:          { en: 'Draft',        ar: 'مسودة',        variant: 'default' },
-    submitted:      { en: 'Submitted',    ar: 'مُقدَّم',      variant: 'info' },
-    'under-review': { en: 'Under Review', ar: 'قيد المراجعة', variant: 'warning' },
-    approved:       { en: 'Approved',     ar: 'معتمد',        variant: 'success' },
-    returned:       { en: 'Returned',     ar: 'مرتجع',        variant: 'error' },
+  const STATUS_LABELS: Record<TenderStatus, { en: string; ar: string; variant: 'draft' | 'submitted' | 'approved' | 'rejected' }> = {
+    draft:          { en: 'Draft',        ar: 'مسودة',        variant: 'draft' },
+    submitted:      { en: 'Submitted',    ar: 'مُقدَّم',      variant: 'submitted' },
+    'under-review': { en: 'Under Review', ar: 'قيد المراجعة', variant: 'submitted' },
+    approved:       { en: 'Approved',     ar: 'معتمد',        variant: 'approved' },
+    returned:       { en: 'Returned',     ar: 'مرتجع',        variant: 'rejected' },
   };
 
   const sc = STATUS_LABELS[tender.status];

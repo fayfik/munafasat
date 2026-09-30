@@ -4,74 +4,114 @@
 @theme {
   --font-family-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
-  /* ── SIDF Primary Green (brand) ── */
-  --color-brand-50:  #f4f8ed;
-  --color-brand-100: #e2edcc;
-  --color-brand-200: #c4db99;
-  --color-brand-300: #a0c265;
-  --color-brand-400: #82ab42;
-  --color-brand-500: #6b9436;
-  --color-brand-600: #5f832e;
-  --color-brand-700: #517632;
-  --color-brand-800: #3c5824;
-  --color-brand-900: #283c18;
+  /* Munafasat colour tokens (SIDF) — from munafasat-colors.css.
+     Values marked "derived" fill steps the token file does not define. */
 
-  /* ── Nav / shell ── */
-  --color-nav-bg:     #ffffff;
-  --color-nav-text:   #1c2128;
-  --color-nav-muted:  #697586;
-  --color-nav-border: #e8eaed;
-  --color-nav-active: rgba(81,118,50,0.10);
-  --color-nav-hover:  rgba(0,0,0,0.04);
+  /* ── Primary: Green ── */
+  --color-brand-50:  #EEF4E8;
+  --color-brand-100: #DCE9D2;
+  --color-brand-200: #BBD6A9;
+  --color-brand-300: #99C280;
+  --color-brand-400: #82B564;
+  --color-brand-500: #6BA548;
+  --color-brand-600: #699843;   /* primary buttons, active accents */
+  --color-brand-700: #517632;   /* primary hover, active text */
+  --color-brand-800: #3F5D27;
+  --color-brand-900: #2E441C;
 
-  /* ── Foundation Primary Blue (interactive / AI) ── */
-  --color-ai-50:  #eff6ff;
-  --color-ai-100: #dbeafe;
-  --color-ai-200: #bfdbfe;
-  --color-ai-300: #93c5fd;
-  --color-ai-400: #60a5fa;
-  --color-ai-500: #3b82f6;
-  --color-ai-600: #2563eb;
-  --color-ai-700: #1d4ed8;
-  --color-ai-800: #1e40af;
-  --color-ai-900: #1e3a8a;
+  /* ── Secondary: Blue (links, navy "structural add" buttons, current stage) ── */
+  --color-blue-50:  #EAF1F8;
+  --color-blue-100: #D3E3F1;
+  --color-blue-200: #A8C7E3;
+  --color-blue-300: #7CACD5;
+  --color-blue-400: #5090C7;
+  --color-blue-500: #3378B5;
+  --color-blue-600: #2A6193;
+  --color-blue-700: #204A71;
+  --color-blue-800: #17344F;
+  --color-blue-900: #0E1E2E;
 
-  /* ── Foundation Neutral (cool blue-gray) ── */
-  --color-neutral-0:   #ffffff;
-  --color-neutral-50:  #f8f9fb;
-  --color-neutral-100: #f0f2f5;
-  --color-neutral-150: #e8eaed;
-  --color-neutral-200: #dde1e7;
-  --color-neutral-300: #c1c7cf;
-  --color-neutral-400: #9aa3af;
-  --color-neutral-500: #697586;
-  --color-neutral-600: #4a5568;
-  --color-neutral-700: #364152;
-  --color-neutral-800: #202939;
-  --color-neutral-900: #121926;
+  /* ── AI accent: Purple (the app's "ai" colour) ── */
+  --color-ai-50:  #F2EEFC;
+  --color-ai-100: #E4D9F9;
+  --color-ai-200: #CBBAF3;   /* derived */
+  --color-ai-300: #B09AED;   /* derived */
+  --color-ai-400: #967BE6;   /* derived */
+  --color-ai-500: #7C5CE0;
+  --color-ai-600: #6A47D6;
+  --color-ai-700: #5636B0;
+  --color-ai-800: #43298A;   /* derived */
+  --color-ai-900: #311E65;   /* derived */
+  --color-purple-50:  #F2EEFC;
+  --color-purple-100: #E4D9F9;
+  --color-purple-500: #7C5CE0;
+  --color-purple-600: #6A47D6;
+  --color-purple-700: #5636B0;
 
-  /* ── Foundation semantic status ── */
-  --color-error-50:   #fff1f2;
-  --color-error-100:  #ffe4e6;
-  --color-error-500:  #ef4444;
-  --color-error-600:  #dc2626;
-  --color-error-700:  #b91c1c;
+  /* ── Neutrals (green-tinted greys) ── */
+  --color-neutral-0:   #FFFFFF;
+  --color-neutral-50:  #F9FAF8;
+  --color-neutral-100: #F6F8F4;
+  --color-neutral-150: #EEF1EB;  /* derived */
+  --color-neutral-200: #E7EAE3;
+  --color-neutral-300: #D5D9D0;
+  --color-neutral-400: #AEB4A8;
+  --color-neutral-500: #868D80;
+  --color-neutral-600: #656C60;
+  --color-neutral-700: #474D43;
+  --color-neutral-800: #2E332B;
+  --color-neutral-900: #1B1F19;
 
-  --color-warning-50:  #fffbeb;
-  --color-warning-100: #fef3c7;
-  --color-warning-500: #f59e0b;
-  --color-warning-600: #d97706;
-  --color-warning-700: #b45309;
+  /* ── Status ── */
+  --color-error-50:  #FCEBEA;
+  --color-error-100: #F8CFCC;
+  --color-error-200: #EFA39A;  /* derived */
+  --color-error-400: #E2543F;
+  --color-error-500: #DD3822;
+  --color-error-600: #C22C18;
+  --color-error-700: #971F0F;
+  --color-error-800: #6E170B;  /* derived */
 
-  --color-success-50:  #f1faf1;
-  --color-success-100: #dcf2db;
-  --color-success-500: #4db848;
-  --color-success-600: #3a9437;
-  --color-success-700: #2c722a;
+  --color-warning-50:  #FDF3E0;
+  --color-warning-100: #FBE4B8;
+  --color-warning-200: #F6CC7A;  /* derived */
+  --color-warning-400: #F0A620;
+  --color-warning-500: #E08E00;
+  --color-warning-600: #B87200;
+  --color-warning-700: #8A5600;
+  --color-warning-800: #603C00;  /* derived */
 
-  /* ── Foundation surface ── */
-  --color-surface:      #f2f3f5;
-  --color-surface-card: #ffffff;
+  --color-success-50:  #E9F5EE;
+  --color-success-100: #CBE9D6;
+  --color-success-200: #97D2AE;  /* derived */
+  --color-success-400: #3FA76A;
+  --color-success-500: #23945A;
+  --color-success-600: #17784A;
+  --color-success-700: #0F5C39;
+  --color-success-800: #0A4029;  /* derived */
+
+  /* ── Status chips ── */
+  --color-chip-approved-bg: #93C6AF;  --color-chip-approved-text: #083722;
+  --color-chip-submitted-bg: #FFDC9B; --color-chip-submitted-text: #6B4B10;
+  --color-chip-draft-bg: #DFE1E6;     --color-chip-draft-text: #091E42;
+  --color-chip-rejected-bg: #EE9C96;  --color-chip-rejected-text: #5C100B;
+
+  /* ── Surfaces / shell ── */
+  --color-surface:      #F9FAF8;   /* app background */
+  --color-surface-card: #FFFFFF;
+  --color-active:       #E7F0E1;   /* selected nav item / row */
+  --color-nav-bg:     #F6F8F4;     /* sidebar */
+  --color-nav-text:   #1B1F19;
+  --color-nav-muted:  #656C60;
+  --color-nav-border: #E7EAE3;
+  --color-nav-active: #E7F0E1;
+  --color-nav-hover:  #EEF1EB;
+  --color-link:       #2A6193;
+
+  /* ── Shadows (tinted with neutral-900) ── */
+  --shadow-sm: 0 1px 2px rgba(27, 31, 25, 0.06);
+  --shadow-md: 0 4px 12px rgba(27, 31, 25, 0.08);
+  --shadow-lg: 0 12px 32px rgba(27, 31, 25, 0.14);
 
   /* ── Foundation type scale (generates text-* utilities) ── */
   --text-display-lg: 3rem;
@@ -106,8 +146,8 @@ body {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f4f6f9;
-  color: #121926;
+  background-color: #F9FAF8;
+  color: #1B1F19;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -135,11 +175,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: #D5D9D0;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #AEB4A8;
 }
 
 *:focus-visible {
@@ -156,7 +196,7 @@ input[type='radio'] {
 }
 
 select {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23868D80' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
   background-position: right 8px center;
   background-repeat: no-repeat;
   background-size: 18px 18px;
@@ -218,4 +258,9 @@ select {
 
 .fade-in {
   animation: fade-in 0.2s ease-out;
+}
+
+/* Header surface: brand gradient */
+.surface-header {
+  background: linear-gradient(90deg, #699843 0%, #517632 100%);
 }

@@ -81,7 +81,7 @@ export default function TenderForm({ onBack }: Props) {
       <div
         className="tender-subheader min-h-12 py-2 flex items-center justify-between gap-3 flex-wrap px-4 sm:px-5 shrink-0 z-10"
         style={{
-          backgroundColor: 'var(--color-nav-bg)',
+          backgroundColor: 'var(--color-surface-card)',
           borderBottom: '1px solid var(--color-nav-border)',
         }}
       >
@@ -103,10 +103,10 @@ export default function TenderForm({ onBack }: Props) {
             >
               {headerTitle}
             </span>
-            <Badge variant={status === 'draft' ? 'info' : status === 'returned' ? 'error' : status === 'approved' ? 'success' : 'warning'}>
+            <Badge variant={status === 'draft' ? 'draft' : status === 'returned' ? 'rejected' : status === 'approved' ? 'approved' : 'submitted'}>
               {status === 'draft' ? t('Draft', 'مسودة') : status === 'submitted' ? t('Submitted', 'مُقدَّم') : status === 'under-review' ? t('Under Review', 'قيد المراجعة') : status === 'approved' ? t('Approved', 'معتمد') : t('Returned', 'مرتجع')}
             </Badge>
-            <Badge variant={formData.sourceType === 'souq-etimad' ? 'default' : 'ai'}>
+            <Badge variant={formData.sourceType === 'souq-etimad' ? 'default' : 'info'}>
               {sourceLabel}
             </Badge>
           </div>
@@ -167,13 +167,13 @@ export default function TenderForm({ onBack }: Props) {
                     onClick={() => goToSection(idx)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-start transition-all ${
                       isCurrent
-                        ? 'bg-brand-50 text-brand-700'
+                        ? 'bg-active text-blue-900'
                         : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
                     }`}
                   >
                     <SidebarIcon status={status} active={isCurrent} num={idx + 1} />
                     <div className="flex-1 min-w-0">
-                      <p className={`text-[12px] font-medium truncate ${isCurrent ? 'text-brand-700' : 'text-neutral-700'}`}>
+                      <p className={`text-[12px] truncate ${isCurrent ? 'font-semibold text-blue-900' : 'font-medium text-neutral-700'}`}>
                         {isAr ? sec.titleAr : sec.title}
                       </p>
                       <p className={`text-[10px] mt-0.5 ${getSidebarStatusColor(status)}`}>
@@ -250,7 +250,7 @@ export default function TenderForm({ onBack }: Props) {
 function SidebarIcon({ status, active, num }: { status: SectionStatus; active: boolean; num: number }) {
   if (active) {
     return (
-      <div className="w-6 h-6 rounded-full bg-brand-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+      <div className="w-6 h-6 rounded-full bg-blue-900 flex items-center justify-center flex-shrink-0 shadow-sm">
         <span className="text-white text-[10px] font-bold">{num}</span>
       </div>
     );

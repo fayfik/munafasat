@@ -199,7 +199,7 @@ export default function Deliverables() {
 
         <button
           onClick={addDeliverableRow}
-          className="mt-4 flex items-center gap-1.5 text-sm text-brand-600 font-medium hover:text-brand-700 transition-colors"
+          className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm"
         >
           <PlusIcon className="w-4 h-4" />
           {t('Add Deliverable', 'إضافة مخرج')}

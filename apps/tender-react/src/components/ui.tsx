@@ -7,18 +7,23 @@ import { useLanguage, useT } from '../context/LanguageContext';
 
 // ─── Badge ────────────────────────────────────────────────────────────────────
 
-type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info' | 'ai' | 'assets' | 'services' | 'consumables';
+type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info' | 'ai' | 'assets' | 'services' | 'consumables' | 'draft' | 'submitted' | 'approved' | 'rejected';
 
 const BADGE_STYLES: Record<BadgeVariant, string> = {
   default:     'bg-neutral-100 text-neutral-600 border-neutral-200',
   success:     'bg-success-50 text-success-700 border-success-100',
   warning:     'bg-warning-50 text-warning-700 border-warning-100',
   error:       'bg-error-50 text-error-700 border-error-100',
-  info:        'bg-ai-50 text-ai-700 border-ai-100',
+  info:        'bg-blue-50 text-blue-700 border-blue-100',
   ai:          'bg-ai-50 text-ai-700 border-ai-100',
   assets:      'bg-purple-50 text-purple-700 border-purple-100',
-  services:    'bg-ai-50 text-ai-700 border-ai-100',
+  services:    'bg-blue-50 text-blue-700 border-blue-100',
   consumables: 'bg-orange-50 text-orange-700 border-orange-100',
+  // Request status chips (Munafasat tokens)
+  draft:       'bg-chip-draft-bg text-chip-draft-text border-transparent',
+  submitted:   'bg-chip-submitted-bg text-chip-submitted-text border-transparent',
+  approved:    'bg-chip-approved-bg text-chip-approved-text border-transparent',
+  rejected:    'bg-chip-rejected-bg text-chip-rejected-text border-transparent',
 };
 
 export function Badge({ variant = 'default', children, className = '' }: { variant?: BadgeVariant; children: ReactNode; className?: string }) {

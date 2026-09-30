@@ -8,15 +8,15 @@ import type { TenderDraft, TenderStatus } from '../types/tender';
 type StatusConfig = {
   en: string;
   ar: string;
-  variant: 'success' | 'warning' | 'error' | 'info' | 'default';
+  variant: 'draft' | 'submitted' | 'approved' | 'rejected';
 };
 
 const STATUS_CONFIG: Record<TenderStatus, StatusConfig> = {
-  draft:          { en: 'Draft',        ar: 'مسودة',        variant: 'default' },
-  submitted:      { en: 'Submitted',    ar: 'مُقدَّم',      variant: 'info' },
-  'under-review': { en: 'Under Review', ar: 'قيد المراجعة', variant: 'warning' },
-  approved:       { en: 'Approved',     ar: 'معتمد',        variant: 'success' },
-  returned:       { en: 'Returned',     ar: 'مرتجع',        variant: 'error' },
+  draft:          { en: 'Draft',        ar: 'مسودة',        variant: 'draft' },
+  submitted:      { en: 'Submitted',    ar: 'مُقدَّم',      variant: 'submitted' },
+  'under-review': { en: 'Under Review', ar: 'قيد المراجعة', variant: 'submitted' },
+  approved:       { en: 'Approved',     ar: 'معتمد',        variant: 'approved' },
+  returned:       { en: 'Returned',     ar: 'مرتجع',        variant: 'rejected' },
 };
 
 interface Props {

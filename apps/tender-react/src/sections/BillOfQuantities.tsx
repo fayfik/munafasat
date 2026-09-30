@@ -727,7 +727,7 @@ export default function BillOfQuantities() {
         {layout === 'cards' && !showAddForm && (
           <button
             onClick={() => { closeItemForm(); setShowAddForm(true); }}
-            className="mt-3 flex items-center gap-1.5 text-xs text-brand-600 font-medium hover:text-brand-700 transition-colors"
+            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm"
           >
             <PlusIcon className="w-3.5 h-3.5" />
             {t('Add BOQ Item', 'إضافة بند')}
