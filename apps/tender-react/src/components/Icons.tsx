@@ -227,3 +227,12 @@ export function TableIcon({ className = 'w-4 h-4', ...p }: IconProps) {
     </svg>
   );
 }
+
+/** SIDF brand mark (icon only), vector version of the logo symbol. */
+export function SidfMark({ className = '', ...p }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 82 56" fill="currentColor" aria-hidden="true" {...p}>
+      <path d="M36 4 L22 28 L29 40 L38 40 L31 28 L41 12 L59 12 L68 28 L59 44 L55 44 L50.5 52 L64 52 L78 28 L64 4Z M46 52 L60 28 L53 16 L44 16 L51 28 L41 44 L23 44 L14 28 L23 12 L27 12 L31.5 4 L18 4 L4 28 L18 52Z" />
+    </svg>
+  );
+}

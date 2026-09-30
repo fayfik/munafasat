@@ -3,7 +3,7 @@ import { useTender, SECTIONS } from '../context/TenderContext';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { Button, Badge } from '../components/ui';
 import {
-  ArrowLeftIcon, CheckCircleIcon, ExclamationCircleIcon, CheckIcon, ClockIcon,
+  ArrowLeftIcon, CheckCircleIcon, ExclamationCircleIcon, CheckIcon, ClockIcon, SidfMark,
 } from '../components/Icons';
 import { PROJECTS } from '../data/mockData';
 import { useBoqLayout } from '../lib/boqLayout';
@@ -134,7 +134,7 @@ export default function TenderForm({ onBack }: Props) {
       {/* ── Body: sections navigator sidebar + main form content ─────── */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sections sidebar */}
-        <aside className="hidden md:flex w-56 flex-shrink-0 bg-white border-e border-neutral-200 overflow-y-auto flex-col">
+        <aside className="hidden md:flex w-56 flex-shrink-0 bg-white border-e border-neutral-200 overflow-y-auto overflow-x-hidden flex-col">
           <div className="px-4 pt-4 pb-3 border-b border-neutral-100">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-widest">
@@ -144,7 +144,7 @@ export default function TenderForm({ onBack }: Props) {
             </div>
             <div className="w-full h-1.5 bg-neutral-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-brand-600 rounded-full transition-all duration-500"
+                className="h-full bg-progress rounded-full transition-all duration-500"
                 style={{ width: `${completionPct}%` }}
               />
             </div>
@@ -197,6 +197,10 @@ export default function TenderForm({ onBack }: Props) {
                 </p>
               </div>
             )}
+          </div>
+          {/* Footer: enlarged SIDF mark, partly cropped, as a quiet brand watermark */}
+          <div className="relative mt-auto h-36 shrink-0 overflow-hidden pointer-events-none select-none" aria-hidden="true">
+            <SidfMark className="absolute -bottom-10 -start-14 w-[300px] h-auto text-brand-600 opacity-[0.09] rtl:-scale-x-100" />
           </div>
         </aside>
 
@@ -256,7 +260,7 @@ function SidebarIcon({ status, active, num }: { status: SectionStatus; active: b
     );
   }
   if (status === 'completed') {
-    return <CheckCircleIcon className="w-5 h-5 text-success-600 flex-shrink-0" />;
+    return <CheckCircleIcon className="w-5 h-5 text-progress flex-shrink-0" />;
   }
   if (status === 'missing') {
     return <ExclamationCircleIcon className="w-5 h-5 text-warning-600 flex-shrink-0" />;
