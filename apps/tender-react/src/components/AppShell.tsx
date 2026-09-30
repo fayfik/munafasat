@@ -103,6 +103,9 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
           style={{
             backgroundColor: 'var(--color-nav-bg)',
             borderInlineEnd: '1px solid var(--color-nav-border)',
+            boxShadow: '4px 0 12px rgba(27, 31, 25, 0.05)',
+            position: 'relative',
+            zIndex: 5,
             width: collapsed ? '56px' : '224px',
           }}
         >

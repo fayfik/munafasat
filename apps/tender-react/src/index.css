@@ -100,12 +100,12 @@
   --color-surface:      #F9FAF8;   /* app background */
   --color-surface-card: #FFFFFF;
   --color-active:       #E7F0E1;   /* selected nav item / row */
-  --color-nav-bg:     #F6F8F4;     /* sidebar */
+  --color-nav-bg:     #FFFFFF;     /* sidebar: white, set off by a soft edge shadow */
   --color-nav-text:   #1B1F19;
   --color-nav-muted:  #656C60;
   --color-nav-border: #E7EAE3;
   --color-nav-active: #E7F0E1;
-  --color-nav-hover:  #EEF1EB;
+  --color-nav-hover:  #F6F8F4;
   --color-link:       #2A6193;
 
   /* ── Shadows (tinted with neutral-900) ── */
