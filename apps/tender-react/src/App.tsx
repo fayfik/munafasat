@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LanguageProvider } from './context/LanguageContext';
 import { TenderProvider } from './context/TenderContext';
 import { RequestStoreProvider, useRequests } from './context/RequestStore';
+import EmptyPage from './pages/EmptyPage';
 import AppShell, { type AppPage } from './components/AppShell';
 import Dashboard from './pages/Dashboard';
 import MyRequests from './pages/MyRequests';
@@ -57,6 +58,7 @@ function AppRoot() {
           onViewRequests={() => setPage('my-requests')}
         />
       )}
+      {(page === 'inbox' || page === 'reports') && <EmptyPage page={page} />}
       {page === 'my-requests' && (
         <MyRequests onNewRequest={() => newRequest()} onOpenRequest={openRequest} />
       )}

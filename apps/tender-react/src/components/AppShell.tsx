@@ -2,13 +2,13 @@ import { useState, type ReactNode } from 'react';
 import { useRequests } from '../context/RequestStore';
 import logoUrl from '../imports/Color_Full_color__Size_Large__Type_Full_logo.png';
 import {
-  HomeIcon, ListIcon, BellIcon,
-  ChevronRightIcon, PanelLeftIcon,
+  BellIcon, PanelLeftIcon,
+  NavDashboardIcon, NavRequestsIcon, NavInboxIcon, NavReportsIcon,
 } from './Icons';
 import { useLanguage, useT } from '../context/LanguageContext';
 import type { FullPage } from '../App';
 
-export type AppPage = 'dashboard' | 'my-requests';
+export type AppPage = 'dashboard' | 'my-requests' | 'inbox' | 'reports';
 
 interface AppShellProps {
   currentPage: FullPage;
@@ -21,7 +21,8 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
   const { lang, setLang, isAr } = useLanguage();
   const t = useT();
 
-  const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 760);
+  // Collapsed by default; the switch beside "Main Menu" expands it.
+  const [collapsed, setCollapsed] = useState(true);
   const { requests: MOCK_TENDERS, userName } = useRequests();
   const displayName = userName || 'Mohammed H.';
   const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'MH';
@@ -33,17 +34,10 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
   const activePage: AppPage = currentPage === 'tender-form' ? 'my-requests' : currentPage;
 
   const NAV_ITEMS = [
-    {
-      page: 'dashboard' as AppPage,
-      label: t('Dashboard', 'الرئيسية'),
-      icon: <HomeIcon className="w-4 h-4" />,
-    },
-    {
-      page: 'my-requests' as AppPage,
-      label: t('My Requests', 'طلباتي'),
-      icon: <ListIcon className="w-4 h-4" />,
-      badge: myRequestsCount,
-    },
+    { page: 'dashboard' as AppPage, label: t('Dashboard', 'الرئيسية'), Icon: NavDashboardIcon },
+    { page: 'my-requests' as AppPage, label: t('My Requests', 'طلباتي'), Icon: NavRequestsIcon, badge: myRequestsCount },
+    { page: 'inbox' as AppPage, label: t('Inbox', 'الوارد'), Icon: NavInboxIcon, badge: returnedCount > 0 ? returnedCount : undefined },
+    { page: 'reports' as AppPage, label: t('Reports', 'التقارير'), Icon: NavReportsIcon },
   ];
 
   return (
@@ -145,12 +139,19 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
                       onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--color-nav-hover)'; }}
                       onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.backgroundColor = ''; }}
                       title={collapsed ? item.label : undefined}
+                      aria-label={collapsed ? item.label : undefined}
+                      aria-current={isActive ? 'page' : undefined}
                     >
                       <span
-                        className="flex-shrink-0 transition-colors"
+                        className="relative flex-shrink-0 transition-colors"
                         style={{ color: isActive ? 'var(--color-brand-700)' : 'var(--color-nav-muted)' }}
                       >
-                        {item.icon}
+                        {collapsed && !!item.badge && (
+                          <span className="absolute -top-1.5 -end-2 min-w-[15px] h-[15px] px-1 rounded-full bg-brand-600 text-white text-[9px] font-bold leading-[15px] text-center">
+                            {item.badge}
+                          </span>
+                        )}
+                        <item.Icon filled={isActive} />
                       </span>
                       {!collapsed && (
                         <>
@@ -174,41 +175,6 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
               })}
             </ul>
 
-            {!collapsed && (
-              <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--color-nav-border)' }}>
-                <p
-                  className="text-[9px] font-bold uppercase tracking-widest px-3 mb-3"
-                  style={{ color: 'var(--color-nav-muted)' }}
-                >
-                  {t('Coming Soon', 'قريباً')}
-                </p>
-                {[
-                  { label: t('Notifications', 'الإشعارات'), icon: <BellIcon className="w-4 h-4" /> },
-                  { label: t('Reports', 'التقارير'), icon: <ChevronRightIcon className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} /> },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-not-allowed select-none"
-                    style={{ color: 'var(--color-nav-muted)', opacity: 0.5 }}
-                  >
-                    <span className="flex-shrink-0">{item.icon}</span>
-                    <span className="text-[13px] font-medium">{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {collapsed && (
-              <div className="mt-6 pt-4 flex flex-col items-center gap-1" style={{ borderTop: '1px solid var(--color-nav-border)' }}>
-                <div
-                  className="w-8 h-8 flex items-center justify-center rounded-lg cursor-not-allowed"
-                  style={{ color: 'var(--color-nav-muted)', opacity: 0.4 }}
-                  title={t('Notifications', 'الإشعارات')}
-                >
-                  <BellIcon className="w-4 h-4" />
-                </div>
-              </div>
-            )}
           </nav>
 
         </aside>
