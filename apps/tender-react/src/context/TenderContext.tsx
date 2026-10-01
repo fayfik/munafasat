@@ -63,6 +63,7 @@ const DEFAULT_QUAL: QualMainCriteria[] = [
 const INITIAL: TenderFormData = {
   sourceType: 'tendering',
   costCenterId: '',
+  additionalCostCenterIds: [],
   projectId: '',
   selectedProjectItemIds: [],
   tenderingPurpose: '',

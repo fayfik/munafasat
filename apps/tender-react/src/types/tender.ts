@@ -128,6 +128,8 @@ export interface Project {
 export interface TenderFormData {
   sourceType: SourceType;
   costCenterId: string;
+  /** Cost centers added on top of the default one (via "View more cost centers"). */
+  additionalCostCenterIds?: string[];
   projectId: string;
   /** Project items chosen for this tender (ids from the project's item list). */
   selectedProjectItemIds?: string[];

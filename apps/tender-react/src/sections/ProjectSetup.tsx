@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
-import { COST_CENTERS, MORE_COST_CENTERS, ALL_COST_CENTERS, PROJECTS } from '../data/mockData';
+import { COST_CENTERS, ALL_COST_CENTERS, PROJECTS } from '../data/mockData';
 import CostCenterPicker from '../components/CostCenterPicker';
 import BrowseRfpsDialog from '../components/BrowseRfpsDialog';
 import { rfpsForProject, buildRfpImport, formatRfpDate, IMPORTED_SECTIONS_EN, IMPORTED_SECTIONS_AR, type PastRfp } from '../lib/rfpLibrary';
@@ -27,17 +27,39 @@ export default function ProjectSetup() {
   const [showRfpDialog, setShowRfpDialog] = useState(false);
 
   const hasTwoRoles = true;
-  const availableProjects = PROJECTS.filter((p) => p.costCenterId === formData.costCenterId);
+  const extraIds = formData.additionalCostCenterIds ?? [];
+  // Projects from the default cost center and every additional one.
+  const chosenCostCenterIds = [formData.costCenterId, ...extraIds].filter(Boolean);
+  const availableProjects = PROJECTS.filter((p) => chosenCostCenterIds.includes(p.costCenterId));
   const selectedProject = PROJECTS.find((p) => p.id === formData.projectId);
 
   function handleCostCenterChange(id: string) {
     updateField('costCenterId', id);
-    updateField('projectId', '');
-    updateField('selectedProjectItemIds', []);
-    setRfpImport(null);
+    updateField('additionalCostCenterIds', extraIds.filter((x) => x !== id));
+    const keep = selectedProject && (selectedProject.costCenterId === id || extraIds.includes(selectedProject.costCenterId));
+    if (!keep) {
+      updateField('projectId', '');
+      updateField('selectedProjectItemIds', []);
+      setRfpImport(null);
+    }
   }
 
-  const extraCostCenter = MORE_COST_CENTERS.find((cc) => cc.id === formData.costCenterId);
+  const extraCostCenters = extraIds.map((id) => ALL_COST_CENTERS.find((cc) => cc.id === id)).filter((cc): cc is NonNullable<typeof cc> => !!cc);
+
+  function addCostCenter(id: string) {
+    if (!id || extraIds.includes(id) || id === formData.costCenterId) return;
+    updateField('additionalCostCenterIds', [...extraIds, id]);
+  }
+
+  function removeCostCenter(id: string) {
+    updateField('additionalCostCenterIds', extraIds.filter((x) => x !== id));
+    // A project that belonged only to the removed cost center no longer applies.
+    if (selectedProject && selectedProject.costCenterId === id) {
+      updateField('projectId', '');
+      updateField('selectedProjectItemIds', []);
+      setRfpImport(null);
+    }
+  }
   const selectedItemIds = formData.selectedProjectItemIds ?? [];
 
   function toggleItem(id: string) {
@@ -177,26 +199,31 @@ export default function ProjectSetup() {
                       ))}
                     </div>
 
-                    {/* A cost center picked from the full list shows as a removable pill */}
-                    {extraCostCenter && (
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="inline-flex items-center gap-1.5 ps-3 pe-1 py-1 rounded-full border-2 border-brand-600 bg-brand-50 text-[13px] font-medium text-brand-700">
-                          {isAr ? extraCostCenter.nameAr : extraCostCenter.name}
-                          <span className="text-[11px] font-normal text-brand-600/80" dir="ltr">{extraCostCenter.code}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleCostCenterChange('')}
-                            className="w-5 h-5 rounded-full inline-flex items-center justify-center text-brand-700 hover:bg-brand-100"
-                            aria-label={t(`Remove ${extraCostCenter.name}`, `إزالة ${extraCostCenter.nameAr}`)}
-                            title={t('Remove', 'إزالة')}
-                          >
-                            <XIcon className="w-3 h-3" />
-                          </button>
-                        </span>
+                    {/* Additional cost centers (besides the default above) show as removable pills */}
+                    {extraCostCenters.length > 0 && (
+                      <div>
+                        <p className="text-xs text-neutral-500 mb-1.5">{t('Additional cost centers', 'مراكز تكلفة إضافية')}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {extraCostCenters.map((cc) => (
+                            <span key={cc.id} className="inline-flex items-center gap-1.5 ps-3 pe-1 py-1 rounded-full border border-brand-300 bg-brand-50 text-[13px] font-medium text-brand-700">
+                              {isAr ? cc.nameAr : cc.name}
+                              <span className="text-[11px] font-normal text-brand-600/80" dir="ltr">{cc.code}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeCostCenter(cc.id)}
+                                className="w-5 h-5 rounded-full inline-flex items-center justify-center text-brand-700 hover:bg-brand-100"
+                                aria-label={t(`Remove ${cc.name}`, `إزالة ${cc.nameAr}`)}
+                                title={t('Remove', 'إزالة')}
+                              >
+                                <XIcon className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
 
-                    <CostCenterPicker options={MORE_COST_CENTERS} selectedId={formData.costCenterId} onSelect={handleCostCenterChange} />
+                    <CostCenterPicker options={ALL_COST_CENTERS.filter((cc) => cc.id !== formData.costCenterId && !extraIds.includes(cc.id))} selectedId="" onSelect={addCostCenter} />
                   </div>
                 ) : (
                   <ReadOnlyField value={isAr ? COST_CENTERS[0].nameAr : COST_CENTERS[0].name} />
@@ -214,11 +241,11 @@ export default function ProjectSetup() {
                     <Select value={formData.projectId} onChange={(e) => handleProjectChange(e.target.value)}>
                       <option value="">{t('Select a project…', 'اختر مشروعاً…')}</option>
                       {availableProjects.map((p) => (
-                        <option key={p.id} value={p.id}>{isAr ? p.nameAr : p.name} ({p.code})</option>
+                        <option key={p.id} value={p.id}>{`${isAr ? p.nameAr : p.name} (${p.code})${chosenCostCenterIds.length > 1 ? ` · ${ALL_COST_CENTERS.find((c) => c.id === p.costCenterId)?.code ?? ''}` : ''}`}</option>
                       ))}
                     </Select>
                     {availableProjects.length === 0 && (
-                      <p className="mt-1.5 text-xs text-warning-700">{t('No budgeted projects under this cost center yet.', 'لا توجد مشاريع مدرجة في الميزانية تحت مركز التكلفة هذا بعد.')}</p>
+                      <p className="mt-1.5 text-xs text-warning-700">{t('No budgeted projects under the selected cost centers yet.', 'لا توجد مشاريع مدرجة في الميزانية تحت مراكز التكلفة المحددة بعد.')}</p>
                     )}
                   </FormField>
 

@@ -25,6 +25,7 @@ export default function ReviewConfirm() {
 
   const selectedProject = PROJECTS.find((p) => p.id === formData.projectId);
   const selectedCC = ALL_COST_CENTERS.find((c) => c.id === formData.costCenterId);
+  const extraCCs = (formData.additionalCostCenterIds ?? []).map((id) => ALL_COST_CENTERS.find((c) => c.id === id)).filter(Boolean) as typeof ALL_COST_CENTERS;
 
   const incompleteSections = sectionStatuses
     .map((s, i) => ({ status: s, section: SECTIONS[i], idx: i }))
@@ -235,6 +236,9 @@ export default function ReviewConfirm() {
       <ReviewSection title="Project Setup" titleAr="إعداد المشروع" sectionIdx={0} status={sectionStatuses[0]}>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
           <ReviewField label={t('Cost Center', 'مركز التكلفة')} value={selectedCC ? `${selectedCC.name} (${selectedCC.code})` : '—'} />
+          {extraCCs.length > 0 && (
+            <ReviewField label={t('Additional Cost Centers', 'مراكز تكلفة إضافية')} value={extraCCs.map((c) => `${c.name} (${c.code})`).join(', ')} />
+          )}
           <ReviewField label={t('Project', 'المشروع')} value={(isAr ? selectedProject?.nameAr : selectedProject?.name) ?? '—'} />
           <ReviewField label={t('Project Code', 'رمز المشروع')} value={selectedProject?.code ?? '—'} />
           <ReviewField label={t('Source Type', 'نوع المصدر')} value={formData.sourceType === 'tendering' ? t('Tender', 'منافسة') : t('Etimad Souq', 'سوق اعتماد')} />
