@@ -6,7 +6,6 @@ import {
   ArrowLeftIcon, CheckCircleIcon, ExclamationCircleIcon, CheckIcon, ClockIcon,
 } from '../components/Icons';
 import { PROJECTS } from '../data/mockData';
-import { useBoqLayout } from '../lib/boqLayout';
 import stepperWatermark from '../assets/figma/stepper-watermark.svg';
 import type { SectionStatus } from '../types/tender';
 
@@ -40,8 +39,6 @@ interface Props {
 export default function TenderForm({ onBack }: Props) {
   const { currentSection, goToSection, sectionStatuses, isSaving, lastSaved, formData, saveState, saveNow, submit, readyToSubmit, isSubmitting, submitted, status } = useTender();
   const { isAr } = useLanguage();
-  const boqLayout = useBoqLayout();
-  const wide = currentSection === 2 && boqLayout === 'sheet';
   const t = useT();
 
   const mainRef = useRef<HTMLElement>(null);
@@ -212,7 +209,8 @@ export default function TenderForm({ onBack }: Props) {
 
         {/* Main form content */}
         <main ref={mainRef} className="flex-1 overflow-y-auto bg-surface">
-          <div className={`${wide ? 'max-w-6xl' : 'max-w-3xl'} mx-auto px-4 sm:px-6 py-8`}>
+          {/* One width for every step (wide), so the page doesn't jump between steps or BOQ views */}
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
             <div className="mb-7">
               <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-widest mb-2">
                 {t(`Step ${currentSection + 1} of ${SECTIONS.length}`, `خطوة ${currentSection + 1} من ${SECTIONS.length}`)}
