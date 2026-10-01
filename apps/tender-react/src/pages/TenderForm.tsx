@@ -3,10 +3,11 @@ import { useTender, SECTIONS } from '../context/TenderContext';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { Button, Badge } from '../components/ui';
 import {
-  ArrowLeftIcon, CheckCircleIcon, ExclamationCircleIcon, CheckIcon, ClockIcon, SidfMark,
+  ArrowLeftIcon, CheckCircleIcon, ExclamationCircleIcon, CheckIcon, ClockIcon,
 } from '../components/Icons';
 import { PROJECTS } from '../data/mockData';
 import { useBoqLayout } from '../lib/boqLayout';
+import stepperWatermark from '../assets/figma/stepper-watermark.svg';
 import type { SectionStatus } from '../types/tender';
 
 // Section components
@@ -133,22 +134,22 @@ export default function TenderForm({ onBack }: Props) {
 
       {/* ── Body: sections navigator sidebar + main form content ─────── */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sections sidebar */}
-        <aside className="hidden md:flex w-56 flex-shrink-0 bg-white border-e border-neutral-200 overflow-y-auto overflow-x-hidden flex-col">
-          <div className="px-4 pt-4 pb-3 border-b border-neutral-100">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-widest">
+        {/* Sections sidebar — matches Figma "Section rail frame - Creation" (125:3457) */}
+        <aside className="hidden md:flex w-[204px] flex-shrink-0 bg-white border-e border-[#DDE1E7] overflow-y-auto overflow-x-hidden flex-col">
+          <div className="h-[75px] shrink-0 px-[14px] pt-[14px] border-b border-[#F0F2F5]">
+            <div className="flex items-center justify-between h-[15px]">
+              <p className="text-[10px] leading-[15px] font-semibold text-[#9AA3AF] uppercase tracking-[1px]">
                 {t('Progress', 'التقدم')}
               </p>
-              <span className="text-[11px] font-bold text-brand-600">{completionPct}%</span>
+              <span className="text-[11px] leading-[16.5px] font-bold text-step-done">{completionPct}%</span>
             </div>
-            <div className="w-full h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+            <div className="mt-[8px] w-full h-[6px] bg-[#F0F2F5] rounded-full overflow-hidden">
               <div
-                className="h-full bg-progress rounded-full transition-all duration-500"
+                className="h-full bg-step-done rounded-full transition-all duration-500"
                 style={{ width: `${completionPct}%` }}
               />
             </div>
-            <p className="text-[10px] text-neutral-400 mt-1.5">
+            <p className="mt-[4.5px] text-[10px] leading-[15px] text-[#9AA3AF]">
               {t(
                 `${completedCount} of ${SECTIONS.length} sections complete`,
                 `${completedCount} من ${SECTIONS.length} أقسام مكتملة`
@@ -156,8 +157,8 @@ export default function TenderForm({ onBack }: Props) {
             </p>
           </div>
 
-          <div className="px-3 py-3 flex-1">
-            <nav className="space-y-0.5">
+          <div className="px-[10px] pt-[10px] pb-3 flex-1">
+            <nav className="flex flex-col gap-[2px]">
               {SECTIONS.map((sec, idx) => {
                 const status = sectionStatuses[idx];
                 const isCurrent = idx === currentSection;
@@ -165,18 +166,17 @@ export default function TenderForm({ onBack }: Props) {
                   <button
                     key={sec.id}
                     onClick={() => goToSection(idx)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-start transition-all ${
-                      isCurrent
-                        ? 'bg-active text-blue-900'
-                        : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                    aria-current={isCurrent ? 'step' : undefined}
+                    className={`w-full h-[52px] flex items-center gap-[8.8px] ps-[10.5px] pe-2 rounded-[7px] text-start transition-colors ${
+                      isCurrent ? 'bg-step-current' : 'hover:bg-[#F8F9FB]'
                     }`}
                   >
                     <SidebarIcon status={status} active={isCurrent} num={idx + 1} />
                     <div className="flex-1 min-w-0">
-                      <p className={`text-[12px] truncate ${isCurrent ? 'font-semibold text-blue-900' : 'font-medium text-neutral-700'}`}>
+                      <p className={`text-[12px] leading-[18px] font-medium truncate ${isCurrent ? 'text-step-done' : 'text-[#364152]'}`}>
                         {isAr ? sec.titleAr : sec.title}
                       </p>
-                      <p className={`text-[10px] mt-0.5 ${getSidebarStatusColor(status)}`}>
+                      <p className={`text-[10px] leading-[15px] ${isCurrent ? 'text-step-done' : getSidebarStatusColor(status)}`}>
                         {getSidebarStatusLabel(status, isAr)}
                       </p>
                     </div>
@@ -198,10 +198,16 @@ export default function TenderForm({ onBack }: Props) {
               </div>
             )}
           </div>
-          {/* Footer: enlarged SIDF mark, partly cropped, as a quiet brand watermark */}
-          <div className="relative mt-auto h-36 shrink-0 overflow-hidden pointer-events-none select-none" aria-hidden="true">
-            <SidfMark className="absolute -bottom-10 -start-14 w-[300px] h-auto text-brand-600 opacity-[0.09] rtl:-scale-x-100" />
-          </div>
+
+          {/* Footer watermark: SIDF mark, enlarged and cropped (Figma asset "Frame 7") */}
+          <img
+            src={stepperWatermark}
+            alt=""
+            aria-hidden="true"
+            width={204}
+            height={96}
+            className="mt-auto block shrink-0 pointer-events-none select-none rtl:-scale-x-100"
+          />
         </aside>
 
         {/* Main form content */}
@@ -254,20 +260,20 @@ export default function TenderForm({ onBack }: Props) {
 function SidebarIcon({ status, active, num }: { status: SectionStatus; active: boolean; num: number }) {
   if (active) {
     return (
-      <div className="w-6 h-6 rounded-full bg-blue-900 flex items-center justify-center flex-shrink-0 shadow-sm">
-        <span className="text-white text-[10px] font-bold">{num}</span>
+      <div className="w-[21px] h-[21px] rounded-full bg-step-done flex items-center justify-center flex-shrink-0">
+        <span className="text-white text-[10px] leading-[15px] font-bold">{num}</span>
       </div>
     );
   }
   if (status === 'completed') {
-    return <CheckCircleIcon className="w-5 h-5 text-progress flex-shrink-0" />;
+    return <CheckCircleIcon className="w-[17.5px] h-[17.5px] text-step-done flex-shrink-0" />;
   }
   if (status === 'missing') {
-    return <ExclamationCircleIcon className="w-5 h-5 text-warning-600 flex-shrink-0" />;
+    return <ExclamationCircleIcon className="w-[17.5px] h-[17.5px] text-warning-600 flex-shrink-0" />;
   }
   return (
-    <div className="w-5 h-5 rounded-full border-2 border-neutral-300 flex items-center justify-center flex-shrink-0">
-      <span className="text-neutral-400 text-[9px] font-medium">{num}</span>
+    <div className="w-[17.5px] h-[17.5px] rounded-full border-2 border-[#C1C7CF] flex items-center justify-center flex-shrink-0">
+      <span className="text-[#9AA3AF] text-[9px] leading-[13.5px] font-medium">{num}</span>
     </div>
   );
 }
@@ -280,8 +286,8 @@ function getSidebarStatusLabel(s: SectionStatus, isAr: boolean) {
 }
 
 function getSidebarStatusColor(s: SectionStatus) {
-  if (s === 'completed') return 'text-success-600';
-  if (s === 'in-progress') return 'text-brand-600';
+  if (s === 'completed') return 'text-step-done';
+  if (s === 'in-progress') return 'text-step-done';
   if (s === 'missing') return 'text-warning-600';
-  return 'text-neutral-400';
+  return 'text-[#9AA3AF]';
 }

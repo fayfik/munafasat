@@ -107,7 +107,8 @@
   --color-nav-active: #E7F0E1;
   --color-nav-hover:  #F6F8F4;
   --color-link:       #2A6193;
-  --color-progress:   #1FD978;   /* progress bar + completed step ticks */
+  --color-step-done:    #3A9437;  /* stepper: progress bar, completed ticks, current step (Figma 125:3457) */
+  --color-step-current: #F3F8ED;  /* stepper: current step background */
 
   /* ── Shadows (tinted with neutral-900) ── */
   --shadow-sm: 0 1px 2px rgba(27, 31, 25, 0.06);
