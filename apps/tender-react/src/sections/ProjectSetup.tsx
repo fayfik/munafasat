@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
-import { COST_CENTERS, ALL_COST_CENTERS, PROJECTS } from '../data/mockData';
+import { COST_CENTERS, MORE_COST_CENTERS, ALL_COST_CENTERS, PROJECTS } from '../data/mockData';
+import { COST_CENTER_MODE } from '../lib/features';
 import CostCenterPicker from '../components/CostCenterPicker';
 import BrowseRfpsDialog from '../components/BrowseRfpsDialog';
 import { rfpsForProject, buildRfpImport, formatRfpDate, IMPORTED_SECTIONS_EN, IMPORTED_SECTIONS_AR, type PastRfp } from '../lib/rfpLibrary';
@@ -27,7 +28,11 @@ export default function ProjectSetup() {
   const [showRfpDialog, setShowRfpDialog] = useState(false);
 
   const hasTwoRoles = true;
-  const extraIds = formData.additionalCostCenterIds ?? [];
+  // See lib/features.ts: 'single' = one cost center per request, 'multi' = default + additional ones.
+  const multiCostCenters = COST_CENTER_MODE === 'multi';
+  const extraIds = multiCostCenters ? formData.additionalCostCenterIds ?? [] : [];
+  // Single mode: a cost center chosen from "View more" (not one of the tiles) shows as a pill.
+  const pickedFromList = !multiCostCenters ? MORE_COST_CENTERS.find((cc) => cc.id === formData.costCenterId) : undefined;
   // Projects from the default cost center and every additional one.
   const chosenCostCenterIds = [formData.costCenterId, ...extraIds].filter(Boolean);
   const availableProjects = PROJECTS.filter((p) => chosenCostCenterIds.includes(p.costCenterId));
@@ -35,7 +40,7 @@ export default function ProjectSetup() {
 
   function handleCostCenterChange(id: string) {
     updateField('costCenterId', id);
-    updateField('additionalCostCenterIds', extraIds.filter((x) => x !== id));
+    if (multiCostCenters) updateField('additionalCostCenterIds', extraIds.filter((x) => x !== id));
     const keep = selectedProject && (selectedProject.costCenterId === id || extraIds.includes(selectedProject.costCenterId));
     if (!keep) {
       updateField('projectId', '');
@@ -199,8 +204,28 @@ export default function ProjectSetup() {
                       ))}
                     </div>
 
+                    {/* Single mode: the cost center picked from the list shows as a removable pill */}
+                    {pickedFromList && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="inline-flex items-center gap-1.5 ps-3 pe-1 py-1 rounded-full border-2 border-brand-600 bg-brand-50 text-[13px] font-medium text-brand-700">
+                          {isAr ? pickedFromList.nameAr : pickedFromList.name}
+                          <span className="text-[11px] font-normal text-brand-600/80" dir="ltr">{pickedFromList.code}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleCostCenterChange('')}
+                            className="w-5 h-5 rounded-full inline-flex items-center justify-center text-brand-700 hover:bg-brand-100"
+                            aria-label={t(`Remove ${pickedFromList.name}`, `إزالة ${pickedFromList.nameAr}`)}
+                            title={t('Remove', 'إزالة')}
+                          >
+                            <XIcon className="w-3 h-3" />
+                          </button>
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Multi mode */}
                     {/* Additional cost centers (besides the default above) show as removable pills */}
-                    {extraCostCenters.length > 0 && (
+                    {multiCostCenters && extraCostCenters.length > 0 && (
                       <div>
                         <p className="text-xs text-neutral-500 mb-1.5">{t('Additional cost centers', 'مراكز تكلفة إضافية')}</p>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -223,7 +248,11 @@ export default function ProjectSetup() {
                       </div>
                     )}
 
-                    <CostCenterPicker options={ALL_COST_CENTERS.filter((cc) => cc.id !== formData.costCenterId && !extraIds.includes(cc.id))} selectedId="" onSelect={addCostCenter} />
+                    {multiCostCenters ? (
+                      <CostCenterPicker options={ALL_COST_CENTERS.filter((cc) => cc.id !== formData.costCenterId && !extraIds.includes(cc.id))} selectedId="" onSelect={addCostCenter} />
+                    ) : (
+                      <CostCenterPicker options={MORE_COST_CENTERS} selectedId={formData.costCenterId} onSelect={handleCostCenterChange} />
+                    )}
                   </div>
                 ) : (
                   <ReadOnlyField value={isAr ? COST_CENTERS[0].nameAr : COST_CENTERS[0].name} />

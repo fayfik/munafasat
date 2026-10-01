@@ -23,3 +23,10 @@ npm run dev
 ```
 
 `npm run build` writes a static build to `dist/`.
+
+## Switches
+
+- **Cost centers** (`src/lib/features.ts`, `DEFAULT_COST_CENTER_MODE`)
+  - `single` (default): one cost center per request — pick a tile, or pick one from "View more cost centers".
+  - `multi`: the tile is the default cost center and "View more cost centers" adds additional ones.
+  - Try the other behaviour without changing code by adding `?cc=multi` or `?cc=single` to the URL.
