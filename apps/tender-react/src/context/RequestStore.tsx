@@ -3,7 +3,7 @@
 // not available (e.g. the page is opened outside claude.ai).
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { getDb, getUser } from '../lib/claudeRuntime';
-import { MOCK_TENDERS, COST_CENTERS, PROJECTS } from '../data/mockData';
+import { MOCK_TENDERS, ALL_COST_CENTERS, PROJECTS } from '../data/mockData';
 import type { TenderDraft, TenderFormData, TenderStatus } from '../types/tender';
 
 export interface SavedRequest extends TenderDraft {
@@ -26,7 +26,7 @@ const Ctx = createContext<StoreCtx | null>(null);
 
 export function summarize(form: TenderFormData) {
   const p = PROJECTS.find((x) => x.id === form.projectId);
-  const cc = COST_CENTERS.find((x) => x.id === form.costCenterId);
+  const cc = ALL_COST_CENTERS.find((x) => x.id === form.costCenterId);
   const subtotal = form.boqItems.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0), 0);
   const total = subtotal * 1.15;
   return {

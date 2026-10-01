@@ -2,14 +2,14 @@
 // Each function returns null when AI is unavailable in this view so the
 // caller can fall back to the original sample content.
 import { askJson, askText } from './claudeRuntime';
-import { PROJECTS, COST_CENTERS, UNITS_OF_MEASURE } from '../data/mockData';
+import { PROJECTS, ALL_COST_CENTERS, UNITS_OF_MEASURE } from '../data/mockData';
 import type { TenderFormData } from '../types/tender';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 function context(f: TenderFormData, opts: { boq?: boolean; deliverables?: boolean; scope?: boolean } = {}): string {
   const p = PROJECTS.find((x) => x.id === f.projectId);
-  const cc = COST_CENTERS.find((x) => x.id === f.costCenterId);
+  const cc = ALL_COST_CENTERS.find((x) => x.id === f.costCenterId);
   const lines: string[] = [
     `Organization: Saudi Industrial Development Fund (SIDF), a Saudi government entity. Procurement follows the Saudi Government Tenders and Procurement Law and uses the Etimad platform.`,
     `Today's date: ${today()}. Every date you propose must be after today.`,

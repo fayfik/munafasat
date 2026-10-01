@@ -15,6 +15,19 @@ export const COST_CENTERS: CostCenter[] = [
   },
 ];
 
+/** Further cost centers the user can raise requests under, reached via "View more cost centers". */
+export const MORE_COST_CENTERS: CostCenter[] = [
+  { id: 'cc-1102', code: 'CC-1102', name: 'Finance & Accounting', nameAr: 'المالية والمحاسبة' },
+  { id: 'cc-1240', code: 'CC-1240', name: 'Human Capital', nameAr: 'رأس المال البشري' },
+  { id: 'cc-2210', code: 'CC-2210', name: 'Cybersecurity Office', nameAr: 'مكتب الأمن السيبراني' },
+  { id: 'cc-3020', code: 'CC-3020', name: 'Strategy & Performance', nameAr: 'الاستراتيجية والأداء' },
+  { id: 'cc-4410', code: 'CC-4410', name: 'Facilities & General Services', nameAr: 'المرافق والخدمات العامة' },
+  { id: 'cc-5105', code: 'CC-5105', name: 'Legal Affairs', nameAr: 'الشؤون القانونية' },
+  { id: 'cc-6001', code: 'CC-6001', name: 'Credit & Lending Operations', nameAr: 'عمليات الائتمان والإقراض' },
+];
+
+export const ALL_COST_CENTERS: CostCenter[] = [...COST_CENTERS, ...MORE_COST_CENTERS];
+
 export const PROJECTS: Project[] = [
   {
     id: 'proj-001',
@@ -113,6 +126,40 @@ export const PROJECTS: Project[] = [
         nameAr: 'شهادات SSL ورخص النطاق',
         type: 'consumables',
       },
+    ],
+  },
+  {
+    id: 'proj-101',
+    code: 'PRJ-2025-101',
+    costCenterId: 'cc-1102',
+    name: 'Finance Automation Platform',
+    nameAr: 'منصة أتمتة العمليات المالية',
+    purpose: 'Automate accounts payable, reconciliation and financial reporting to shorten the monthly close and improve audit readiness.',
+    purposeAr: 'أتمتة الحسابات الدائنة والتسويات والتقارير المالية لتقصير فترة الإقفال الشهري وتحسين الجاهزية للتدقيق.',
+    includes: 'Platform subscriptions, process automation services, integration with the ERP, and staff training.',
+    regulatoryRecords: 'Commercial Registration, NCA Compliance Certificate, ZATCA E-invoicing Compliance',
+    items: [
+      { id: 'item-101', name: 'Automation Platform Subscriptions', nameAr: 'اشتراكات منصة الأتمتة', type: 'assets' },
+      { id: 'item-102', name: 'Process Automation Services', nameAr: 'خدمات أتمتة العمليات', type: 'services' },
+      { id: 'item-103', name: 'ERP Integration Services', nameAr: 'خدمات التكامل مع نظام تخطيط الموارد', type: 'services' },
+      { id: 'item-104', name: 'Finance Staff Training', nameAr: 'تدريب موظفي المالية', type: 'services' },
+    ],
+  },
+  {
+    id: 'proj-401',
+    code: 'PRJ-2025-401',
+    costCenterId: 'cc-4410',
+    name: 'Head Office Workspace Refurbishment',
+    nameAr: 'تجديد مساحات العمل في المقر الرئيسي',
+    purpose: 'Refurbish two floors of the head office into modern open workspaces with meeting rooms and upgraded building services.',
+    purposeAr: 'تجديد طابقين في المقر الرئيسي إلى مساحات عمل مفتوحة حديثة مع قاعات اجتماعات وتحديث خدمات المبنى.',
+    includes: 'Design and fit-out works, office furniture, audio-visual equipment, and consumable supplies.',
+    regulatoryRecords: 'Commercial Registration, Saudi Contractors Authority Classification, Civil Defense Approval',
+    items: [
+      { id: 'item-401', name: 'Design & Fit-out Works', nameAr: 'أعمال التصميم والتجهيز', type: 'services' },
+      { id: 'item-402', name: 'Office Furniture', nameAr: 'الأثاث المكتبي', type: 'assets' },
+      { id: 'item-403', name: 'Audio-Visual Equipment', nameAr: 'المعدات السمعية والبصرية', type: 'assets' },
+      { id: 'item-404', name: 'Office Consumables', nameAr: 'المستلزمات المكتبية', type: 'consumables' },
     ],
   },
 ];

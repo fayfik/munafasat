@@ -64,6 +64,7 @@ const INITIAL: TenderFormData = {
   sourceType: 'tendering',
   costCenterId: '',
   projectId: '',
+  selectedProjectItemIds: [],
   tenderingPurpose: '',
   scopeOfWork: '',
   scopeTerms: '',

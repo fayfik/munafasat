@@ -161,7 +161,7 @@ export function Select({ className = '', error, children, value, onChange, disab
     const el = child as React.ReactElement<{ value?: string; children?: ReactNode; disabled?: boolean }>;
     options.push({
       value: String(el.props.value ?? ''),
-      label: String(el.props.children ?? ''),
+      label: React.Children.toArray(el.props.children).join(''),
       disabled: el.props.disabled,
     });
   });

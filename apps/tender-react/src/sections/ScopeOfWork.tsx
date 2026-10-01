@@ -58,6 +58,12 @@ export default function ScopeOfWork() {
   }
 
   const regulatoryRecords = selectedProject?.regulatoryRecords ?? '';
+  const includesChips = (selectedProject?.includes ?? '')
+    .replace(/\.$/, '')
+    .split(',')
+    .map((x) => x.trim().replace(/^and\s+/i, ''))
+    .filter(Boolean)
+    .map((x) => x.charAt(0).toUpperCase() + x.slice(1));
 
   return (
     <div className="space-y-5">
@@ -70,6 +76,22 @@ export default function ScopeOfWork() {
         action={<AIButton onClick={generateScope} loading={scopeLoading} label={t('Generate Scope', 'توليد النطاق')} />}
       >
         <div className="space-y-4">
+          {/* What the project includes — from the selected project, shown first on a tinted card */}
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3.5">
+            <p className="text-sm font-medium text-neutral-700">{t('What Does Your Project Include?', 'ماذا يتضمن مشروعك؟')}</p>
+            {includesChips.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {includesChips.map((chip) => (
+                  <span key={chip} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white text-neutral-700 border border-neutral-200">
+                    {chip}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-xs text-neutral-400">{t('Select a project in Project Setup to see what it includes.', 'اختر مشروعاً في إعداد المشروع لعرض ما يتضمنه.')}</p>
+            )}
+          </div>
+
           <FormField label="Project Scope of Work" labelAr="نطاق عمل المشروع" required>
             {scopeLoading ? (
               <div className="rounded-md border border-ai-200 bg-ai-50 p-4 ai-loading">

@@ -180,7 +180,9 @@ export default function BillOfQuantities() {
   }
 
   const selectedProject = PROJECTS.find((p) => p.id === formData.projectId);
-  const projectItems = selectedProject?.items ?? [];
+  // Items ticked in Project Setup; if none were ticked, offer all of the project's items.
+  const chosenIds = formData.selectedProjectItemIds ?? [];
+  const projectItems = (selectedProject?.items ?? []).filter((it) => chosenIds.length === 0 || chosenIds.includes(it.id));
 
   const rowTotal = (row: BOQRow) => {
     const q = typeof row.quantity === 'number' ? row.quantity : 0;

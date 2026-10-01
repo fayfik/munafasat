@@ -129,6 +129,8 @@ export interface TenderFormData {
   sourceType: SourceType;
   costCenterId: string;
   projectId: string;
+  /** Project items chosen for this tender (ids from the project's item list). */
+  selectedProjectItemIds?: string[];
   tenderingPurpose: string;
   scopeOfWork: string;
   scopeTerms: string;

@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
-import { COST_CENTERS, PROJECTS } from '../data/mockData';
+import { COST_CENTERS, MORE_COST_CENTERS, ALL_COST_CENTERS, PROJECTS } from '../data/mockData';
+import CostCenterPicker from '../components/CostCenterPicker';
 import { FormField, SectionCard, Select, ReadOnlyField, Textarea, Badge, Button, InfoBanner, AIButton } from '../components/ui';
-import { SparklesIcon, SearchIcon, ChevronRightIcon, ClockIcon, CheckCircleIcon } from '../components/Icons';
+import { SparklesIcon, SearchIcon, ChevronRightIcon, ClockIcon, CheckCircleIcon, CheckIcon, XIcon } from '../components/Icons';
 import type { ProjectItemType } from '../types/tender';
 import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiPurpose } from '../lib/aiTender';
@@ -52,11 +53,26 @@ export default function ProjectSetup() {
   function handleCostCenterChange(id: string) {
     updateField('costCenterId', id);
     updateField('projectId', '');
+    updateField('selectedProjectItemIds', []);
     setShowAISuggestion(false);
+  }
+
+  const extraCostCenter = MORE_COST_CENTERS.find((cc) => cc.id === formData.costCenterId);
+  const selectedItemIds = formData.selectedProjectItemIds ?? [];
+
+  function toggleItem(id: string) {
+    updateField('selectedProjectItemIds', selectedItemIds.includes(id) ? selectedItemIds.filter((x) => x !== id) : [...selectedItemIds, id]);
+  }
+
+  function toggleAllItems() {
+    if (!selectedProject) return;
+    const all = selectedProject.items.map((i) => i.id);
+    updateField('selectedProjectItemIds', selectedItemIds.length === all.length ? [] : all);
   }
 
   function handleProjectChange(id: string) {
     updateField('projectId', id);
+    updateField('selectedProjectItemIds', []);
     const proj = PROJECTS.find((p) => p.id === id);
     if (proj) updateField('tenderingPurpose', proj.purpose);
     setShowAISuggestion(false);
@@ -143,31 +159,56 @@ export default function ProjectSetup() {
                 ) : undefined}
               >
                 {hasTwoRoles ? (
-                  <div className="flex gap-3 mt-1">
-                    {COST_CENTERS.map((cc) => (
-                      <button
-                        key={cc.id}
-                        type="button"
-                        onClick={() => handleCostCenterChange(cc.id)}
-                        className={`flex-1 rounded-xl border-2 px-4 py-3 text-start transition-all ${
-                          formData.costCenterId === cc.id
-                            ? 'border-brand-600 bg-brand-50'
-                            : 'border-neutral-200 bg-white hover:border-neutral-300'
-                        }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${formData.costCenterId === cc.id ? 'border-brand-600 bg-brand-600' : 'border-neutral-400'}`}>
-                            {formData.costCenterId === cc.id && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  <div className="mt-1 space-y-3">
+                    <div className="flex gap-3">
+                      {COST_CENTERS.map((cc) => (
+                        <button
+                          key={cc.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={formData.costCenterId === cc.id}
+                          onClick={() => handleCostCenterChange(cc.id)}
+                          className={`flex-1 rounded-xl border-2 px-4 py-3 text-start transition-all ${
+                            formData.costCenterId === cc.id
+                              ? 'border-brand-600 bg-brand-50'
+                              : 'border-neutral-200 bg-white hover:border-neutral-300'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${formData.costCenterId === cc.id ? 'border-brand-600 bg-brand-600' : 'border-neutral-400'}`}>
+                              {formData.costCenterId === cc.id && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                            <div>
+                              <p className={`text-sm font-medium ${formData.costCenterId === cc.id ? 'text-brand-700' : 'text-neutral-700'}`}>
+                                {isAr ? cc.nameAr : cc.name}
+                              </p>
+                              <p className="text-xs text-neutral-400">{cc.code}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className={`text-sm font-medium ${formData.costCenterId === cc.id ? 'text-brand-700' : 'text-neutral-700'}`}>
-                              {isAr ? cc.nameAr : cc.name}
-                            </p>
-                            <p className="text-xs text-neutral-400">{cc.code}</p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* A cost center picked from the full list shows as a removable pill */}
+                    {extraCostCenter && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="inline-flex items-center gap-1.5 ps-3 pe-1 py-1 rounded-full border-2 border-brand-600 bg-brand-50 text-[13px] font-medium text-brand-700">
+                          {isAr ? extraCostCenter.nameAr : extraCostCenter.name}
+                          <span className="text-[11px] font-normal text-brand-600/80" dir="ltr">{extraCostCenter.code}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleCostCenterChange('')}
+                            className="w-5 h-5 rounded-full inline-flex items-center justify-center text-brand-700 hover:bg-brand-100"
+                            aria-label={t(`Remove ${extraCostCenter.name}`, `إزالة ${extraCostCenter.nameAr}`)}
+                            title={t('Remove', 'إزالة')}
+                          >
+                            <XIcon className="w-3 h-3" />
+                          </button>
+                        </span>
+                      </div>
+                    )}
+
+                    <CostCenterPicker options={MORE_COST_CENTERS} selectedId={formData.costCenterId} onSelect={handleCostCenterChange} />
                   </div>
                 ) : (
                   <ReadOnlyField value={isAr ? COST_CENTERS[0].nameAr : COST_CENTERS[0].name} />
@@ -188,6 +229,9 @@ export default function ProjectSetup() {
                         <option key={p.id} value={p.id}>{isAr ? p.nameAr : p.name} ({p.code})</option>
                       ))}
                     </Select>
+                    {availableProjects.length === 0 && (
+                      <p className="mt-1.5 text-xs text-warning-700">{t('No budgeted projects under this cost center yet.', 'لا توجد مشاريع مدرجة في الميزانية تحت مركز التكلفة هذا بعد.')}</p>
+                    )}
                   </FormField>
 
                   {selectedProject && (
@@ -199,6 +243,60 @@ export default function ProjectSetup() {
                         <FormField label="Project Name (Arabic)" labelAr="اسم المشروع (بالعربية)" readOnly>
                           <ReadOnlyField value={selectedProject.nameAr} />
                         </FormField>
+                      </div>
+
+                      {/* Project Items — choose which items this tender covers */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm font-medium text-neutral-700">
+                            {t('Project Items', 'بنود المشروع')}
+                            <span className="ms-1.5 text-xs text-neutral-400 font-normal">{t('Auto-fetched', 'مجلوب تلقائياً')}</span>
+                          </p>
+                          <span className="text-xs text-neutral-500">
+                            {t(`${selectedItemIds.length} of ${selectedProject.items.length} selected`, `${selectedItemIds.length} من ${selectedProject.items.length} محددة`)}
+                          </span>
+                        </div>
+                        <div className="rounded-xl border border-neutral-200 overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-neutral-50 border-b border-neutral-200">
+                                <th className="w-12 ps-4 py-2.5">
+                                  <ItemCheckbox
+                                    checked={selectedItemIds.length === selectedProject.items.length}
+                                    mixed={selectedItemIds.length > 0 && selectedItemIds.length < selectedProject.items.length}
+                                    onChange={toggleAllItems}
+                                    label={t('Select all project items', 'تحديد جميع بنود المشروع')}
+                                  />
+                                </th>
+                                <th className="text-start px-3 py-2.5 text-xs font-medium text-neutral-500">{t('Item', 'البند')}</th>
+                                <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Arabic Name', 'الاسم بالعربية')}</th>
+                                <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Type', 'النوع')}</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-neutral-100">
+                              {selectedProject.items.map((item) => {
+                                const checked = selectedItemIds.includes(item.id);
+                                return (
+                                  <tr
+                                    key={item.id}
+                                    onClick={() => toggleItem(item.id)}
+                                    className={`cursor-pointer transition-colors ${checked ? 'bg-brand-50/60' : 'bg-white hover:bg-neutral-50'}`}
+                                  >
+                                    <td className="ps-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                      <ItemCheckbox checked={checked} onChange={() => toggleItem(item.id)} label={item.name} />
+                                    </td>
+                                    <td className="px-3 py-3 text-neutral-700 font-medium">{item.name}</td>
+                                    <td className="px-4 py-3 text-neutral-500 text-xs" dir="rtl">{item.nameAr}</td>
+                                    <td className="px-4 py-3">{TYPE_BADGE[item.type]}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        {selectedItemIds.length === 0 && (
+                          <p className="mt-1.5 text-xs text-neutral-400">{t('Select the items this tender covers. They become the project items you can add to the Bill of Quantities.', 'حدد البنود التي تشملها هذه المنافسة. ستظهر كبنود مشروع يمكن إضافتها إلى جدول الكميات.')}</p>
+                        )}
                       </div>
 
                       <FormField
@@ -214,54 +312,6 @@ export default function ProjectSetup() {
                         />
                         <AiNote error={purposeAi.error} usedSample={purposeAi.usedSample} />
                       </FormField>
-
-                      <FormField label="What Does Your Project Include?" labelAr="ماذا يتضمن مشروعك؟" readOnly>
-                        <div className="flex flex-wrap gap-1.5 py-1">
-                          {selectedProject.includes
-                            .replace(/\.$/, '')
-                            .split(',')
-                            .map((s) => s.trim().replace(/^and\s+/i, ''))
-                            .filter(Boolean)
-                            .map((chip) => (
-                              <span
-                                key={chip}
-                                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200"
-                              >
-                                {chip.charAt(0).toUpperCase() + chip.slice(1)}
-                              </span>
-                            ))}
-                        </div>
-                      </FormField>
-
-                      {/* Project Items */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-sm font-medium text-neutral-700">
-                            {t('Project Items', 'بنود المشروع')}
-                            <span className="ms-1.5 text-xs text-neutral-400 font-normal">{t('Auto-fetched', 'مجلوب تلقائياً')}</span>
-                          </label>
-                        </div>
-                        <div className="rounded-xl border border-neutral-200 overflow-hidden">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="bg-neutral-50 border-b border-neutral-200">
-                                <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Item', 'البند')}</th>
-                                <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Arabic Name', 'الاسم بالعربية')}</th>
-                                <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Type', 'النوع')}</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-neutral-100">
-                              {selectedProject.items.map((item) => (
-                                <tr key={item.id} className="bg-white">
-                                  <td className="px-4 py-2.5 text-neutral-700 font-medium">{item.name}</td>
-                                  <td className="px-4 py-2.5 text-neutral-500 text-xs" dir="rtl">{item.nameAr}</td>
-                                  <td className="px-4 py-2.5">{TYPE_BADGE[item.type]}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
 
                     </>
                   )}
@@ -477,7 +527,7 @@ export default function ProjectSetup() {
             <FormField label="Cost Center" labelAr="مركز التكلفة" required>
               <Select value={formData.costCenterId} onChange={(e) => handleCostCenterChange(e.target.value)}>
                 <option value="">{t('Select cost center…', 'اختر مركز التكلفة…')}</option>
-                {COST_CENTERS.map((cc) => (
+                {ALL_COST_CENTERS.map((cc) => (
                   <option key={cc.id} value={cc.id}>{isAr ? cc.nameAr : cc.name} ({cc.code})</option>
                 ))}
               </Select>
@@ -496,5 +546,24 @@ export default function ProjectSetup() {
         </SectionCard>
       )}
     </div>
+  );
+}
+
+/** Square checkbox used in the project items table (supports a mixed state for "select all"). */
+function ItemCheckbox({ checked, mixed, onChange, label }: { checked: boolean; mixed?: boolean; onChange: () => void; label: string }) {
+  const on = checked || mixed;
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={mixed ? 'mixed' : checked}
+      aria-label={label}
+      onClick={onChange}
+      className={`w-[18px] h-[18px] rounded-[5px] border-[1.5px] flex items-center justify-center transition-colors ${
+        on ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-neutral-300 hover:border-neutral-400'
+      }`}
+    >
+      {checked ? <CheckIcon className="w-3 h-3" /> : mixed ? <span className="w-2 h-[2px] rounded bg-white" /> : null}
+    </button>
   );
 }

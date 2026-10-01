@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTender, SECTIONS } from '../context/TenderContext';
 import { useLanguage, useT } from '../context/LanguageContext';
-import { PROJECTS, COST_CENTERS } from '../data/mockData';
+import { PROJECTS, ALL_COST_CENTERS } from '../data/mockData';
 import { SectionCard, Button, Badge, InfoBanner } from '../components/ui';
 import { CheckCircleIcon, ExclamationCircleIcon, PencilIcon, SparklesIcon, AlertTriangleIcon, CheckIcon } from '../components/Icons';
 import type { SectionStatus } from '../types/tender';
@@ -24,7 +24,7 @@ export default function ReviewConfirm() {
   const [aiSummaryText, setAiSummaryText] = useState<string | null>(null);
 
   const selectedProject = PROJECTS.find((p) => p.id === formData.projectId);
-  const selectedCC = COST_CENTERS.find((c) => c.id === formData.costCenterId);
+  const selectedCC = ALL_COST_CENTERS.find((c) => c.id === formData.costCenterId);
 
   const incompleteSections = sectionStatuses
     .map((s, i) => ({ status: s, section: SECTIONS[i], idx: i }))
