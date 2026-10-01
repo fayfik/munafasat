@@ -92,7 +92,7 @@ function formatSAR(n: number) {
   return new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
-const AI_BOQ_ROWS = [
+export const AI_BOQ_ROWS = [
   { projectItem: 'ERP Software Licenses', itemName: 'SAP S/4HANA Enterprise License', itemDescription: 'Named user licenses — Professional access (full module access)', unitOfMeasure: 'License', quantity: 500, unitPrice: 2800, deliveryDate: '2025-12-01' },
   { projectItem: 'ERP Software Licenses', itemName: 'SAP S/4HANA Enterprise License', itemDescription: 'Named user licenses — Limited access (read-only + reporting)', unitOfMeasure: 'License', quantity: 200, unitPrice: 1200, deliveryDate: '2025-12-01' },
   { projectItem: 'Implementation & Configuration Services', itemName: 'Project Management Services', itemDescription: 'Dedicated project manager for full project duration', unitOfMeasure: 'Month', quantity: 18, unitPrice: 45000, deliveryDate: '2026-06-30' },
@@ -122,7 +122,8 @@ export default function BillOfQuantities() {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newItem, setNewItem] = useState({ ...EMPTY_FORM });
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  // Groups start open, so items added elsewhere (AI, import) are visible right away.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(formData.boqItems.map((r) => r.projectItem || 'Unclassified')));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [checkingIds, setCheckingIds] = useState<Set<string>>(new Set());
   const [etimadError, setEtimadError] = useState('');

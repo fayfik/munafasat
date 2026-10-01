@@ -1,10 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { COST_CENTERS, MORE_COST_CENTERS, ALL_COST_CENTERS, PROJECTS } from '../data/mockData';
 import CostCenterPicker from '../components/CostCenterPicker';
-import { FormField, SectionCard, Select, ReadOnlyField, Textarea, Badge, Button, InfoBanner, AIButton } from '../components/ui';
-import { SparklesIcon, SearchIcon, ChevronRightIcon, ClockIcon, CheckCircleIcon, CheckIcon, XIcon } from '../components/Icons';
+import BrowseRfpsDialog from '../components/BrowseRfpsDialog';
+import { rfpsForProject, buildRfpImport, formatRfpDate, IMPORTED_SECTIONS_EN, IMPORTED_SECTIONS_AR, type PastRfp } from '../lib/rfpLibrary';
+import type { TenderFormData } from '../types/tender';
+import { FormField, SectionCard, Select, ReadOnlyField, Textarea, Badge, InfoBanner, AIButton } from '../components/ui';
+import { CheckCircleIcon, CheckIcon, XIcon, WandIcon, ArrowLeftIcon } from '../components/Icons';
 import type { ProjectItemType } from '../types/tender';
 import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiPurpose } from '../lib/aiTender';
@@ -15,46 +18,23 @@ const TYPE_BADGE: Record<ProjectItemType, React.ReactElement> = {
   consumables: <Badge variant="consumables">Consumables</Badge>,
 };
 
-const SIMILAR_PROJECTS_DATA = [
-  { id: 'sp-1', name: 'ERP Implementation Phase 1', nameAr: 'تطبيق ERP المرحلة الأولى', category: 'ERP', dept: 'IT & Digital Transformation', costCenter: 'IT-2024', date: '15 Mar 2024', owner: 'Mohammed Al-Qahtani', value: 'SAR 1.8M', match: 94 },
-  { id: 'sp-2', name: 'SAP S/4HANA Migration', nameAr: 'ترحيل SAP S/4HANA', category: 'ERP', dept: 'Finance', costCenter: 'FIN-2023', date: '20 Nov 2023', owner: 'Ahmed Al-Rashidi', value: 'SAR 2.1M', match: 87 },
-  { id: 'sp-3', name: 'Oracle ERP Upgrade', nameAr: 'ترقية Oracle ERP', category: 'ERP', dept: 'IT & Digital Transformation', costCenter: 'IT-2022', date: '08 Jun 2022', owner: 'Sarah Al-Otaibi', value: 'SAR 1.2M', match: 81 },
-];
-
-const ALL_PAST_PROJECTS = [
-  ...SIMILAR_PROJECTS_DATA,
-  { id: 'sp-4', name: 'Network Infrastructure Expansion', nameAr: 'توسعة البنية التحتية للشبكة', category: 'Network', dept: 'IT & Digital Transformation', costCenter: 'IT-2024', date: '22 Jul 2024', owner: 'Mohammed Al-Qahtani', value: 'SAR 950K', match: 0 },
-  { id: 'sp-5', name: 'Cloud Migration Phase II', nameAr: 'الترحيل السحابي المرحلة الثانية', category: 'Cloud', dept: 'IT & Digital Transformation', costCenter: 'IT-2024', date: '08 Dec 2024', owner: 'Ahmed Al-Rashidi', value: 'SAR 3.4M', match: 0 },
-  { id: 'sp-6', name: 'HR Management System', nameAr: 'نظام إدارة الموارد البشرية', category: 'HR', dept: 'Human Resources', costCenter: 'HR-2023', date: '01 Feb 2023', owner: 'Fatima Al-Zahrani', value: 'SAR 780K', match: 0 },
-];
-
 export default function ProjectSetup() {
-  const { formData, updateField, goToSection, setImportedFromProject } = useTender();
+  const { formData, updateField, setImportedFromProject, rfpImport, setRfpImport } = useTender();
   const { isAr } = useLanguage();
   const t = useT();
-  const [showAISuggestion, setShowAISuggestion] = useState(false);
   const purposeAi = useAiAction();
   const purposeAiLoading = purposeAi.loading;
-  const [showBrowsePanel, setShowBrowsePanel] = useState(false);
-  const [browseSearch, setBrowseSearch] = useState('');
-  const [browseTab, setBrowseTab] = useState<'similar' | 'recent'>('similar');
-  const similarRef = useRef<HTMLDivElement>(null);
+  const [showRfpDialog, setShowRfpDialog] = useState(false);
 
   const hasTwoRoles = true;
   const availableProjects = PROJECTS.filter((p) => p.costCenterId === formData.costCenterId);
   const selectedProject = PROJECTS.find((p) => p.id === formData.projectId);
 
-  useEffect(() => {
-    if (showAISuggestion && similarRef.current) {
-      setTimeout(() => similarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-    }
-  }, [showAISuggestion]);
-
   function handleCostCenterChange(id: string) {
     updateField('costCenterId', id);
     updateField('projectId', '');
     updateField('selectedProjectItemIds', []);
-    setShowAISuggestion(false);
+    setRfpImport(null);
   }
 
   const extraCostCenter = MORE_COST_CENTERS.find((cc) => cc.id === formData.costCenterId);
@@ -75,8 +55,7 @@ export default function ProjectSetup() {
     updateField('selectedProjectItemIds', []);
     const proj = PROJECTS.find((p) => p.id === id);
     if (proj) updateField('tenderingPurpose', proj.purpose);
-    setShowAISuggestion(false);
-    setTimeout(() => setShowAISuggestion(true), 500);
+    setRfpImport(null);
   }
 
   function handleAIGeneratePurpose() {
@@ -90,16 +69,25 @@ export default function ProjectSetup() {
     purposeAi.run(() => aiPurpose(formData, isAr), (text) => updateField('tenderingPurpose', text), sample);
   }
 
-  function handleFetchDetails(projectName: string) {
-    setImportedFromProject(projectName);
-    goToSection(8);
+  // Import a past RFP: pre-fills the later sections; the previous values are kept for Undo.
+  function handleImport(rfp: PastRfp) {
+    const patch = buildRfpImport(rfp, formData);
+    const previous: Partial<TenderFormData> = {};
+    (Object.keys(patch) as (keyof TenderFormData)[]).forEach((k) => { (previous as Record<string, unknown>)[k] = formData[k]; });
+    (Object.entries(patch) as [keyof TenderFormData, TenderFormData[keyof TenderFormData]][]).forEach(([k, v]) => updateField(k, v));
+    setImportedFromProject(isAr ? rfp.titleAr : rfp.title);
+    setRfpImport({ rfpId: rfp.id, code: rfp.code, previous });
+    setShowRfpDialog(false);
   }
 
-  const filteredBrowse = ALL_PAST_PROJECTS.filter((p) => {
-    const q = browseSearch.toLowerCase();
-    if (!q) return browseTab === 'similar' ? p.match > 0 : true;
-    return (p.name.toLowerCase().includes(q) || p.dept.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
-  }).filter((p) => browseTab === 'similar' ? p.match > 0 : true);
+  function undoImport() {
+    if (!rfpImport) return;
+    (Object.entries(rfpImport.previous) as [keyof TenderFormData, TenderFormData[keyof TenderFormData]][]).forEach(([k, v]) => updateField(k, v));
+    setImportedFromProject(null);
+    setRfpImport(null);
+  }
+
+  const similarRfps = selectedProject ? rfpsForProject(selectedProject.id).slice(0, 3) : [];
 
   return (
     <div className="space-y-5">
@@ -313,6 +301,76 @@ export default function ProjectSetup() {
                         <AiNote error={purposeAi.error} usedSample={purposeAi.usedSample} />
                       </FormField>
 
+                      {/* Similar RFPs in this project — import one to pre-fill the later sections */}
+                      <div className="rounded-xl bg-neutral-100 p-3.5">
+                        <p className="flex items-center gap-2 text-[13px] font-semibold text-neutral-600 px-0.5">
+                          <WandIcon className="w-4 h-4 text-ai-600" />
+                          {t('Similar RFPs created within this project', 'طلبات عروض مماثلة ضمن هذا المشروع')}
+                        </p>
+
+                        {rfpImport && (
+                          <div className="mt-2.5 flex items-start gap-2 rounded-lg border border-success-100 bg-success-50 px-3 py-2.5" role="status">
+                            <CheckCircleIcon className="w-4 h-4 text-success-600 mt-0.5 flex-shrink-0" />
+                            <p className="flex-1 text-[12px] text-success-700">
+                              {t(
+                                `Imported ${rfpImport.code}. ${IMPORTED_SECTIONS_EN.join(', ')} are now pre-filled. Review each section before submitting.`,
+                                `تم استيراد ${rfpImport.code}. تمت تعبئة ${IMPORTED_SECTIONS_AR.join('، ')} مسبقاً. راجع كل قسم قبل التقديم.`
+                              )}
+                            </p>
+                            <button type="button" onClick={undoImport} className="text-[12px] font-semibold text-success-700 hover:underline flex-shrink-0">
+                              {t('Undo', 'تراجع')}
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="mt-2.5 space-y-2.5">
+                          {similarRfps.length === 0 && (
+                            <p className="rounded-lg bg-white border border-neutral-200 px-4 py-3 text-[12px] text-neutral-500">
+                              {t('No RFPs have been created within this project yet. You can still import from any past RFP.', 'لم يُنشأ أي طلب عروض ضمن هذا المشروع بعد. يمكنك الاستيراد من أي طلب سابق.')}
+                            </p>
+                          )}
+                          {similarRfps.map((r) => {
+                            const isImported = rfpImport?.rfpId === r.id;
+                            return (
+                              <div key={r.id} className="flex items-center justify-between gap-4 rounded-lg border border-neutral-200 bg-white px-4 py-3">
+                                <div className="min-w-0">
+                                  <p className="text-[14px] font-semibold text-neutral-900 truncate">{isAr ? r.titleAr : r.title}</p>
+                                  <p className="text-[12px] text-neutral-500 mt-0.5">
+                                    <span dir="ltr">{r.code}</span> · {t('Created', 'أُنشئ')} {formatRfpDate(r.created, isAr)}
+                                  </p>
+                                </div>
+                                {isImported ? (
+                                  <span className="inline-flex items-center gap-1 px-3 py-1.5 text-[13px] font-semibold text-success-700">
+                                    <CheckIcon className="w-3.5 h-3.5" />{t('Imported', 'تم الاستيراد')}
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleImport(r)}
+                                    className="px-4 py-1.5 rounded-lg border border-brand-600 bg-white text-[13px] font-semibold text-brand-700 hover:bg-brand-50 transition-colors flex-shrink-0"
+                                  >
+                                    {t('Import', 'استيراد')}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowRfpDialog(true)}
+                          className="mt-2.5 inline-flex items-center gap-1.5 px-0.5 text-[13px] font-semibold text-link hover:underline underline-offset-2"
+                        >
+                          {t('Browse all RFPs', 'تصفح جميع طلبات العروض')}
+                          <ArrowLeftIcon className="w-3.5 h-3.5 ltr:rotate-180" />
+                        </button>
+                      </div>
+
+                      {showRfpDialog && (
+                        <BrowseRfpsDialog projectId={selectedProject.id} onClose={() => setShowRfpDialog(false)} onImport={handleImport} />
+                      )}
+
                     </>
                   )}
                 </>
@@ -320,198 +378,6 @@ export default function ProjectSetup() {
             </div>
           </SectionCard>
 
-          {/* Similar Previous Projects */}
-          {showAISuggestion && selectedProject && (
-            <div ref={similarRef}>
-              <SectionCard
-                className="border-ai-200 bg-ai-50/30"
-                title="Similar previous projects"
-                titleAr="مشاريع مماثلة سابقة"
-                description="Based on your project, these past tenders are the closest match. Fetch details to pre-fill all sections."
-                descriptionAr="بناءً على مشروعك، هذه المنافسات السابقة هي الأقرب تطابقاً. اجلب التفاصيل لملء جميع الأقسام تلقائياً."
-                action={
-                  <button onClick={() => setShowAISuggestion(false)} className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors">
-                    {t('Dismiss', 'إغلاق')}
-                  </button>
-                }
-              >
-                <div className="space-y-3">
-                  {/* AI badge */}
-                  <div className="flex items-center gap-2">
-                    <SparklesIcon className="w-3.5 h-3.5 text-ai-600" />
-                    <span className="text-xs text-ai-700 font-medium">
-                      {t(
-                        `${SIMILAR_PROJECTS_DATA.length} similar projects found in procurement history`,
-                        `${SIMILAR_PROJECTS_DATA.length} مشاريع مماثلة وُجدت في سجل المشتريات`
-                      )}
-                    </span>
-                  </div>
-
-                  {/* Project cards */}
-                  {SIMILAR_PROJECTS_DATA.map((sp) => (
-                    <div key={sp.id} className="bg-white rounded-xl border border-neutral-200 px-5 py-4 shadow-sm">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-[13px] font-semibold text-neutral-900">{isAr ? sp.nameAr : sp.name}</p>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-ai-50 text-ai-700 border border-ai-200">
-                              {sp.category}
-                            </span>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-success-50 text-success-700 border border-success-200">
-                              {sp.match}% {t('match', 'تطابق')}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-neutral-400 flex-wrap">
-                            <span>{sp.dept}</span>
-                            <span>·</span>
-                            <span className="flex items-center gap-1">
-                              <ClockIcon className="w-3 h-3" />{sp.date}
-                            </span>
-                            <span>·</span>
-                            <span>{sp.owner}</span>
-                            <span>·</span>
-                            <span className="font-medium text-neutral-600" dir="ltr">{sp.value}</span>
-                          </div>
-                        </div>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => handleFetchDetails(isAr ? sp.nameAr : sp.name)}
-                        >
-                          {t('Fetch Details', 'جلب التفاصيل')}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Hint */}
-                  <p className="text-[11px] text-neutral-400 text-center px-4">
-                    {t(
-                      `Fetching details pre-fills procurement sections for "${isAr ? selectedProject.nameAr : selectedProject.name}". You can review and adjust all fields.`,
-                      `جلب التفاصيل يملأ أقسام المشتريات لـ "${selectedProject.nameAr}" تلقائياً. يمكنك مراجعة جميع الحقول وتعديلها.`
-                    )}
-                  </p>
-
-                  {/* Divider + Browse all */}
-                  <div className="flex items-center gap-3 mt-1">
-                    <div className="flex-1 h-px bg-neutral-200" />
-                    <span className="text-[11px] text-neutral-400 font-medium uppercase tracking-wide">{t('or', 'أو')}</span>
-                    <div className="flex-1 h-px bg-neutral-200" />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowBrowsePanel((v) => !v)}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-[13px] font-medium text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300 transition-all shadow-sm"
-                  >
-                    <ClockIcon className="w-4 h-4 text-neutral-400" />
-                    {t('Browse all previous projects', 'تصفح جميع المشاريع السابقة')}
-                    <ChevronRightIcon className={`w-3.5 h-3.5 text-neutral-400 transition-transform ${showBrowsePanel ? 'rotate-90' : ''}`} />
-                  </button>
-
-                  {/* Browse panel — in-flow */}
-                  {showBrowsePanel && (
-                    <div className="rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden mt-1">
-                      {/* Panel header */}
-                      <div className="px-5 py-4 border-b border-neutral-100 bg-neutral-50/60">
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div>
-                            <p className="text-[13px] font-semibold text-neutral-900">{t('Choose a Template', 'اختر نموذجاً')}</p>
-                            <p className="text-[11px] text-neutral-500 mt-0.5">{t('Import procurement details from a past project and adjust as needed', 'استورد تفاصيل المشتريات من مشروع سابق وعدّلها حسب الحاجة')}</p>
-                          </div>
-                          <button
-                            onClick={() => setShowBrowsePanel(false)}
-                            className="text-neutral-400 hover:text-neutral-600 transition-colors flex-shrink-0 mt-0.5"
-                          >
-                            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                            </svg>
-                          </button>
-                        </div>
-
-                        {/* Search */}
-                        <div className="relative">
-                          <SearchIcon className="w-3.5 h-3.5 text-neutral-400 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          <input
-                            type="text"
-                            value={browseSearch}
-                            onChange={(e) => setBrowseSearch(e.target.value)}
-                            placeholder={t('Search by name, category, department…', 'ابحث بالاسم أو الفئة أو القسم…')}
-                            className="w-full ps-8 pe-3 py-2 text-[12px] border border-neutral-200 rounded-lg bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-400/20 focus:outline-none placeholder-neutral-400"
-                          />
-                        </div>
-
-                        {/* Tabs */}
-                        <div className="flex gap-1 mt-3 p-1 bg-neutral-100 rounded-lg">
-                          {(['similar', 'recent'] as const).map((tab) => (
-                            <button
-                              key={tab}
-                              onClick={() => setBrowseTab(tab)}
-                              className={`flex-1 py-1.5 rounded-md text-[12px] font-medium transition-all ${
-                                browseTab === tab ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
-                              }`}
-                            >
-                              {tab === 'similar' ? t('Similar Projects', 'مشاريع مماثلة') : t('Recently Used', 'المستخدمة مؤخراً')}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Results */}
-                      <div className="divide-y divide-neutral-100 max-h-96 overflow-y-auto">
-                        {filteredBrowse.length === 0 ? (
-                          <div className="px-5 py-10 text-center text-[12px] text-neutral-400">
-                            {t('No projects found.', 'لا توجد مشاريع.')}
-                          </div>
-                        ) : filteredBrowse.map((p) => (
-                          <div key={p.id} className="px-5 py-4 hover:bg-neutral-50/60 transition-colors">
-                            <div className="flex items-start justify-between gap-4 mb-3">
-                              <div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="text-[13px] font-semibold text-neutral-900">{isAr ? p.nameAr : p.name}</p>
-                                  <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-100 text-neutral-600 border border-neutral-200">
-                                    {p.category}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-x-6 gap-y-2 mb-3">
-                              <div>
-                                <p className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wide mb-0.5">{t('Dept · Cost Center', 'القسم · مركز التكلفة')}</p>
-                                <p className="text-[11px] text-neutral-700">{p.dept} · {p.costCenter}</p>
-                              </div>
-                              <div>
-                                <p className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wide mb-0.5">{t('Status', 'الحالة')}</p>
-                                <p className="text-[11px] text-success-700 font-medium flex items-center gap-1">
-                                  <CheckCircleIcon className="w-3 h-3" /> {t('Completed', 'مكتمل')}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wide mb-0.5">{t('Last Modified', 'آخر تعديل')}</p>
-                                <p className="text-[11px] text-neutral-700">{p.date}</p>
-                              </div>
-                              <div>
-                                <p className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wide mb-0.5">{t('Created by', 'أنشأه')}</p>
-                                <p className="text-[11px] text-neutral-700">{p.owner}</p>
-                              </div>
-                            </div>
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={() => { setShowBrowsePanel(false); handleFetchDetails(isAr ? p.nameAr : p.name); }}
-                              className="w-full justify-center"
-                            >
-                              {t('Fetch Details', 'جلب التفاصيل')}
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </SectionCard>
-            </div>
-          )}
         </>
       )}
 

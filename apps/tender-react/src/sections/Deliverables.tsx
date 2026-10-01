@@ -6,7 +6,7 @@ import { aiDeliverables, type AiDeliverable } from '../lib/aiTender';
 import { FormField, SectionCard, Input, Textarea, Select, AIButton } from '../components/ui';
 import { PlusIcon, TrashIcon, SparklesIcon } from '../components/Icons';
 
-const AI_DELIVERABLES = [
+export const AI_DELIVERABLES = [
   { phase: 'Phase 1', deliverableName: 'Project Kickoff & Initiation', deliveryDate: '2025-11-30', description: 'Project kickoff meeting, charter sign-off, detailed project plan, resource allocation plan, and communication plan.' },
   { phase: 'Phase 2', deliverableName: 'System Design & Architecture', deliveryDate: '2026-01-31', description: 'Solution architecture document, integration design, data migration plan, infrastructure specifications, and design approval sign-off.' },
   { phase: 'Phase 3', deliverableName: 'System Build & Configuration', deliveryDate: '2026-03-31', description: 'Fully configured ERP system in staging environment, completed data migration, and integration testing reports.' },

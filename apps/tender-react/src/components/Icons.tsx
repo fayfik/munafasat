@@ -236,3 +236,12 @@ export function SidfMark({ className = '', ...p }: IconProps) {
     </svg>
   );
 }
+
+export function WandIcon({ className = 'w-4 h-4', ...p }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M3.5 16.5l9-9M11 6l3 3" />
+      <path d="M15 2.5v2.5M13.75 3.75h2.5M16.5 9.5v2M15.5 10.5h2M8 2.5v1.5M7.25 3.25h1.5" />
+    </svg>
+  );
+}

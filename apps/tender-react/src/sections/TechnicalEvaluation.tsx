@@ -6,7 +6,7 @@ import { aiTechDocs, aiTechReqs, aiEvalCriteria, type AiReq, type AiCriterion } 
 import { FormField, SectionCard, Textarea, Input, AIButton, PeoplePicker, InfoBanner } from '../components/ui';
 import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon, XIcon } from '../components/Icons';
 
-const AI_TECH_DOCS = [
+export const AI_TECH_DOCS = [
   'Vendor Technical Proposal (Arabic & English)',
   'Implementation Methodology and Project Plan',
   'System Architecture and Integration Design Document',
@@ -19,7 +19,7 @@ const AI_TECH_DOCS = [
   'Proposed Team CVs and Certifications (including SAP certifications)',
 ];
 
-const AI_TECH_REQUIREMENTS = [
+export const AI_TECH_REQUIREMENTS = [
   { requirement: 'User Capacity', description: 'System must support a minimum of 500 concurrent named users without performance degradation.' },
   { requirement: 'System Availability', description: 'Minimum 99.5% uptime SLA during business hours (Sunday–Thursday, 7am–9pm). Planned maintenance must occur outside business hours.' },
   { requirement: 'Arabic Language Support', description: 'Full bilingual support (Arabic RTL and English LTR) across all modules, including reports and user interface.' },
@@ -30,7 +30,7 @@ const AI_TECH_REQUIREMENTS = [
   { requirement: 'Performance Benchmarks', description: 'System response time must not exceed 3 seconds for standard transactions under peak load conditions.' },
 ];
 
-const AI_EVAL_CRITERIA = [
+export const AI_EVAL_CRITERIA = [
   { description: 'Technical Approach & Implementation Methodology', howApplied: 'Evaluated based on quality and clarity of proposed methodology, risk mitigation plan, and alignment with project requirements.', weight: 30 },
   { description: 'Team Qualifications & Relevant Experience', howApplied: 'Assessed based on CVs, certifications (SAP, PMP), years of experience, and demonstrated delivery of similar ERP projects.', weight: 25 },
   { description: 'Quality of Sample Deliverables', howApplied: 'Evaluated based on quality of submitted sample deliverables from similar projects, demonstrating comparable scope and complexity.', weight: 20 },

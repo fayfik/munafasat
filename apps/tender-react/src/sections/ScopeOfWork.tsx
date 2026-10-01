@@ -7,7 +7,7 @@ import { PROJECTS } from '../data/mockData';
 import { FormField, SectionCard, Textarea, AIButton, InfoBanner } from '../components/ui';
 import { SparklesIcon } from '../components/Icons';
 
-const AI_SCOPE = `This project encompasses the supply, installation, configuration, and commissioning of an enterprise ERP system. The contractor shall be responsible for:
+export const AI_SCOPE = `This project encompasses the supply, installation, configuration, and commissioning of an enterprise ERP system. The contractor shall be responsible for:
 
 1. Software Licenses: Provision of all required ERP software licenses for a minimum of 500 named users, including all modules specified in the Bill of Quantities.
 
@@ -21,7 +21,7 @@ const AI_SCOPE = `This project encompasses the supply, installation, configurati
 
 6. Technical Support: Three (3) years of technical support and maintenance including software updates, security patches, bug fixes, and helpdesk support (8am–5pm, Sunday–Thursday, SLA: 4 hours response).`;
 
-const AI_TERMS = `1. The vendor must comply with the National Cybersecurity Authority (NCA) Essential Cybersecurity Controls (ECC-1:2018) and all applicable cybersecurity regulations.
+export const AI_TERMS = `1. The vendor must comply with the National Cybersecurity Authority (NCA) Essential Cybersecurity Controls (ECC-1:2018) and all applicable cybersecurity regulations.
 
 2. All cloud services or data storage components must be hosted within the Kingdom of Saudi Arabia, in compliance with Government Cloud (G-Cloud) guidelines.
 

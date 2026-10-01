@@ -101,6 +101,9 @@ interface TenderContextType {
   qualPctTotal: number;
   importedFromProject: string | null;
   setImportedFromProject: (name: string | null) => void;
+  /** Last RFP imported in Project Setup, with the values it replaced (for Undo). */
+  rfpImport: { rfpId: string; code: string; previous: Partial<TenderFormData> } | null;
+  setRfpImport: (v: { rfpId: string; code: string; previous: Partial<TenderFormData> } | null) => void;
   goToSection: (idx: number) => void;
   updateField: <K extends keyof TenderFormData>(field: K, value: TenderFormData[K]) => void;
   // Helpers for arrays
@@ -157,6 +160,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   const [saveState, setSaveState] = useState<TenderContextType['saveState']>('idle');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [importedFromProject, setImportedFromProject] = useState<string | null>(null);
+  const [rfpImport, setRfpImport] = useState<TenderContextType['rfpImport']>(null);
   const [submitted, setSubmitted] = useState<TenderContextType['submitted']>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const dirty = useRef(false);
@@ -440,7 +444,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       moveBoqRowsToEtimad,
       formData, currentSection, isSaving, lastSaved, sectionStatuses,
       boqSubtotal, boqVat, boqTotal, paymentPctTotal, evalWeightTotal, qualPctTotal,
-      importedFromProject, setImportedFromProject,
+      importedFromProject, setImportedFromProject, rfpImport, setRfpImport,
       goToSection, updateField,
       updateBoqRow, addBoqRow, removeBoqRow,
       updateDeliverableRow, addDeliverableRow, removeDeliverableRow,

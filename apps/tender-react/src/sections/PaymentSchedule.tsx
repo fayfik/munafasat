@@ -10,7 +10,7 @@ function formatSAR(n: number) {
   return new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
-const AI_STAGES = [
+export const AI_STAGES = [
   { stageName: 'Contract Signing & Kickoff', itemsDeliverables: 'Project charter, Kickoff meeting minutes', startDate: '2025-10-15', duration: '30 days', percentage: 15 },
   { stageName: 'System Design Approval', itemsDeliverables: 'Solution architecture, Integration design document', startDate: '2026-01-31', duration: '45 days', percentage: 20 },
   { stageName: 'Development & Configuration', itemsDeliverables: 'Configured system in staging, Data migration', startDate: '2026-03-31', duration: '60 days', percentage: 25 },
