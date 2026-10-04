@@ -1,153 +1,127 @@
-// Procurement-route triage: parse a free-text / pasted need into items, then
-// classify each item down the mandated waterfall — Etimad eSouq → Mandatory
-// Catalogue → Competitive Tender — and aggregate to one route for the request.
+// Procurement-route triage (v2).
 //
-// DEMO: classification uses keyword rules (no AI credits). Swap classifyItem
-// for the real Etimad catalogue lookups later; the shapes below stay the same.
-import type { SourceType } from '../types/tender';
+// Two routes only — Etimad eSouq or Tendering. (The "product / mandatory
+// catalogue" of listed Saudi companies is a choice INSIDE tendering, per item,
+// not a separate route.) A single Etimad request is scoped to ONE BOQ type AND
+// ONE route, so selected project items are grouped by (BOQ type × route): each
+// group is its own request. DEMO rules stand in for live Etimad lookups.
+import type { ProjectItemType, SourceType } from '../types/tender';
 
-export type RouteKey = 'souq-etimad' | 'mandatory-catalogue' | 'tendering';
+export type RouteKey = 'souq-etimad' | 'tendering';
+export type BoqType = 'manpower' | 'services' | 'equipment' | 'material';
 
-export interface ParsedItem {
+export interface ItemVerdict {
   id: string;
   name: string;
-  quantity: number | '';
-}
-
-export interface ItemVerdict extends ParsedItem {
+  nameAr: string;
+  boqType: BoqType;
   route: RouteKey;
   reason: string;
   reasonAr: string;
+  /** Set when the item came from the project's item list (not free-typed). */
+  projectItemId?: string;
 }
 
-export interface TriageResult {
-  route: RouteKey;          // the request-level route (most-restrictive wins)
+/** Item fed into the triage — a project item, or a free-typed/pasted one. */
+export interface ClsItem {
+  id: string;
+  name: string;
+  nameAr?: string;
+  type?: ProjectItemType;
+  projectItemId?: string;
+}
+
+export interface RequestGroup {
+  key: string;              // route key — one request per route
+  route: RouteKey;
+  boqTypes: BoqType[];      // distinct BOQ types bundled in this request
   items: ItemVerdict[];
-  forced: boolean;          // route came from the ?route= demo override
 }
 
-// ── keyword rules (stand-ins for live Etimad lookups) ──────────────────────
-const ESOUQ = [
-  'laptop', 'desktop', 'computer', 'printer', 'monitor', 'toner', 'ink', 'paper', 'stationery',
-  'license', 'licence', 'subscription', 'software', 'keyboard', 'mouse', 'headset', 'webcam',
-  'cable', 'ups', 'scanner', 'hard disk', 'ssd', 'ram', 'switch', 'router', 'projector',
-  'ترخيص', 'اشتراك', 'حاسب', 'طابعة', 'شاشة', 'قرطاسية', 'برنامج', 'كابل', 'ماسح',
-];
-const MANDATORY = [
-  'vehicle', 'car', 'truck', 'bus', 'ambulance', 'tyre', 'tire', 'uniform', 'furniture', 'chair',
-  'desk', 'water', 'dates', 'catering', 'cleaning', 'generator', 'medical supply', 'medicine',
-  'fuel', 'office supply',
-  'مركبة', 'سيارة', 'إطار', 'زي', 'أثاث', 'كرسي', 'مكتب', 'مياه', 'تمور', 'إعاشة', 'نظافة', 'وقود',
-];
-const TENDER = [
-  'implementation', 'consult', 'integration', 'migration', 'development', 'design', 'construction',
-  'managed service', 'maintenance contract', 'hypercare', 'customiz', 'customis', 'architecture',
-  'assessment', 'advisory', 'training program', 'operation', 'build',
-  'تنفيذ', 'استشار', 'تكامل', 'تطوير', 'إنشاء', 'صيانة', 'تشغيل', 'تصميم',
-];
+const MANPOWER = ['manpower', 'man power', 'staff', 'personnel', 'labor', 'labour', 'resourcing', 'secondment', 'عمالة', 'كوادر', 'موظف'];
+const SERVICES = ['service', 'consult', 'implementation', 'integration', 'development', 'design', 'training', 'migration', 'assessment', 'hardening', 'maintenance', 'support', 'managed', 'operation', 'hosting', 'خدمة', 'خدمات', 'استشار', 'تنفيذ', 'تطوير', 'تدريب', 'صيانة', 'دعم'];
+const EQUIPMENT = ['server', 'hardware', 'device', 'equipment', 'infrastructure', 'machine', 'appliance', 'laptop', 'desktop', 'printer', 'router', 'switch', 'storage', 'خادم', 'جهاز', 'معدات'];
+const MATERIAL = ['license', 'licence', 'software', 'subscription', 'supply', 'supplies', 'material', 'consumable', 'toner', 'paper', 'part', 'component', 'ترخيص', 'اشتراك', 'مواد', 'قرطاسية'];
+// Signals that an equipment/material item still needs a tender (bespoke, bundled with work, or high-complexity).
+const TENDER_SIGNAL = ['implementation', 'integration', 'development', 'custom', 'bespoke', 'migration', 'assessment', 'hardening', 'consult', 'managed', 'maintenance', 'support', 'hosting', 'تنفيذ', 'تكامل', 'تطوير', 'صيانة', 'دعم'];
 
-function hit(text: string, words: string[]): string | null {
+const has = (text: string, words: string[]) => {
   const t = text.toLowerCase();
-  for (const w of words) {
-    if (/^[a-z]/.test(w)) { if (new RegExp(`(^|[^a-z])${w}`).test(t)) return w; }
-    else if (t.includes(w)) return w;
-  }
-  return null;
+  return words.some((w) => (/^[a-z]/.test(w) ? new RegExp(`(^|[^a-z])${w}`).test(t) : t.includes(w)));
+};
+
+function deriveBoqType(name: string, type?: ProjectItemType): BoqType {
+  if (has(name, MANPOWER)) return 'manpower';
+  if (has(name, SERVICES) || type === 'services') return 'services';
+  if (has(name, MATERIAL)) return 'material';
+  if (has(name, EQUIPMENT)) return 'equipment';
+  return type === 'consumables' ? 'material' : type === 'assets' ? 'equipment' : 'equipment';
 }
 
-function classifyItem(name: string): { route: RouteKey; key: string } {
-  // Waterfall order matters: a tender signal (bespoke work) overrides a
-  // commodity keyword, then eSouq, then mandatory, else tender by default.
-  const tender = hit(name, TENDER);
-  if (tender) return { route: 'tendering', key: tender };
-  const esouq = hit(name, ESOUQ);
-  if (esouq) return { route: 'souq-etimad', key: esouq };
-  const mand = hit(name, MANDATORY);
-  if (mand) return { route: 'mandatory-catalogue', key: mand };
-  return { route: 'tendering', key: '' };
+function deriveRoute(boqType: BoqType, name: string): RouteKey {
+  if (boqType === 'services' || boqType === 'manpower') return 'tendering';
+  return has(name, TENDER_SIGNAL) ? 'tendering' : 'souq-etimad';
 }
 
-function reasonFor(route: RouteKey, key: string): { en: string; ar: string } {
-  switch (route) {
-    case 'souq-etimad':
-      return {
-        en: `Standard catalogue item${key ? ` ("${key}")` : ''} — available to buy directly on Etimad eSouq.`,
-        ar: `بند قياسي${key ? ` ("${key}")` : ''} — متاح للشراء مباشرة من السوق الإلكتروني في اعتماد.`,
-      };
-    case 'mandatory-catalogue':
-      return {
-        en: `Listed on the Etimad Mandatory Catalogue${key ? ` ("${key}")` : ''} — must be sourced through it.`,
-        ar: `مدرج في كتالوج اعتماد الإلزامي${key ? ` ("${key}")` : ''} — يجب شراؤه من خلاله.`,
-      };
-    default:
-      return {
-        en: key
-          ? `Bespoke scope ("${key}") — not a catalogue item, so a competitive tender is required.`
-          : `No match in eSouq or the Mandatory Catalogue — a competitive tender is required.`,
-        ar: key
-          ? `نطاق مخصص ("${key}") — ليس بنداً كتالوجياً، لذا تلزم منافسة.`
-          : `لا يوجد تطابق في السوق الإلكتروني أو الكتالوج الإلزامي — تلزم منافسة.`,
-      };
-  }
+export function classifyItem(item: ClsItem, override?: RouteKey | null): ItemVerdict {
+  const boqType = deriveBoqType(item.name, item.type);
+  const route = override ?? deriveRoute(boqType, item.name);
+  const bt = BOQ_TYPE_META[boqType];
+  return {
+    id: item.id, name: item.name, nameAr: item.nameAr ?? item.name, projectItemId: item.projectItemId, boqType, route,
+    reason: `${bt.en} · ${route === 'souq-etimad' ? 'standard catalogue item, buy on eSouq' : 'requires a competitive tender'}`,
+    reasonAr: `${bt.ar} · ${route === 'souq-etimad' ? 'بند كتالوجي، يُشترى من السوق الإلكتروني' : 'يتطلب منافسة'}`,
+  };
 }
 
-const SEVERITY: Record<RouteKey, number> = { 'souq-etimad': 0, 'mandatory-catalogue': 1, 'tendering': 2 };
-
-/** Parse pasted / typed text into items. One item per line; trailing "x3",
- *  "× 3", "- 3", "(3)" or "qty 3" is read as the quantity. */
-export function parseItems(text: string): ParsedItem[] {
+/** Parse pasted / typed text into item names. One per line; a trailing "x3",
+ *  "- 3", "(3)" or "qty 3" is dropped (quantities are captured later in the BOQ). */
+export function parseItemNames(text: string): string[] {
   return text
     .split(/\r?\n/)
-    .map((raw) => raw.replace(/^\s*(?:[-*••]|\d+[.)])\s*/, '').trim()) // strip bullets / "1." "2)"
-    .filter((l) => l.length > 0)
-    .map((line) => {
-      let name = line;
-      let quantity: number | '' = '';
-      const m = line.match(/(?:\bx|×|\bqty\.?|\bquantity|[-,])\s*(\d{1,6})\s*$/i) || line.match(/\((\d{1,6})\)\s*$/);
-      if (m) { quantity = parseInt(m[1], 10); name = line.slice(0, m.index).trim().replace(/[-,:]\s*$/, '').trim(); }
-      return { id: crypto.randomUUID(), name, quantity };
-    })
-    .filter((it) => it.name.length > 0);
+    .map((raw) => raw.replace(/^\s*(?:[-*••]|\d+[.)])\s*/, '').trim())
+    .map((line) => line.replace(/\s*(?:\bx|×|\bqty\.?|\bquantity|[-,])\s*\d{1,6}\s*$/i, '').replace(/\s*\(\d{1,6}\)\s*$/, '').trim())
+    .filter((l) => l.length > 0);
 }
 
-function forcedRoute(): RouteKey | null {
+export const EXAMPLE_TEXT = [
+  '20 contractor engineers (manpower)',
+  'Office cleaning services',
+  'Adobe Creative Cloud licenses - 15',
+  'Network switches x4',
+].join('\n');
+
+export function groupItems(verdicts: ItemVerdict[]): RequestGroup[] {
+  // One request per ROUTE — an Etimad eSouq request and/or a Competitive Tender
+  // request. BOQ types are bundled within each route, not split into their own card.
+  const map = new Map<RouteKey, RequestGroup>();
+  for (const v of verdicts) {
+    if (!map.has(v.route)) map.set(v.route, { key: v.route, route: v.route, boqTypes: [], items: [] });
+    const g = map.get(v.route)!;
+    g.items.push(v);
+    if (!g.boqTypes.includes(v.boqType)) g.boqTypes.push(v.boqType);
+  }
+  // Tendering first, then eSouq.
+  return [...map.values()].sort((a, b) => (a.route === b.route ? 0 : a.route === 'tendering' ? -1 : 1));
+}
+
+export function forcedRoute(): RouteKey | null {
   try {
     const v = new URLSearchParams(window.location.search).get('route');
     if (v === 'esouq' || v === 'souq') return 'souq-etimad';
-    if (v === 'mandatory' || v === 'mand') return 'mandatory-catalogue';
     if (v === 'tender' || v === 'tendering') return 'tendering';
   } catch { /* ignore */ }
   return null;
 }
 
-/** Classify every item, then pick the request route. Mixed baskets take the
- *  most-restrictive route (tender > mandatory > eSouq) so nothing that needs a
- *  tender is bought off-catalogue. A ?route= override forces the outcome for demos. */
-export function triage(items: ParsedItem[], override?: RouteKey | null): TriageResult {
-  const forced = override ?? forcedRoute();
-  const verdicts: ItemVerdict[] = items.map((it) => {
-    const base = forced ? { route: forced, key: '' } : classifyItem(it.name);
-    const r = reasonFor(base.route, base.key);
-    return { ...it, route: base.route, reason: r.en, reasonAr: r.ar };
-  });
-  let route: RouteKey = 'souq-etimad';
-  if (forced) route = forced;
-  else for (const v of verdicts) if (SEVERITY[v.route] > SEVERITY[route]) route = v.route;
-  return { route, items: verdicts, forced: !!forced };
-}
-
-export const ROUTE_META: Record<RouteKey, {
-  en: string; ar: string; shortEn: string; shortAr: string;
-  badge: 'success' | 'info' | 'warning'; sourceType: SourceType;
-}> = {
-  'souq-etimad':        { en: 'Etimad eSouq', ar: 'السوق الإلكتروني', shortEn: 'eSouq', shortAr: 'السوق', badge: 'success', sourceType: 'souq-etimad' },
-  'mandatory-catalogue':{ en: 'Mandatory Catalogue', ar: 'الكتالوج الإلزامي', shortEn: 'Mandatory', shortAr: 'إلزامي', badge: 'info', sourceType: 'mandatory-catalogue' },
-  'tendering':          { en: 'Competitive Tender', ar: 'منافسة', shortEn: 'Tender', shortAr: 'منافسة', badge: 'warning', sourceType: 'tendering' },
+export const ROUTE_META: Record<RouteKey, { en: string; ar: string; shortEn: string; shortAr: string; badge: 'success' | 'warning'; sourceType: SourceType }> = {
+  'souq-etimad': { en: 'Etimad eSouq', ar: 'السوق الإلكتروني', shortEn: 'eSouq', shortAr: 'السوق', badge: 'success', sourceType: 'souq-etimad' },
+  'tendering':   { en: 'Competitive Tender', ar: 'منافسة', shortEn: 'Tender', shortAr: 'منافسة', badge: 'warning', sourceType: 'tendering' },
 };
 
-export const EXAMPLE_TEXT = [
-  '10x Dell Latitude laptops',
-  'Microsoft 365 E3 licenses - 50',
-  'HP LaserJet printer x2',
-  'A4 printing paper (200)',
-].join('\n');
+export const BOQ_TYPE_META: Record<BoqType, { en: string; ar: string; badge: 'assets' | 'services' | 'consumables' | 'info' }> = {
+  manpower:  { en: 'Manpower', ar: 'قوى عاملة', badge: 'info' },
+  services:  { en: 'Services', ar: 'خدمات', badge: 'services' },
+  equipment: { en: 'Equipment', ar: 'معدات', badge: 'assets' },
+  material:  { en: 'Material', ar: 'مواد', badge: 'consumables' },
+};

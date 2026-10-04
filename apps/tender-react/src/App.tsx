@@ -7,7 +7,6 @@ import AppShell, { type AppPage } from './components/AppShell';
 import Dashboard from './pages/Dashboard';
 import MyRequests from './pages/MyRequests';
 import TenderForm from './pages/TenderForm';
-import ProcurementRoute from './pages/ProcurementRoute';
 import type { SourceType, TenderFormData } from './types/tender';
 
 export type FullPage = AppPage | 'tender-form' | 'procure-intake';
@@ -38,12 +37,9 @@ function AppRoot() {
     setFormKey((k) => k + 1);
     setPage('tender-form');
   }
-  // No explicit channel → run the Procurement Route triage first; a specific
-  // channel (e.g. the dashboard quick actions) opens the form directly.
-  const newRequest = (sourceType?: SourceType) =>
-    sourceType ? open({ kind: 'new', sourceType }) : setPage('procure-intake');
-  const enterTenderFromTriage = (seed: Partial<TenderFormData>) =>
-    open({ kind: 'new', sourceType: 'tendering', seed });
+  // Every new request opens the wizard on its Procurement Route step (Step 1),
+  // which determines the channel; the dashboard quick actions land here too.
+  const newRequest = (_sourceType?: SourceType) => open({ kind: 'new' });
   const openRequest = (id: string) => {
     // Sample rows (no saved form) open a fresh form, as in the original prototype.
     const r = store.get(id);
@@ -69,9 +65,6 @@ function AppRoot() {
       {(page === 'inbox' || page === 'reports') && <EmptyPage page={page} />}
       {page === 'my-requests' && (
         <MyRequests onNewRequest={() => newRequest()} onOpenRequest={openRequest} />
-      )}
-      {page === 'procure-intake' && (
-        <ProcurementRoute onEnterTender={enterTenderFromTriage} onExit={() => setPage('dashboard')} />
       )}
       {page === 'tender-form' && (
         <TenderProvider

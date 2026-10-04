@@ -1,4 +1,4 @@
-export type SourceType = 'tendering' | 'souq-etimad' | 'mandatory-catalogue';
+export type SourceType = 'tendering' | 'souq-etimad';
 export type ContractDurationType = 'days' | 'months' | 'years';
 export type ProjectItemType = 'assets' | 'services' | 'consumables';
 export type SectionStatus = 'completed' | 'in-progress' | 'not-started' | 'missing';

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useRequests } from './RequestStore';
+import { PROJECTS } from '../data/mockData';
 import type {
   TenderFormData,
   BOQRow,
@@ -12,18 +13,20 @@ import type {
   FileAttachment,
   SectionStatus,
   TenderStatus,
+  SourceType,
 } from '../types/tender';
 
 export const SECTIONS = [
-  { id: 'project-setup', title: 'Project Setup', titleAr: 'إعداد المشروع' },
-  { id: 'scope-of-work', title: 'Scope of Work', titleAr: 'نطاق العمل' },
-  { id: 'boq', title: 'Bill of Quantities', titleAr: 'جدول الكميات' },
-  { id: 'deliverables', title: 'Deliverables', titleAr: 'المخرجات' },
-  { id: 'payment-schedule', title: 'Payment Schedule', titleAr: 'جدول الدفعات' },
-  { id: 'technical-evaluation', title: 'Technical Evaluation', titleAr: 'التقييم الفني' },
-  { id: 'qualification', title: 'Qualification Criteria', titleAr: 'معايير التأهيل' },
-  { id: 'attachments', title: 'Attachments', titleAr: 'المرفقات' },
-  { id: 'review', title: 'Review & Confirm', titleAr: 'المراجعة والتأكيد' },
+  { id: 'procurement-route', title: 'Procurement Route', titleAr: 'مسار الشراء', desc: 'Project, items and how they can be procured', descAr: 'المشروع والبنود وطريقة شرائها' },
+  { id: 'project-setup', title: 'Project Setup', titleAr: 'إعداد المشروع', desc: 'Project, cost center and item details', descAr: 'تفاصيل المشروع ومركز التكلفة والبنود' },
+  { id: 'scope-of-work', title: 'Scope of Work', titleAr: 'نطاق العمل', desc: 'Deliverables, boundaries, standards and certificates', descAr: 'المخرجات والحدود والمعايير والشهادات' },
+  { id: 'boq', title: 'Bill of Quantities', titleAr: 'جدول الكميات', desc: 'Items, quantities and specifications', descAr: 'البنود والكميات والمواصفات' },
+  { id: 'deliverables', title: 'Deliverables', titleAr: 'المخرجات', desc: 'Phases and delivery milestones', descAr: 'المراحل ومعالم التسليم' },
+  { id: 'payment-schedule', title: 'Payment Schedule', titleAr: 'جدول الدفعات', desc: 'Payment stages and schedule', descAr: 'مراحل الدفع والجدول الزمني' },
+  { id: 'technical-evaluation', title: 'Technical Evaluation', titleAr: 'التقييم الفني', desc: 'Scoring and evaluation methodology', descAr: 'منهجية التقييم والدرجات' },
+  { id: 'qualification', title: 'Qualification Criteria', titleAr: 'معايير التأهيل', desc: 'Vendor eligibility requirements', descAr: 'متطلبات أهلية المورّد' },
+  { id: 'attachments', title: 'Attachments', titleAr: 'المرفقات', desc: 'Optional reference documents, final submission', descAr: 'مستندات مرجعية اختيارية والتقديم النهائي' },
+  { id: 'review', title: 'Review & Confirm', titleAr: 'المراجعة والتأكيد', desc: 'Final review before submitting', descAr: 'المراجعة النهائية قبل التقديم' },
 ];
 
 const DEFAULT_QUAL: QualMainCriteria[] = [
@@ -100,6 +103,9 @@ interface TenderContextType {
   paymentPctTotal: number;
   evalWeightTotal: number;
   qualPctTotal: number;
+  /** Step 1 (Procurement Route) determines the channel; later steps unlock once it's confirmed. */
+  routeConfirmed: boolean;
+  confirmRoute: (opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[] }) => void;
   importedFromProject: string | null;
   setImportedFromProject: (name: string | null) => void;
   /** Last RFP imported in Project Setup, with the values it replaced (for Undo). */
@@ -161,7 +167,9 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       ? { ...INITIAL, ...initialForm }
       : { ...INITIAL, ...(initialSeed ?? {}), sourceType: initialSourceType ?? initialSeed?.sourceType ?? INITIAL.sourceType });
   const [status, setStatus] = useState<TenderStatus>(initialStatus ?? 'draft');
-  const [currentSection, setCurrentSection] = useState(0);
+  // Existing requests are already past the route step; new ones start on it.
+  const [routeConfirmed, setRouteConfirmed] = useState<boolean>(!!initialForm);
+  const [currentSection, setCurrentSection] = useState(initialForm ? 1 : 0);
   const [saveState, setSaveState] = useState<TenderContextType['saveState']>('idle');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [importedFromProject, setImportedFromProject] = useState<string | null>(null);
@@ -206,6 +214,27 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
     setCurrentSection(Math.max(0, Math.min(idx, SECTIONS.length - 1)));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  // Called from the Procurement Route step once the channel is determined.
+  // Seeds the project, cost center, selected items and a starter BOQ for the chosen group.
+  const confirmRoute = useCallback((opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[] }) => {
+    const proj = PROJECTS.find((p) => p.id === opts.projectId);
+    setFormData((prev) => ({
+      ...prev,
+      sourceType: opts.sourceType,
+      projectId: opts.projectId,
+      costCenterId: proj?.costCenterId ?? prev.costCenterId,
+      selectedProjectItemIds: opts.items.map((i) => i.projectItemId).filter((x): x is string => !!x),
+      tenderingPurpose: prev.tenderingPurpose || proj?.purpose || '',
+      boqItems: opts.items.map((i) => ({
+        id: crypto.randomUUID(), projectItem: i.name, itemName: i.name, itemDescription: '',
+        unitOfMeasure: 'Each', quantity: '' as const, unitPrice: '' as const, deliveryDate: '',
+      })),
+    }));
+    setRouteConfirmed(true);
+    triggerSave();
+    if (opts.sourceType === 'tendering') goToSection(1);
+  }, [triggerSave, goToSection]);
 
   // BOQ helpers
   const updateBoqRow = useCallback((id: string, patch: Partial<BOQRow>) => {
@@ -355,6 +384,8 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   const sectionStatuses: SectionStatus[] = SECTIONS.map((sec, idx): SectionStatus => {
     if (idx === currentSection) return 'in-progress';
     switch (sec.id) {
+      case 'procurement-route':
+        return routeConfirmed ? 'completed' : 'not-started';
       case 'project-setup':
         if (formData.costCenterId && formData.projectId) return 'completed';
         if (formData.costCenterId || formData.projectId) return 'missing';
@@ -426,6 +457,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
 
   // Every section except Attachments (optional) and Review must be complete.
   const readyToSubmit = SECTIONS.every((sec, idx) => {
+    if (sec.id === 'procurement-route') return routeConfirmed;
     if (sec.id === 'attachments' || sec.id === 'review') return true;
     if (formData.sourceType === 'souq-etimad' && sec.id !== 'project-setup') return true;
     return sectionStatuses[idx] === 'completed';
@@ -449,6 +481,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       moveBoqRowsToEtimad,
       formData, currentSection, isSaving, lastSaved, sectionStatuses,
       boqSubtotal, boqVat, boqTotal, paymentPctTotal, evalWeightTotal, qualPctTotal,
+      routeConfirmed, confirmRoute,
       importedFromProject, setImportedFromProject, rfpImport, setRfpImport,
       goToSection, updateField,
       updateBoqRow, addBoqRow, removeBoqRow,
