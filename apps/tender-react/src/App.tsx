@@ -7,12 +7,15 @@ import AppShell, { type AppPage } from './components/AppShell';
 import Dashboard from './pages/Dashboard';
 import MyRequests from './pages/MyRequests';
 import TenderForm from './pages/TenderForm';
-import type { SourceType } from './types/tender';
+import ProcurementRoute from './pages/ProcurementRoute';
+import type { SourceType, TenderFormData } from './types/tender';
 
-export type FullPage = AppPage | 'tender-form';
+export type FullPage = AppPage | 'tender-form' | 'procure-intake';
 
 /** What the tender form should open: a new request, or a saved one. */
-export type OpenTarget = { kind: 'new'; sourceType?: SourceType } | { kind: 'existing'; id: string };
+export type OpenTarget =
+  | { kind: 'new'; sourceType?: SourceType; seed?: Partial<TenderFormData> }
+  | { kind: 'existing'; id: string };
 
 export default function App() {
   return (
@@ -35,7 +38,12 @@ function AppRoot() {
     setFormKey((k) => k + 1);
     setPage('tender-form');
   }
-  const newRequest = (sourceType?: SourceType) => open({ kind: 'new', sourceType });
+  // No explicit channel → run the Procurement Route triage first; a specific
+  // channel (e.g. the dashboard quick actions) opens the form directly.
+  const newRequest = (sourceType?: SourceType) =>
+    sourceType ? open({ kind: 'new', sourceType }) : setPage('procure-intake');
+  const enterTenderFromTriage = (seed: Partial<TenderFormData>) =>
+    open({ kind: 'new', sourceType: 'tendering', seed });
   const openRequest = (id: string) => {
     // Sample rows (no saved form) open a fresh form, as in the original prototype.
     const r = store.get(id);
@@ -62,6 +70,9 @@ function AppRoot() {
       {page === 'my-requests' && (
         <MyRequests onNewRequest={() => newRequest()} onOpenRequest={openRequest} />
       )}
+      {page === 'procure-intake' && (
+        <ProcurementRoute onEnterTender={enterTenderFromTriage} onExit={() => setPage('dashboard')} />
+      )}
       {page === 'tender-form' && (
         <TenderProvider
           key={formKey}
@@ -69,6 +80,7 @@ function AppRoot() {
           initialForm={saved?.form}
           initialStatus={saved?.status}
           initialSourceType={target.kind === 'new' ? target.sourceType : undefined}
+          initialSeed={target.kind === 'new' ? target.seed : undefined}
         >
           <TenderForm onBack={() => setPage('my-requests')} />
         </TenderProvider>

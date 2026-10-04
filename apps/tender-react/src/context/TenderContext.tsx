@@ -149,13 +149,17 @@ interface ProviderProps {
   initialForm?: TenderFormData;
   initialStatus?: TenderStatus;
   initialSourceType?: TenderFormData['sourceType'];
+  /** Seed values from the Procurement Route flow (e.g. items pre-filled into the BOQ). */
+  initialSeed?: Partial<TenderFormData>;
 }
 
-export function TenderProvider({ children, requestId: givenId, initialForm, initialStatus, initialSourceType }: ProviderProps) {
+export function TenderProvider({ children, requestId: givenId, initialForm, initialStatus, initialSourceType, initialSeed }: ProviderProps) {
   const store = useRequests();
   const [requestId] = useState(() => givenId ?? crypto.randomUUID());
   const [formData, setFormData] = useState<TenderFormData>(() =>
-    initialForm ? { ...INITIAL, ...initialForm } : { ...INITIAL, sourceType: initialSourceType ?? INITIAL.sourceType });
+    initialForm
+      ? { ...INITIAL, ...initialForm }
+      : { ...INITIAL, ...(initialSeed ?? {}), sourceType: initialSourceType ?? initialSeed?.sourceType ?? INITIAL.sourceType });
   const [status, setStatus] = useState<TenderStatus>(initialStatus ?? 'draft');
   const [currentSection, setCurrentSection] = useState(0);
   const [saveState, setSaveState] = useState<TenderContextType['saveState']>('idle');

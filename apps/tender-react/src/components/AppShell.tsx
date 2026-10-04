@@ -31,7 +31,7 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
   const myRequestsCount = MOCK_TENDERS.length;
 
   // 'tender-form' counts as child of 'my-requests' for nav highlight purposes
-  const activePage: AppPage = currentPage === 'tender-form' ? 'my-requests' : currentPage;
+  const activePage: AppPage = currentPage === 'tender-form' || currentPage === 'procure-intake' ? 'my-requests' : currentPage;
 
   const NAV_ITEMS = [
     { page: 'dashboard' as AppPage, label: t('Dashboard', 'الرئيسية'), Icon: NavDashboardIcon },

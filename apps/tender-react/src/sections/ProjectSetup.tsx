@@ -118,41 +118,21 @@ export default function ProjectSetup() {
 
   return (
     <div className="space-y-5">
-      {/* Source Type */}
-      <SectionCard
-        title="Request Type"
-        titleAr="نوع الطلب"
-        description="Select the procurement channel for this request."
-        descriptionAr="اختر قناة المشتريات لهذا الطلب."
-      >
-        <FormField label="Procurement Channel" labelAr="قناة المشتريات" required>
-          <div className="flex gap-3 mt-1">
-            {([
-              ['tendering', 'Tender', 'منافسة', t('For competitive tendering processes', 'لعمليات المنافسة التنافسية')],
-              ['souq-etimad', 'Etimad Souq', 'سوق اعتماد', t('For marketplace purchases', 'للشراء من السوق الإلكتروني')],
-            ] as const).map(([val, labelEn, labelAr, desc]) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => updateField('sourceType', val)}
-                className={`flex-1 flex flex-col items-start gap-1 rounded-xl border-2 px-4 py-3.5 text-start transition-all ${
-                  formData.sourceType === val
-                    ? 'border-brand-600 bg-brand-50'
-                    : 'border-neutral-200 bg-white hover:border-neutral-300'
-                }`}
-              >
-                <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${formData.sourceType === val ? 'border-brand-600 bg-brand-600' : 'border-neutral-400'}`}>
-                  {formData.sourceType === val && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                </div>
-                <span className={`text-sm font-medium ${formData.sourceType === val ? 'text-brand-700' : 'text-neutral-700'}`}>
-                  {isAr ? labelAr : labelEn}
-                </span>
-                <span className="text-xs text-neutral-400">{desc}</span>
-              </button>
-            ))}
-          </div>
-        </FormField>
-      </SectionCard>
+      {/* Procurement route — auto-determined by the Procurement Route check */}
+      <div className="rounded-xl border border-neutral-200 bg-white shadow-sm px-6 py-4 flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Procurement route', 'مسار الشراء')}</p>
+          <p className="text-[15px] font-semibold text-neutral-900 mt-0.5">
+            {formData.sourceType === 'souq-etimad'
+              ? t('Etimad eSouq', 'السوق الإلكتروني')
+              : formData.sourceType === 'mandatory-catalogue'
+              ? t('Mandatory Catalogue', 'الكتالوج الإلزامي')
+              : t('Competitive Tender', 'منافسة')}
+          </p>
+          <p className="text-[12px] text-neutral-500 mt-0.5">{t('Determined automatically from the availability check.', 'محدد تلقائياً بناءً على فحص التوفر.')}</p>
+        </div>
+        <Badge variant="warning">{t('Auto-determined', 'محدد تلقائياً')}</Badge>
+      </div>
 
       {formData.sourceType === 'tendering' && (
         <>
