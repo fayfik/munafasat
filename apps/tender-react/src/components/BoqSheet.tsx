@@ -106,6 +106,7 @@ interface Props {
 export default function BoqSheet({ rows, setRows, projectItemOptions, checkingIds, onCheck, onMove, onUpdate, onRemove, optionalColumns, onOptionalColumnsChange }: Props) {
   const t = useT();
   const [showColumns, setShowColumns] = useState(false);
+  const [hdrHover, setHdrHover] = useState(false);
   // Visible columns: the defaults, then any optional ones turned on (in catalogue order).
   const cols: { key: Key; en: string; ar: string; w: number; header: string[]; options?: string[] }[] = [...COLS, ...OPTIONAL_COLS.filter((c) => optionalColumns.includes(c.key))];
   const tableW = 40 + cols.reduce((a, c) => a + c.w, 0) + 124 + 150 + 40;
@@ -214,17 +215,26 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
       </div>
 
       <div className="relative">
-      {/* Column configuration — pinned to the top corner of the table header */}
-      <button
-        type="button"
-        onClick={() => setShowColumns(true)}
-        title={t('Column configuration', 'إعداد الأعمدة')}
-        aria-label={t('Column configuration', 'إعداد الأعمدة')}
-        className="absolute top-px end-px z-40 h-[33px] w-9 flex items-center justify-center rounded-se-[7px] bg-neutral-100 border-s border-b border-neutral-300 text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors"
+      {/* Column configuration — a borderless icon that appears while the header row is hovered
+          (always visible on touch screens and when focused with the keyboard). */}
+      <div
+        className={`pointer-events-none absolute top-px end-px z-40 h-[31px] flex items-center ps-5 pe-1.5 rounded-se-[7px] bg-gradient-to-l rtl:bg-gradient-to-r from-neutral-100 from-60% to-transparent transition-opacity duration-150 ${
+          hdrHover || showColumns ? 'opacity-100' : 'opacity-0 [@media(hover:none)]:opacity-100 focus-within:opacity-100'
+        }`}
+        onMouseEnter={() => setHdrHover(true)}
+        onMouseLeave={() => setHdrHover(false)}
       >
-        <ColumnsIcon className="w-4 h-4" />
-        {optionalColumns.length > 0 && <span className="absolute top-1 end-1 w-1.5 h-1.5 rounded-full bg-brand-600" />}
-      </button>
+        <button
+          type="button"
+          onClick={() => setShowColumns(true)}
+          title={t('Column configuration', 'إعداد الأعمدة')}
+          aria-label={t('Column configuration', 'إعداد الأعمدة')}
+          className="pointer-events-auto relative w-6 h-6 rounded-md flex items-center justify-center text-neutral-500 hover:text-brand-700 hover:bg-neutral-200/70 transition-colors"
+        >
+          <ColumnsIcon className="w-4 h-4" />
+          {optionalColumns.length > 0 && <span className="absolute top-0.5 end-0.5 w-1.5 h-1.5 rounded-full bg-brand-600" />}
+        </button>
+      </div>
       <div className="rounded-lg border border-neutral-300 overflow-x-auto bg-white">
         <table ref={tableRef} onKeyDown={onKeyDown} onPaste={onPaste} className="border-separate border-spacing-0 text-start table-fixed" style={{ width: tableW }}>
           <colgroup>
@@ -233,7 +243,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
             <col style={{ width: 150 }} />
             <col style={{ width: 40 }} />
           </colgroup>
-          <thead>
+          <thead onMouseEnter={() => setHdrHover(true)} onMouseLeave={() => setHdrHover(false)}>
             <tr className="bg-neutral-100">
               <Th sticky={0} className="text-center">#</Th>
               {cols.map((c, i) => [
