@@ -58,7 +58,7 @@ export default function ProcurementRouteStep() {
         action={<Button variant="secondary" size="sm" onClick={startEdit}>{t('Edit', 'تعديل')}</Button>}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Determined route', 'المسار المحدد')}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{t('Determined route', 'المسار المحدد')}</p>
             <p className="text-[18px] font-bold text-neutral-900 mt-0.5">{isAr ? m.ar : m.en}</p>
             {confProj && <p className="text-[12px] text-neutral-500 mt-1">{isAr ? confProj.nameAr : confProj.name} · {t(`${confItems.length} item${confItems.length > 1 ? 's' : ''}`, `${confItems.length} بند`)}</p>}
           </div>
@@ -135,8 +135,8 @@ export default function ProcurementRouteStep() {
         <SectionCard
           title="What are you procuring?"
           titleAr="ما الذي تقوم بشرائه؟"
-          description="Select the budgeted project and the items this request covers. We then check each item against Etimad to set the procurement route."
-          descriptionAr="اختر المشروع المدرج في الميزانية والبنود التي يشملها هذا الطلب. ثم نفحص كل بند في اعتماد لتحديد مسار الشراء.">
+          description="Select the budgeted project and tick the items this request covers — then type or paste any extra items below. We check each item against Etimad to set the procurement route."
+          descriptionAr="اختر المشروع المدرج في الميزانية وحدّد البنود التي يشملها هذا الطلب — ثم اكتب أو الصق أي بنود إضافية أدناه. نفحص كل بند في اعتماد لتحديد مسار الشراء.">
           <div className="space-y-4">
             <div>
               <label className="block text-[13px] font-medium text-neutral-800 mb-1.5">{t('Project', 'المشروع')}</label>
@@ -217,10 +217,10 @@ export default function ProcurementRouteStep() {
                     return (
                       <div key={f.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5">
                         <input value={f.name} onChange={(e) => editFree(f.id, e.target.value)}
-                          className="flex-1 min-w-0 text-[13px] text-neutral-800 bg-transparent outline-none placeholder:text-neutral-400"
+                          className="flex-1 min-w-0 text-[13px] text-neutral-800 bg-transparent outline-none placeholder:text-neutral-500"
                           placeholder={t('Item name…', 'اسم البند…')} />
                         {bt && <Badge variant={bt.badge}>{isAr ? bt.ar : bt.en}</Badge>}
-                        <button type="button" onClick={() => removeFree(f.id)} className="w-6 h-6 rounded-md text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 flex items-center justify-center flex-shrink-0" aria-label={t('Remove', 'إزالة')}>×</button>
+                        <button type="button" onClick={() => removeFree(f.id)} className="w-6 h-6 rounded-md text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 flex items-center justify-center flex-shrink-0" aria-label={t('Remove', 'إزالة')}>×</button>
                       </div>
                     );
                   })}
@@ -238,7 +238,7 @@ export default function ProcurementRouteStep() {
                    'نفحص كل بند في السوق الإلكتروني ثم المنافسة. يجب أن يكون الطلب من نوع بند واحد ومسار واحد — وتُقسَّم البنود المختلطة إلى طلبات منفصلة.')}
               </p>
               <div className="flex items-center justify-between mt-3 gap-3">
-                <span className="text-[12px] text-neutral-500">{clsInput.length > 0 ? t(`${clsInput.length} item${clsInput.length > 1 ? 's' : ''} to check`, `${clsInput.length} بند للفحص`) : t('Select items or identify a list above', 'اختر بنوداً أو حدد قائمة أعلاه')}</span>
+                <span className="text-[12px] text-neutral-500">{clsInput.length > 0 ? t(`${clsInput.length} item${clsInput.length > 1 ? 's' : ''} to check`, `${clsInput.length} بند للفحص`) : t('Select at least one item to continue', 'اختر بنداً واحداً على الأقل للمتابعة')}</span>
                 <Button variant="primary" size="lg" onClick={runCheck} disabled={clsInput.length === 0}>{t('Check procurement route', 'فحص مسار الشراء')} →</Button>
               </div>
             </div>
@@ -262,8 +262,8 @@ export default function ProcurementRouteStep() {
         <div className="space-y-5">
           {groups.length > 1 && (
             <InfoBanner variant="warning">
-              {t(`These items follow two different procurement routes, so they’re split into ${groups.length} requests — one Etimad eSouq request and one Competitive Tender request. Pick the one to create now — the other can be created after.`,
-                 `تتبع هذه البنود مسارَي شراء مختلفين، لذا تُقسَّم إلى ${groups.length} طلبات — طلب للسوق الإلكتروني وطلب للمنافسة. اختر الطلب الذي تريد إنشاءه الآن — ويمكن إنشاء الآخر لاحقاً.`)}
+              {t(`These items follow two different procurement routes, so they’re split into ${groups.length} requests — one Etimad eSouq request and one Competitive Tender request. Pick the one to create now; the other can be created afterwards as a separate request from My Requests.`,
+                 `تتبع هذه البنود مسارَي شراء مختلفين، لذا تُقسَّم إلى ${groups.length} طلبات — طلب للسوق الإلكتروني وطلب للمنافسة. اختر الطلب الذي تريد إنشاءه الآن؛ ويمكن إنشاء الآخر لاحقاً كطلب منفصل من "طلباتي".`)}
             </InfoBanner>
           )}
 
@@ -280,7 +280,7 @@ export default function ProcurementRouteStep() {
                       <div className="flex items-center gap-2 flex-wrap">
                         {selectable && <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${isChosen ? 'border-brand-600 bg-brand-600' : 'border-neutral-400'}`}>{isChosen && <span className="w-1.5 h-1.5 rounded-full bg-white" />}</span>}
                         <Badge variant={rm.badge}>{isAr ? rm.ar : rm.en}</Badge>
-                        <span className="text-[11px] text-neutral-400">·</span>
+                        <span className="text-[11px] text-neutral-500">·</span>
                         {g.boqTypes.map((bt) => { const bm = BOQ_TYPE_META[bt]; return <Badge key={bt} variant={bm.badge}>{isAr ? bm.ar : bm.en}</Badge>; })}
                       </div>
                       <span className="text-[12px] text-neutral-500 whitespace-nowrap">{t(`${g.items.length} item${g.items.length > 1 ? 's' : ''}`, `${g.items.length} بند`)}{selectable && isChosen ? ` · ${t('this request', 'هذا الطلب')}` : selectable ? ` · ${t('separate request', 'طلب منفصل')}` : ''}</span>
@@ -330,7 +330,7 @@ function CheckRow({ done, pending, labelEn, labelAr, t }: { done: boolean; pendi
   return (
     <div className={`flex items-center gap-3 py-2.5 transition-opacity ${pending ? 'opacity-40' : 'opacity-100'}`}>
       <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${done ? 'bg-success-100' : 'bg-neutral-100'}`}>
-        {done ? <CheckIcon className="w-4 h-4 text-success-600" /> : <svg className="w-4 h-4 spin-slow text-neutral-400" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+        {done ? <CheckIcon className="w-4 h-4 text-success-600" /> : <svg className="w-4 h-4 spin-slow text-neutral-500" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
       </span>
       <span className="text-[13px] text-neutral-700">{t(labelEn, labelAr)}{done ? '' : '…'}</span>
       {done && <span className="text-[12px] text-success-600 ms-auto font-medium">{t('Done', 'تم')}</span>}
@@ -346,7 +346,7 @@ function SubSteps({ phase, t }: { phase: Phase; t: (en: string, ar: string) => s
     <div className="flex items-center gap-2 mb-5">
       {steps.map((s, i) => (
         <div key={s.en} className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${i === cur ? 'bg-brand-600 text-white' : i < cur ? 'bg-brand-50 text-brand-700' : 'bg-neutral-100 text-neutral-400'}`}>
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${i === cur ? 'bg-brand-600 text-white' : i < cur ? 'bg-brand-50 text-brand-700' : 'bg-neutral-100 text-neutral-500'}`}>
             <span className="w-4 h-4 rounded-full bg-white/25 flex items-center justify-center text-[10px]">{i + 1}</span>{t(s.en, s.ar)}
           </div>
           {i < steps.length - 1 && <div className={`w-6 h-px ${i < cur ? 'bg-brand-300' : 'bg-neutral-200'}`} />}

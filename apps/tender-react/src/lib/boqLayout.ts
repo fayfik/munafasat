@@ -4,17 +4,18 @@
 // Pick it with ?boq=sheet / ?boq=cards in the URL, or with the switch on the step.
 import { useSyncExternalStore } from 'react';
 
-export type BoqLayout = 'cards' | 'sheet';
+export type BoqLayout = 'cards' | 'sheet' | 'grouped';
 const KEY = 'boq-layout';
+const VALID: BoqLayout[] = ['cards', 'sheet', 'grouped'];
 
 function initial(): BoqLayout {
   try {
-    const q = new URLSearchParams(window.location.search).get('boq');
-    if (q === 'sheet' || q === 'cards') return q;
+    const q = new URLSearchParams(window.location.search).get('boq') as BoqLayout | null;
+    if (q && VALID.includes(q)) return q;
   } catch { /* no URL access */ }
   try {
-    const v = window.localStorage.getItem(KEY);
-    if (v === 'sheet' || v === 'cards') return v;
+    const v = window.localStorage.getItem(KEY) as BoqLayout | null;
+    if (v && VALID.includes(v)) return v;
   } catch { /* storage blocked */ }
   return 'cards';
 }

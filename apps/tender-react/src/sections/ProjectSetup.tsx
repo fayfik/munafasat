@@ -65,7 +65,7 @@ export default function ProjectSetup() {
       {/* Procurement route — determined in Step 1 */}
       <div className="rounded-xl border border-neutral-200 bg-white shadow-sm px-6 py-4 flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Procurement route', 'مسار الشراء')}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{t('Procurement route', 'مسار الشراء')}</p>
           <p className="text-[15px] font-semibold text-neutral-900 mt-0.5">{routeLabel}</p>
           <p className="text-[12px] text-neutral-500 mt-0.5">{t('Determined in the Procurement Route step.', 'محدد في خطوة مسار الشراء.')}</p>
         </div>
@@ -88,7 +88,7 @@ export default function ProjectSetup() {
               <View label={t('Project Name (Arabic)', 'اسم المشروع (بالعربية)')} value={selectedProject.nameAr} rtl />
             </div>
           ) : (
-            <p className="text-[13px] text-neutral-400">{t('No budgeted project linked — items were identified directly.', 'لا يوجد مشروع مرتبط — تم تحديد البنود مباشرة.')}</p>
+            <p className="text-[13px] text-neutral-500">{t('No budgeted project linked — items were identified directly.', 'لا يوجد مشروع مرتبط — تم تحديد البنود مباشرة.')}</p>
           )}
 
           <div>
@@ -114,7 +114,7 @@ export default function ProjectSetup() {
                     );
                   })}
                   {requestItems.length === 0 && (
-                    <tr><td colSpan={3} className="px-4 py-4 text-neutral-400 text-[13px]">{t('No items in this request.', 'لا توجد بنود في هذا الطلب.')}</td></tr>
+                    <tr><td colSpan={3} className="px-4 py-4 text-neutral-500 text-[13px]">{t('No items in this request.', 'لا توجد بنود في هذا الطلب.')}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -190,7 +190,7 @@ export default function ProjectSetup() {
 function View({ label, value, rtl }: { label: string; value: string; rtl?: boolean }) {
   return (
     <div>
-      <p className="text-[11px] font-medium text-neutral-400 mb-1">{label}</p>
+      <p className="text-[11px] font-medium text-neutral-500 mb-1">{label}</p>
       <p className="text-[14px] text-neutral-800" dir={rtl ? 'rtl' : undefined}>{value || '—'}</p>
     </div>
   );

@@ -192,7 +192,7 @@ export default function TenderForm({ onBack }: Props) {
                     <div className="flex-1 min-w-0 pb-4">
                       <div className={`rounded-lg px-2 py-1.5 -mt-1 transition-colors ${isCurrent ? 'bg-step-current' : locked ? '' : 'group-hover:bg-[#F8F9FB]'}`}>
                         <p className={`text-[12.5px] font-semibold leading-tight ${isCurrent ? 'text-step-done' : locked ? 'text-neutral-300' : done ? 'text-[#2B3647]' : 'text-[#5B6B85]'}`}>{title}</p>
-                        <p className={`text-[11px] leading-snug mt-0.5 ${locked ? 'text-neutral-300 italic' : 'text-neutral-400'}`}>{desc}</p>
+                        <p className={`text-[11px] leading-snug mt-0.5 ${locked ? 'text-neutral-400 italic' : 'text-neutral-500'}`}>{desc}</p>
                       </div>
                     </div>
                   )}
@@ -220,7 +220,7 @@ export default function TenderForm({ onBack }: Props) {
           {/* One width for every step (wide), so the page doesn't jump between steps or BOQ views */}
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
             <div className="mb-7">
-              <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-widest mb-2">
+              <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-widest mb-2">
                 {t(`Step ${currentSection + 1} of ${SECTIONS.length}`, `خطوة ${currentSection + 1} من ${SECTIONS.length}`)}
               </p>
               <h2 className="text-title-md font-semibold text-neutral-900 leading-tight">

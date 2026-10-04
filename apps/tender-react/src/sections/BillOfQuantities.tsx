@@ -1,12 +1,14 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { useTender } from '../context/TenderContext';
 import { useT } from '../context/LanguageContext';
 import { PROJECTS, UNITS_OF_MEASURE } from '../data/mockData';
-import { FormField, SectionCard, AIButton, InfoBanner, Input, Select, Textarea } from '../components/ui';
-import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, PencilIcon, InfoIcon, GridIcon, TableIcon } from '../components/Icons';
+import { FormField, SectionCard, AIButton, InfoBanner, Input, Select, Textarea, Badge } from '../components/ui';
+import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon } from '../components/Icons';
 import HoverNote from '../components/HoverNote';
-import type { BOQRow } from '../types/tender';
+import BoqAttachments from '../components/BoqAttachments';
+import type { BOQRow, BOQCategory, FileAttachment } from '../types/tender';
+import { BOQ_CATEGORIES, BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
 import { useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiBoq, type AiBoqRow } from '../lib/aiTender';
@@ -103,10 +105,10 @@ export const AI_BOQ_ROWS = [
 ];
 
 const EMPTY_FORM = {
-  projectItem: '', itemName: '', itemDescription: '',
+  projectItem: '', category: '' as BOQCategory | '', itemName: '', itemDescription: '',
   unitOfMeasure: 'Each', quantity: '' as number | '',
   unitPrice: '' as number | '', deliveryDate: '',
-  hasBrandName: false, brandJustification: '',
+  hasBrandName: false, brandJustification: '', attachments: [] as FileAttachment[],
 };
 
 const GROUP_COLORS = ['bg-brand-500', 'bg-ai-500', 'bg-warning-500', 'bg-success-600', 'bg-error-500', 'bg-neutral-400'];
@@ -127,7 +129,16 @@ export default function BillOfQuantities() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [checkingIds, setCheckingIds] = useState<Set<string>>(new Set());
   const [etimadError, setEtimadError] = useState('');
+  const [addCat, setAddCat] = useState<BOQCategory | null>(null); // grouped-view: which category the add form targets
+  const addFormRef = useRef<HTMLDivElement>(null);
   const layout = useBoqLayout();
+
+  // Bring the add form into view when it opens (it can render below a long list).
+  useEffect(() => {
+    if (showAddForm && addFormRef.current) {
+      addFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [showAddForm, addCat]);
 
   async function runEtimadCheck(rows: BOQRow[]) {
     if (rows.length === 0) return;
@@ -169,7 +180,7 @@ export default function BillOfQuantities() {
         setUploadError(t('No valid rows found. Check the template columns.', 'لم يتم العثور على بنود صالحة. تحقق من أعمدة النموذج.'));
         return;
       }
-      const rows: BOQRow[] = parsed.map((r) => ({ id: crypto.randomUUID(), ...r }));
+      const rows: BOQRow[] = parsed.map((r) => ({ id: crypto.randomUUID(), category: deriveCategory(r.itemName), ...r }));
       updateField('boqItems', rows);
       setExpandedGroups(new Set(rows.map((r) => r.projectItem).filter(Boolean)));
       setShowUploadZone(false);
@@ -211,7 +222,8 @@ export default function BillOfQuantities() {
     const applyRows = (src: AiBoqRow[]) => {
       const rows: BOQRow[] = src.filter((r) => r && r.itemName).map((r) => ({
         id: crypto.randomUUID(), hasBrandName: false, brandJustification: '',
-        projectItem: str(r.projectItem), itemName: str(r.itemName), itemDescription: str(r.itemDescription),
+        projectItem: str(r.projectItem), category: deriveCategory(str(r.itemName)),
+        itemName: str(r.itemName), itemDescription: str(r.itemDescription),
         unitOfMeasure: UNITS_OF_MEASURE.includes(str(r.unitOfMeasure)) ? str(r.unitOfMeasure) : 'Each',
         quantity: num(r.quantity), unitPrice: num(r.unitPrice), deliveryDate: str(r.deliveryDate),
       }));
@@ -224,47 +236,70 @@ export default function BillOfQuantities() {
   function handleAddItem() {
     if (!newItem.projectItem || !newItem.itemName) return;
     const id = crypto.randomUUID();
-    updateField('boqItems', [...formData.boqItems, { id, ...newItem }]);
+    const category = newItem.category || deriveCategory(newItem.itemName);
+    updateField('boqItems', [...formData.boqItems, { id, ...newItem, category }]);
     setExpandedGroups((prev) => new Set([...prev, newItem.projectItem]));
     setNewItem({ ...EMPTY_FORM });
     setShowAddForm(false);
+    setAddCat(null);
   }
   const [editingId, setEditingId] = useState<string | null>(null);
 
   function closeItemForm() {
     setShowAddForm(false);
     setEditingId(null);
+    setAddCat(null);
     setNewItem({ ...EMPTY_FORM });
   }
 
   function startEdit(row: BOQRow) {
     setShowAddForm(false);
+    setAddCat(null);
     setEditingId(row.id);
     setNewItem({
-      projectItem: row.projectItem, itemName: row.itemName, itemDescription: row.itemDescription,
+      projectItem: row.projectItem, category: row.category ?? deriveCategory(row.itemName),
+      itemName: row.itemName, itemDescription: row.itemDescription,
       unitOfMeasure: row.unitOfMeasure || 'Each', quantity: row.quantity, unitPrice: row.unitPrice,
       deliveryDate: row.deliveryDate, hasBrandName: !!row.hasBrandName, brandJustification: row.brandJustification ?? '',
+      attachments: row.attachments ?? [],
     });
   }
 
   function handleSaveEdit() {
     if (!editingId || !newItem.projectItem || !newItem.itemName) return;
-    updateBoqRow(editingId, { ...newItem, brandJustification: newItem.hasBrandName ? newItem.brandJustification : '' });
+    const category = newItem.category || deriveCategory(newItem.itemName);
+    updateBoqRow(editingId, { ...newItem, category, brandJustification: newItem.hasBrandName ? newItem.brandJustification : '' });
     setExpandedGroups((prev) => new Set([...prev, newItem.projectItem]));
     closeItemForm();
   }
 
-  function renderItemForm(mode: 'add' | 'edit') {
+  // Grouped view: open the add form pre-set to a category.
+  function startAddInCategory(cat: BOQCategory) {
+    setEditingId(null);
+    setNewItem({ ...EMPTY_FORM, category: cat });
+    setAddCat(cat);
+    setShowAddForm(true);
+  }
+
+  function renderItemForm(mode: 'add' | 'edit', lockedCategory?: BOQCategory | null) {
+    // Project-item options; always include the current value so editing a row
+    // whose project item isn't in the list (e.g. AI-suggested) doesn't blank out.
+    const baseItemNames = projectItems.length > 0
+      ? projectItems.map((it) => it.name)
+      : [...new Set(AI_BOQ_ROWS.map((r) => r.projectItem))];
+    const itemNameOptions = newItem.projectItem && !baseItemNames.includes(newItem.projectItem)
+      ? [...baseItemNames, newItem.projectItem]
+      : baseItemNames;
     return (
           <div className={`${mode === 'edit' ? 'm-3' : 'mt-3'} rounded-xl border border-neutral-200 bg-neutral-50/60 overflow-hidden`}>
             <div className="flex items-start justify-between px-4 py-3 border-b border-neutral-200 bg-white">
               <div>
                 <p className="text-sm font-semibold text-neutral-800">{mode === 'edit' ? t('Edit BOQ Item', 'تعديل البند') : t('Add BOQ Item', 'إضافة بند')}</p>
-                <p className="text-xs text-neutral-400 mt-0.5">{mode === 'edit' ? t('Change the fields, then save. Changing name, quantity or price resets the Etimad check.', 'عدّل الحقول ثم احفظ. تغيير الاسم أو الكمية أو السعر يعيد التحقق من اعتماد.') : t('Fill all fields then save to add to the table', 'أكمل جميع الحقول ثم احفظ لإضافتها إلى الجدول')}</p>
+                <p className="text-xs text-neutral-500 mt-0.5">{mode === 'edit' ? t('Change the fields, then save. Changing name, quantity or price resets the Etimad check.', 'عدّل الحقول ثم احفظ. تغيير الاسم أو الكمية أو السعر يعيد التحقق من اعتماد.') : t('Fill all fields then save to add to the table', 'أكمل جميع الحقول ثم احفظ لإضافتها إلى الجدول')}</p>
               </div>
               <button
                 onClick={closeItemForm}
-                className="text-neutral-400 hover:text-neutral-600 transition-colors mt-0.5"
+                className="text-neutral-500 hover:text-neutral-600 transition-colors mt-0.5"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                   <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
@@ -273,19 +308,34 @@ export default function BillOfQuantities() {
             </div>
 
             <div className="px-5 py-5 space-y-4">
-              {/* 1. Project Item Classification — top */}
-              <FormField label="Project Item Classification" labelAr="تصنيف بند المشروع" required>
-                <Select
-                  value={newItem.projectItem}
-                  onChange={(e) => setNewItem((p) => ({ ...p, projectItem: e.target.value }))}
-                >
-                  <option value="">{t('Select project item…', 'اختر بند المشروع…')}</option>
-                  {projectItems.length > 0
-                    ? projectItems.map((it) => <option key={it.id} value={it.name}>{it.name}</option>)
-                    : [...new Set(AI_BOQ_ROWS.map((r) => r.projectItem))].map((v) => <option key={v} value={v}>{v}</option>)
-                  }
-                </Select>
-              </FormField>
+              {/* 1. Project Item Classification + Etimad Category — top */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Project Item Classification" labelAr="تصنيف بند المشروع" required>
+                  <Select
+                    value={newItem.projectItem}
+                    onChange={(e) => setNewItem((p) => ({ ...p, projectItem: e.target.value }))}
+                  >
+                    <option value="">{t('Select project item…', 'اختر بند المشروع…')}</option>
+                    {itemNameOptions.map((v) => <option key={v} value={v}>{v}</option>)}
+                  </Select>
+                </FormField>
+                <FormField label="Category" labelAr="التصنيف" required>
+                  {lockedCategory ? (
+                    <div className="flex items-center gap-2 h-[38px] px-3 rounded-lg border border-neutral-200 bg-neutral-50">
+                      <Badge variant={BOQ_CATEGORY_META[lockedCategory].badge}>{t(BOQ_CATEGORY_META[lockedCategory].en, BOQ_CATEGORY_META[lockedCategory].ar)}</Badge>
+                      <span className="text-[11px] text-neutral-500">{t('from this group', 'من هذه المجموعة')}</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={newItem.category}
+                      onChange={(e) => setNewItem((p) => ({ ...p, category: e.target.value as BOQCategory | '' }))}
+                    >
+                      <option value="">{t('Auto-detect…', 'تحديد تلقائي…')}</option>
+                      {BOQ_CATEGORIES.map((c) => <option key={c} value={c}>{t(BOQ_CATEGORY_META[c].en, BOQ_CATEGORY_META[c].ar)}</option>)}
+                    </Select>
+                  )}
+                </FormField>
+              </div>
 
               {/* 2. Item Name */}
               <FormField label="Item Name" labelAr="اسم البند" required>
@@ -349,14 +399,14 @@ export default function BillOfQuantities() {
                     <button
                       type="button"
                       onClick={() => setNewItem((p) => ({ ...p, hasBrandName: true }))}
-                      className={`flex-1 py-2 text-sm font-medium transition-colors ${newItem.hasBrandName ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
+                      className={`flex-1 py-2 text-sm font-medium transition-colors ${newItem.hasBrandName ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
                     >
                       {t('Yes', 'نعم')}
                     </button>
                     <button
                       type="button"
                       onClick={() => setNewItem((p) => ({ ...p, hasBrandName: false, brandJustification: '' }))}
-                      className={`flex-1 py-2 text-sm font-medium border-s border-neutral-300 transition-colors ${!newItem.hasBrandName ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
+                      className={`flex-1 py-2 text-sm font-medium border-s border-neutral-300 transition-colors ${!newItem.hasBrandName ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
                     >
                       {t('No', 'لا')}
                     </button>
@@ -377,6 +427,15 @@ export default function BillOfQuantities() {
                   </FormField>
                 </div>
               )}
+
+              {/* Attachments */}
+              <FormField label="Attachments" labelAr="المرفقات">
+                <BoqAttachments
+                  attachments={newItem.attachments}
+                  onChange={(next) => setNewItem((p) => ({ ...p, attachments: next }))}
+                />
+                <p className="text-[11px] text-neutral-500 mt-1">{t('Specs, drawings, quotes or any supporting document for this item.', 'المواصفات أو الرسومات أو عروض الأسعار أو أي مستند داعم لهذا البند.')}</p>
+              </FormField>
 
               {/* Actions */}
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
@@ -426,6 +485,7 @@ export default function BillOfQuantities() {
             {([
               ['cards', t('Grid', 'شبكة'), <GridIcon key="i" className="w-3.5 h-3.5" />],
               ['sheet', t('Table', 'جدول'), <TableIcon key="i" className="w-3.5 h-3.5" />],
+              ['grouped', t('Grouped', 'مُجمّع'), <ListIcon key="i" className="w-3.5 h-3.5" />],
             ] as const).map(([v, label, icon]) => (
               <button key={v} type="button" role="radio" aria-checked={layout === v} onClick={() => setBoqLayout(v)}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${layout === v ? 'bg-white text-brand-700 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>
@@ -464,7 +524,7 @@ export default function BillOfQuantities() {
                   >
                     {t('browse to upload', 'تصفح للرفع')}
                   </button>
-                  <p className="text-xs text-neutral-400 mt-2">{t('Supports .xlsx and .xls · Max 10MB', 'يدعم .xlsx و .xls · الحد الأقصى 10 ميجابايت')}</p>
+                  <p className="text-xs text-neutral-500 mt-2">{t('Supports .xlsx and .xls · Max 10MB', 'يدعم .xlsx و .xls · الحد الأقصى 10 ميجابايت')}</p>
                 </>
               )}
               <input
@@ -520,7 +580,7 @@ export default function BillOfQuantities() {
         {/* Empty state — hidden while add form is open */}
         {layout === 'cards' && groups.length === 0 && !showAddForm && (
           <div className="rounded-xl border-2 border-dashed border-neutral-200 py-10 text-center">
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-neutral-500">
               {t('No items yet. Click "Add BOQ Item" below or use AI Suggest.', 'لا توجد بنود. انقر "إضافة بند" أدناه أو استخدم اقتراح الذكاء الاصطناعي.')}
             </p>
           </div>
@@ -581,6 +641,7 @@ export default function BillOfQuantities() {
               const blockCls = `border-x border-t border-neutral-200 overflow-hidden ${breakBefore ? 'rounded-t-xl' : ''} ${breakAfter ? 'rounded-b-xl border-b' : ''} ${breakBefore && gi > 0 ? 'mt-3' : ''}`;
               const subtotal = group.rows.reduce((s, r) => s + rowTotal(r), 0);
               const dotColor = GROUP_COLORS[gi % GROUP_COLORS.length];
+              const editingInGroup = group.rows.some((r) => r.id === editingId);
 
               return (
                 <div key={group.key} className={blockCls}>
@@ -589,10 +650,10 @@ export default function BillOfQuantities() {
                     onClick={() => toggleGroup(group.key)}
                     className="w-full flex items-center gap-3 px-4 py-3 bg-neutral-50 hover:bg-neutral-100/60 transition-colors text-start"
                   >
-                    <ChevronRightIcon className={`w-3.5 h-3.5 text-neutral-400 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                    <ChevronRightIcon className={`w-3.5 h-3.5 text-neutral-500 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
                     <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`} />
                     <span className="flex-1 text-sm font-semibold text-neutral-800 truncate">{group.key}</span>
-                    <span className="text-[11px] text-neutral-400 tabular-nums flex-shrink-0">
+                    <span className="text-[11px] text-neutral-500 tabular-nums flex-shrink-0">
                       {group.rows.length} {group.rows.length === 1 ? t('item', 'بند') : t('items', 'بنود')}
                     </span>
                     {subtotal > 0 && (
@@ -604,14 +665,16 @@ export default function BillOfQuantities() {
 
                   {isExpanded && (
                     <div>
-                      {/* Column headers */}
+                      {/* Column headers — hidden while a row in this group is being edited */}
+                      {!editingInGroup && (
                       <div className="grid grid-cols-[1fr_64px_104px_136px_60px] px-5 py-2 bg-white border-b border-neutral-100">
-                        <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wide">{t('Item', 'البند')}</span>
-                        <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wide text-center">{t('Qty', 'الكمية')}</span>
-                        <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wide text-end">{t('Unit Price', 'سعر الوحدة')}</span>
-                        <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wide text-end">{t('Total', 'الإجمالي')}</span>
+                        <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wide">{t('Item', 'البند')}</span>
+                        <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wide text-center">{t('Qty', 'الكمية')}</span>
+                        <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wide text-end">{t('Unit Price', 'سعر الوحدة')}</span>
+                        <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wide text-end">{t('Total', 'الإجمالي')}</span>
                         <span />
                       </div>
+                      )}
 
                       {/* Rows — view mode */}
                       <div className="divide-y divide-neutral-100">
@@ -633,9 +696,10 @@ export default function BillOfQuantities() {
                               <div className={`pe-4 col-start-1 ${showCheckTop ? 'row-start-1 row-span-2' : ''}`}>
                                 <p className="text-sm font-semibold text-neutral-900 leading-snug">{row.itemName || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
                                 {row.itemDescription && (
-                                  <p className="text-xs text-neutral-400 mt-0.5 leading-snug">{row.itemDescription}</p>
+                                  <p className="text-xs text-neutral-500 mt-0.5 leading-snug">{row.itemDescription}</p>
                                 )}
                                 <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                  {(() => { const m = BOQ_CATEGORY_META[row.category ?? deriveCategory(row.itemName)]; return <Badge variant={m.badge}>{isAr ? m.ar : m.en}</Badge>; })()}
                                   {row.hasBrandName && (
                                     <HoverNote
                                       title={t('Brand justification', 'مبرر العلامة التجارية')}
@@ -652,8 +716,11 @@ export default function BillOfQuantities() {
                                     </HoverNote>
                                   )}
                                   {row.deliveryDate && (
-                                    <span className="text-[10px] text-neutral-400" dir="ltr">{row.deliveryDate}</span>
+                                    <span className="text-[10px] text-neutral-500" dir="ltr">{row.deliveryDate}</span>
                                   )}
+                                </div>
+                                <div className="mt-2">
+                                  <BoqAttachments compact attachments={row.attachments ?? []} onChange={(next) => updateBoqRow(row.id, { attachments: next })} />
                                 </div>
                               </div>
 
@@ -663,7 +730,7 @@ export default function BillOfQuantities() {
                                   {row.quantity !== '' ? row.quantity : '—'}
                                 </span>
                                 {row.unitOfMeasure && (
-                                  <span className="block text-[11px] text-neutral-400 mt-0.5 truncate" title={row.unitOfMeasure}>{row.unitOfMeasure}</span>
+                                  <span className="block text-[11px] text-neutral-500 mt-0.5 truncate" title={row.unitOfMeasure}>{row.unitOfMeasure}</span>
                                 )}
                               </div>
 
@@ -686,7 +753,7 @@ export default function BillOfQuantities() {
                                 <button
                                   type="button"
                                   onClick={() => startEdit(row)}
-                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-brand-700 hover:bg-brand-50 transition-colors"
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors"
                                   title={t('Edit item', 'تعديل البند')}
                                   aria-label={t(`Edit ${row.itemName}`, `تعديل ${row.itemName}`)}
                                 >
@@ -726,8 +793,75 @@ export default function BillOfQuantities() {
           </div>
         )}
 
+        {/* C · grouped by Etimad category */}
+        {layout === 'grouped' && (
+          <div className="space-y-3">
+            {BOQ_CATEGORIES.map((cat) => {
+              const m = BOQ_CATEGORY_META[cat];
+              const rows = formData.boqItems.filter((r) => (r.category ?? deriveCategory(r.itemName)) === cat);
+              const subtotal = rows.reduce((s, r) => s + rowTotal(r), 0);
+              const addingHere = showAddForm && addCat === cat;
+              return (
+                <div key={cat} className="rounded-xl border border-neutral-200 overflow-hidden">
+                  <div className="flex items-center gap-2.5 px-4 py-3 bg-neutral-50 border-b border-neutral-200">
+                    <Badge variant={m.badge}>{isAr ? m.ar : m.en}</Badge>
+                    <span className="text-[11px] text-neutral-500 tabular-nums">{rows.length} {rows.length === 1 ? t('item', 'بند') : t('items', 'بنود')}</span>
+                    {subtotal > 0 && <span className="ms-auto text-xs font-semibold text-neutral-700 tabular-nums" dir="ltr">SAR {formatSAR(subtotal)}</span>}
+                  </div>
+
+                  {rows.length > 0 && (
+                    <div className="divide-y divide-neutral-100">
+                      {rows.map((row) => {
+                        if (editingId === row.id) return <div key={row.id}>{renderItemForm('edit')}</div>;
+                        const total = rowTotal(row);
+                        const unitPrice = typeof row.unitPrice === 'number' ? row.unitPrice : 0;
+                        const showCheckTop = !row.etimadCheck || isStale(row);
+                        return (
+                          <div key={row.id} className="bg-white hover:bg-neutral-50/40 transition-colors">
+                            <div className="grid grid-cols-[1fr_72px_112px_128px_56px] items-center gap-2 px-4 pt-2.5">
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-neutral-900 truncate">{row.itemName || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
+                                {row.projectItem && <p className="text-[11px] text-neutral-500 truncate">{row.projectItem}</p>}
+                              </div>
+                              <div className="text-center text-sm text-neutral-700 tabular-nums">{row.quantity !== '' ? row.quantity : '—'}<span className="block text-[10px] text-neutral-500">{row.unitOfMeasure}</span></div>
+                              <div className="text-end text-sm text-neutral-700 tabular-nums" dir="ltr">{unitPrice > 0 ? `SAR ${formatSAR(unitPrice)}` : '—'}</div>
+                              <div className="text-end text-sm font-bold text-neutral-900 tabular-nums" dir="ltr">{total > 0 ? `SAR ${formatSAR(total)}` : '—'}</div>
+                              <div className="flex justify-end gap-1">
+                                <button type="button" onClick={() => startEdit(row)} className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors" title={t('Edit item', 'تعديل البند')}><PencilIcon className="w-3.5 h-3.5" /></button>
+                                <button type="button" onClick={() => { if (editingId === row.id) closeItemForm(); removeBoqRow(row.id); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-error-500 hover:bg-error-50 transition-colors" title={t('Delete item', 'حذف البند')}><TrashIcon className="w-3.5 h-3.5" /></button>
+                              </div>
+                            </div>
+                            <div className="px-4 pt-2 pb-3 space-y-2">
+                              <BoqAttachments compact attachments={row.attachments ?? []} onChange={(next) => updateBoqRow(row.id, { attachments: next })} />
+                              {showCheckTop && <EtimadCheckButton row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} />}
+                              <EtimadPanel hideUnchecked row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} onMove={() => moveBoqRowsToEtimad([row.id])} onUpdate={(patch) => updateBoqRow(row.id, patch)} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {addingHere ? (
+                    <div ref={addFormRef} className="border-t border-neutral-100">{renderItemForm('add', cat)}</div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => startAddInCategory(cat)}
+                      className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-[12px] font-semibold text-brand-700 hover:bg-brand-50/60 transition-colors border-t border-neutral-100"
+                    >
+                      <PlusIcon className="w-3.5 h-3.5" />
+                      {t(`Add ${m.en} item`, `إضافة بند ${m.ar}`)}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Add BOQ item — inline form */}
-        {layout === 'cards' && showAddForm && renderItemForm('add')}
+        {layout === 'cards' && showAddForm && <div ref={addFormRef}>{renderItemForm('add')}</div>}
 
         {/* Add row link */}
         {layout === 'cards' && !showAddForm && (

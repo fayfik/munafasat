@@ -1,6 +1,8 @@
 export type SourceType = 'tendering' | 'souq-etimad';
 export type ContractDurationType = 'days' | 'months' | 'years';
 export type ProjectItemType = 'assets' | 'services' | 'consumables';
+/** Etimad BOQ categorisation captured per BOQ line. */
+export type BOQCategory = 'service' | 'equipment' | 'material';
 export type SectionStatus = 'completed' | 'in-progress' | 'not-started' | 'missing';
 export type TenderStatus = 'draft' | 'submitted' | 'under-review' | 'approved' | 'returned';
 
@@ -14,6 +16,8 @@ export interface ProjectItem {
 export interface BOQRow {
   id: string;
   projectItem: string;
+  /** Etimad category — Service / Equipment / Material. */
+  category?: BOQCategory;
   itemName: string;
   itemDescription: string;
   unitOfMeasure: string;
@@ -27,6 +31,8 @@ export interface BOQRow {
   /** User kept an Etimad-available item in the tender. */
   etimadKeep?: boolean;
   etimadJustification?: string;
+  /** Supporting documents attached to this line (specs, drawings, quotes…). */
+  attachments?: FileAttachment[];
 }
 
 export type EtimadAvailability = 'available' | 'not-available' | 'uncertain';

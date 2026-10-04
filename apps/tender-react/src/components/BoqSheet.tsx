@@ -4,7 +4,9 @@ import { UNITS_OF_MEASURE } from '../data/mockData';
 import { isStale, needsJustification } from '../lib/etimadCheck';
 import EtimadPanel from './EtimadPanel';
 import { PlusIcon, TrashIcon, SparklesIcon, ChevronDownIcon, ChevronRightIcon } from './Icons';
-import type { BOQRow } from '../types/tender';
+import type { BOQRow, BOQCategory } from '../types/tender';
+import { BOQ_CATEGORIES, BOQ_CATEGORY_META } from '../lib/boqCategory';
+import BoqAttachments from './BoqAttachments';
 
 /**
  * Variant B of the BOQ step: the whole BOQ as one spreadsheet-style table.
@@ -12,12 +14,13 @@ import type { BOQRow } from '../types/tender';
  * Tab moves right, and rows can be pasted straight from Excel.
  */
 
-type Key = 'itemName' | 'projectItem' | 'itemDescription' | 'unitOfMeasure' | 'quantity' | 'unitPrice' | 'deliveryDate' | 'hasBrandName' | 'brandJustification';
+type Key = 'itemName' | 'projectItem' | 'category' | 'itemDescription' | 'unitOfMeasure' | 'quantity' | 'unitPrice' | 'deliveryDate' | 'hasBrandName' | 'brandJustification';
 
 // Editable columns in on-screen order. `c` is the column index used for keyboard moves and paste.
 const COLS: { key: Key; en: string; ar: string; w: number; header: string[] }[] = [
   { key: 'itemName', en: 'Item name', ar: 'اسم البند', w: 184, header: ['item name', 'item'] },
   { key: 'projectItem', en: 'Project item', ar: 'بند المشروع', w: 160, header: ['project item', 'project item classification'] },
+  { key: 'category', en: 'Category', ar: 'التصنيف', w: 118, header: ['category', 'التصنيف'] },
   { key: 'unitOfMeasure', en: 'Unit', ar: 'الوحدة', w: 88, header: ['unit of measure', 'unit', 'uom'] },
   { key: 'quantity', en: 'Qty', ar: 'الكمية', w: 64, header: ['quantity', 'qty'] },
   { key: 'unitPrice', en: 'Unit price (SAR)', ar: 'سعر الوحدة', w: 110, header: ['unit price (sar)', 'unit price', 'price'] },
@@ -29,7 +32,8 @@ const COLS: { key: Key; en: string; ar: string; w: number; header: string[] }[] 
 // Column order of the downloadable BOQ Excel template.
 const TEMPLATE_ORDER: Key[] = ['projectItem', 'itemName', 'itemDescription', 'unitOfMeasure', 'quantity', 'unitPrice', 'deliveryDate', 'hasBrandName', 'brandJustification'];
 const TOTAL_AFTER = COLS.findIndex((c) => c.key === 'unitPrice'); // read-only Total sits after Unit price
-const TABLE_W = 40 + COLS.reduce((a, c) => a + c.w, 0) + 124 + 150 + 40;
+const DOCS_W = 116;
+const TABLE_W = 40 + COLS.reduce((a, c) => a + c.w, 0) + 124 + DOCS_W + 150 + 40;
 
 const fmtMoney = (n: number) => new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 const fmtQty = (n: number) => new Intl.NumberFormat('en-SA', { maximumFractionDigits: 3 }).format(n);
@@ -57,6 +61,7 @@ function fromText(key: Key, raw: string): Partial<BOQRow> {
     case 'quantity': case 'unitPrice': return { [key]: parseNum(s) };
     case 'deliveryDate': return { deliveryDate: parseDate(s) };
     case 'hasBrandName': return { hasBrandName: /^(y|yes|true|1|نعم)$/i.test(s) };
+    case 'category': { const v = s.toLowerCase(); return { category: BOQ_CATEGORIES.find((c) => c === v || BOQ_CATEGORY_META[c].en.toLowerCase() === v || BOQ_CATEGORY_META[c].ar === s) }; }
     case 'unitOfMeasure': return { unitOfMeasure: UNITS_OF_MEASURE.find((u) => u.toLowerCase() === s.toLowerCase()) ?? (s ? s : 'Each') };
     default: return { [key]: s };
   }
@@ -169,7 +174,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
   const total = (r: BOQRow) => (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0);
   const options = (r: BOQRow) => (r.projectItem && !projectItemOptions.includes(r.projectItem) ? [...projectItemOptions, r.projectItem] : projectItemOptions);
   const toggle = (id: string) => setOpen((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const colCount = COLS.length + 4; // #, total, etimad, actions
+  const colCount = COLS.length + 5; // #, total, docs, etimad, actions
 
   const td = 'border-b border-e border-neutral-200 p-0 relative focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-brand-500';
   const inp = 'block w-full h-9 bg-transparent px-2 text-[13px] text-neutral-900 placeholder:text-neutral-300 outline-none';
@@ -186,6 +191,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
           <colgroup>
             <col style={{ width: 40 }} />
             {COLS.map((c, i) => [<col key={c.key} style={{ width: c.w }} />, i === TOTAL_AFTER ? <col key="total" style={{ width: 124 }} /> : null])}
+            <col style={{ width: DOCS_W }} />
             <col style={{ width: 150 }} />
             <col style={{ width: 40 }} />
           </colgroup>
@@ -198,6 +204,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                 </Th>,
                 i === TOTAL_AFTER ? <Th key="total" className="text-end">{t('Total (SAR)', 'الإجمالي (ر.س)')}</Th> : null,
               ])}
+              <Th>{t('Docs', 'مستندات')}</Th>
               <Th>{t('Etimad Souq', 'سوق اعتماد')}</Th>
               <Th><span className="sr-only">{t('Actions', 'إجراءات')}</span></Th>
             </tr>
@@ -205,7 +212,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={colCount} className="px-4 py-8 text-center text-sm text-neutral-400 border-b border-neutral-200">
+                <td colSpan={colCount} className="px-4 py-8 text-center text-sm text-neutral-500 border-b border-neutral-200">
                   {t('No items yet. Add a row, paste rows from Excel, or use AI Suggest.', 'لا توجد بنود. أضف صفاً أو الصق من Excel أو استخدم اقتراح الذكاء الاصطناعي.')}
                 </td>
               </tr>
@@ -217,7 +224,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
               return [
                 <tr key={row.id} className="group/row">
                   {/* # */}
-                  <td className="sticky start-0 z-20 bg-neutral-50 border-b border-e border-neutral-200 text-center text-[11px] tabular-nums text-neutral-400" title={missing ? t('Item name and project item are required.', 'اسم البند وبند المشروع مطلوبان.') : undefined}>
+                  <td className="sticky start-0 z-20 bg-neutral-50 border-b border-e border-neutral-200 text-center text-[11px] tabular-nums text-neutral-500" title={missing ? t('Item name and project item are required.', 'اسم البند وبند المشروع مطلوبان.') : undefined}>
                     <span className="inline-flex items-center gap-1">
                       {(missing || brandMissing) && row.itemName + row.projectItem !== '' && <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />}
                       {r + 1}
@@ -234,6 +241,15 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                           <SelectCell {...cellProps} value={row.projectItem} onChange={(v) => onUpdate(row.id, { projectItem: v })}>
                             <option value="">{t('Select…', 'اختر…')}</option>
                             {options(row).map((o) => <option key={o} value={o}>{o}</option>)}
+                          </SelectCell>
+                        );
+                        break;
+                      case 'category':
+                        extra = !row.category && row.itemName ? 'bg-warning-50/60' : '';
+                        content = (
+                          <SelectCell {...cellProps} value={row.category ?? ''} onChange={(v) => onUpdate(row.id, { category: (v || undefined) as BOQCategory | undefined })}>
+                            <option value="">{t('Select…', 'اختر…')}</option>
+                            {BOQ_CATEGORIES.map((c) => <option key={c} value={c}>{t(BOQ_CATEGORY_META[c].en, BOQ_CATEGORY_META[c].ar)}</option>)}
                           </SelectCell>
                         );
                         break;
@@ -290,6 +306,10 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                       ) : null,
                     ];
                   })}
+                  {/* Attachments */}
+                  <td className="border-b border-e border-neutral-200 px-1.5 text-center">
+                    <BoqAttachments buttonOnly attachments={row.attachments ?? []} onChange={(next) => onUpdate(row.id, { attachments: next })} />
+                  </td>
                   {/* Etimad */}
                   <td className="border-b border-e border-neutral-200 px-1.5">
                     <EtimadChip row={row} checking={checkingIds.has(row.id)} open={isOpen} onCheck={() => onCheck(row)} onToggle={() => toggle(row.id)} />
@@ -343,10 +363,10 @@ function SelectCell({ value, onChange, children, ...rest }: { value: string; onC
   return (
     <div className="relative">
       <select {...rest} value={value} onChange={(e) => onChange(e.target.value)}
-        className={`block w-full h-9 appearance-none bg-transparent ps-2 pe-6 text-[13px] outline-none cursor-pointer truncate ${value ? 'text-neutral-900' : 'text-neutral-400'}`}>
+        className={`block w-full h-9 appearance-none bg-transparent ps-2 pe-6 text-[13px] outline-none cursor-pointer truncate ${value ? 'text-neutral-900' : 'text-neutral-500'}`}>
         {children}
       </select>
-      <ChevronDownIcon className="w-3 h-3 text-neutral-400 absolute end-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+      <ChevronDownIcon className="w-3 h-3 text-neutral-500 absolute end-2 top-1/2 -translate-y-1/2 pointer-events-none" />
     </div>
   );
 }

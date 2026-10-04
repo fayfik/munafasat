@@ -259,9 +259,9 @@ export function FormField({ label, labelAr, required, optional, hint, error, chi
       <div className="flex items-center justify-between gap-3">
         <label className="flex items-center gap-1.5 text-label-lg font-medium text-neutral-800 flex-wrap">
           {primaryLabel}
-          {optional && <span className="text-neutral-400 font-normal text-[11px]">{t('Optional', 'اختياري')}</span>}
+          {optional && <span className="text-neutral-500 font-normal text-[11px]">{t('Optional', 'اختياري')}</span>}
           {readOnly && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-neutral-400 font-normal">
+            <span className="inline-flex items-center gap-1 text-[11px] text-neutral-500 font-normal">
               <LockIcon />
               {t('Auto-fetched', 'مجلوب تلقائياً')}
             </span>
