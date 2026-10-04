@@ -266,3 +266,15 @@ select {
 .surface-header {
   background: linear-gradient(90deg, #699843 0%, #517632 100%);
 }
+
+/* Drawer sliding in from the end edge (right in English, left in Arabic) */
+@keyframes slide-in-end {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.slide-in-end { animation: slide-in-end 0.22s ease-out; }
+[dir="rtl"] .slide-in-end { animation-name: slide-in-start; }
+@keyframes slide-in-start {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}

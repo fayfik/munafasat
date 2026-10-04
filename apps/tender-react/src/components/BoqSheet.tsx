@@ -3,7 +3,8 @@ import { useT } from '../context/LanguageContext';
 import { UNITS_OF_MEASURE } from '../data/mockData';
 import { isStale, needsJustification } from '../lib/etimadCheck';
 import EtimadPanel from './EtimadPanel';
-import { PlusIcon, TrashIcon, SparklesIcon, ChevronDownIcon, ChevronRightIcon } from './Icons';
+import ColumnConfigDrawer from './ColumnConfigDrawer';
+import { PlusIcon, TrashIcon, SparklesIcon, ChevronDownIcon, ChevronRightIcon, ColumnsIcon } from './Icons';
 import type { BOQRow } from '../types/tender';
 
 /**
@@ -12,7 +13,8 @@ import type { BOQRow } from '../types/tender';
  * Tab moves right, and rows can be pasted straight from Excel.
  */
 
-type Key = 'itemName' | 'projectItem' | 'itemDescription' | 'unitOfMeasure' | 'quantity' | 'unitPrice' | 'deliveryDate' | 'hasBrandName' | 'brandJustification';
+type Key = 'itemName' | 'projectItem' | 'itemDescription' | 'unitOfMeasure' | 'quantity' | 'unitPrice' | 'deliveryDate' | 'hasBrandName' | 'brandJustification' | OptionalKey;
+type OptionalKey = 'procurementType' | 'purchaseGroup' | 'materialGroup';
 
 // Editable columns in on-screen order. `c` is the column index used for keyboard moves and paste.
 const COLS: { key: Key; en: string; ar: string; w: number; header: string[] }[] = [
@@ -28,8 +30,31 @@ const COLS: { key: Key; en: string; ar: string; w: number; header: string[] }[] 
 ];
 // Column order of the downloadable BOQ Excel template.
 const TEMPLATE_ORDER: Key[] = ['projectItem', 'itemName', 'itemDescription', 'unitOfMeasure', 'quantity', 'unitPrice', 'deliveryDate', 'hasBrandName', 'brandJustification'];
+// Optional columns, off by default; turned on from the column configuration drawer.
+const OPTIONAL_COLS: { key: OptionalKey; en: string; ar: string; w: number; header: string[]; options: string[] }[] = [
+  { key: 'procurementType', en: 'Procurement type', ar: 'نوع الشراء', w: 150, header: ['procurement type'], options: ['Goods', 'Services', 'Works', 'Consulting'] },
+  { key: 'purchaseGroup', en: 'Purchase group', ar: 'مجموعة الشراء', w: 210, header: ['purchase group'], options: ['P10 · IT hardware & software', 'P20 · IT services', 'P30 · Professional services', 'P40 · Facilities & maintenance', 'P50 · Office supplies'] },
+  { key: 'materialGroup', en: 'Material group', ar: 'مجموعة المواد', w: 210, header: ['material group'], options: ['MG-101 · Software', 'MG-102 · Computer hardware', 'MG-201 · IT consulting', 'MG-202 · Implementation services', 'MG-301 · Training', 'MG-401 · Furniture', 'MG-402 · Building works', 'MG-501 · Consumables'] },
+];
+
+/** Default columns as listed in the column configuration drawer (always on). */
+const DEFAULT_COLUMN_LIST = [
+  { key: 'no', en: 'Item No.', ar: 'رقم البند' },
+  { key: 'itemName', en: 'Item Name', ar: 'اسم البند' },
+  { key: 'projectItem', en: 'Project Item', ar: 'بند المشروع' },
+  { key: 'unitOfMeasure', en: 'Unit of Measure', ar: 'وحدة القياس' },
+  { key: 'quantity', en: 'Quantity', ar: 'الكمية' },
+  { key: 'unitPrice', en: 'Unit Price (SAR)', ar: 'سعر الوحدة (ر.س)' },
+  { key: 'total', en: 'Total (SAR)', ar: 'الإجمالي (ر.س)' },
+  { key: 'itemDescription', en: 'Description', ar: 'الوصف' },
+  { key: 'deliveryDate', en: 'Delivery Date', ar: 'موعد التسليم' },
+  { key: 'hasBrandName', en: 'Has Brand Name', ar: 'هل يوجد علامة تجارية' },
+  { key: 'brandJustification', en: 'Brand Justification', ar: 'مبرر العلامة التجارية' },
+  { key: 'etimad', en: 'Etimad Souq', ar: 'سوق اعتماد' },
+  { key: 'actions', en: 'Actions', ar: 'الإجراءات' },
+];
+
 const TOTAL_AFTER = COLS.findIndex((c) => c.key === 'unitPrice'); // read-only Total sits after Unit price
-const TABLE_W = 40 + COLS.reduce((a, c) => a + c.w, 0) + 124 + 150 + 40;
 
 const fmtMoney = (n: number) => new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 const fmtQty = (n: number) => new Intl.NumberFormat('en-SA', { maximumFractionDigits: 3 }).format(n);
@@ -73,10 +98,17 @@ interface Props {
   onMove: (row: BOQRow) => Promise<'moved' | 'preview' | 'error'>;
   onUpdate: (id: string, patch: Partial<BOQRow>) => void;
   onRemove: (id: string) => void;
+  /** Optional columns the user has turned on. */
+  optionalColumns: string[];
+  onOptionalColumnsChange: (keys: string[]) => void;
 }
 
-export default function BoqSheet({ rows, setRows, projectItemOptions, checkingIds, onCheck, onMove, onUpdate, onRemove }: Props) {
+export default function BoqSheet({ rows, setRows, projectItemOptions, checkingIds, onCheck, onMove, onUpdate, onRemove, optionalColumns, onOptionalColumnsChange }: Props) {
   const t = useT();
+  const [showColumns, setShowColumns] = useState(false);
+  // Visible columns: the defaults, then any optional ones turned on (in catalogue order).
+  const cols: { key: Key; en: string; ar: string; w: number; header: string[]; options?: string[] }[] = [...COLS, ...OPTIONAL_COLS.filter((c) => optionalColumns.includes(c.key))];
+  const tableW = 40 + cols.reduce((a, c) => a + c.w, 0) + 124 + 150 + 40;
   const tableRef = useRef<HTMLTableElement>(null);
   const pendingFocus = useRef<{ r: number; c: number } | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -145,10 +177,10 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
     // A header row (e.g. from the downloaded template) maps columns by name.
     // Whole template rows (6+ columns pasted into the first column) use the Excel template's order;
     // anything narrower fills the on-screen columns from the cell you pasted into.
-    let keys: (Key | null)[] = c0 === 0 && (lines[0]?.length ?? 0) >= 6 ? TEMPLATE_ORDER : COLS.slice(c0).map((col) => col.key);
+    let keys: (Key | null)[] = c0 === 0 && (lines[0]?.length ?? 0) >= 6 ? TEMPLATE_ORDER : cols.slice(c0).map((col) => col.key);
     const head = lines[0]?.map((h) => h.trim().toLowerCase());
-    if (head && head.filter((h) => COLS.some((col) => col.header.includes(h))).length >= 2) {
-      keys = head.map((h) => COLS.find((col) => col.header.includes(h))?.key ?? null);
+    if (head && head.filter((h) => cols.some((col) => col.header.includes(h))).length >= 2) {
+      keys = head.map((h) => cols.find((col) => col.header.includes(h))?.key ?? null);
       lines = lines.slice(1);
     }
     const next = [...rows];
@@ -169,7 +201,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
   const total = (r: BOQRow) => (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0);
   const options = (r: BOQRow) => (r.projectItem && !projectItemOptions.includes(r.projectItem) ? [...projectItemOptions, r.projectItem] : projectItemOptions);
   const toggle = (id: string) => setOpen((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const colCount = COLS.length + 4; // #, total, etimad, actions
+  const colCount = cols.length + 4; // #, total, etimad, actions
 
   const td = 'border-b border-e border-neutral-200 p-0 relative focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-brand-500';
   const inp = 'block w-full h-9 bg-transparent px-2 text-[13px] text-neutral-900 placeholder:text-neutral-300 outline-none';
@@ -181,18 +213,30 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
         {pasteNote && <span className="ms-auto text-success-700 font-medium">{pasteNote}</span>}
       </div>
 
+      <div className="relative">
+      {/* Column configuration — pinned to the top corner of the table header */}
+      <button
+        type="button"
+        onClick={() => setShowColumns(true)}
+        title={t('Column configuration', 'إعداد الأعمدة')}
+        aria-label={t('Column configuration', 'إعداد الأعمدة')}
+        className="absolute top-px end-px z-40 h-[33px] w-9 flex items-center justify-center rounded-se-[7px] bg-neutral-100 border-s border-b border-neutral-300 text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors"
+      >
+        <ColumnsIcon className="w-4 h-4" />
+        {optionalColumns.length > 0 && <span className="absolute top-1 end-1 w-1.5 h-1.5 rounded-full bg-brand-600" />}
+      </button>
       <div className="rounded-lg border border-neutral-300 overflow-x-auto bg-white">
-        <table ref={tableRef} onKeyDown={onKeyDown} onPaste={onPaste} className="border-separate border-spacing-0 text-start table-fixed" style={{ width: TABLE_W }}>
+        <table ref={tableRef} onKeyDown={onKeyDown} onPaste={onPaste} className="border-separate border-spacing-0 text-start table-fixed" style={{ width: tableW }}>
           <colgroup>
             <col style={{ width: 40 }} />
-            {COLS.map((c, i) => [<col key={c.key} style={{ width: c.w }} />, i === TOTAL_AFTER ? <col key="total" style={{ width: 124 }} /> : null])}
+            {cols.map((c, i) => [<col key={c.key} style={{ width: c.w }} />, i === TOTAL_AFTER ? <col key="total" style={{ width: 124 }} /> : null])}
             <col style={{ width: 150 }} />
             <col style={{ width: 40 }} />
           </colgroup>
           <thead>
             <tr className="bg-neutral-100">
               <Th sticky={0} className="text-center">#</Th>
-              {COLS.map((c, i) => [
+              {cols.map((c, i) => [
                 <Th key={c.key} sticky={i === 0 ? 40 : undefined} className={c.key === 'quantity' || c.key === 'unitPrice' ? 'text-end' : ''}>
                   {t(c.en, c.ar)}{(c.key === 'itemName' || c.key === 'projectItem') && <span className="text-error-500"> *</span>}
                 </Th>,
@@ -223,7 +267,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                       {r + 1}
                     </span>
                   </td>
-                  {COLS.map((col, c) => {
+                  {cols.map((col, c) => {
                     const cellProps = { 'data-cell': `${r}:${c}`, 'aria-label': `${t(col.en, col.ar)}, ${t('row', 'صف')} ${r + 1}` };
                     let content: ReactNode;
                     let extra = '';
@@ -275,6 +319,19 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                           );
                         }
                         break;
+                      case 'procurementType':
+                      case 'purchaseGroup':
+                      case 'materialGroup': {
+                        const val = (row[col.key] as string | undefined) ?? '';
+                        const opts = col.options ?? [];
+                        content = (
+                          <SelectCell {...cellProps} value={val} onChange={(v) => onUpdate(row.id, { [col.key]: v })}>
+                            <option value="">{t('Select…', 'اختر…')}</option>
+                            {(val && !opts.includes(val) ? [...opts, val] : opts).map((o) => <option key={o} value={o}>{o}</option>)}
+                          </SelectCell>
+                        );
+                        break;
+                      }
                       default:
                         content = (
                           <input {...cellProps} type="text" className={`${inp} ${col.key === 'itemName' ? 'font-medium' : ''}`} value={row[col.key] as string} title={(row[col.key] as string) || undefined}
@@ -318,6 +375,17 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
           </tbody>
         </table>
       </div>
+      </div>
+
+      {showColumns && (
+        <ColumnConfigDrawer
+          defaults={DEFAULT_COLUMN_LIST}
+          optional={OPTIONAL_COLS.map(({ key, en, ar }) => ({ key, en, ar }))}
+          enabled={optionalColumns}
+          onChange={onOptionalColumnsChange}
+          onClose={() => setShowColumns(false)}
+        />
+      )}
 
       <button type="button" onClick={() => addRow(0)} className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm">
         <PlusIcon className="w-3.5 h-3.5" />

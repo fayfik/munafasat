@@ -289,3 +289,13 @@ export function NavReportsIcon({ filled, className = 'w-[18px] h-[18px]', ...p }
     </svg>
   );
 }
+
+/** Column settings (table columns with a gear-like slider). */
+export function ColumnsIcon({ className = 'w-4 h-4', ...p }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}>
+      <rect x="3" y="3.5" width="14" height="13" rx="2" />
+      <path d="M7.75 3.5v13M12.25 3.5v13" />
+    </svg>
+  );
+}

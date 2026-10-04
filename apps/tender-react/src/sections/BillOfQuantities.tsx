@@ -567,6 +567,8 @@ export default function BillOfQuantities() {
             onMove={(row) => moveBoqRowsToEtimad([row.id])}
             onUpdate={updateBoqRow}
             onRemove={removeBoqRow}
+            optionalColumns={formData.boqOptionalColumns ?? []}
+            onOptionalColumnsChange={(keys) => updateField('boqOptionalColumns', keys)}
           />
         )}
 

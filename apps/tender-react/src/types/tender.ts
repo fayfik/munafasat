@@ -27,6 +27,10 @@ export interface BOQRow {
   /** User kept an Etimad-available item in the tender. */
   etimadKeep?: boolean;
   etimadJustification?: string;
+  /** Optional BOQ columns (shown when turned on in the table's column configuration). */
+  procurementType?: string;
+  purchaseGroup?: string;
+  materialGroup?: string;
 }
 
 export type EtimadAvailability = 'available' | 'not-available' | 'uncertain';
@@ -135,6 +139,8 @@ export interface TenderFormData {
   selectedProjectItemIds?: string[];
   /** Categories added by the user on top of the project's own ("What does this project include?"). */
   extraIncludeCategoryIds?: string[];
+  /** Optional BOQ table columns the user turned on. */
+  boqOptionalColumns?: string[];
   tenderingPurpose: string;
   scopeOfWork: string;
   scopeTerms: string;
