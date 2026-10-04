@@ -4,6 +4,8 @@ import { useT, useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiScope, aiTerms } from '../lib/aiTender';
 import { PROJECTS } from '../data/mockData';
+import { PROJECT_DEFAULT_CATEGORIES } from '../data/projectCategories';
+import CategoryPicker from '../components/CategoryPicker';
 import { FormField, SectionCard, Textarea, AIButton, InfoBanner } from '../components/ui';
 import { SparklesIcon } from '../components/Icons';
 
@@ -58,12 +60,7 @@ export default function ScopeOfWork() {
   }
 
   const regulatoryRecords = selectedProject?.regulatoryRecords ?? '';
-  const includesChips = (selectedProject?.includes ?? '')
-    .replace(/\.$/, '')
-    .split(',')
-    .map((x) => x.trim().replace(/^and\s+/i, ''))
-    .filter(Boolean)
-    .map((x) => x.charAt(0).toUpperCase() + x.slice(1));
+  const lockedCategoryIds = selectedProject ? PROJECT_DEFAULT_CATEGORIES[selectedProject.id] ?? [] : [];
 
   return (
     <div className="space-y-5">
@@ -76,20 +73,19 @@ export default function ScopeOfWork() {
         action={<AIButton onClick={generateScope} loading={scopeLoading} label={t('Generate Scope', 'توليد النطاق')} />}
       >
         <div className="space-y-4">
-          {/* What the project includes — from the selected project, shown first on a tinted card */}
+          {/* What the project includes — project's categories (locked) + ones the user adds; shown first on a tinted card */}
           <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3.5">
-            <p className="text-sm font-medium text-neutral-700">{t('What Does Your Project Include?', 'ماذا يتضمن مشروعك؟')}</p>
-            {includesChips.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {includesChips.map((chip) => (
-                  <span key={chip} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white text-neutral-700 border border-neutral-200">
-                    {chip}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-1 text-xs text-neutral-400">{t('Select a project in Project Setup to see what it includes.', 'اختر مشروعاً في إعداد المشروع لعرض ما يتضمنه.')}</p>
+            <p className="text-sm font-medium text-neutral-700 mb-2">
+              {t('What does this project include', 'ماذا يتضمن هذا المشروع')} <span className="text-error-500">*</span>
+            </p>
+            {!selectedProject && (
+              <p className="mb-2 text-xs text-neutral-400">{t('Select a project in Project Setup to see what it already includes.', 'اختر مشروعاً في إعداد المشروع لعرض ما يتضمنه.')}</p>
             )}
+            <CategoryPicker
+              lockedIds={lockedCategoryIds}
+              addedIds={(formData.extraIncludeCategoryIds ?? []).filter((id) => !lockedCategoryIds.includes(id))}
+              onChange={(ids) => updateField('extraIncludeCategoryIds', ids)}
+            />
           </div>
 
           <FormField label="Project Scope of Work" labelAr="نطاق عمل المشروع" required>

@@ -3,6 +3,7 @@
 // caller can fall back to the original sample content.
 import { askJson, askText } from './claudeRuntime';
 import { PROJECTS, ALL_COST_CENTERS, UNITS_OF_MEASURE } from '../data/mockData';
+import { categoryById } from '../data/projectCategories';
 import type { TenderFormData } from '../types/tender';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -20,6 +21,8 @@ function context(f: TenderFormData, opts: { boq?: boolean; deliverables?: boolea
     lines.push(`Project: ${p.name} (${p.code})`);
     lines.push(`Project purpose: ${p.purpose}`);
     lines.push(`Project includes: ${p.includes}`);
+    const extra = (f.extraIncludeCategoryIds ?? []).map((id) => categoryById(id)?.title).filter(Boolean);
+    if (extra.length) lines.push(`The requester also added: ${extra.join(', ')}`);
     lines.push(`Project items: ${p.items.map((i) => `${i.name} [${i.type}]`).join('; ')}`);
     lines.push(`Regulatory records required: ${p.regulatoryRecords}`);
   } else {

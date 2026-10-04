@@ -133,6 +133,8 @@ export interface TenderFormData {
   projectId: string;
   /** Project items chosen for this tender (ids from the project's item list). */
   selectedProjectItemIds?: string[];
+  /** Categories added by the user on top of the project's own ("What does this project include?"). */
+  extraIncludeCategoryIds?: string[];
   tenderingPurpose: string;
   scopeOfWork: string;
   scopeTerms: string;
