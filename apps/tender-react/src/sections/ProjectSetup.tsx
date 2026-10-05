@@ -67,9 +67,9 @@ export default function ProjectSetup() {
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{t('Procurement route', 'مسار الشراء')}</p>
           <p className="text-[15px] font-semibold text-neutral-900 mt-0.5">{routeLabel}</p>
-          <p className="text-[12px] text-neutral-500 mt-0.5">{t('Determined in the Procurement Route step.', 'محدد في خطوة مسار الشراء.')}</p>
+          <p className="text-[12px] text-neutral-500 mt-0.5">{t('Confirmed by the Procurement team in the Procurement Route step.', 'أكده فريق المشتريات في خطوة مسار الشراء.')}</p>
         </div>
-        <Badge variant="warning">{t('Auto-determined', 'محدد تلقائياً')}</Badge>
+        <Badge variant="success">{t('Reviewed by Procurement', 'روجع من المشتريات')}</Badge>
       </div>
 
       {/* Project Details — view mode (project & items chosen in Step 1) */}

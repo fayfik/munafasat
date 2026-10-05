@@ -105,7 +105,7 @@ interface TenderContextType {
   qualPctTotal: number;
   /** Step 1 (Procurement Route) determines the channel; later steps unlock once it's confirmed. */
   routeConfirmed: boolean;
-  confirmRoute: (opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[] }) => void;
+  confirmRoute: (opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string; quantity?: number | '' }[] }) => void;
   importedFromProject: string | null;
   setImportedFromProject: (name: string | null) => void;
   /** Last RFP imported in Project Setup, with the values it replaced (for Undo). */
@@ -168,7 +168,8 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       : { ...INITIAL, ...(initialSeed ?? {}), sourceType: initialSourceType ?? initialSeed?.sourceType ?? INITIAL.sourceType });
   const [status, setStatus] = useState<TenderStatus>(initialStatus ?? 'draft');
   // Existing requests are already past the route step; new ones start on it.
-  const [routeConfirmed, setRouteConfirmed] = useState<boolean>(!!initialForm);
+  // A saved request counts as route-confirmed unless it is still waiting on (or holding) Procurement's review.
+  const [routeConfirmed, setRouteConfirmed] = useState<boolean>(!!initialForm && (!initialForm.routeReview || initialForm.routeReview.status === 'confirmed'));
   const [currentSection, setCurrentSection] = useState(initialForm ? 1 : 0);
   const [saveState, setSaveState] = useState<TenderContextType['saveState']>('idle');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -217,7 +218,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
 
   // Called from the Procurement Route step once the channel is determined.
   // Seeds the project, cost center, selected items and a starter BOQ for the chosen group.
-  const confirmRoute = useCallback((opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[] }) => {
+  const confirmRoute = useCallback((opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string; quantity?: number | '' }[] }) => {
     const proj = PROJECTS.find((p) => p.id === opts.projectId);
     setFormData((prev) => ({
       ...prev,
@@ -228,8 +229,9 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       tenderingPurpose: prev.tenderingPurpose || proj?.purpose || '',
       boqItems: opts.items.map((i) => ({
         id: crypto.randomUUID(), projectItem: i.name, itemName: i.name, itemDescription: '',
-        unitOfMeasure: 'Each', quantity: '' as const, unitPrice: '' as const, deliveryDate: '',
+        unitOfMeasure: 'Each', quantity: i.quantity ?? ('' as const), unitPrice: '' as const, deliveryDate: '',
       })),
+      routeReview: prev.routeReview ? { ...prev.routeReview, status: 'confirmed' } : prev.routeReview,
     }));
     setRouteConfirmed(true);
     triggerSave();
@@ -381,11 +383,14 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   const evalWeightTotal = formData.evaluationCriteria.reduce((s, r) => s + (typeof r.weight === 'number' ? r.weight : 0), 0);
   const qualPctTotal = formData.qualificationCriteria.reduce((s, r) => s + (typeof r.percentage === 'number' ? r.percentage : 0), 0);
 
+  const routeDone = routeConfirmed && (!formData.routeReview || formData.routeReview.status === 'confirmed');
   const sectionStatuses: SectionStatus[] = SECTIONS.map((sec, idx): SectionStatus => {
     if (idx === currentSection) return 'in-progress';
+    // Until Procurement's review is confirmed, later steps stay untouched.
+    if (sec.id !== 'procurement-route' && !routeDone) return 'not-started';
     switch (sec.id) {
       case 'procurement-route':
-        return routeConfirmed ? 'completed' : 'not-started';
+        return routeDone ? 'completed' : formData.routeReview ? 'in-progress' : 'not-started';
       case 'project-setup':
         if (formData.costCenterId && formData.projectId) return 'completed';
         if (formData.costCenterId || formData.projectId) return 'missing';
@@ -457,7 +462,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
 
   // Every section except Attachments (optional) and Review must be complete.
   const readyToSubmit = SECTIONS.every((sec, idx) => {
-    if (sec.id === 'procurement-route') return routeConfirmed;
+    if (sec.id === 'procurement-route') return routeConfirmed && (!formData.routeReview || formData.routeReview.status === 'confirmed');
     if (sec.id === 'attachments' || sec.id === 'review') return true;
     if (formData.sourceType === 'souq-etimad' && sec.id !== 'project-setup') return true;
     return sectionStatuses[idx] === 'completed';
@@ -481,7 +486,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       moveBoqRowsToEtimad,
       formData, currentSection, isSaving, lastSaved, sectionStatuses,
       boqSubtotal, boqVat, boqTotal, paymentPctTotal, evalWeightTotal, qualPctTotal,
-      routeConfirmed, confirmRoute,
+      routeConfirmed: routeConfirmed && (!formData.routeReview || formData.routeReview.status === 'confirmed'), confirmRoute,
       importedFromProject, setImportedFromProject, rfpImport, setRfpImport,
       goToSection, updateField,
       updateBoqRow, addBoqRow, removeBoqRow,

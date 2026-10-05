@@ -139,6 +139,8 @@ export interface TenderFormData {
   projectId: string;
   /** Project items chosen for this tender (ids from the project's item list). */
   selectedProjectItemIds?: string[];
+  /** Procurement route review: the requester's item list sent to Procurement, and their response. */
+  routeReview?: RouteReview;
   tenderingPurpose: string;
   scopeOfWork: string;
   scopeTerms: string;
@@ -172,4 +174,31 @@ export interface TenderDraft {
   updatedAt: string;
   department: string;
   budget: string;
+}
+
+/** One item in a procurement route review. */
+export interface RouteReviewItem {
+  id: string;
+  name: string;
+  nameAr?: string;
+  quantity?: number | '';
+  /** Set when the item came from the project's item list. */
+  projectItemId?: string;
+  /** Procurement's decision for this item. */
+  route?: SourceType;
+  comment?: string;
+}
+
+/** Item list sent to Procurement for a route check, and their response. */
+export interface RouteReview {
+  status: 'awaiting' | 'returned' | 'confirmed';
+  projectId: string;
+  items: RouteReviewItem[];
+  note?: string;
+  attachmentName?: string;
+  sentAt: string;
+  returnedAt?: string;
+  reviewer?: string;
+  /** Prototype only: the response was filled in by "Simulate procurement response". */
+  simulated?: boolean;
 }

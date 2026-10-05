@@ -172,7 +172,10 @@ export default function TenderForm({ onBack }: Props) {
               const done = status === 'completed';
               const isLast = idx === SECTIONS.length - 1;
               const title = isAr ? sec.titleAr : sec.title;
-              const desc = locked ? t('Awaiting route confirmation', 'بانتظار تأكيد المسار') : (isAr ? sec.descAr : sec.desc);
+              const awaiting = formData.routeReview?.status === 'awaiting';
+              const desc = idx === 0 && awaiting
+                ? t('Awaiting Procurement review', 'بانتظار مراجعة المشتريات')
+                : locked ? (awaiting ? t('Waiting for Procurement', 'بانتظار المشتريات') : t('Awaiting route confirmation', 'بانتظار تأكيد المسار')) : (isAr ? sec.descAr : sec.desc);
               const cstate = done ? 'done' : isCurrent ? 'current' : locked ? 'locked' : 'pending';
               return (
                 <button
