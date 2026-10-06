@@ -214,7 +214,7 @@ export default function ReviewConfirm() {
           <div className="text-sm text-neutral-700 space-y-2 leading-relaxed">
             <p>{t('This tender request seeks to procure', 'يسعى طلب المناقصة هذا للحصول على')} <strong>{isAr ? (selectedProject?.nameAr ?? selectedProject?.name ?? t('an enterprise solution', 'حل مؤسسي')) : (selectedProject?.name ?? t('an enterprise solution', 'حل مؤسسي'))}</strong> {t('for the', 'لـ')} <strong>{selectedCC?.name ?? t('requesting department', 'القسم الطالب')}</strong>.</p>
             <p>{t('The total estimated project value is', 'إجمالي القيمة التقديرية للمشروع هو')} <strong dir="ltr">SAR {formatSAR(boqTotal)}</strong> ({t('including 15% VAT', 'شاملاً ضريبة القيمة المضافة 15%')}){t(', spanning a contract duration of', '، لمدة عقد')} <strong>{formData.contractDuration} {formData.contractDurationType}</strong> {t('commencing', 'تبدأ في')} <strong>{formData.startDate || t('TBD', 'يُحدَّد لاحقاً')}</strong>.</p>
-            <p>{t('The scope includes', 'يشمل النطاق')} {formData.boqItems.length} {t('BOQ line items across', 'بنوداً في جدول الكميات عبر')} {selectedProject?.items.length ?? 0} {t('project categories, with', 'فئات مشروع، مع')} {formData.deliverables.length} {t('defined project phases.', 'مراحل مشروع محددة.')}</p>
+            <p>{t('The scope includes', 'يشمل النطاق')} {formData.boqItems.length} {t('BOQ line items across', 'بنوداً في جدول الكميات عبر')} {selectedProject?.items.length ?? 0} {t('project categories.', 'فئات مشروع.')}</p>
             <p>{t('Technical evaluation will be conducted by a committee of', 'سيتم إجراء التقييم الفني من قِبل لجنة مؤلفة من')} {formData.technicalCommitteeMembers.length} {t('members using', 'أعضاء باستخدام')} {formData.evaluationCriteria.length} {t('weighted criteria, with a passing threshold of', 'معايير موزونة، بحد اجتياز')} {formData.technicalPassingPercentage || t('TBD', 'يُحدَّد لاحقاً')}%.</p>
             {formData.attachments.length > 0 && <p>{formData.attachments.length} {formData.attachments.length > 1 ? t('supporting documents attached.', 'وثائق داعمة مرفقة.') : t('supporting document attached.', 'وثيقة داعمة مرفقة.')}</p>}
           </div>
@@ -233,7 +233,7 @@ export default function ReviewConfirm() {
       )}
 
       {/* Section summaries */}
-      <ReviewSection title="Project Setup" titleAr="إعداد المشروع" sectionIdx={0} status={sectionStatuses[0]}>
+      <ReviewSection title="Project Setup" titleAr="إعداد المشروع" sectionIdx={1} status={sectionStatuses[1]}>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
           <ReviewField label={t('Cost Center', 'مركز التكلفة')} value={selectedCC ? `${selectedCC.name} (${selectedCC.code})` : '—'} />
           {extraCCs.length > 0 && (
@@ -245,16 +245,21 @@ export default function ReviewConfirm() {
         </dl>
       </ReviewSection>
 
-      <ReviewSection title="Scope of Work" titleAr="نطاق العمل" sectionIdx={1} status={sectionStatuses[1]}>
+      <ReviewSection title="Scope of Work" titleAr="نطاق العمل" sectionIdx={2} status={sectionStatuses[2]}>
         <div className="text-sm text-neutral-600 line-clamp-3 whitespace-pre-line">
           {formData.scopeOfWork || <span className="text-neutral-400 italic">{t('Not completed', 'غير مكتمل')}</span>}
         </div>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mt-3 pt-3 border-t border-neutral-100">
+          <ReviewField label={t('Start Date', 'تاريخ البدء')} value={formData.startDate || '—'} ltr />
+          <ReviewField label={t('Duration', 'المدة')} value={formData.contractDuration ? `${formData.contractDuration} ${formData.contractDurationType}` : '—'} ltr />
+          <ReviewField label={t('Location', 'الموقع')} value={formData.executionLocation ? formData.executionLocation.substring(0, 60) + '…' : '—'} />
+        </dl>
         {formData.scopeTerms && (
           <p className="mt-2 text-xs text-neutral-400">{formData.scopeTerms.length} {t('characters in terms & conditions', 'حرف في الشروط والأحكام')}</p>
         )}
       </ReviewSection>
 
-      <ReviewSection title="Bill of Quantities" titleAr="جدول الكميات" sectionIdx={2} status={sectionStatuses[2]}>
+      <ReviewSection title="Bill of Quantities" titleAr="جدول الكميات" sectionIdx={3} status={sectionStatuses[3]}>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
           <ReviewField label={t('Total Items', 'إجمالي البنود')} value={formData.boqItems.length > 0 ? `${formData.boqItems.length} ${t('line items', 'بند')}` : '—'} />
           <ReviewField label={t('Brand Name', 'الاسم التجاري')} value={formData.boqItems.length === 0 ? '—' : formData.boqItems.some((r) => r.hasBrandName) ? t(`Yes, ${formData.boqItems.filter((r) => r.hasBrandName).length} item(s)`, `نعم، ${formData.boqItems.filter((r) => r.hasBrandName).length} بند`) : t('No', 'لا')} />
@@ -267,15 +272,6 @@ export default function ReviewConfirm() {
             <span className="text-sm font-bold text-neutral-900 tabular-nums" dir="ltr">SAR {formatSAR(boqTotal)}</span>
           </div>
         )}
-      </ReviewSection>
-
-      <ReviewSection title="Deliverables" titleAr="المخرجات" sectionIdx={3} status={sectionStatuses[3]}>
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-          <ReviewField label={t('Phases', 'المراحل')} value={formData.deliverables.length > 0 ? `${formData.deliverables.length} ${t('phases', 'مراحل')}` : '—'} />
-          <ReviewField label={t('Start Date', 'تاريخ البدء')} value={formData.startDate || '—'} ltr />
-          <ReviewField label={t('Duration', 'المدة')} value={formData.contractDuration ? `${formData.contractDuration} ${formData.contractDurationType}` : '—'} ltr />
-          <ReviewField label={t('Location', 'الموقع')} value={formData.executionLocation ? formData.executionLocation.substring(0, 60) + '…' : '—'} />
-        </dl>
       </ReviewSection>
 
       <ReviewSection title="Payment Schedule" titleAr="جدول الدفعات" sectionIdx={4} status={sectionStatuses[4]}>

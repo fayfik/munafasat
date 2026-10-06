@@ -331,6 +331,43 @@ export function ReadOnlyField({ value, className = '' }: { value: string; classN
   );
 }
 
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+
+/** Round avatar: shows the person's photo when present, otherwise initials on their
+ *  brand colour. Falls back to initials if the remote image fails to load. */
+export function Avatar({
+  person,
+  className = '',
+  textClass = 'text-[12px]',
+}: {
+  person: { initials: string; avatarColor: string; photoUrl?: string };
+  className?: string;
+  textClass?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (person.photoUrl && !failed) {
+    return (
+      <img
+        src={person.photoUrl}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className={`${className} object-cover bg-neutral-100`}
+      />
+    );
+  }
+  return (
+    <span
+      className={`${className} inline-flex items-center justify-center text-white font-semibold ${textClass}`}
+      style={{ background: person.avatarColor }}
+      aria-hidden="true"
+    >
+      {person.initials}
+    </span>
+  );
+}
+
 // ─── PeoplePicker ─────────────────────────────────────────────────────────────
 
 interface PeoplePickerProps {
@@ -385,12 +422,7 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
         <div className="flex flex-wrap gap-2 min-h-[42px] rounded-lg border border-neutral-300 bg-white px-3 py-2 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition-all">
           {value.map((p) => (
             <span key={p.id} className="inline-flex items-center gap-1.5 bg-neutral-100 border border-neutral-200 rounded-full ps-1 pe-2 py-0.5 text-[12px] text-neutral-700">
-              <span
-                className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-semibold flex-shrink-0"
-                style={{ background: p.avatarColor }}
-              >
-                {p.initials}
-              </span>
+              <Avatar person={p} className="w-5 h-5 rounded-full flex-shrink-0" textClass="text-[10px]" />
               {p.name}
               <button type="button" onClick={() => remove(p.id)} className="text-neutral-400 hover:text-neutral-600 transition-colors">
                 <XIcon className="w-3 h-3" />
@@ -418,12 +450,7 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
                     onClick={() => add(p)}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-body-md hover:bg-neutral-50 transition-colors"
                   >
-                    <span
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[12px] font-semibold flex-shrink-0"
-                      style={{ background: p.avatarColor }}
-                    >
-                      {p.initials}
-                    </span>
+                    <Avatar person={p} className="w-8 h-8 rounded-full flex-shrink-0" textClass="text-[12px]" />
                     <div className="text-start flex-1 min-w-0">
                       <p className="font-medium text-neutral-900 truncate">{p.name}</p>
                       <p className="text-neutral-500 text-[11px] truncate">{p.role} · {p.department}</p>

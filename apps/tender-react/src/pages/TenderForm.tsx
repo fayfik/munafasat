@@ -14,7 +14,6 @@ import ProcurementRouteStep from '../sections/ProcurementRouteStep';
 import ProjectSetup from '../sections/ProjectSetup';
 import ScopeOfWork from '../sections/ScopeOfWork';
 import BillOfQuantities from '../sections/BillOfQuantities';
-import Deliverables from '../sections/Deliverables';
 import PaymentSchedule from '../sections/PaymentSchedule';
 import TechnicalEvaluation from '../sections/TechnicalEvaluation';
 import QualificationCriteria from '../sections/QualificationCriteria';
@@ -26,7 +25,6 @@ const SECTION_COMPONENTS = [
   ProjectSetup,
   ScopeOfWork,
   BillOfQuantities,
-  Deliverables,
   PaymentSchedule,
   TechnicalEvaluation,
   QualificationCriteria,

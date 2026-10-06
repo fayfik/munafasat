@@ -27,6 +27,7 @@ export default function ProcurementRouteStep() {
   const [check2, setCheck2] = useState(false);
   const [groups, setGroups] = useState<RequestGroup[]>([]);
   const [chosenKey, setChosenKey] = useState('');
+  const [showInfo, setShowInfo] = useState(false);
 
   // Free-text intake: type / paste / attach → AI extracts an editable list.
   const [text, setText] = useState('');
@@ -69,7 +70,15 @@ export default function ProcurementRouteStep() {
     );
   }
 
-  function pickProject(id: string) { setProjectId(id); setItemIds([]); }
+  // On picking a project, pre-select the items of one BOQ type (the first item's
+  // type) so the request starts scoped to a single type; the user can tick others.
+  function pickProject(id: string) {
+    setProjectId(id);
+    const its = id ? (PROJECTS.find((p) => p.id === id)?.items ?? []) : [];
+    if (its.length === 0) { setItemIds([]); return; }
+    const firstType = classifyItem({ id: its[0].id, name: its[0].name, type: its[0].type }).boqType;
+    setItemIds(its.filter((it) => classifyItem({ id: it.id, name: it.name, type: it.type }).boqType === firstType).map((it) => it.id));
+  }
   const toggle = (id: string) => setItemIds((xs) => xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]);
   const toggleAll = () => setItemIds((xs) => xs.length === items.length ? [] : items.map((i) => i.id));
 
@@ -128,6 +137,7 @@ export default function ProcurementRouteStep() {
 
   return (
     <div className="max-w-[820px]">
+      {showInfo && <RouteInfoModal onClose={() => setShowInfo(false)} isAr={isAr} t={t} />}
       <SubSteps phase={phase} t={t} />
 
       {/* SELECT */}
@@ -135,8 +145,15 @@ export default function ProcurementRouteStep() {
         <SectionCard
           title="What are you procuring?"
           titleAr="ما الذي تقوم بشرائه؟"
-          description="Select the budgeted project and tick the items this request covers — then type or paste any extra items below. We check each item against Etimad to set the procurement route."
-          descriptionAr="اختر المشروع المدرج في الميزانية وحدّد البنود التي يشملها هذا الطلب — ثم اكتب أو الصق أي بنود إضافية أدناه. نفحص كل بند في اعتماد لتحديد مسار الشراء.">
+          description="Pick your project and the items you need. We’ll route each one the right way — Etimad eSouq or a competitive tender."
+          descriptionAr="اختر مشروعك والبنود التي تحتاجها. سنوجّه كل بند إلى المسار الصحيح — السوق الإلكتروني (اعتماد) أو منافسة."
+          action={
+            <button type="button" onClick={() => setShowInfo(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-ai-200 bg-ai-50 text-ai-700 text-[12px] font-semibold hover:bg-ai-100 transition-colors">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" strokeLinecap="round" /></svg>
+              {t('Know more', 'اعرف المزيد')}
+            </button>
+          }>
           <div className="space-y-4">
             <div>
               <label className="block text-[13px] font-medium text-neutral-800 mb-1.5">{t('Project', 'المشروع')}</label>
@@ -188,9 +205,12 @@ export default function ProcurementRouteStep() {
                 <span className="w-6 h-6 rounded-md bg-ai-100 flex items-center justify-center flex-shrink-0">
                   <svg className="w-3.5 h-3.5 text-ai-600" viewBox="0 0 24 24" fill="currentColor"><path d="M11 2 9.6 6.6 5 8l4.6 1.4L11 14l1.4-4.6L17 8l-4.6-1.4L11 2Zm7 9-.8 2.6L15 14l2.2.7.8 2.3.8-2.3L21 14l-2.2-.7L18 11Z" /></svg>
                 </span>
-                <div>
-                  <p className="text-[13px] font-semibold text-neutral-800">{t('Tell us what else you need to procure', 'أخبرنا بما تحتاج شراءه')}</p>
-                  <p className="text-[12px] text-neutral-500">{t('Type or paste a list, or attach a file — we’ll identify the items and add them to the check below.', 'اكتب أو الصق قائمة، أو أرفق ملفاً — سنحدد البنود ونضيفها إلى الفحص أدناه.')}</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-[14px] font-semibold text-neutral-900">{t('Tell us what you’re looking for', 'أخبرنا بما تبحث عنه')}</p>
+                    <span className="text-[11px] font-semibold text-ai-700 bg-ai-100 rounded-full px-2 py-0.5">{t('Required', 'مطلوب')}</span>
+                  </div>
+                  <p className="text-[13px] text-neutral-600 mt-1 leading-relaxed">{t('Add the materials or services you need — type them, paste a list, or attach a file. We’ll check each one against the Etimad catalogue and suppliers in Saudi Arabia to set the right procurement route. This check is a required step before the request can be built.', 'أضف المواد أو الخدمات التي تحتاجها — اكتبها أو الصق قائمة أو أرفق ملفاً. سنتحقق من كل منها في كتالوج اعتماد ولدى الموردين في المملكة العربية السعودية لتحديد مسار الشراء الصحيح. هذا الفحص خطوة إلزامية قبل بناء الطلب.')}</p>
                 </div>
               </div>
 
@@ -230,17 +250,10 @@ export default function ProcurementRouteStep() {
             </div>
             )}
 
-            {/* Procurement route definition */}
-            <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50/60 px-5 py-4">
-              <p className="text-[13px] font-semibold text-neutral-700">{t('Procurement route', 'مسار الشراء')}</p>
-              <p className="text-[12px] text-neutral-500 mt-0.5">
-                {t('We check each item against Etimad eSouq, then tendering. A request must be one BOQ type and one route — mixed items are split into separate requests.',
-                   'نفحص كل بند في السوق الإلكتروني ثم المنافسة. يجب أن يكون الطلب من نوع بند واحد ومسار واحد — وتُقسَّم البنود المختلطة إلى طلبات منفصلة.')}
-              </p>
-              <div className="flex items-center justify-between mt-3 gap-3">
-                <span className="text-[12px] text-neutral-500">{clsInput.length > 0 ? t(`${clsInput.length} item${clsInput.length > 1 ? 's' : ''} to check`, `${clsInput.length} بند للفحص`) : t('Select at least one item to continue', 'اختر بنداً واحداً على الأقل للمتابعة')}</span>
-                <Button variant="primary" size="lg" onClick={runCheck} disabled={clsInput.length === 0}>{t('Check procurement route', 'فحص مسار الشراء')} →</Button>
-              </div>
+            {/* Check procurement route CTA — enabled once the user has entered what they need */}
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <span className="text-[13px] text-neutral-500">{freeValid.length > 0 ? t(`${clsInput.length} item${clsInput.length > 1 ? 's' : ''} to check`, `${clsInput.length} بند للفحص`) : t('Tell us what you’re looking for to continue', 'أخبرنا بما تبحث عنه للمتابعة')}</span>
+              <Button variant="primary" size="lg" onClick={runCheck} disabled={freeValid.length === 0}>{t('Check procurement route', 'فحص مسار الشراء')} →</Button>
             </div>
           </div>
         </SectionCard>
@@ -334,6 +347,115 @@ function CheckRow({ done, pending, labelEn, labelAr, t }: { done: boolean; pendi
       </span>
       <span className="text-[13px] text-neutral-700">{t(labelEn, labelAr)}{done ? '' : '…'}</span>
       {done && <span className="text-[12px] text-success-600 ms-auto font-medium">{t('Done', 'تم')}</span>}
+    </div>
+  );
+}
+
+/** "Know more" — full-height illustration + explanation of the procurement route. */
+function RouteInfoModal({ onClose, isAr, t }: { onClose: () => void; isAr: boolean; t: (en: string, ar: string) => string }) {
+  const steps: [string, string][] = [
+    [t('Pick your project and the items you need — or paste a list.', 'اختر مشروعك والبنود التي تحتاجها — أو الصق قائمة.'), ''],
+    [t('We check each item against Etimad.', 'نفحص كل بند في منصة اعتماد.'), ''],
+    [t('Items are grouped by route — one request follows one route.', 'تُجمَّع البنود حسب المسار — كل طلب يتبع مساراً واحداً.'), ''],
+    [t('You confirm and continue to build the request.', 'تؤكد وتتابع لبناء الطلب.'), ''],
+  ];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="relative w-full max-w-[940px] max-h-[88vh] rounded-2xl overflow-hidden bg-white shadow-2xl flex flex-col md:flex-row" onClick={(e) => e.stopPropagation()}>
+        {/* Close */}
+        <button type="button" onClick={onClose} aria-label={t('Close', 'إغلاق')}
+          className="absolute top-3 end-3 z-10 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-neutral-600 hover:text-neutral-900 flex items-center justify-center shadow-sm transition-colors">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+        </button>
+
+        {/* Left — illustration, full height */}
+        <div className="relative md:w-[42%] min-h-[220px] md:min-h-full bg-gradient-to-br from-brand-600 via-brand-700 to-ai-700 flex items-center justify-center p-6 overflow-hidden">
+          <div className="absolute -top-16 -start-16 w-56 h-56 rounded-full bg-white/10" />
+          <div className="absolute -bottom-20 -end-10 w-64 h-64 rounded-full bg-white/5" />
+          <svg viewBox="0 0 320 460" className="relative w-full max-w-[280px] h-auto" fill="none">
+            <defs>
+              <filter id="rs" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#0f2a1e" floodOpacity="0.25" /></filter>
+            </defs>
+            {/* item cards */}
+            {[0, 1, 2].map((i) => (
+              <g key={i} filter="url(#rs)">
+                <rect x={70 + i * 10} y={20 + i * 14} width="180" height="34" rx="9" fill="white" opacity={0.95 - i * 0.12} />
+                <rect x={82 + i * 10} y={31 + i * 14} width="12" height="12" rx="3" fill="#16a34a" opacity="0.8" />
+                <rect x={102 + i * 10} y={33 + i * 14} width={110 - i * 14} height="8" rx="4" fill="#94a3b8" opacity="0.6" />
+              </g>
+            ))}
+            {/* connector down */}
+            <path d="M160 100 L160 190" stroke="white" strokeWidth="2.5" strokeOpacity="0.55" strokeDasharray="2 6" strokeLinecap="round" />
+            {/* decision hub */}
+            <circle cx="160" cy="220" r="34" fill="white" filter="url(#rs)" />
+            <path d="M149 220l7 7 15-15" stroke="#16a34a" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="160" cy="220" r="34" stroke="#16a34a" strokeWidth="2" strokeOpacity="0.4" />
+            {/* branches */}
+            <path d="M138 248 C110 300 92 320 88 352" stroke="white" strokeWidth="2.5" strokeOpacity="0.55" fill="none" strokeLinecap="round" />
+            <path d="M182 248 C210 300 228 320 232 352" stroke="white" strokeWidth="2.5" strokeOpacity="0.55" fill="none" strokeLinecap="round" />
+            {/* route A — eSouq */}
+            <g filter="url(#rs)">
+              <rect x="22" y="360" width="130" height="78" rx="12" fill="white" />
+              <circle cx="52" cy="390" r="14" fill="#dcfce7" />
+              <path d="M46 386h12l-2 9h-8z M47 399.5a1.5 1.5 0 11-.01 0 M55 399.5a1.5 1.5 0 11-.01 0" stroke="#16a34a" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <rect x="74" y="383" width="60" height="7" rx="3.5" fill="#16a34a" opacity="0.85" />
+              <rect x="74" y="396" width="44" height="6" rx="3" fill="#94a3b8" opacity="0.6" />
+              <rect x="34" y="420" width="90" height="7" rx="3.5" fill="#dcfce7" />
+            </g>
+            {/* route B — tender */}
+            <g filter="url(#rs)">
+              <rect x="168" y="360" width="130" height="78" rx="12" fill="white" />
+              <circle cx="198" cy="390" r="14" fill="#fef3c7" />
+              <path d="M192 384l8 8m-9 1l5-5m6 6l5-5m-13-5l9 9m-11 3l3 3m12-12l3 3" stroke="#d97706" strokeWidth="1.6" strokeLinecap="round" />
+              <rect x="220" y="383" width="60" height="7" rx="3.5" fill="#d97706" opacity="0.85" />
+              <rect x="220" y="396" width="44" height="6" rx="3" fill="#94a3b8" opacity="0.6" />
+              <rect x="180" y="420" width="90" height="7" rx="3.5" fill="#fef3c7" />
+            </g>
+          </svg>
+        </div>
+
+        {/* Right — explanation */}
+        <div className="flex-1 overflow-y-auto p-6 md:p-8" dir={isAr ? 'rtl' : 'ltr'}>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-ai-700">{t('Why this step', 'لماذا هذه الخطوة')}</p>
+          <h2 className="text-[22px] font-bold text-neutral-900 mt-1">{t('The procurement route', 'مسار الشراء')}</h2>
+          <p className="text-[14px] leading-relaxed text-neutral-600 mt-3">
+            {t('Before you build a request, Munafasat checks how each item can be bought. The procurement route is the channel an item takes to reach suppliers via Etimad — and getting it right keeps you compliant and saves time.',
+               'قبل بناء الطلب، تتحقق منافسات من كيفية شراء كل بند. مسار الشراء هو القناة التي يسلكها البند للوصول إلى المورّدين عبر منصة اعتماد — واختياره الصحيح يضمن الالتزام ويوفّر الوقت.')}
+          </p>
+
+          <div className="mt-5 space-y-3">
+            <div className="rounded-xl border border-success-100 bg-success-50/60 p-3.5">
+              <div className="flex items-center gap-2"><Badge variant="success">{t('Etimad eSouq', 'السوق الإلكتروني')}</Badge></div>
+              <p className="text-[13px] text-neutral-600 mt-1.5">{t('Catalogue items bought directly from listed suppliers on Etimad — fast, no tender needed.', 'بنود كتالوجية تُشترى مباشرة من موردين مُدرجين في اعتماد — سريعة ولا تحتاج منافسة.')}</p>
+            </div>
+            <div className="rounded-xl border border-warning-100 bg-warning-50/60 p-3.5">
+              <div className="flex items-center gap-2"><Badge variant="warning">{t('Competitive Tender', 'منافسة')}</Badge></div>
+              <p className="text-[13px] text-neutral-600 mt-1.5">{t('Items that must be competed — suppliers submit offers on Etimad against your scope and BOQ.', 'بنود يجب طرحها في منافسة — يقدّم المورّدون عروضهم في اعتماد وفق نطاق العمل وجدول الكميات.')}</p>
+            </div>
+          </div>
+
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-500 mt-6 mb-2">{t('How it works', 'كيف تعمل')}</p>
+          <ol className="space-y-2.5">
+            {steps.map(([label], i) => (
+              <li key={i} className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-brand-50 text-brand-700 text-[12px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                <span className="text-[13px] text-neutral-700 leading-relaxed">{label}</span>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-6 rounded-xl bg-ai-50 border border-ai-100 p-3.5">
+            <p className="text-[12.5px] text-ai-800 leading-relaxed">
+              {t('A request can’t mix routes. If your items span both, we split them so each follows the right process — and you can create the other request afterwards.',
+                 'لا يمكن أن يجمع الطلب بين مسارين. إذا كانت بنودك تتوزع على الاثنين، نقسّمها ليتبع كل منها المسار الصحيح — ويمكنك إنشاء الطلب الآخر لاحقاً.')}
+            </p>
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <Button variant="primary" onClick={onClose}>{t('Got it', 'فهمت')}</Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

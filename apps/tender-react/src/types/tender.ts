@@ -72,6 +72,7 @@ export interface Person {
   department: string;
   initials: string;
   avatarColor: string;
+  photoUrl?: string;
 }
 
 export interface TechRequirementRow {
@@ -142,6 +143,8 @@ export interface TenderFormData {
   tenderingPurpose: string;
   scopeOfWork: string;
   scopeTerms: string;
+  /** "What does this project include" — selected category ids or custom labels. */
+  scopeIncludes: string[];
   boqItems: BOQRow[];
   hasBrandName: boolean | null;
   brandNameJustification: string;

@@ -14,7 +14,7 @@ import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiBoq, type AiBoqRow } from '../lib/aiTender';
 import { saveFile, aiErrorMessage } from '../lib/claudeRuntime';
 import { checkEtimadAvailability, isStale, needsJustification } from '../lib/etimadCheck';
-import EtimadPanel, { EtimadCheckButton } from '../components/EtimadPanel';
+import EtimadPanel from '../components/EtimadPanel';
 import BoqSheet from '../components/BoqSheet';
 import { useBoqLayout, setBoqLayout } from '../lib/boqLayout';
 
@@ -282,11 +282,13 @@ export default function BillOfQuantities() {
   }
 
   function renderItemForm(mode: 'add' | 'edit', lockedCategory?: BOQCategory | null) {
-    // Project-item options; always include the current value so editing a row
-    // whose project item isn't in the list (e.g. AI-suggested) doesn't blank out.
-    const baseItemNames = projectItems.length > 0
-      ? projectItems.map((it) => it.name)
-      : [...new Set(AI_BOQ_ROWS.map((r) => r.projectItem))];
+    // Project-item classification = the items chosen in Project Setup, plus any
+    // groups already present in the BOQ. A new item attaches to the one picked here
+    // and groups under it in the Grid (subtotals & totals recompute automatically).
+    const selectedNames = projectItems.map((it) => it.name);
+    const existingGroups = [...new Set(formData.boqItems.map((b) => b.projectItem).filter(Boolean))];
+    const union = [...new Set([...selectedNames, ...existingGroups])];
+    const baseItemNames = union.length > 0 ? union : [...new Set(AI_BOQ_ROWS.map((r) => r.projectItem))];
     const itemNameOptions = newItem.projectItem && !baseItemNames.includes(newItem.projectItem)
       ? [...baseItemNames, newItem.projectItem]
       : baseItemNames;
@@ -667,7 +669,7 @@ export default function BillOfQuantities() {
                     <div>
                       {/* Column headers — hidden while a row in this group is being edited */}
                       {!editingInGroup && (
-                      <div className="grid grid-cols-[1fr_64px_104px_136px_60px] px-5 py-2 bg-white border-b border-neutral-100">
+                      <div className="grid grid-cols-[1fr_64px_104px_136px_84px] px-5 py-2 bg-white border-b border-neutral-100">
                         <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wide">{t('Item', 'البند')}</span>
                         <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wide text-center">{t('Qty', 'الكمية')}</span>
                         <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wide text-end">{t('Unit Price', 'سعر الوحدة')}</span>
@@ -685,15 +687,9 @@ export default function BillOfQuantities() {
                           return (
                             <div key={row.id} className="bg-white">
                             {editingId === row.id ? renderItemForm('edit') : (<>
-                            <div className="grid grid-cols-[1fr_64px_104px_136px_60px] items-center px-5 pt-3.5 pb-2 bg-white hover:bg-neutral-50/40 transition-colors group/row">
-                              {/* Check Etimad — top right of the block until the row has a current result */}
-                              {showCheckTop && (
-                                <div className="col-start-2 col-span-4 row-start-1 self-start pb-1">
-                                  <EtimadCheckButton row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} />
-                                </div>
-                              )}
+                            <div className="grid grid-cols-[1fr_64px_104px_136px_84px] items-center px-5 py-3 bg-white hover:bg-neutral-50/40 transition-colors group/row">
                               {/* Item */}
-                              <div className={`pe-4 col-start-1 ${showCheckTop ? 'row-start-1 row-span-2' : ''}`}>
+                              <div className="pe-4 col-start-1">
                                 <p className="text-sm font-semibold text-neutral-900 leading-snug">{row.itemName || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
                                 {row.itemDescription && (
                                   <p className="text-xs text-neutral-500 mt-0.5 leading-snug">{row.itemDescription}</p>
@@ -719,9 +715,11 @@ export default function BillOfQuantities() {
                                     <span className="text-[10px] text-neutral-500" dir="ltr">{row.deliveryDate}</span>
                                   )}
                                 </div>
-                                <div className="mt-2">
-                                  <BoqAttachments compact attachments={row.attachments ?? []} onChange={(next) => updateBoqRow(row.id, { attachments: next })} />
-                                </div>
+                                {(row.attachments?.length ?? 0) > 0 && (
+                                  <div className="mt-2">
+                                    <BoqAttachments readOnly attachments={row.attachments ?? []} onChange={() => {}} />
+                                  </div>
+                                )}
                               </div>
 
                               {/* Qty */}
@@ -748,8 +746,20 @@ export default function BillOfQuantities() {
                                 </span>
                               </div>
 
-                              {/* Edit / Delete */}
-                              <div className="flex justify-end gap-1">
+                              {/* Etimad check (subtle) / Edit / Delete */}
+                              <div className="flex justify-end gap-0.5">
+                                {showCheckTop && (
+                                  <button
+                                    type="button"
+                                    onClick={() => runEtimadCheck([row])}
+                                    disabled={checkingIds.has(row.id)}
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-ai-600 hover:bg-ai-50 transition-colors disabled:opacity-50"
+                                    title={isStale(row) ? t('Item changed — re-check Etimad', 'تغيّر البند — أعد التحقق من اعتماد') : t('Check Etimad availability', 'التحقق من التوفر في اعتماد')}
+                                    aria-label={t('Check Etimad availability', 'التحقق من التوفر في اعتماد')}
+                                  >
+                                    <SparklesIcon className={`w-3.5 h-3.5 ${checkingIds.has(row.id) ? 'spin-slow' : ''}`} />
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => startEdit(row)}
@@ -770,16 +780,18 @@ export default function BillOfQuantities() {
                                 </button>
                               </div>
                             </div>
-                            <div className={`px-5 ${showCheckTop ? 'pb-1.5' : 'pb-3.5'}`}>
-                              <EtimadPanel
-                                hideUnchecked
-                                row={row}
-                                checking={checkingIds.has(row.id)}
-                                onCheck={() => runEtimadCheck([row])}
-                                onMove={() => moveBoqRowsToEtimad([row.id])}
-                                onUpdate={(patch) => updateBoqRow(row.id, patch)}
-                              />
-                            </div>
+                            {row.etimadCheck && !isStale(row) && (
+                              <div className="px-5 pb-3.5">
+                                <EtimadPanel
+                                  hideUnchecked
+                                  row={row}
+                                  checking={checkingIds.has(row.id)}
+                                  onCheck={() => runEtimadCheck([row])}
+                                  onMove={() => moveBoqRowsToEtimad([row.id])}
+                                  onUpdate={(patch) => updateBoqRow(row.id, patch)}
+                                />
+                              </div>
+                            )}
                             </>)}
                             </div>
                           );
@@ -826,16 +838,25 @@ export default function BillOfQuantities() {
                               <div className="text-center text-sm text-neutral-700 tabular-nums">{row.quantity !== '' ? row.quantity : '—'}<span className="block text-[10px] text-neutral-500">{row.unitOfMeasure}</span></div>
                               <div className="text-end text-sm text-neutral-700 tabular-nums" dir="ltr">{unitPrice > 0 ? `SAR ${formatSAR(unitPrice)}` : '—'}</div>
                               <div className="text-end text-sm font-bold text-neutral-900 tabular-nums" dir="ltr">{total > 0 ? `SAR ${formatSAR(total)}` : '—'}</div>
-                              <div className="flex justify-end gap-1">
+                              <div className="flex justify-end gap-0.5">
+                                {showCheckTop && (
+                                  <button type="button" onClick={() => runEtimadCheck([row])} disabled={checkingIds.has(row.id)}
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-ai-600 hover:bg-ai-50 transition-colors disabled:opacity-50"
+                                    title={isStale(row) ? t('Item changed — re-check Etimad', 'تغيّر البند — أعد التحقق من اعتماد') : t('Check Etimad availability', 'التحقق من التوفر في اعتماد')}
+                                    aria-label={t('Check Etimad availability', 'التحقق من التوفر في اعتماد')}>
+                                    <SparklesIcon className={`w-3.5 h-3.5 ${checkingIds.has(row.id) ? 'spin-slow' : ''}`} />
+                                  </button>
+                                )}
                                 <button type="button" onClick={() => startEdit(row)} className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors" title={t('Edit item', 'تعديل البند')}><PencilIcon className="w-3.5 h-3.5" /></button>
                                 <button type="button" onClick={() => { if (editingId === row.id) closeItemForm(); removeBoqRow(row.id); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-error-500 hover:bg-error-50 transition-colors" title={t('Delete item', 'حذف البند')}><TrashIcon className="w-3.5 h-3.5" /></button>
                               </div>
                             </div>
-                            <div className="px-4 pt-2 pb-3 space-y-2">
-                              <BoqAttachments compact attachments={row.attachments ?? []} onChange={(next) => updateBoqRow(row.id, { attachments: next })} />
-                              {showCheckTop && <EtimadCheckButton row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} />}
-                              <EtimadPanel hideUnchecked row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} onMove={() => moveBoqRowsToEtimad([row.id])} onUpdate={(patch) => updateBoqRow(row.id, patch)} />
-                            </div>
+                            {((row.attachments?.length ?? 0) > 0 || (row.etimadCheck && !isStale(row))) && (
+                              <div className="px-4 pt-0 pb-3 space-y-2">
+                                {(row.attachments?.length ?? 0) > 0 && <BoqAttachments readOnly attachments={row.attachments ?? []} onChange={() => {}} />}
+                                {row.etimadCheck && !isStale(row) && <EtimadPanel hideUnchecked row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} onMove={() => moveBoqRowsToEtimad([row.id])} onUpdate={(patch) => updateBoqRow(row.id, patch)} />}
+                              </div>
+                            )}
                           </div>
                         );
                       })}

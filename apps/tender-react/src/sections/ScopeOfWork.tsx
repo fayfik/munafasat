@@ -4,8 +4,31 @@ import { useT, useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiScope, aiTerms } from '../lib/aiTender';
 import { PROJECTS } from '../data/mockData';
-import { FormField, SectionCard, Textarea, AIButton, InfoBanner } from '../components/ui';
-import { SparklesIcon } from '../components/Icons';
+import { FormField, SectionCard, Textarea, AIButton, InfoBanner, Input, Select } from '../components/ui';
+import { SparklesIcon, AlertTriangleIcon } from '../components/Icons';
+import ProjectIncludesSelect, { routeForInclude, deriveIncludesFromItems } from '../components/ProjectIncludesSelect';
+import { ROUTE_META } from '../lib/triage';
+
+function calcEndDate(start: string, duration: string, type: string): string {
+  if (!start || !duration) return '';
+  const d = new Date(start);
+  const n = parseInt(duration, 10);
+  if (isNaN(n)) return '';
+  if (type === 'days') d.setDate(d.getDate() + n);
+  else if (type === 'months') d.setMonth(d.getMonth() + n);
+  else if (type === 'years') d.setFullYear(d.getFullYear() + n);
+  return d.toLocaleDateString('en-SA', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function calcYears(start: string, duration: string, type: string): string {
+  if (!start || !duration) return '';
+  const n = parseInt(duration, 10);
+  if (isNaN(n)) return '';
+  if (type === 'years') return `${n} year${n > 1 ? 's' : ''}`;
+  if (type === 'months') return `${(n / 12).toFixed(1)} years`;
+  if (type === 'days') return `${(n / 365).toFixed(2)} years`;
+  return '';
+}
 
 export const AI_SCOPE = `This project encompasses the supply, installation, configuration, and commissioning of an enterprise ERP system. The contractor shall be responsible for:
 
@@ -57,13 +80,15 @@ export default function ScopeOfWork() {
       () => updateField('scopeTerms', AI_TERMS));
   }
 
+  const endDate = calcEndDate(formData.startDate, formData.contractDuration, formData.contractDurationType);
+  const yearsCalc = calcYears(formData.startDate, formData.contractDuration, formData.contractDurationType);
+
   const regulatoryRecords = selectedProject?.regulatoryRecords ?? '';
-  const includesChips = (selectedProject?.includes ?? '')
-    .replace(/\.$/, '')
-    .split(',')
-    .map((x) => x.trim().replace(/^and\s+/i, ''))
-    .filter(Boolean)
-    .map((x) => x.charAt(0).toUpperCase() + x.slice(1));
+  const determinedRoute = formData.sourceType === 'souq-etimad' ? 'souq-etimad' : 'tendering';
+  // Auto-derived (locked) categories from the request's items — can't be removed.
+  const lockedIncludes = deriveIncludesFromItems(formData.boqItems.map((b) => b.itemName).filter(Boolean));
+  const allIncludes = [...new Set([...lockedIncludes, ...formData.scopeIncludes])];
+  const mismatchedIncludes = allIncludes.filter((v) => routeForInclude(v) !== determinedRoute);
 
   return (
     <div className="space-y-5">
@@ -76,21 +101,20 @@ export default function ScopeOfWork() {
         action={<AIButton onClick={generateScope} loading={scopeLoading} label={t('Generate Scope', 'توليد النطاق')} />}
       >
         <div className="space-y-4">
-          {/* What the project includes — from the selected project, shown first on a tinted card */}
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3.5">
-            <p className="text-sm font-medium text-neutral-700">{t('What Does Your Project Include?', 'ماذا يتضمن مشروعك؟')}</p>
-            {includesChips.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {includesChips.map((chip) => (
-                  <span key={chip} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white text-neutral-700 border border-neutral-200">
-                    {chip}
-                  </span>
-                ))}
+          {/* What the project includes — editable category multi-select */}
+          <FormField label="What does this project include?" labelAr="ماذا يتضمن مشروعك؟" required
+            hint={t('Some categories are auto-filled from your items (locked). Add more from the list or create your own.', 'بعض الفئات مُعبّأة تلقائياً من بنودك (مقفلة). أضف المزيد من القائمة أو أنشئ فئتك الخاصة.')}>
+            <ProjectIncludesSelect value={formData.scopeIncludes} onChange={(v) => updateField('scopeIncludes', v)} locked={lockedIncludes} />
+            {mismatchedIncludes.length > 0 && (
+              <div className="mt-2 flex items-start gap-2 rounded-lg border border-warning-100 bg-warning-50/70 px-3 py-2">
+                <AlertTriangleIcon className="w-3.5 h-3.5 text-warning-600 mt-0.5 flex-shrink-0" />
+                <p className="text-[12px] text-warning-700 leading-relaxed">
+                  {t(`${mismatchedIncludes.length} categor${mismatchedIncludes.length > 1 ? 'ies' : 'y'} you added usually follow${mismatchedIncludes.length > 1 ? '' : 's'} a different route than the determined ${isAr ? ROUTE_META[determinedRoute].ar : ROUTE_META[determinedRoute].en}. Adding ${mismatchedIncludes.length > 1 ? 'them' : 'it'} may change the procurement route or split this into separate requests — re-check in the Procurement Route step if needed.`,
+                     `${mismatchedIncludes.length} فئة أضفتها عادةً تتبع مساراً مختلفاً عن المسار المحدد (${ROUTE_META[determinedRoute].ar}). قد تؤدي إضافتها إلى تغيير مسار الشراء أو تقسيم الطلب إلى طلبات منفصلة — أعد الفحص في خطوة مسار الشراء إذا لزم.`)}
+                </p>
               </div>
-            ) : (
-              <p className="mt-1 text-xs text-neutral-400">{t('Select a project in Project Setup to see what it includes.', 'اختر مشروعاً في إعداد المشروع لعرض ما يتضمنه.')}</p>
             )}
-          </div>
+          </FormField>
 
           <FormField label="Project Scope of Work" labelAr="نطاق عمل المشروع" required>
             {scopeLoading ? (
@@ -195,6 +219,59 @@ export default function ScopeOfWork() {
             'يتم جلب المتطلبات التنظيمية تلقائياً بناءً على نوع المشروع المختار. سيُطلب من الموردين تقديم نسخ سارية من جميع السجلات المدرجة مع عروضهم.'
           )}
         </InfoBanner>
+      </SectionCard>
+
+      {/* Contract Duration & Location — moved here from Deliverables */}
+      <SectionCard
+        title="Contract Duration & Location"
+        titleAr="مدة العقد والموقع"
+        description="Define where work will be performed and the contract timeline."
+        descriptionAr="حدد مكان تنفيذ العمل والجدول الزمني للعقد."
+      >
+        <div className="space-y-4">
+          <FormField label="Work & Services Execution Location" labelAr="مكان تنفيذ الأعمال والخدمات" required>
+            <Textarea
+              value={formData.executionLocation}
+              onChange={(e) => updateField('executionLocation', e.target.value)}
+              rows={3}
+              placeholder={t(
+                'e.g. Organization headquarters — Riyadh, and contractor\'s premises for development work. All data must remain within the Kingdom of Saudi Arabia.',
+                'مثال: المقر الرئيسي للمنظمة — الرياض، ومقر المقاول لأعمال التطوير. يجب أن تبقى جميع البيانات داخل المملكة العربية السعودية.'
+              )}
+            />
+          </FormField>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Work/Services Start Date" labelAr="تاريخ بدء الأعمال" required>
+              <Input type="date" value={formData.startDate} onChange={(e) => updateField('startDate', e.target.value)} />
+            </FormField>
+            <FormField label="Contract Duration" labelAr="مدة العقد" required>
+              <div className="flex gap-2">
+                <Input type="number" min={1} value={formData.contractDuration}
+                  onChange={(e) => updateField('contractDuration', e.target.value)} placeholder={t('e.g. 18', 'مثال: 18')} className="flex-1" />
+                <Select value={formData.contractDurationType}
+                  onChange={(e) => updateField('contractDurationType', e.target.value as 'days' | 'months' | 'years')} className="w-28">
+                  <option value="days">{t('Days', 'أيام')}</option>
+                  <option value="months">{t('Months', 'أشهر')}</option>
+                  <option value="years">{t('Years', 'سنوات')}</option>
+                </Select>
+              </div>
+            </FormField>
+          </div>
+
+          {endDate && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg bg-neutral-50 border border-neutral-200 px-4 py-3">
+                <p className="text-xs text-neutral-500 mb-0.5">{t('Estimated End Date', 'تاريخ الانتهاء المتوقع')}</p>
+                <p className="text-sm font-medium text-neutral-800">{endDate}</p>
+              </div>
+              <div className="rounded-lg bg-neutral-50 border border-neutral-200 px-4 py-3">
+                <p className="text-xs text-neutral-500 mb-0.5">{t('Duration in Years', 'المدة بالسنوات')}</p>
+                <p className="text-sm font-medium text-neutral-800">{yearsCalc}</p>
+              </div>
+            </div>
+          )}
+        </div>
       </SectionCard>
     </div>
   );

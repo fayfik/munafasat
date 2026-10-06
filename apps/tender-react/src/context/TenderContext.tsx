@@ -19,9 +19,8 @@ import type {
 export const SECTIONS = [
   { id: 'procurement-route', title: 'Procurement Route', titleAr: 'مسار الشراء', desc: 'Project, items and how they can be procured', descAr: 'المشروع والبنود وطريقة شرائها' },
   { id: 'project-setup', title: 'Project Setup', titleAr: 'إعداد المشروع', desc: 'Project, cost center and item details', descAr: 'تفاصيل المشروع ومركز التكلفة والبنود' },
-  { id: 'scope-of-work', title: 'Scope of Work', titleAr: 'نطاق العمل', desc: 'Deliverables, boundaries, standards and certificates', descAr: 'المخرجات والحدود والمعايير والشهادات' },
+  { id: 'scope-of-work', title: 'Scope of Work', titleAr: 'نطاق العمل', desc: 'Scope, terms, records and contract duration', descAr: 'النطاق والشروط والسجلات ومدة العقد' },
   { id: 'boq', title: 'Bill of Quantities', titleAr: 'جدول الكميات', desc: 'Items, quantities and specifications', descAr: 'البنود والكميات والمواصفات' },
-  { id: 'deliverables', title: 'Deliverables', titleAr: 'المخرجات', desc: 'Phases and delivery milestones', descAr: 'المراحل ومعالم التسليم' },
   { id: 'payment-schedule', title: 'Payment Schedule', titleAr: 'جدول الدفعات', desc: 'Payment stages and schedule', descAr: 'مراحل الدفع والجدول الزمني' },
   { id: 'technical-evaluation', title: 'Technical Evaluation', titleAr: 'التقييم الفني', desc: 'Scoring and evaluation methodology', descAr: 'منهجية التقييم والدرجات' },
   { id: 'qualification', title: 'Qualification Criteria', titleAr: 'معايير التأهيل', desc: 'Vendor eligibility requirements', descAr: 'متطلبات أهلية المورّد' },
@@ -72,6 +71,7 @@ const INITIAL: TenderFormData = {
   tenderingPurpose: '',
   scopeOfWork: '',
   scopeTerms: '',
+  scopeIncludes: [],
   boqItems: [],
   hasBrandName: null,
   brandNameJustification: '',
@@ -390,18 +390,18 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
         if (formData.costCenterId && formData.projectId) return 'completed';
         if (formData.costCenterId || formData.projectId) return 'missing';
         return 'not-started';
-      case 'scope-of-work':
-        if (formData.scopeOfWork.trim().length >= 30) return 'completed';
-        if (formData.scopeOfWork.trim().length > 0) return 'missing';
+      case 'scope-of-work': {
+        // Scope now also captures contract duration & location (moved from Deliverables).
+        const scopeOk = formData.scopeOfWork.trim().length >= 30;
+        const contractOk = !!(formData.executionLocation && formData.startDate && formData.contractDuration);
+        if (scopeOk && contractOk) return 'completed';
+        if (formData.scopeOfWork.trim().length > 0 || formData.executionLocation || formData.startDate || formData.contractDuration) return 'missing';
         return 'not-started';
+      }
       case 'boq':
         // Brand name is decided per BOQ row; a branded row needs a justification.
         if (formData.boqItems.length > 0 && formData.boqItems.every((r) => !r.hasBrandName || (r.brandJustification ?? '').trim())) return 'completed';
         if (formData.boqItems.length > 0) return 'missing';
-        return 'not-started';
-      case 'deliverables':
-        if (formData.executionLocation && formData.startDate && formData.contractDuration && formData.deliverables.length > 0) return 'completed';
-        if (formData.executionLocation || formData.startDate || formData.deliverables.length > 0) return 'missing';
         return 'not-started';
       case 'payment-schedule':
         if (formData.paymentStages.length > 0 && paymentPctTotal === 100) return 'completed';

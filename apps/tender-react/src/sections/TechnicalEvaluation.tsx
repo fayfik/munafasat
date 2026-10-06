@@ -5,6 +5,24 @@ import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiTechDocs, aiTechReqs, aiEvalCriteria, type AiReq, type AiCriterion } from '../lib/aiTender';
 import { FormField, SectionCard, Textarea, Input, AIButton, PeoplePicker, InfoBanner } from '../components/ui';
 import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon, XIcon } from '../components/Icons';
+import RecommendedMembers from '../components/RecommendedMembers';
+
+// Mandatory documents — always required, can't be removed (locked).
+const LOCKED_TECH_DOCS: { en: string; ar: string }[] = [
+  { en: 'Vendor Technical Proposal (Arabic & English)', ar: 'العرض الفني للمورد (عربي وإنجليزي)' },
+  { en: 'Valid Commercial Registration (CR)', ar: 'سجل تجاري ساري المفعول' },
+  { en: 'Cybersecurity Compliance Certificate (NCA ECC-1:2018)', ar: 'شهادة الامتثال للأمن السيبراني (ECC-1:2018)' },
+  { en: 'Proposed Team CVs & Certifications', ar: 'السير الذاتية وشهادات الفريق المقترح' },
+];
+const LOCKED_DOC_STRINGS = LOCKED_TECH_DOCS.flatMap((d) => [d.en, d.ar]);
+
+function LockGlyph({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className={className}>
+      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+    </svg>
+  );
+}
 
 export const AI_TECH_DOCS = [
   'Vendor Technical Proposal (Arabic & English)',
@@ -53,15 +71,15 @@ export default function TechnicalEvaluation() {
 
   function generateDocs() {
     docsAi.run(() => aiTechDocs(formData, isAr),
-      (r) => updateField('technicalDocumentsList', arr<unknown>(r).map(str).filter(Boolean)),
-      () => updateField('technicalDocumentsList', AI_TECH_DOCS));
+      (r) => updateField('technicalDocumentsList', arr<unknown>(r).map(str).filter(Boolean).filter((d) => !LOCKED_DOC_STRINGS.includes(d))),
+      () => updateField('technicalDocumentsList', AI_TECH_DOCS.filter((d) => !LOCKED_DOC_STRINGS.includes(d))));
   }
 
   function addDoc(label: string) {
     const trimmed = label.trim();
     if (!trimmed) return;
     const list = formData.technicalDocumentsList as string[];
-    if (!list.includes(trimmed)) updateField('technicalDocumentsList', [...list, trimmed]);
+    if (!list.includes(trimmed) && !LOCKED_DOC_STRINGS.includes(trimmed)) updateField('technicalDocumentsList', [...list, trimmed]);
     setDocInput('');
   }
 
@@ -101,10 +119,11 @@ export default function TechnicalEvaluation() {
           onChange={setTechnicalCommitteeMembers}
         />
         {formData.technicalCommitteeMembers.length > 0 && (
-          <p className="mt-2 text-xs text-neutral-400">
+          <p className="mt-2 text-xs text-neutral-500">
             {formData.technicalCommitteeMembers.length} {t('member(s) selected', 'عضو/أعضاء مختارون')}
           </p>
         )}
+        <RecommendedMembers value={formData.technicalCommitteeMembers} onChange={setTechnicalCommitteeMembers} />
       </SectionCard>
 
       {/* Technical Documents */}
@@ -124,26 +143,31 @@ export default function TechnicalEvaluation() {
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Chips */}
-            {(formData.technicalDocumentsList as string[]).length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {(formData.technicalDocumentsList as string[]).map((doc, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1.5 ps-3 pe-2 py-1.5 rounded-full text-[12px] font-medium bg-neutral-100 text-neutral-700 border border-neutral-200 group"
+            {/* Chips — locked mandatory docs first, then user-added */}
+            <div className="flex flex-wrap gap-2">
+              {LOCKED_TECH_DOCS.map((d, i) => (
+                <span key={`lock-${i}`} className="inline-flex items-center gap-1.5 ps-2.5 pe-3 py-1.5 rounded-full text-[12px] font-medium bg-neutral-100 text-neutral-600 border border-neutral-200">
+                  <LockGlyph className="w-3 h-3 text-neutral-400 flex-shrink-0" />
+                  {isAr ? d.ar : d.en}
+                </span>
+              ))}
+              {(formData.technicalDocumentsList as string[]).map((doc, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 ps-3 pe-2 py-1.5 rounded-full text-[12px] font-medium bg-white text-neutral-700 border border-neutral-200 group"
+                >
+                  {doc}
+                  <button
+                    type="button"
+                    onClick={() => removeDoc(i)}
+                    className="text-neutral-400 hover:text-error-500 transition-colors flex-shrink-0"
                   >
-                    {doc}
-                    <button
-                      type="button"
-                      onClick={() => removeDoc(i)}
-                      className="text-neutral-400 hover:text-error-500 transition-colors flex-shrink-0"
-                    >
-                      <XIcon className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
+                    <XIcon className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <p className="text-[11px] text-neutral-500">{t('Mandatory documents are locked. Add any additional documents below.', 'الوثائق الإلزامية مقفلة. أضف أي وثائق إضافية أدناه.')}</p>
             {/* Add input */}
             <div className="flex gap-2">
               <input
@@ -164,11 +188,6 @@ export default function TechnicalEvaluation() {
               </button>
             </div>
             <AiNote error={docsAi.error} usedSample={docsAi.usedSample} />
-            {(formData.technicalDocumentsList as string[]).length === 0 && (
-              <p className="text-xs text-neutral-400">
-                {t('No documents added yet. Type above or use AI Suggest.', 'لم تتم إضافة وثائق بعد. اكتب أعلاه أو استخدم الاقتراح بالذكاء الاصطناعي.')}
-              </p>
-            )}
           </div>
         )}
       </SectionCard>

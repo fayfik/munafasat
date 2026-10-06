@@ -26,12 +26,29 @@ interface Props {
   compact?: boolean;
   /** buttonOnly = just the attach button with a count (for tight table cells). */
   buttonOnly?: boolean;
+  /** readOnly = show attached files only, no Attach button and no remove (row view). */
+  readOnly?: boolean;
 }
 
 /** Attach supporting documents to a single BOQ line. */
-export default function BoqAttachments({ attachments, onChange, compact, buttonOnly }: Props) {
+export default function BoqAttachments({ attachments, onChange, compact, buttonOnly, readOnly }: Props) {
   const t = useT();
   const ref = useRef<HTMLInputElement>(null);
+
+  if (readOnly) {
+    if (attachments.length === 0) return null;
+    return (
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {attachments.map((a) => (
+          <span key={a.id} className="inline-flex items-center gap-1.5 max-w-[220px] px-2 py-1 rounded-lg bg-neutral-100 border border-neutral-200 text-[11px] text-neutral-700">
+            <PaperclipIcon className="w-3 h-3 text-neutral-500 flex-shrink-0" />
+            <span className="truncate" title={a.name}>{a.name}</span>
+            {a.size > 0 && <span className="text-neutral-500 flex-shrink-0">{fmtSize(a.size)}</span>}
+          </span>
+        ))}
+      </div>
+    );
+  }
 
   function onPick(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
