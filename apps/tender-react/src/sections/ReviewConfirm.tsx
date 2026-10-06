@@ -27,12 +27,17 @@ export default function ReviewConfirm() {
   const selectedCC = ALL_COST_CENTERS.find((c) => c.id === formData.costCenterId);
   const extraCCs = (formData.additionalCostCenterIds ?? []).map((id) => ALL_COST_CENTERS.find((c) => c.id === id)).filter(Boolean) as typeof ALL_COST_CENTERS;
 
-  const incompleteSections = sectionStatuses
-    .map((s, i) => ({ status: s, section: SECTIONS[i], idx: i }))
-    .filter(({ status, section }) => (status === 'missing' || status === 'not-started') && section.id !== 'review');
+  // eSouq reviews only its own steps (no scope / payment / technical / qualification).
+  const isEsouq = formData.sourceType === 'souq-etimad';
+  const ESOUQ_IDS = ['procurement-route', 'project-setup', 'boq', 'attachments', 'review'];
+  const reqIdxs = SECTIONS.map((_, i) => i).filter((i) => SECTIONS[i].id !== 'review' && (!isEsouq || ESOUQ_IDS.includes(SECTIONS[i].id)));
 
-  const completedCount = sectionStatuses.filter((s, i) => s === 'completed' && SECTIONS[i].id !== 'review').length;
-  const totalRequired = SECTIONS.length - 1;
+  const incompleteSections = reqIdxs
+    .map((i) => ({ status: sectionStatuses[i], section: SECTIONS[i], idx: i }))
+    .filter(({ status }) => status === 'missing' || status === 'not-started');
+
+  const completedCount = reqIdxs.filter((i) => sectionStatuses[i] === 'completed').length;
+  const totalRequired = reqIdxs.length;
 
   function generateAISummary() {
     summaryAi.run(
@@ -113,17 +118,18 @@ export default function ReviewConfirm() {
           />
         </div>
         <div className="grid grid-cols-4 gap-2">
-          {SECTIONS.filter((s) => s.id !== 'review').map((sec, idx) => {
-            const status = sectionStatuses[idx];
+          {reqIdxs.map((i) => {
+            const sec = SECTIONS[i];
+            const status = sectionStatuses[i];
             return (
               <button
                 key={sec.id}
-                onClick={() => goToSection(idx)}
+                onClick={() => goToSection(i)}
                 className="flex items-center gap-2 p-2 rounded-lg hover:bg-neutral-50 transition-colors text-start"
               >
                 <StatusDot status={status} />
                 <span className="text-xs text-neutral-600 truncate">
-                  {isAr ? sec.titleAr : sec.title}
+                  {isEsouq && sec.id === 'project-setup' ? t('Purchase details', 'تفاصيل الشراء') : (isAr ? sec.titleAr : sec.title)}
                 </span>
               </button>
             );
@@ -155,8 +161,8 @@ export default function ReviewConfirm() {
         </div>
       )}
 
-      {/* Etimad Souq check */}
-      {(() => {
+      {/* Etimad Souq check (tendering only — eSouq items are already catalogue items) */}
+      {!isEsouq && (() => {
         const rows = formData.boqItems;
         if (rows.length === 0) return null;
         const unchecked = rows.filter((r) => !r.etimadCheck || isStale(r)).length;
@@ -179,7 +185,7 @@ export default function ReviewConfirm() {
                 {t(`${unchecked} BOQ item(s) have not been checked against Etimad Souq.`, `${unchecked} بند/بنود لم يُتحقق من توفرها في سوق اعتماد.`)}
               </p>
             )}
-            <Button variant="ghost" size="sm" onClick={() => goToSection(2)}>
+            <Button variant="ghost" size="sm" onClick={() => goToSection(3)}>
               <PencilIcon className="w-3 h-3" /> {t('Go to Bill of Quantities', 'الانتقال إلى جدول الكميات')}
             </Button>
           </div>
@@ -212,10 +218,12 @@ export default function ReviewConfirm() {
             <div className="text-sm text-neutral-700 leading-relaxed whitespace-pre-line">{aiSummaryText}</div>
           ) : (
           <div className="text-sm text-neutral-700 space-y-2 leading-relaxed">
-            <p>{t('This tender request seeks to procure', 'يسعى طلب المناقصة هذا للحصول على')} <strong>{isAr ? (selectedProject?.nameAr ?? selectedProject?.name ?? t('an enterprise solution', 'حل مؤسسي')) : (selectedProject?.name ?? t('an enterprise solution', 'حل مؤسسي'))}</strong> {t('for the', 'لـ')} <strong>{selectedCC?.name ?? t('requesting department', 'القسم الطالب')}</strong>.</p>
-            <p>{t('The total estimated project value is', 'إجمالي القيمة التقديرية للمشروع هو')} <strong dir="ltr">SAR {formatSAR(boqTotal)}</strong> ({t('including 15% VAT', 'شاملاً ضريبة القيمة المضافة 15%')}){t(', spanning a contract duration of', '، لمدة عقد')} <strong>{formData.contractDuration} {formData.contractDurationType}</strong> {t('commencing', 'تبدأ في')} <strong>{formData.startDate || t('TBD', 'يُحدَّد لاحقاً')}</strong>.</p>
-            <p>{t('The scope includes', 'يشمل النطاق')} {formData.boqItems.length} {t('BOQ line items across', 'بنوداً في جدول الكميات عبر')} {selectedProject?.items.length ?? 0} {t('project categories.', 'فئات مشروع.')}</p>
-            <p>{t('Technical evaluation will be conducted by a committee of', 'سيتم إجراء التقييم الفني من قِبل لجنة مؤلفة من')} {formData.technicalCommitteeMembers.length} {t('members using', 'أعضاء باستخدام')} {formData.evaluationCriteria.length} {t('weighted criteria, with a passing threshold of', 'معايير موزونة، بحد اجتياز')} {formData.technicalPassingPercentage || t('TBD', 'يُحدَّد لاحقاً')}%.</p>
+            <p>{isEsouq ? t('This purchase request seeks to procure', 'يسعى طلب الشراء هذا للحصول على') : t('This tender request seeks to procure', 'يسعى طلب المناقصة هذا للحصول على')} <strong>{isAr ? (selectedProject?.nameAr ?? selectedProject?.name ?? t('an enterprise solution', 'حل مؤسسي')) : (selectedProject?.name ?? t('an enterprise solution', 'حل مؤسسي'))}</strong> {t('for the', 'لـ')} <strong>{selectedCC?.name ?? t('requesting department', 'القسم الطالب')}</strong>.</p>
+            <p>{t('The total estimated project value is', 'إجمالي القيمة التقديرية للمشروع هو')} <strong dir="ltr">SAR {formatSAR(boqTotal)}</strong> ({t('including 15% VAT', 'شاملاً ضريبة القيمة المضافة 15%')}){!isEsouq && <>{t(', spanning a contract duration of', '، لمدة عقد')} <strong>{formData.contractDuration} {formData.contractDurationType}</strong> {t('commencing', 'تبدأ في')} <strong>{formData.startDate || t('TBD', 'يُحدَّد لاحقاً')}</strong></>}.</p>
+            <p>{isEsouq
+              ? t(`The request includes ${formData.boqItems.length} catalogue line item${formData.boqItems.length === 1 ? '' : 's'} bought directly from approved suppliers.`, `يشمل الطلب ${formData.boqItems.length} بنداً من الكتالوج تُشترى مباشرةً من موردين معتمدين.`)
+              : <>{t('The scope includes', 'يشمل النطاق')} {formData.boqItems.length} {t('BOQ line items across', 'بنوداً في جدول الكميات عبر')} {selectedProject?.items.length ?? 0} {t('project categories.', 'فئات مشروع.')}</>}</p>
+            {!isEsouq && <p>{t('Technical evaluation will be conducted by a committee of', 'سيتم إجراء التقييم الفني من قِبل لجنة مؤلفة من')} {formData.technicalCommitteeMembers.length} {t('members using', 'أعضاء باستخدام')} {formData.evaluationCriteria.length} {t('weighted criteria, with a passing threshold of', 'معايير موزونة، بحد اجتياز')} {formData.technicalPassingPercentage || t('TBD', 'يُحدَّد لاحقاً')}%.</p>}
             {formData.attachments.length > 0 && <p>{formData.attachments.length} {formData.attachments.length > 1 ? t('supporting documents attached.', 'وثائق داعمة مرفقة.') : t('supporting document attached.', 'وثيقة داعمة مرفقة.')}</p>}
           </div>
           )}
@@ -233,7 +241,7 @@ export default function ReviewConfirm() {
       )}
 
       {/* Section summaries */}
-      <ReviewSection title="Project Setup" titleAr="إعداد المشروع" sectionIdx={1} status={sectionStatuses[1]}>
+      <ReviewSection title={isEsouq ? 'Purchase details' : 'Project Setup'} titleAr={isEsouq ? 'تفاصيل الشراء' : 'إعداد المشروع'} sectionIdx={1} status={sectionStatuses[1]}>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
           <ReviewField label={t('Cost Center', 'مركز التكلفة')} value={selectedCC ? `${selectedCC.name} (${selectedCC.code})` : '—'} />
           {extraCCs.length > 0 && (
@@ -245,6 +253,7 @@ export default function ReviewConfirm() {
         </dl>
       </ReviewSection>
 
+      {!isEsouq && (
       <ReviewSection title="Scope of Work" titleAr="نطاق العمل" sectionIdx={2} status={sectionStatuses[2]}>
         <div className="text-sm text-neutral-600 line-clamp-3 whitespace-pre-line">
           {formData.scopeOfWork || <span className="text-neutral-400 italic">{t('Not completed', 'غير مكتمل')}</span>}
@@ -258,11 +267,16 @@ export default function ReviewConfirm() {
           <p className="mt-2 text-xs text-neutral-400">{formData.scopeTerms.length} {t('characters in terms & conditions', 'حرف في الشروط والأحكام')}</p>
         )}
       </ReviewSection>
+      )}
 
       <ReviewSection title="Bill of Quantities" titleAr="جدول الكميات" sectionIdx={3} status={sectionStatuses[3]}>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
           <ReviewField label={t('Total Items', 'إجمالي البنود')} value={formData.boqItems.length > 0 ? `${formData.boqItems.length} ${t('line items', 'بند')}` : '—'} />
-          <ReviewField label={t('Brand Name', 'الاسم التجاري')} value={formData.boqItems.length === 0 ? '—' : formData.boqItems.some((r) => r.hasBrandName) ? t(`Yes, ${formData.boqItems.filter((r) => r.hasBrandName).length} item(s)`, `نعم، ${formData.boqItems.filter((r) => r.hasBrandName).length} بند`) : t('No', 'لا')} />
+          {isEsouq ? (
+            <ReviewField label={t('Suppliers', 'الموردون')} value={(() => { const s = new Set(formData.boqItems.map((r) => (r.supplier ?? '').trim()).filter(Boolean)); return s.size > 0 ? t(`${s.size} supplier${s.size === 1 ? '' : 's'}`, `${s.size} مورّد`) : '—'; })()} />
+          ) : (
+            <ReviewField label={t('Brand Name', 'الاسم التجاري')} value={formData.boqItems.length === 0 ? '—' : formData.boqItems.some((r) => r.hasBrandName) ? t(`Yes, ${formData.boqItems.filter((r) => r.hasBrandName).length} item(s)`, `نعم، ${formData.boqItems.filter((r) => r.hasBrandName).length} بند`) : t('No', 'لا')} />
+          )}
           <ReviewField label={t('Subtotal', 'المجموع الفرعي')} value={boqSubtotal > 0 ? `SAR ${formatSAR(boqSubtotal)}` : '—'} ltr />
           <ReviewField label={t('VAT (15%)', 'ضريبة القيمة المضافة (15%)')} value={boqVat > 0 ? `SAR ${formatSAR(boqVat)}` : '—'} ltr />
         </dl>
@@ -274,6 +288,7 @@ export default function ReviewConfirm() {
         )}
       </ReviewSection>
 
+      {!isEsouq && (<>
       <ReviewSection title="Payment Schedule" titleAr="جدول الدفعات" sectionIdx={4} status={sectionStatuses[4]}>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
           <ReviewField label={t('Stages', 'المراحل')} value={formData.paymentStages.length > 0 ? `${formData.paymentStages.length} ${t('payment stages', 'مراحل دفع')}` : '—'} />
@@ -296,6 +311,7 @@ export default function ReviewConfirm() {
           <ReviewField label={t('Main Criteria %', 'إجمالي المعايير الرئيسية %')} value={`${qualPctTotal}% ${qualPctTotal === 100 ? '✓' : '⚠'}`} ltr />
         </dl>
       </ReviewSection>
+      </>)}
 
       <ReviewSection title="Attachments" titleAr="المرفقات" sectionIdx={7} status={sectionStatuses[7]}>
         {formData.attachments.length > 0 ? (

@@ -17,6 +17,7 @@ import { checkEtimadAvailability, isStale, needsJustification } from '../lib/eti
 import EtimadPanel from '../components/EtimadPanel';
 import BoqSheet from '../components/BoqSheet';
 import { useBoqLayout, setBoqLayout } from '../lib/boqLayout';
+import EsouqBillOfQuantities from './EsouqBillOfQuantities';
 
 const BOQ_COLUMNS = [
   'Project Item',
@@ -139,6 +140,10 @@ export default function BillOfQuantities() {
       addFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [showAddForm, addCat]);
+
+  // Etimad eSouq is a direct catalogue purchase — it uses a dedicated Product/Service BOQ.
+  // (Placed after all hooks above to respect the Rules of Hooks.)
+  if (formData.sourceType === 'souq-etimad') return <EsouqBillOfQuantities />;
 
   async function runEtimadCheck(rows: BOQRow[]) {
     if (rows.length === 0) return;

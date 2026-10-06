@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type ReactNode, type InputHTMLAttributes, 
 import React from 'react';
 import { SparklesIcon, XIcon, SearchIcon, CheckIcon, ChevronDownIcon } from './Icons';
 import { PEOPLE } from '../data/mockData';
+import { RECOMMENDED_MEMBERS } from '../data/recommendedMembers';
 import type { Person } from '../types/tender';
 import { useLanguage, useT } from '../context/LanguageContext';
 
@@ -387,13 +388,15 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const filtered = PEOPLE.filter(
-    (p) =>
-      !value.find((v) => v.id === p.id) &&
-      (p.name.toLowerCase().includes(query.toLowerCase()) ||
-        p.role.toLowerCase().includes(query.toLowerCase()) ||
-        p.department.toLowerCase().includes(query.toLowerCase()))
-  );
+  const q = query.trim().toLowerCase();
+  const added = (id: string) => value.some((v) => v.id === id);
+  const match = (p: Person & { nameAr?: string; roleAr?: string }) =>
+    !q || [p.name, p.nameAr, p.role, p.roleAr, p.department].filter(Boolean).some((s) => s!.toLowerCase().includes(q));
+  const recRows = RECOMMENDED_MEMBERS.filter((m) => !added(m.id) && match(m));
+  const otherRows = PEOPLE.filter((p) => !added(p.id) && !RECOMMENDED_MEMBERS.some((m) => m.id === p.id) && match(p));
+  const hasResults = recRows.length > 0 || otherRows.length > 0;
+  const dispName = (p: Person) => (isAr && p.nameAr ? p.nameAr : p.name);
+  const dispRole = (p: Person & { roleAr?: string }) => (isAr && p.roleAr ? p.roleAr : p.role);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -423,7 +426,7 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
           {value.map((p) => (
             <span key={p.id} className="inline-flex items-center gap-1.5 bg-neutral-100 border border-neutral-200 rounded-full ps-1 pe-2 py-0.5 text-[12px] text-neutral-700">
               <Avatar person={p} className="w-5 h-5 rounded-full flex-shrink-0" textClass="text-[10px]" />
-              {p.name}
+              {dispName(p)}
               <button type="button" onClick={() => remove(p.id)} className="text-neutral-400 hover:text-neutral-600 transition-colors">
                 <XIcon className="w-3 h-3" />
               </button>
@@ -440,29 +443,60 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
             />
           </div>
         </div>
-        {open && filtered.length > 0 && (
-          <div className="mt-1 w-full bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden slide-up">
-            <ul className="py-1">
-              {filtered.map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => add(p)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-body-md hover:bg-neutral-50 transition-colors"
-                  >
-                    <Avatar person={p} className="w-8 h-8 rounded-full flex-shrink-0" textClass="text-[12px]" />
-                    <div className="text-start flex-1 min-w-0">
-                      <p className="font-medium text-neutral-900 truncate">{p.name}</p>
-                      <p className="text-neutral-500 text-[11px] truncate">{p.role} · {p.department}</p>
-                    </div>
-                    <CheckIcon className="w-4 h-4 text-brand-600 ms-auto opacity-0" />
-                  </button>
-                </li>
-              ))}
-            </ul>
+        {open && hasResults && (
+          <div className="mt-1 w-full bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden slide-up max-h-[20rem] overflow-y-auto">
+            {/* Recommended members */}
+            {recRows.length > 0 && (
+              <div>
+                <p className="px-4 pt-2.5 pb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-ai-700 bg-ai-50/60 flex items-center gap-1.5">
+                  <SparklesIcon className="w-3 h-3" /> {t('Recommended members', 'أعضاء مقترحون')}
+                </p>
+                <ul className="py-1">
+                  {recRows.map((m) => (
+                    <li key={m.id}>
+                      <button type="button" onClick={() => add(m)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-body-md hover:bg-neutral-50 transition-colors">
+                        <Avatar person={m} className="w-8 h-8 rounded-full flex-shrink-0 ring-1 ring-black/5" textClass="text-[12px]" />
+                        <div className="text-start flex-1 min-w-0">
+                          <p className="font-medium text-neutral-900 truncate">{dispName(m)}</p>
+                          <p className="text-neutral-500 text-[11px] truncate">{dispRole(m)} · {m.department}</p>
+                        </div>
+                        <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-ai-700 bg-ai-100/70 rounded-full px-2 py-0.5 flex-shrink-0 whitespace-nowrap">
+                          <SparklesIcon className="w-2.5 h-2.5" /> {t(`${m.reviewed} RFP${m.reviewed > 1 ? 's' : ''} reviewed`, `راجع ${m.reviewed} طلب`)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {/* Other members */}
+            {otherRows.length > 0 && (
+              <div>
+                {recRows.length > 0 && (
+                  <p className="px-4 pt-2.5 pb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400 border-t border-neutral-100">
+                    {t('Other members', 'أعضاء آخرون')}
+                  </p>
+                )}
+                <ul className="py-1">
+                  {otherRows.map((p) => (
+                    <li key={p.id}>
+                      <button type="button" onClick={() => add(p)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-body-md hover:bg-neutral-50 transition-colors">
+                        <Avatar person={p} className="w-8 h-8 rounded-full flex-shrink-0" textClass="text-[12px]" />
+                        <div className="text-start flex-1 min-w-0">
+                          <p className="font-medium text-neutral-900 truncate">{dispName(p)}</p>
+                          <p className="text-neutral-500 text-[11px] truncate">{dispRole(p)} · {p.department}</p>
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
-        {open && filtered.length === 0 && query && (
+        {open && !hasResults && query && (
           <div className="mt-1 w-full bg-white border border-neutral-200 rounded-xl shadow-sm px-4 py-3 text-body-md text-neutral-500 slide-up">
             {t('No matching people found.', 'لا توجد نتائج مطابقة.')}
           </div>

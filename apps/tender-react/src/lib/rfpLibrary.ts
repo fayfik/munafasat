@@ -19,6 +19,8 @@ export interface PastRfp {
   projectId: string;
   department: string;
   value: string;
+  /** Procurement route this past request used. Undefined = competitive tender. */
+  route?: 'souq-etimad' | 'tendering';
 }
 
 export const PAST_RFPS: PastRfp[] = [
@@ -27,6 +29,10 @@ export const PAST_RFPS: PastRfp[] = [
   { id: 'rfp-2024-019', code: 'RFP-2024-019', title: 'HR & Payroll Module Rollout', titleAr: 'إطلاق وحدة الموارد البشرية والرواتب', created: '2024-06-18', projectId: 'proj-001', department: 'Human Capital', value: 'SAR 1.1M' },
   { id: 'rfp-2024-012', code: 'RFP-2024-012', title: 'ERP Data Migration & Cleansing', titleAr: 'ترحيل وتنظيف بيانات نظام تخطيط الموارد', created: '2024-04-22', projectId: 'proj-001', department: 'IT & Digital Transformation', value: 'SAR 980K' },
   { id: 'rfp-2023-058', code: 'RFP-2023-058', title: 'ERP End-User Training Programme', titleAr: 'برنامج تدريب مستخدمي نظام تخطيط الموارد', created: '2023-12-05', projectId: 'proj-001', department: 'IT & Digital Transformation', value: 'SAR 540K' },
+  // Etimad eSouq (direct catalogue purchases)
+  { id: 'esq-2024-061', code: 'ESQ-2024-061', title: 'Staff Laptops & Peripherals Supply', titleAr: 'توريد أجهزة الموظفين والملحقات', created: '2024-11-20', projectId: 'proj-001', department: 'IT & Digital Transformation', value: 'SAR 420K', route: 'souq-etimad' },
+  { id: 'esq-2024-055', code: 'ESQ-2024-055', title: 'Microsoft 365 Licence Renewal', titleAr: 'تجديد تراخيص مايكروسوفت 365', created: '2024-10-05', projectId: 'proj-001', department: 'IT & Digital Transformation', value: 'SAR 310K', route: 'souq-etimad' },
+  { id: 'esq-2024-050', code: 'ESQ-2024-050', title: 'Server & Network Hardware Purchase', titleAr: 'شراء خوادم وأجهزة الشبكة', created: '2024-09-18', projectId: 'proj-001', department: 'IT & Digital Transformation', value: 'SAR 680K', route: 'souq-etimad' },
   { id: 'rfp-2024-044', code: 'RFP-2024-044', title: 'Integration Platform Upgrade', titleAr: 'ترقية منصة التكامل', created: '2024-10-21', projectId: 'proj-002', department: 'IT & Digital Transformation', value: 'SAR 960K' },
   { id: 'rfp-2024-038', code: 'RFP-2024-038', title: 'Data Center Network Refresh', titleAr: 'تحديث شبكة مركز البيانات', created: '2024-08-14', projectId: 'proj-002', department: 'IT & Digital Transformation', value: 'SAR 1.5M' },
   { id: 'rfp-2024-047', code: 'RFP-2024-047', title: 'Citizen Services Mobile App', titleAr: 'تطبيق الخدمات الرقمية للجوال', created: '2024-10-02', projectId: 'proj-003', department: 'Digital Transformation Committee', value: 'SAR 1.3M' },
@@ -39,6 +45,12 @@ export const PAST_RFPS: PastRfp[] = [
   { id: 'rfp-2023-088', code: 'RFP-2023-088', title: 'Cybersecurity Operations Center', titleAr: 'مركز عمليات الأمن السيبراني', created: '2023-12-05', projectId: 'proj-other', department: 'Cybersecurity Office', value: 'SAR 3.1M' },
   { id: 'rfp-2023-074', code: 'RFP-2023-074', title: 'Strategy Office Advisory Services', titleAr: 'الخدمات الاستشارية لمكتب الاستراتيجية', created: '2023-10-19', projectId: 'proj-other', department: 'Strategy & Performance', value: 'SAR 1.4M' },
 ];
+
+export function rfpsForProjectByRoute(projectId: string, route: 'souq-etimad' | 'tendering'): PastRfp[] {
+  return PAST_RFPS
+    .filter((r) => r.projectId === projectId && (route === 'souq-etimad' ? r.route === 'souq-etimad' : r.route !== 'souq-etimad'))
+    .sort((a, b) => b.created.localeCompare(a.created));
+}
 
 export function rfpsForProject(projectId: string): PastRfp[] {
   return PAST_RFPS.filter((r) => r.projectId === projectId).sort((a, b) => b.created.localeCompare(a.created));

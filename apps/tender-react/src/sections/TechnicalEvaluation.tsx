@@ -5,7 +5,6 @@ import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiTechDocs, aiTechReqs, aiEvalCriteria, type AiReq, type AiCriterion } from '../lib/aiTender';
 import { FormField, SectionCard, Textarea, Input, AIButton, PeoplePicker, InfoBanner } from '../components/ui';
 import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon, XIcon } from '../components/Icons';
-import RecommendedMembers from '../components/RecommendedMembers';
 
 // Mandatory documents — always required, can't be removed (locked).
 const LOCKED_TECH_DOCS: { en: string; ar: string }[] = [
@@ -118,12 +117,11 @@ export default function TechnicalEvaluation() {
           value={formData.technicalCommitteeMembers}
           onChange={setTechnicalCommitteeMembers}
         />
-        {formData.technicalCommitteeMembers.length > 0 && (
-          <p className="mt-2 text-xs text-neutral-500">
-            {formData.technicalCommitteeMembers.length} {t('member(s) selected', 'عضو/أعضاء مختارون')}
-          </p>
-        )}
-        <RecommendedMembers value={formData.technicalCommitteeMembers} onChange={setTechnicalCommitteeMembers} />
+        <p className="mt-2 text-xs text-neutral-500">
+          {formData.technicalCommitteeMembers.length > 0
+            ? `${formData.technicalCommitteeMembers.length} ${t('member(s) selected', 'عضو/أعضاء مختارون')}`
+            : t('Recommended reviewers appear first in the list.', 'يظهر المراجعون المقترحون أولاً في القائمة.')}
+        </p>
       </SectionCard>
 
       {/* Technical Documents */}

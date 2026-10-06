@@ -5,9 +5,8 @@ import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiScope, aiTerms } from '../lib/aiTender';
 import { PROJECTS } from '../data/mockData';
 import { FormField, SectionCard, Textarea, AIButton, InfoBanner, Input, Select } from '../components/ui';
-import { SparklesIcon, AlertTriangleIcon } from '../components/Icons';
-import ProjectIncludesSelect, { routeForInclude, deriveIncludesFromItems } from '../components/ProjectIncludesSelect';
-import { ROUTE_META } from '../lib/triage';
+import { SparklesIcon } from '../components/Icons';
+import ProjectIncludesSelect, { deriveIncludesFromItems, reviewDepartments, DEPARTMENTS, WorkflowDrawer } from '../components/ProjectIncludesSelect';
 
 function calcEndDate(start: string, duration: string, type: string): string {
   if (!start || !duration) return '';
@@ -65,6 +64,7 @@ export default function ScopeOfWork() {
   const scopeLoading = scopeAi.loading;
   const termsLoading = termsAi.loading;
   const [aiScopeText, setAiScopeText] = useState<string | null>(null);
+  const [wfOpen, setWfOpen] = useState(false);
 
   const selectedProject = PROJECTS.find((p) => p.id === formData.projectId);
 
@@ -84,11 +84,10 @@ export default function ScopeOfWork() {
   const yearsCalc = calcYears(formData.startDate, formData.contractDuration, formData.contractDurationType);
 
   const regulatoryRecords = selectedProject?.regulatoryRecords ?? '';
-  const determinedRoute = formData.sourceType === 'souq-etimad' ? 'souq-etimad' : 'tendering';
   // Auto-derived (locked) categories from the request's items — can't be removed.
   const lockedIncludes = deriveIncludesFromItems(formData.boqItems.map((b) => b.itemName).filter(Boolean));
   const allIncludes = [...new Set([...lockedIncludes, ...formData.scopeIncludes])];
-  const mismatchedIncludes = allIncludes.filter((v) => routeForInclude(v) !== determinedRoute);
+  const reviewIds = reviewDepartments(allIncludes);
 
   return (
     <div className="space-y-5">
@@ -101,19 +100,32 @@ export default function ScopeOfWork() {
         action={<AIButton onClick={generateScope} loading={scopeLoading} label={t('Generate Scope', 'توليد النطاق')} />}
       >
         <div className="space-y-4">
-          {/* What the project includes — editable category multi-select */}
+          {/* What the project includes — 3 categories; each routes the request to specific departments */}
           <FormField label="What does this project include?" labelAr="ماذا يتضمن مشروعك؟" required
-            hint={t('Some categories are auto-filled from your items (locked). Add more from the list or create your own.', 'بعض الفئات مُعبّأة تلقائياً من بنودك (مقفلة). أضف المزيد من القائمة أو أنشئ فئتك الخاصة.')}>
+            hint={t('Auto-selected from your project and items (locked). Add others manually — each category changes which departments approve the request.', 'مُحدّدة تلقائياً من مشروعك وبنودك (مقفلة). أضف غيرها يدوياً — كل فئة تغيّر الجهات التي تعتمد الطلب.')}>
             <ProjectIncludesSelect value={formData.scopeIncludes} onChange={(v) => updateField('scopeIncludes', v)} locked={lockedIncludes} />
-            {mismatchedIncludes.length > 0 && (
-              <div className="mt-2 flex items-start gap-2 rounded-lg border border-warning-100 bg-warning-50/70 px-3 py-2">
-                <AlertTriangleIcon className="w-3.5 h-3.5 text-warning-600 mt-0.5 flex-shrink-0" />
-                <p className="text-[12px] text-warning-700 leading-relaxed">
-                  {t(`${mismatchedIncludes.length} categor${mismatchedIncludes.length > 1 ? 'ies' : 'y'} you added usually follow${mismatchedIncludes.length > 1 ? '' : 's'} a different route than the determined ${isAr ? ROUTE_META[determinedRoute].ar : ROUTE_META[determinedRoute].en}. Adding ${mismatchedIncludes.length > 1 ? 'them' : 'it'} may change the procurement route or split this into separate requests — re-check in the Procurement Route step if needed.`,
-                     `${mismatchedIncludes.length} فئة أضفتها عادةً تتبع مساراً مختلفاً عن المسار المحدد (${ROUTE_META[determinedRoute].ar}). قد تؤدي إضافتها إلى تغيير مسار الشراء أو تقسيم الطلب إلى طلبات منفصلة — أعد الفحص في خطوة مسار الشراء إذا لزم.`)}
+
+            <div className="mt-2 flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex items-start gap-2 rounded-lg border border-ai-100 bg-ai-50/60 px-3 py-2 flex-1 min-w-[260px]">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-ai-600 mt-0.5 flex-shrink-0">
+                  <circle cx="6" cy="6" r="2.2" /><circle cx="6" cy="18" r="2.2" /><circle cx="18" cy="12" r="2.2" /><path d="M8 6h5a3 3 0 013 3v.5M8 18h5a3 3 0 003-3v-.5" />
+                </svg>
+                <p className="text-[12px] text-ai-800 leading-relaxed">
+                  {t('Changing what the project includes changes the approval workflow — each category routes the request through specific departments.',
+                     'تغيير ما يتضمنه المشروع يغيّر مسار الاعتماد — كل فئة توجّه الطلب عبر جهات محددة.')}
+                  {reviewIds.length > 0 && (
+                    <> {' '}{t('Current reviewers', 'المراجعون الحاليون')}: <span className="font-semibold">{reviewIds.map((d) => isAr ? DEPARTMENTS[d].ar : DEPARTMENTS[d].en).join(' · ')}</span>.</>
+                  )}
                 </p>
               </div>
-            )}
+              <button type="button" onClick={() => setWfOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-200 bg-brand-50 text-brand-700 text-[12px] font-semibold hover:bg-brand-100 transition-colors flex-shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                  <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /><path d="M7 12h3M14 12h3" />
+                </svg>
+                {t('View workflow', 'عرض مسار الاعتماد')}
+              </button>
+            </div>
           </FormField>
 
           <FormField label="Project Scope of Work" labelAr="نطاق عمل المشروع" required>
@@ -273,6 +285,8 @@ export default function ScopeOfWork() {
           )}
         </div>
       </SectionCard>
+
+      <WorkflowDrawer open={wfOpen} onClose={() => setWfOpen(false)} categories={allIncludes} isAr={isAr} t={t} />
     </div>
   );
 }

@@ -233,7 +233,8 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
     }));
     setRouteConfirmed(true);
     triggerSave();
-    if (opts.sourceType === 'tendering') goToSection(1);
+    // Both routes continue into the wizard (eSouq has a shorter, purchase-oriented flow).
+    goToSection(1);
   }, [triggerSave, goToSection]);
 
   // BOQ helpers
@@ -369,9 +370,16 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   }, [updateField]);
 
   // Computed
+  const isEsouqReq = formData.sourceType === 'souq-etimad';
   const boqSubtotal = formData.boqItems.reduce((s, r) => {
-    const q = typeof r.quantity === 'number' ? r.quantity : 0;
     const p = typeof r.unitPrice === 'number' ? r.unitPrice : 0;
+    if (isEsouqReq) {
+      // eSouq line total: manual override, else product = price·qty + shipping, else price.
+      if (typeof r.lineTotal === 'number') return s + r.lineTotal;
+      if (r.purchaseType === 'product') return s + p * ((typeof r.quantity === 'number' ? r.quantity : 0) || 1) + (typeof r.shippingCharges === 'number' ? r.shippingCharges : 0);
+      return s + p;
+    }
+    const q = typeof r.quantity === 'number' ? r.quantity : 0;
     return s + q * p;
   }, 0);
   const boqVat = boqSubtotal * 0.15;
@@ -456,10 +464,12 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   }, [store]);
 
   // Every section except Attachments (optional) and Review must be complete.
+  // eSouq uses a shorter flow: only Procurement Route → Project Setup → BOQ are required.
+  const ESOUQ_REQUIRED = ['project-setup', 'boq'];
   const readyToSubmit = SECTIONS.every((sec, idx) => {
     if (sec.id === 'procurement-route') return routeConfirmed;
     if (sec.id === 'attachments' || sec.id === 'review') return true;
-    if (formData.sourceType === 'souq-etimad' && sec.id !== 'project-setup') return true;
+    if (formData.sourceType === 'souq-etimad' && !ESOUQ_REQUIRED.includes(sec.id)) return true;
     return sectionStatuses[idx] === 'completed';
   });
 

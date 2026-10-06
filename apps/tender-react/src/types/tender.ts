@@ -33,6 +33,19 @@ export interface BOQRow {
   etimadJustification?: string;
   /** Supporting documents attached to this line (specs, drawings, quotes…). */
   attachments?: FileAttachment[];
+
+  /* ── Etimad eSouq (direct catalogue purchase) fields ───────────────────────── */
+  /** Product · Service · Vehicle Leasing. Drives which fields apply and the group. */
+  purchaseType?: 'product' | 'service' | 'vehicle-leasing';
+  productId?: string;
+  supplier?: string;
+  orderUnit?: string;            // product only
+  shippingCharges?: number | ''; // product only
+  startDate?: string;            // service / vehicle-leasing
+  endDate?: string;              // service / vehicle-leasing
+  respName?: string;             // delivery note — responsible name
+  respMobile?: string;           // delivery note — responsible mobile
+  lineTotal?: number | '';       // total value for this line
 }
 
 export type EtimadAvailability = 'available' | 'not-available' | 'uncertain';

@@ -130,7 +130,7 @@ export default function ProcurementRouteStep() {
       projectId,
       items: g.items.map((i) => ({ name: i.name, nameAr: i.nameAr, projectItemId: i.projectItemId })),
     });
-    if (g.route !== 'tendering') setPhase('landing');
+    // Both routes now continue into the wizard (confirmRoute advances to Project Setup).
   }
 
   const chosen = groups.find((g) => g.key === chosenKey) ?? groups[0];
@@ -308,7 +308,7 @@ export default function ProcurementRouteStep() {
           <div className="flex items-center justify-between">
             <Button variant="secondary" onClick={() => setPhase('select')}>← {t('Back to items', 'العودة إلى البنود')}</Button>
             <Button variant="primary" size="lg" onClick={confirmChosen}>
-              {chosen.route === 'tendering' ? t('Create this request & continue', 'إنشاء هذا الطلب والمتابعة') : t('Create eSouq request', 'إنشاء طلب السوق الإلكتروني')} →
+              {chosen.route === 'tendering' ? t('Create this request & continue', 'إنشاء هذا الطلب والمتابعة') : t('Create eSouq purchase & continue', 'إنشاء طلب الشراء ومتابعة')} →
             </Button>
           </div>
         </div>

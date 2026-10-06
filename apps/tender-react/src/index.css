@@ -262,6 +262,37 @@ select {
   animation: fade-in 0.2s ease-out;
 }
 
+/* Subtle blinking indicator — pending / awaiting states */
+@keyframes blip {
+  0%, 100% { opacity: 0.3; transform: scale(0.82); }
+  50%      { opacity: 1;   transform: scale(1); }
+}
+.blip-dot {
+  animation: blip 1.7s ease-in-out infinite;
+}
+@keyframes blip-ring {
+  0%   { opacity: 0.5; transform: scale(0.9); }
+  70%  { opacity: 0;   transform: scale(1.6); }
+  100% { opacity: 0;   transform: scale(1.6); }
+}
+.blip-ring {
+  animation: blip-ring 1.7s ease-out infinite;
+}
+
+/* Side drawer slide-in */
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+:dir(rtl) .drawer-in { animation: drawer-in-rtl 0.22s ease-out; }
+@keyframes drawer-in-rtl {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.drawer-in {
+  animation: drawer-in 0.22s ease-out;
+}
+
 /* Header surface: brand gradient */
 .surface-header {
   background: linear-gradient(90deg, #699843 0%, #517632 100%);
