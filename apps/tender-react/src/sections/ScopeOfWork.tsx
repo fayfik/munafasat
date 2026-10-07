@@ -55,6 +55,33 @@ export const AI_TERMS = `1. The vendor must comply with the National Cybersecuri
 
 6. Warranty period for all delivered software and systems shall be a minimum of one (1) year from the date of final acceptance.`;
 
+// Arabic samples — used when the app language is Arabic.
+export const AI_SCOPE_AR = `يشمل هذا المشروع توريد وتركيب وتهيئة وتشغيل نظام تخطيط موارد المؤسسة (ERP). يلتزم المقاول بما يلي:
+
+1. تراخيص البرمجيات: توفير جميع تراخيص برمجيات النظام المطلوبة لما لا يقل عن 500 مستخدم مُسمّى، شاملةً جميع الوحدات المحددة في جدول الكميات.
+
+2. التنفيذ والتهيئة: تنفيذ كامل للنظام يشمل التصميم وإعداد قاعدة البيانات وتهيئة الوحدات وأتمتة سير العمل والتكامل مع الأنظمة القائمة (SAP ECC، ونظام الموارد البشرية، ونظام إدارة الوثائق).
+
+3. ترحيل البيانات: ترحيل كامل للبيانات التاريخية من النظام القديم، شاملاً التنظيف والتحقق وتقارير المطابقة، مع تحقيق سلامة بيانات بنسبة 100%.
+
+4. تدريب المستخدمين: برنامج تدريبي شامل لجميع فئات المستخدمين — مديرو النظام (5 أيام)، والمستخدمون المتقدمون (3 أيام)، والمستخدمون النهائيون (يوم واحد) — باللغتين العربية والإنجليزية.
+
+5. دعم التشغيل الفعلي: دعم ميداني متفرّغ لمدة لا تقل عن 30 يوماً بعد التشغيل الفعلي لضمان استقرار النظام وتبنّي المستخدمين له.
+
+6. الدعم الفني: ثلاث (3) سنوات من الدعم الفني والصيانة تشمل تحديثات البرمجيات والتصحيحات الأمنية وإصلاح الأعطال ودعم مكتب المساعدة (8 صباحاً – 5 مساءً، الأحد – الخميس، اتفاقية مستوى خدمة: استجابة خلال 4 ساعات).`;
+
+export const AI_TERMS_AR = `1. يجب على المورّد الالتزام بالضوابط الأساسية للأمن السيبراني الصادرة عن الهيئة الوطنية للأمن السيبراني (ECC-1:2018) وجميع الأنظمة ذات الصلة.
+
+2. يجب استضافة جميع الخدمات السحابية أو مكوّنات تخزين البيانات داخل المملكة العربية السعودية، التزاماً بإرشادات الحوسبة السحابية الحكومية (G-Cloud).
+
+3. يجب على المورّد الحصول على جميع التراخيص التقنية المطلوبة من هيئة الاتصالات والفضاء والتقنية (CST) قبل بدء الخدمات.
+
+4. يجب أن تدعم جميع البرمجيات الواجهتين العربية (من اليمين إلى اليسار) والإنجليزية (من اليسار إلى اليمين) مع توافق كامل مع يونيكود.
+
+5. لا يجوز للمقاول التعاقد من الباطن على أكثر من 30% من إجمالي قيمة العقد دون موافقة خطية مسبقة من الجهة.
+
+6. تكون فترة الضمان لجميع البرمجيات والأنظمة المسلّمة سنة واحدة (1) على الأقل من تاريخ الاستلام النهائي.`;
+
 export default function ScopeOfWork() {
   const { formData, updateField } = useTender();
   const t = useT();
@@ -71,13 +98,13 @@ export default function ScopeOfWork() {
   function generateScope() {
     scopeAi.run(() => aiScope(formData, isAr),
       (text) => { updateField('scopeOfWork', text); setAiScopeText(text); },
-      () => { updateField('scopeOfWork', AI_SCOPE); setAiScopeText(AI_SCOPE); });
+      () => { const s = isAr ? AI_SCOPE_AR : AI_SCOPE; updateField('scopeOfWork', s); setAiScopeText(s); });
   }
 
   function generateTerms() {
     termsAi.run(() => aiTerms(formData, isAr),
       (text) => updateField('scopeTerms', text),
-      () => updateField('scopeTerms', AI_TERMS));
+      () => updateField('scopeTerms', isAr ? AI_TERMS_AR : AI_TERMS));
   }
 
   const endDate = calcEndDate(formData.startDate, formData.contractDuration, formData.contractDurationType);

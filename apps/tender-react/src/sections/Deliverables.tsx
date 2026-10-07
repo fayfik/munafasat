@@ -15,6 +15,16 @@ export const AI_DELIVERABLES = [
   { phase: 'Phase 6', deliverableName: 'Go-Live & Hypercare', deliveryDate: '2026-07-31', description: 'Successful go-live, 30-day hypercare support, go-live report, and final project closure document.' },
 ];
 
+// Arabic sample — used when the app language is Arabic.
+export const AI_DELIVERABLES_AR = [
+  { phase: 'المرحلة 1', deliverableName: 'انطلاق المشروع والتهيئة', deliveryDate: '2025-11-30', description: 'اجتماع انطلاق المشروع، اعتماد الميثاق، خطة مشروع تفصيلية، خطة توزيع الموارد، وخطة التواصل.' },
+  { phase: 'المرحلة 2', deliverableName: 'تصميم النظام والمعمارية', deliveryDate: '2026-01-31', description: 'وثيقة معمارية الحل، تصميم التكامل، خطة ترحيل البيانات، مواصفات البنية التحتية، واعتماد التصميم.' },
+  { phase: 'المرحلة 3', deliverableName: 'بناء النظام والتهيئة', deliveryDate: '2026-03-31', description: 'نظام مُهيّأ بالكامل في بيئة الاختبار، إتمام ترحيل البيانات، وتقارير اختبار التكامل.' },
+  { phase: 'المرحلة 4', deliverableName: 'اختبار قبول المستخدم', deliveryDate: '2026-04-30', description: 'نصوص اختبار القبول، نتائج التنفيذ، سجل معالجة الأعطال، وشهادة اعتماد اختبار القبول.' },
+  { phase: 'المرحلة 5', deliverableName: 'التدريب وإدارة التغيير', deliveryDate: '2026-05-31', description: 'إتمام تدريب جميع فئات المستخدمين، المواد التدريبية، والوصول إلى منصة التعلم الإلكتروني.' },
+  { phase: 'المرحلة 6', deliverableName: 'التشغيل الفعلي والرعاية المكثفة', deliveryDate: '2026-07-31', description: 'تشغيل فعلي ناجح، دعم رعاية مكثفة لمدة 30 يوماً، تقرير التشغيل، ووثيقة إغلاق المشروع النهائية.' },
+];
+
 function calcEndDate(start: string, duration: string, type: string): string {
   if (!start || !duration) return '';
   const d = new Date(start);
@@ -48,7 +58,7 @@ export default function Deliverables() {
       id: crypto.randomUUID(), phase: str(r.phase), deliverableName: str(r.deliverableName),
       deliveryDate: str(r.deliveryDate), description: str(r.description),
     })));
-    delAi.run(() => aiDeliverables(formData, isAr), (r) => apply(arr<AiDeliverable>(r)), () => apply(AI_DELIVERABLES));
+    delAi.run(() => aiDeliverables(formData, isAr), (r) => apply(arr<AiDeliverable>(r)), () => apply(isAr ? AI_DELIVERABLES_AR : AI_DELIVERABLES));
   }
 
   const endDate = calcEndDate(formData.startDate, formData.contractDuration, formData.contractDurationType);

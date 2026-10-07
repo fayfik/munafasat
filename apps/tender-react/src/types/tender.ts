@@ -33,6 +33,8 @@ export interface BOQRow {
   etimadJustification?: string;
   /** Supporting documents attached to this line (specs, drawings, quotes…). */
   attachments?: FileAttachment[];
+  /** Mandatory-list reference (listed company / product) — captured for Material items. */
+  mandatoryList?: string;
 
   /* ── Etimad eSouq (direct catalogue purchase) fields ───────────────────────── */
   /** Product · Service · Vehicle Leasing. Drives which fields apply and the group. */

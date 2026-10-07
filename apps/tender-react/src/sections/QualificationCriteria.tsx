@@ -22,6 +22,12 @@ const AI_QUAL_RANGES: Record<string, AISuggestion> = {
   'qm-2': { percentage: 30, subRanges: { 'qs-2-1': { range: '2–8 projects', percentage: 50 }, 'qs-2-2': { range: 'SAR 3M–15M', percentage: 50 } } },
   'qm-3': { percentage: 30, subRanges: { 'qs-3-1': { range: '100+ employees', percentage: 50 }, 'qs-3-2': { range: '35%+', percentage: 50 } } },
 };
+// Arabic ranges — used when the app language is Arabic.
+const AI_QUAL_RANGES_AR: Record<string, AISuggestion> = {
+  'qm-1': { percentage: 40, subRanges: { 'qs-1-1': { range: '7+ سنوات', percentage: 40 }, 'qs-1-2': { range: '5+ مشاريع', percentage: 35 }, 'qs-1-3': { range: '2+ مليون ريال', percentage: 25 } } },
+  'qm-2': { percentage: 30, subRanges: { 'qs-2-1': { range: '2–8 مشاريع', percentage: 50 }, 'qs-2-2': { range: '3–15 مليون ريال', percentage: 50 } } },
+  'qm-3': { percentage: 30, subRanges: { 'qs-3-1': { range: '100+ موظف', percentage: 50 }, 'qs-3-2': { range: '35%+', percentage: 50 } } },
+};
 
 export default function QualificationCriteria() {
   const { formData, updateQualMain, updateQualSub, setQualificationCommitteeMembers, qualPctTotal } = useTender();
@@ -32,8 +38,9 @@ export default function QualificationCriteria() {
 
   function handleAISuggest() {
     const applySample = () => {
+      const ranges = isAr ? AI_QUAL_RANGES_AR : AI_QUAL_RANGES;
       formData.qualificationCriteria.forEach((m) => {
-        const aiM = AI_QUAL_RANGES[m.id as keyof typeof AI_QUAL_RANGES];
+        const aiM = ranges[m.id as keyof typeof ranges];
         if (aiM) {
           updateQualMain(m.id, { percentage: aiM.percentage });
           m.subCriteria.forEach((s) => {

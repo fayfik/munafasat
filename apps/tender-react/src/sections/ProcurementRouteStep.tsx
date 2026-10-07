@@ -71,14 +71,12 @@ export default function ProcurementRouteStep() {
     );
   }
 
-  // On picking a project, pre-select the items of one BOQ type (the first item's
-  // type) so the request starts scoped to a single type; the user can tick others.
+  // On picking a project, pre-select ALL of its items so the request starts with
+  // every item included; the user can untick any they don't need.
   function pickProject(id: string) {
     setProjectId(id);
     const its = id ? (PROJECTS.find((p) => p.id === id)?.items ?? []) : [];
-    if (its.length === 0) { setItemIds([]); return; }
-    const firstType = classifyItem({ id: its[0].id, name: its[0].name, type: its[0].type }).boqType;
-    setItemIds(its.filter((it) => classifyItem({ id: it.id, name: it.name, type: it.type }).boqType === firstType).map((it) => it.id));
+    setItemIds(its.map((it) => it.id));
   }
   const toggle = (id: string) => setItemIds((xs) => xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]);
   const toggleAll = () => setItemIds((xs) => xs.length === items.length ? [] : items.map((i) => i.id));
@@ -283,8 +281,8 @@ export default function ProcurementRouteStep() {
                 </div>
               )}
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[13px] text-neutral-500">{freeValid.length > 0 ? t(`${clsInput.length} item${clsInput.length > 1 ? 's' : ''} to check`, `${clsInput.length} بند للفحص`) : text.trim().length > 0 ? t('Ready to check', 'جاهز للفحص') : t('Tell us what you’re looking for to continue', 'أخبرنا بما تبحث عنه للمتابعة')}</span>
-                <Button variant="primary" size="lg" onClick={runCheck} disabled={text.trim().length === 0 && freeValid.length === 0}>{t('Check procurement route', 'فحص مسار الشراء')} →</Button>
+                <span className="text-[13px] text-neutral-500">{clsInput.length > 0 ? t(`${clsInput.length} item${clsInput.length > 1 ? 's' : ''} to check`, `${clsInput.length} بند للفحص`) : text.trim().length > 0 ? t('Ready to check', 'جاهز للفحص') : t('Tell us what you’re looking for to continue', 'أخبرنا بما تبحث عنه للمتابعة')}</span>
+                <Button variant="primary" size="lg" onClick={runCheck} disabled={text.trim().length === 0 && freeValid.length === 0 && selected.length === 0}>{t('Check procurement route', 'فحص مسار الشراء')} →</Button>
               </div>
             </div>
           </div>

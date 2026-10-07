@@ -19,6 +19,16 @@ export const AI_STAGES = [
   { stageName: 'Project Closure', itemsDeliverables: 'Project closure report, Warranty activation', startDate: '2026-07-31', duration: '30 days', percentage: 5 },
 ];
 
+// Arabic sample — used when the app language is Arabic.
+export const AI_STAGES_AR = [
+  { stageName: 'توقيع العقد والانطلاق', itemsDeliverables: 'ميثاق المشروع، محضر اجتماع الانطلاق', startDate: '2025-10-15', duration: '30 يوماً', percentage: 15 },
+  { stageName: 'اعتماد تصميم النظام', itemsDeliverables: 'معمارية الحل، وثيقة تصميم التكامل', startDate: '2026-01-31', duration: '45 يوماً', percentage: 20 },
+  { stageName: 'التطوير والتهيئة', itemsDeliverables: 'النظام مُهيّأ في بيئة الاختبار، ترحيل البيانات', startDate: '2026-03-31', duration: '60 يوماً', percentage: 25 },
+  { stageName: 'اعتماد اختبار قبول المستخدم', itemsDeliverables: 'شهادة إتمام اختبار القبول، سجل معالجة الأعطال', startDate: '2026-04-30', duration: '30 يوماً', percentage: 20 },
+  { stageName: 'التشغيل الفعلي والتدريب', itemsDeliverables: 'التشغيل الفعلي، شهادات إتمام التدريب', startDate: '2026-06-30', duration: '30 يوماً', percentage: 15 },
+  { stageName: 'إغلاق المشروع', itemsDeliverables: 'تقرير إغلاق المشروع، تفعيل الضمان', startDate: '2026-07-31', duration: '30 يوماً', percentage: 5 },
+];
+
 export default function PaymentSchedule() {
   const { formData, updateField, updatePaymentRow, addPaymentRow, removePaymentRow, boqSubtotal, paymentPctTotal } = useTender();
   const t = useT();
@@ -31,7 +41,7 @@ export default function PaymentSchedule() {
       id: crypto.randomUUID(), stageName: str(r.stageName), itemsDeliverables: str(r.itemsDeliverables),
       startDate: str(r.startDate), duration: str(r.duration), percentage: num(r.percentage),
     })));
-    payAi.run(() => aiStages(formData, isAr), (r) => apply(arr<AiStage>(r)), () => apply(AI_STAGES));
+    payAi.run(() => aiStages(formData, isAr), (r) => apply(arr<AiStage>(r)), () => apply(isAr ? AI_STAGES_AR : AI_STAGES));
   }
 
   const stageAmount = (pct: number | '') => {

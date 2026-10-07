@@ -51,6 +51,14 @@ const AI_ESOUQ_ROWS: Omit<BOQRow, 'id'>[] = [
   { purchaseType: 'vehicle-leasing', projectItem: '', itemName: 'Toyota Camry 2026 — Fleet Lease (10 vehicles)', productId: 'VL-CAM-2026', supplier: 'Theeb Rent a Car', unitOfMeasure: 'Vehicle', quantity: '', unitPrice: 312000, startDate: '2026-02-01', endDate: '2027-01-31', deliveryDate: '2026-02-01', respName: 'Khalid Al-Otaibi', respMobile: '0509876543', itemDescription: '', lineTotal: 312000 },
 ];
 
+// Arabic sample — used when the app language is Arabic so AI output is fully Arabic.
+const AI_ESOUQ_ROWS_AR: Omit<BOQRow, 'id'>[] = [
+  { purchaseType: 'product', projectItem: '', itemName: 'حاسوب محمول Dell Latitude 5450', productId: 'SKU-DL-5450', supplier: 'شركة جرير للتسويق', unitOfMeasure: 'Each', orderUnit: 'Each', quantity: 25, unitPrice: 4200, shippingCharges: 1500, deliveryDate: '2026-01-15', respName: 'محمد الحربي', respMobile: '0551234567', itemDescription: '', lineTotal: '' },
+  { purchaseType: 'product', projectItem: '', itemName: 'طابعة HP LaserJet Enterprise M611', productId: 'SKU-HP-M611', supplier: 'شركة الماسة لتوزيع تقنية المعلومات', unitOfMeasure: 'Each', orderUnit: 'Each', quantity: 8, unitPrice: 3100, shippingCharges: 600, deliveryDate: '2026-01-20', respName: 'محمد الحربي', respMobile: '0551234567', itemDescription: '', lineTotal: '' },
+  { purchaseType: 'service', projectItem: '', itemName: 'دعم سنوي لاشتراك Microsoft 365 E5', productId: 'SVC-M365-E5', supplier: 'مايكروسوفت العربية', unitOfMeasure: 'Service', quantity: '', unitPrice: 180000, startDate: '2026-01-01', endDate: '2026-12-31', deliveryDate: '2026-01-01', respName: 'سارة الزهراني', respMobile: '0567654321', itemDescription: '', lineTotal: 180000 },
+  { purchaseType: 'vehicle-leasing', projectItem: '', itemName: 'تأجير أسطول سيارات تويوتا كامري 2026 (10 مركبات)', productId: 'VL-CAM-2026', supplier: 'شركة ذيب لتأجير السيارات', unitOfMeasure: 'Vehicle', quantity: '', unitPrice: 312000, startDate: '2026-02-01', endDate: '2027-01-31', deliveryDate: '2026-02-01', respName: 'خالد العتيبي', respMobile: '0509876543', itemDescription: '', lineTotal: 312000 },
+];
+
 const TEMPLATE_COLS = ['Purchase Type', 'Product Name', 'Product ID', 'Supplier', 'Price (SAR)', 'Order Unit', 'Quantity', 'Shipping Charges', 'Start Date', 'End Date', 'Delivery Date', 'Responsible Name', 'Responsible Mobile', 'Total Value (SAR)'];
 
 function downloadTemplate(rows: BOQRow[]) {
@@ -176,7 +184,7 @@ export default function EsouqBillOfQuantities() {
   function generateAI() {
     setAiLoading(true);
     window.setTimeout(() => {
-      updateField('boqItems', AI_ESOUQ_ROWS.map((r) => ({ id: crypto.randomUUID(), ...r })));
+      updateField('boqItems', (isAr ? AI_ESOUQ_ROWS_AR : AI_ESOUQ_ROWS).map((r) => ({ id: crypto.randomUUID(), ...r })));
       setExpanded(new Set(['product', 'service', 'vehicle-leasing']));
       setAiLoading(false);
     }, 1100);
@@ -285,15 +293,20 @@ export default function EsouqBillOfQuantities() {
                         {gRows.map((r) => <RowCard key={r.id} r={r} />)}
                         {gRows.length === 0 && <p className="px-4 py-5 text-center text-[13px] text-neutral-400">{t('No items yet.', 'لا توجد بنود بعد.')}</p>}
                       </div>
-                      <button type="button" onClick={() => openAdd(g.id)}
-                        className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-[12px] font-semibold text-brand-700 hover:bg-brand-50/60 transition-colors border-t border-neutral-100">
-                        <PlusIcon className="w-3.5 h-3.5" />{g.id === 'product' ? t('Add product', 'إضافة منتج') : g.id === 'service' ? t('Add service', 'إضافة خدمة') : t('Add vehicle lease', 'إضافة تأجير مركبة')}
-                      </button>
                     </div>
                   )}
                 </div>
               );
             })}
+
+            {/* Single Add BOQ Item CTA — same as the Tendering BOQ Grid view */}
+            {!showForm && !editingId && (
+              <button onClick={() => openAdd('product')}
+                className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm">
+                <PlusIcon className="w-3.5 h-3.5" />
+                {t('Add BOQ Item', 'إضافة بند')}
+              </button>
+            )}
           </div>
         )}
 

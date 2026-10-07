@@ -105,11 +105,49 @@ export const AI_BOQ_ROWS = [
   { projectItem: 'Annual Technical Support & Maintenance', itemName: '3-Year Support & Maintenance Contract', itemDescription: 'Includes software updates, security patches, helpdesk (8am–5pm, Sun–Thu, 4hr SLA)', unitOfMeasure: 'Year', quantity: 3, unitPrice: 280000, deliveryDate: '2029-06-30' },
 ];
 
+// Arabic sample BOQ — used when the app language is Arabic so AI output is fully Arabic.
+export const AI_BOQ_ROWS_AR = [
+  { projectItem: 'تراخيص برمجيات نظام تخطيط الموارد', itemName: 'ترخيص SAP S/4HANA للمؤسسات', itemDescription: 'تراخيص مستخدمين مُسمّين — وصول احترافي كامل لجميع الوحدات', unitOfMeasure: 'License', quantity: 500, unitPrice: 2800, deliveryDate: '2025-12-01' },
+  { projectItem: 'تراخيص برمجيات نظام تخطيط الموارد', itemName: 'ترخيص SAP S/4HANA للمؤسسات', itemDescription: 'تراخيص مستخدمين مُسمّين — وصول محدود (قراءة وتقارير فقط)', unitOfMeasure: 'License', quantity: 200, unitPrice: 1200, deliveryDate: '2025-12-01' },
+  { projectItem: 'خدمات التنفيذ والتهيئة', itemName: 'خدمات إدارة المشروع', itemDescription: 'مدير مشروع متفرّغ طوال مدة المشروع', unitOfMeasure: 'Month', quantity: 18, unitPrice: 45000, deliveryDate: '2026-06-30' },
+  { projectItem: 'خدمات التنفيذ والتهيئة', itemName: 'خدمات الاستشارات التقنية', itemDescription: 'مهندسو حلول ومستشارون تقنيون أول', unitOfMeasure: 'Day', quantity: 320, unitPrice: 8500, deliveryDate: '2026-06-30' },
+  { projectItem: 'خدمات ترحيل البيانات', itemName: 'ترحيل وتنظيف البيانات', itemDescription: 'ترحيل كامل للبيانات يشمل التنظيف والمطابقة والتحقق والمصالحة', unitOfMeasure: 'Service', quantity: 1, unitPrice: 380000, deliveryDate: '2026-03-31' },
+  { projectItem: 'برنامج تدريب المستخدمين النهائيين', itemName: 'تدريب المستخدمين النهائيين (بالعربية)', itemDescription: 'تدريب حضوري وإلكتروني لجميع فئات المستخدمين', unitOfMeasure: 'Package', quantity: 1, unitPrice: 120000, deliveryDate: '2026-05-31' },
+  { projectItem: 'الدعم الفني والصيانة السنوية', itemName: 'عقد دعم وصيانة لمدة ثلاث سنوات', itemDescription: 'يشمل تحديثات البرمجيات والتصحيحات الأمنية ومكتب المساعدة', unitOfMeasure: 'Year', quantity: 3, unitPrice: 280000, deliveryDate: '2029-06-30' },
+];
+
+const MANDATORY_LIST_URL = 'https://lcgpa.gov.sa/p/ar_SA/MandatoryListNationalProducts';
+
+/** Notice tile shown for the "Material" category — links to the Local Content
+ *  authority's mandatory list of national products / listed companies. */
+function MandatoryListTile({ t, isAr, className = '' }: { t: (en: string, ar: string) => string; isAr: boolean; className?: string }) {
+  return (
+    <a href={MANDATORY_LIST_URL} target="_blank" rel="noopener noreferrer"
+      className={`group flex items-start gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3.5 hover:border-warning-400 hover:bg-warning-100/60 transition-colors ${className}`}>
+      <span className="w-9 h-9 rounded-lg bg-warning-100 text-warning-700 flex items-center justify-center flex-shrink-0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-semibold text-warning-800">{t('Mandatory List — National Products', 'القائمة الإلزامية — المنتجات الوطنية')}</p>
+        <p className="text-[12px] text-warning-700 mt-0.5 leading-relaxed">
+          {t('Material items may fall under the mandatory list of national products and must be purchased from approved listed companies.',
+             'قد تندرج بنود المواد ضمن القائمة الإلزامية للمنتجات الوطنية، ويجب شراؤها من الشركات المدرجة المعتمدة.')}
+        </p>
+        <span className="inline-flex items-center gap-1 mt-2 text-[12px] font-semibold text-warning-800 group-hover:underline">
+          {t('View Listed companies', 'عرض الشركات المدرجة')}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 ${isAr ? 'scale-x-[-1]' : ''}`}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
+        </span>
+      </div>
+    </a>
+  );
+}
+
 const EMPTY_FORM = {
   projectItem: '', category: '' as BOQCategory | '', itemName: '', itemDescription: '',
   unitOfMeasure: 'Each', quantity: '' as number | '',
   unitPrice: '' as number | '', deliveryDate: '',
   hasBrandName: false, brandJustification: '', attachments: [] as FileAttachment[],
+  mandatoryList: '',
 };
 
 const GROUP_COLORS = ['bg-brand-500', 'bg-ai-500', 'bg-warning-500', 'bg-success-600', 'bg-error-500', 'bg-neutral-400'];
@@ -215,6 +253,14 @@ export default function BillOfQuantities() {
     else groups.push({ key, rows: [row] });
   });
 
+  // Project-item group headers come from the (English) project item name; show the
+  // Arabic name when the app language is Arabic.
+  const projNameAr = new Map((selectedProject?.items ?? []).map((it) => [it.name, it.nameAr]));
+  const groupLabel = (key: string) => (isAr ? (projNameAr.get(key) ?? key) : key);
+  // Seeded rows carry the English project-item name as the item name; show its
+  // Arabic name in Arabic mode. Free-typed / AI rows keep their own name.
+  const itemLabel = (name: string) => (isAr ? (projNameAr.get(name) ?? name) : name);
+
   function toggleGroup(key: string) {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
@@ -235,7 +281,7 @@ export default function BillOfQuantities() {
       updateField('boqItems', rows);
       setExpandedGroups(new Set(rows.map((r) => r.projectItem)));
     };
-    boqAi.run(() => aiBoq(formData, isAr), (r) => applyRows(arr<AiBoqRow>(r)), () => applyRows(AI_BOQ_ROWS));
+    boqAi.run(() => aiBoq(formData, isAr), (r) => applyRows(arr<AiBoqRow>(r)), () => applyRows(isAr ? AI_BOQ_ROWS_AR : AI_BOQ_ROWS));
   }
 
   function handleAddItem() {
@@ -267,6 +313,7 @@ export default function BillOfQuantities() {
       unitOfMeasure: row.unitOfMeasure || 'Each', quantity: row.quantity, unitPrice: row.unitPrice,
       deliveryDate: row.deliveryDate, hasBrandName: !!row.hasBrandName, brandJustification: row.brandJustification ?? '',
       attachments: row.attachments ?? [],
+      mandatoryList: row.mandatoryList ?? '',
     });
   }
 
@@ -343,6 +390,28 @@ export default function BillOfQuantities() {
                   )}
                 </FormField>
               </div>
+
+              {/* Mandatory-list field — shown when the item is a Material */}
+              {(lockedCategory ?? newItem.category) === 'material' && (
+                <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3.5">
+                  <label className="block text-[13px] font-semibold text-warning-800 mb-1.5">{t('Mandatory List', 'القائمة الإلزامية')}</label>
+                  <Input
+                    type="text"
+                    value={newItem.mandatoryList}
+                    onChange={(e) => setNewItem((p) => ({ ...p, mandatoryList: e.target.value }))}
+                    placeholder={t('Listed company or product reference…', 'الشركة المدرجة أو مرجع المنتج…')}
+                  />
+                  <p className="text-[12px] text-warning-700 mt-2 leading-relaxed">
+                    {t('Material items may fall under the mandatory list of national products and must be purchased from approved listed companies.',
+                       'قد تندرج بنود المواد ضمن القائمة الإلزامية للمنتجات الوطنية، ويجب شراؤها من الشركات المدرجة المعتمدة.')}
+                  </p>
+                  <a href={MANDATORY_LIST_URL} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-2 text-[12px] font-semibold text-warning-800 hover:underline">
+                    {t('View Listed companies', 'عرض الشركات المدرجة')}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 ${isAr ? 'scale-x-[-1]' : ''}`}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
+                  </a>
+                </div>
+              )}
 
               {/* 2. Item Name */}
               <FormField label="Item Name" labelAr="اسم البند" required>
@@ -503,6 +572,11 @@ export default function BillOfQuantities() {
           </div>
         </div>
 
+        {/* Mandatory-list notice — visible in every view when the BOQ has a Material item */}
+        {formData.boqItems.some((r) => (r.category ?? deriveCategory(r.itemName)) === 'material') && (
+          <MandatoryListTile t={t} isAr={isAr} className="mb-3" />
+        )}
+
         {/* Upload zone */}
         {showUploadZone && (
           <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 overflow-hidden">
@@ -659,7 +733,7 @@ export default function BillOfQuantities() {
                   >
                     <ChevronRightIcon className={`w-3.5 h-3.5 text-neutral-500 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
                     <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`} />
-                    <span className="flex-1 text-sm font-semibold text-neutral-800 truncate">{group.key}</span>
+                    <span className="flex-1 text-sm font-semibold text-neutral-800 truncate">{groupLabel(group.key)}</span>
                     <span className="text-[11px] text-neutral-500 tabular-nums flex-shrink-0">
                       {group.rows.length} {group.rows.length === 1 ? t('item', 'بند') : t('items', 'بنود')}
                     </span>
@@ -695,7 +769,7 @@ export default function BillOfQuantities() {
                             <div className="grid grid-cols-[1fr_64px_104px_136px_84px] items-center px-5 py-3 bg-white hover:bg-neutral-50/40 transition-colors group/row">
                               {/* Item */}
                               <div className="pe-4 col-start-1">
-                                <p className="text-sm font-semibold text-neutral-900 leading-snug">{row.itemName || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
+                                <p className="text-sm font-semibold text-neutral-900 leading-snug">{itemLabel(row.itemName) || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
                                 {row.itemDescription && (
                                   <p className="text-xs text-neutral-500 mt-0.5 leading-snug">{row.itemDescription}</p>
                                 )}
@@ -837,8 +911,8 @@ export default function BillOfQuantities() {
                           <div key={row.id} className="bg-white hover:bg-neutral-50/40 transition-colors">
                             <div className="grid grid-cols-[1fr_72px_112px_128px_56px] items-center gap-2 px-4 pt-2.5">
                               <div className="min-w-0">
-                                <p className="text-sm font-medium text-neutral-900 truncate">{row.itemName || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
-                                {row.projectItem && <p className="text-[11px] text-neutral-500 truncate">{row.projectItem}</p>}
+                                <p className="text-sm font-medium text-neutral-900 truncate">{itemLabel(row.itemName) || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
+                                {row.projectItem && <p className="text-[11px] text-neutral-500 truncate">{groupLabel(row.projectItem)}</p>}
                               </div>
                               <div className="text-center text-sm text-neutral-700 tabular-nums">{row.quantity !== '' ? row.quantity : '—'}<span className="block text-[10px] text-neutral-500">{row.unitOfMeasure}</span></div>
                               <div className="text-end text-sm text-neutral-700 tabular-nums" dir="ltr">{unitPrice > 0 ? `SAR ${formatSAR(unitPrice)}` : '—'}</div>

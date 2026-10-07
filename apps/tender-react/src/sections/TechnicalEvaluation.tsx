@@ -55,6 +55,39 @@ export const AI_EVAL_CRITERIA = [
   { description: 'Post-Implementation Support Plan', howApplied: 'Evaluated based on support model, SLA commitments, escalation procedures, and helpdesk capabilities.', weight: 10 },
 ];
 
+// Arabic samples — used when the app language is Arabic.
+export const AI_TECH_DOCS_AR = [
+  'العرض الفني للمورّد (عربي وإنجليزي)',
+  'منهجية التنفيذ وخطة المشروع',
+  'وثيقة معمارية النظام وتصميم التكامل',
+  'خطة واستراتيجية ترحيل البيانات',
+  'خطة ضمان الجودة والاختبار',
+  'خطة التدريب والمواد التدريبية',
+  'اتفاقية مستوى خدمة الدعم والصيانة',
+  'شهادة الامتثال للأمن السيبراني (الضوابط الأساسية ECC-1:2018)',
+  'نماذج من مخرجات مشاريع مماثلة',
+  'السير الذاتية وشهادات الفريق المقترح (بما في ذلك شهادات SAP)',
+];
+
+export const AI_TECH_REQUIREMENTS_AR = [
+  { requirement: 'سعة المستخدمين', description: 'يجب أن يدعم النظام ما لا يقل عن 500 مستخدم مُسمّى متزامن دون تدهور في الأداء.' },
+  { requirement: 'توافر النظام', description: 'اتفاقية مستوى خدمة بتوافر لا يقل عن 99.5% خلال ساعات العمل (الأحد–الخميس، 7 صباحاً–9 مساءً). تُجرى الصيانة المخططة خارج ساعات العمل.' },
+  { requirement: 'دعم اللغة العربية', description: 'دعم ثنائي اللغة كامل (العربية من اليمين لليسار والإنجليزية من اليسار لليمين) في جميع الوحدات، بما في ذلك التقارير والواجهة.' },
+  { requirement: 'الامتثال لهيئة الزكاة والضريبة والجمارك', description: 'امتثال كامل لمتطلبات الفوترة الإلكترونية (فاتورة) المرحلة الثانية، بما في ذلك التكامل مع واجهات الهيئة.' },
+  { requirement: 'التكامل مع SAP ECC', description: 'تكامل سلس مع نظام SAP ECC 6.0 القائم لمزامنة البيانات المالية، مُختبَر ببيانات فعلية.' },
+  { requirement: 'الامتثال لضوابط الأمن السيبراني', description: 'يجب أن تمتثل جميع مكوّنات النظام للضوابط الأساسية للأمن السيبراني (ECC-1:2018).' },
+  { requirement: 'موطن البيانات', description: 'يجب تخزين ومعالجة جميع البيانات داخل المملكة العربية السعودية، ولا يجوز نقلها إلى خوادم خارج المملكة.' },
+  { requirement: 'معايير الأداء', description: 'يجب ألا يتجاوز زمن استجابة النظام 3 ثوانٍ للمعاملات الاعتيادية تحت ذروة الحِمل.' },
+];
+
+export const AI_EVAL_CRITERIA_AR = [
+  { description: 'المنهجية الفنية وأسلوب التنفيذ', howApplied: 'يُقيَّم بناءً على جودة ووضوح المنهجية المقترحة وخطة تخفيف المخاطر ومدى توافقها مع متطلبات المشروع.', weight: 30 },
+  { description: 'مؤهلات الفريق والخبرة ذات الصلة', howApplied: 'يُقيَّم بناءً على السير الذاتية والشهادات (SAP، PMP) وسنوات الخبرة وإثبات تنفيذ مشاريع ERP مماثلة.', weight: 25 },
+  { description: 'جودة نماذج المخرجات', howApplied: 'يُقيَّم بناءً على جودة نماذج المخرجات المقدّمة من مشاريع مماثلة بنطاق وتعقيد مماثلين.', weight: 20 },
+  { description: 'الجدول الزمني للتنفيذ وخطة المشروع', howApplied: 'يُقيَّم بناءً على واقعية الخطة وتفصيلها وبنية مراحلها ومدى توافقها مع مدة العقد.', weight: 15 },
+  { description: 'خطة الدعم بعد التنفيذ', howApplied: 'يُقيَّم بناءً على نموذج الدعم والتزامات مستوى الخدمة وإجراءات التصعيد وقدرات مكتب المساعدة.', weight: 10 },
+];
+
 export default function TechnicalEvaluation() {
   const { formData, updateField, updateTechReqRow, addTechReqRow, removeTechReqRow, updateEvalRow, addEvalRow, removeEvalRow, setTechnicalCommitteeMembers, evalWeightTotal } = useTender();
   const t = useT();
@@ -71,7 +104,7 @@ export default function TechnicalEvaluation() {
   function generateDocs() {
     docsAi.run(() => aiTechDocs(formData, isAr),
       (r) => updateField('technicalDocumentsList', arr<unknown>(r).map(str).filter(Boolean).filter((d) => !LOCKED_DOC_STRINGS.includes(d))),
-      () => updateField('technicalDocumentsList', AI_TECH_DOCS.filter((d) => !LOCKED_DOC_STRINGS.includes(d))));
+      () => updateField('technicalDocumentsList', (isAr ? AI_TECH_DOCS_AR : AI_TECH_DOCS).filter((d) => !LOCKED_DOC_STRINGS.includes(d))));
   }
 
   function addDoc(label: string) {
@@ -91,14 +124,14 @@ export default function TechnicalEvaluation() {
     const apply = (src: AiReq[]) => updateField('technicalRequirements', src.map((r) => ({
       id: crypto.randomUUID(), requirement: str(r.requirement), description: str(r.description),
     })));
-    reqAi.run(() => aiTechReqs(formData, isAr), (r) => apply(arr<AiReq>(r)), () => apply(AI_TECH_REQUIREMENTS));
+    reqAi.run(() => aiTechReqs(formData, isAr), (r) => apply(arr<AiReq>(r)), () => apply(isAr ? AI_TECH_REQUIREMENTS_AR : AI_TECH_REQUIREMENTS));
   }
 
   function generateEval() {
     const apply = (src: AiCriterion[]) => updateField('evaluationCriteria', src.map((r) => ({
       id: crypto.randomUUID(), description: str(r.description), howApplied: str(r.howApplied), weight: num(r.weight),
     })));
-    evalAi.run(() => aiEvalCriteria(formData, isAr), (r) => apply(arr<AiCriterion>(r)), () => apply(AI_EVAL_CRITERIA));
+    evalAi.run(() => aiEvalCriteria(formData, isAr), (r) => apply(arr<AiCriterion>(r)), () => apply(isAr ? AI_EVAL_CRITERIA_AR : AI_EVAL_CRITERIA));
   }
 
   const weightOk   = evalWeightTotal === 100;
