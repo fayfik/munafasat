@@ -22,14 +22,15 @@ const STATUS_CONFIG: Record<TenderStatus, StatusConfig> = {
 interface Props {
   onNewRequest: () => void;
   onOpenRequest: (id: string) => void;
+  initialFilter?: TenderStatus | 'all';
 }
 
-export default function MyRequests({ onNewRequest, onOpenRequest }: Props) {
+export default function MyRequests({ onNewRequest, onOpenRequest, initialFilter = 'all' }: Props) {
   const { isAr } = useLanguage();
   const t = useT();
   const { requests: MOCK_TENDERS } = useRequests();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<TenderStatus | 'all'>('all');
+  const [filter, setFilter] = useState<TenderStatus | 'all'>(initialFilter);
 
   const returnedTenders = MOCK_TENDERS.filter((tender) => tender.status === 'returned');
 

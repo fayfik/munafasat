@@ -30,6 +30,7 @@ function AppRoot() {
   const [page, setPage] = useState<FullPage>('dashboard');
   const [target, setTarget] = useState<OpenTarget>({ kind: 'new' });
   const [formKey, setFormKey] = useState(0);
+  const [reqFilter, setReqFilter] = useState<import('./types/tender').TenderStatus | 'all'>('all');
   const store = useRequests();
 
   function open(t: OpenTarget) {
@@ -59,12 +60,12 @@ function AppRoot() {
         <Dashboard
           onNewRequest={newRequest}
           onOpenRequest={openRequest}
-          onViewRequests={() => setPage('my-requests')}
+          onViewRequests={(f) => { setReqFilter(f ?? 'all'); setPage('my-requests'); }}
         />
       )}
       {(page === 'inbox' || page === 'reports') && <EmptyPage page={page} />}
       {page === 'my-requests' && (
-        <MyRequests onNewRequest={() => newRequest()} onOpenRequest={openRequest} />
+        <MyRequests key={reqFilter} initialFilter={reqFilter} onNewRequest={() => newRequest()} onOpenRequest={openRequest} />
       )}
       {page === 'tender-form' && (
         <TenderProvider

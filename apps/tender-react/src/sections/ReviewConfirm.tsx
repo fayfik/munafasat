@@ -50,19 +50,28 @@ export default function ReviewConfirm() {
   if (submitted) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-16 h-16 rounded-full bg-success-100 flex items-center justify-center mb-4">
-          <CheckIcon className="w-8 h-8 text-success-600" />
+        <div className="relative w-20 h-20 mb-5">
+          {/* expanding pulse rings */}
+          <span className="success-pulse absolute inset-0 rounded-full bg-success-400" />
+          <span className="success-pulse absolute inset-0 rounded-full bg-success-300" style={{ animationDelay: '0.45s' }} />
+          {/* badge + drawn checkmark */}
+          <div className="success-ring relative w-20 h-20 rounded-full bg-success-100 flex items-center justify-center">
+            <svg viewBox="0 0 52 52" className="w-10 h-10" fill="none" stroke="currentColor"
+                 strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+              <path className="check-draw text-success-600" d="M14 27l8 8 16-17" />
+            </svg>
+          </div>
         </div>
-        <h3 className="text-xl font-semibold text-neutral-900 mb-2">
+        <h3 className="success-copy text-xl font-semibold text-neutral-900 mb-2">
           {t('Request Submitted Successfully', 'تم تقديم الطلب بنجاح')}
         </h3>
-        <p className="text-neutral-500 text-sm max-w-sm">
+        <p className="success-copy text-neutral-500 text-sm max-w-sm" style={{ animationDelay: '0.72s' }}>
           {t(
             'Your tender request has been submitted to your manager for review. You will receive a notification once it is reviewed.',
             'تم تقديم طلب المناقصة الخاص بك إلى مديرك للمراجعة. ستتلقى إشعاراً عند مراجعته.'
           )}
         </p>
-        <div className="mt-6 bg-neutral-50 rounded-xl border border-neutral-200 px-6 py-4 text-start">
+        <div className="success-copy mt-6 bg-neutral-50 rounded-xl border border-neutral-200 px-6 py-4 text-start" style={{ animationDelay: '0.84s' }}>
           <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
             <span className="text-neutral-500">{t('Request ID', 'رقم الطلب')}</span>
             <span className="font-medium text-neutral-800" dir="ltr">{submitted.requestNo}</span>
