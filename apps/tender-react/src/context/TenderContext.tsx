@@ -226,10 +226,8 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       costCenterId: proj?.costCenterId ?? prev.costCenterId,
       selectedProjectItemIds: opts.items.map((i) => i.projectItemId).filter((x): x is string => !!x),
       tenderingPurpose: prev.tenderingPurpose || proj?.purpose || '',
-      boqItems: opts.items.map((i) => ({
-        id: crypto.randomUUID(), projectItem: i.name, itemName: i.name, itemDescription: '',
-        unitOfMeasure: 'Each', quantity: '' as const, unitPrice: '' as const, deliveryDate: '',
-      })),
+      // BOQ starts empty — the user builds it manually (Add BOQ Item / AI Suggest / import).
+      boqItems: [],
     }));
     setRouteConfirmed(true);
     triggerSave();

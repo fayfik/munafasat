@@ -25,12 +25,16 @@ export default function ProjectSetup() {
   const isEsouq = formData.sourceType === 'souq-etimad';
   const similarRfps = selectedProject ? rfpsForProjectByRoute(selectedProject.id, isEsouq ? 'souq-etimad' : 'tendering').slice(0, 5) : [];
 
-  // Items in this request = BOQ items seeded in Step 1 (project items + free-typed).
-  const requestItems = formData.boqItems.map((b) => {
-    const p = selectedProject?.items.find((i) => i.name === b.itemName);
-    const boqType = classifyItem({ id: b.id, name: b.itemName, nameAr: p?.nameAr, type: p?.type }).boqType;
-    return { id: b.id, name: b.itemName, nameAr: p?.nameAr ?? '', boqType };
-  });
+  // Items in this request = the project items selected in Step 1 (the request scope).
+  // The BOQ itself starts empty and is built manually, so this list is derived from
+  // the selected project items rather than from the (initially empty) BOQ.
+  const chosenItemIds = formData.selectedProjectItemIds ?? [];
+  const requestItems = (selectedProject?.items ?? [])
+    .filter((it) => chosenItemIds.includes(it.id))
+    .map((it) => ({
+      id: it.id, name: it.name, nameAr: it.nameAr,
+      boqType: classifyItem({ id: it.id, name: it.name, nameAr: it.nameAr, type: it.type }).boqType,
+    }));
 
   function handleAIGeneratePurpose() {
     if (!selectedProject) return;
