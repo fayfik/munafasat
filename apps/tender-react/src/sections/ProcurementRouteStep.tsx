@@ -6,7 +6,7 @@ import { CheckIcon } from '../components/Icons';
 import { PROJECTS } from '../data/mockData';
 import type { ProjectItem } from '../types/tender';
 import {
-  classifyItem, groupItems, forcedRoute, parseItemNames, EXAMPLE_TEXT, ROUTE_META, BOQ_TYPE_META,
+  classifyItem, groupItems, forcedRoute, parseItemNames, itemNameLooksReal, EXAMPLE_TEXT, ROUTE_META, BOQ_TYPE_META,
   type ClsItem, type ItemVerdict, type RequestGroup, type RouteKey,
 } from '../lib/triage';
 
@@ -34,6 +34,7 @@ export default function ProcurementRouteStep() {
   const [identifying, setIdentifying] = useState(false);
   const [freeItems, setFreeItems] = useState<FreeItem[]>([]);
   const [attachment, setAttachment] = useState<string | null>(null);
+  const [intakeError, setIntakeError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const project = PROJECTS.find((p) => p.id === projectId);
@@ -105,18 +106,41 @@ export default function ProcurementRouteStep() {
     }, 1100);
     e.target.value = '';
   }
-  const editFree = (id: string, name: string) => setFreeItems((xs) => xs.map((f) => f.id === id ? { ...f, name } : f));
+  const editFree = (id: string, name: string) => { if (intakeError) setIntakeError(''); setFreeItems((xs) => xs.map((f) => f.id === id ? { ...f, name } : f)); };
   const removeFree = (id: string) => setFreeItems((xs) => xs.filter((f) => f.id !== id));
   const addFree = () => setFreeItems((xs) => [...xs, { id: uid(), name: '' }]);
 
   function runCheck() {
-    if (clsInput.length === 0) return;
+    // Typing is enough: if the user entered intake text but didn't run "Identify",
+    // parse it now so the route check can proceed without the extra click.
+    let effFree = freeValid;
+    if (effFree.length === 0 && text.trim().length > 0) {
+      effFree = parseItemNames(text.trim()).map((n) => ({ id: uid(), name: n }));
+    }
+    const input: ClsItem[] = [
+      ...selected.map((i) => ({ id: i.id, name: i.name, nameAr: i.nameAr, type: i.type, projectItemId: i.id })),
+      ...effFree.map((f) => ({ id: f.id, name: f.name.trim() })),
+    ];
+    if (input.length === 0) return;
+    // Validation: if the user typed something, at least one of those items must
+    // read like a real procurement item — block random / gibberish text.
+    const freeNames = effFree.map((f) => f.name.trim()).filter(Boolean);
+    if (freeNames.length > 0 && !freeNames.some(itemNameLooksReal)) {
+      setIntakeError(t(
+        'We couldn’t recognise any procurement items in what you typed. Please describe what you need to buy — e.g. “20 laptops”, “office cleaning services”.',
+        'لم نتمكن من التعرف على أي بنود شراء فيما كتبته. يرجى وصف ما تحتاج إلى شرائه — مثل «20 حاسوباً محمولاً» أو «خدمات نظافة المكاتب».',
+      ));
+      return;
+    }
+    setIntakeError('');
+    // Validation passed — persist the parsed items so they show during the check.
+    if (freeValid.length === 0 && effFree.length > 0) setFreeItems(effFree);
     setPhase('checking'); setCheck1(false); setCheck2(false);
     const override = forcedRoute();
     window.setTimeout(() => setCheck1(true), 900);
     window.setTimeout(() => setCheck2(true), 1800);
     window.setTimeout(() => {
-      const verdicts: ItemVerdict[] = clsInput.map((c) => classifyItem(c, override));
+      const verdicts: ItemVerdict[] = input.map((c) => classifyItem(c, override));
       const g = groupItems(verdicts);
       setGroups(g); setChosenKey(g[0]?.key ?? ''); setPhase('result');
     }, 2300);
@@ -215,7 +239,7 @@ export default function ProcurementRouteStep() {
               </div>
 
               <div className="mt-3">
-                <Textarea rows={4} value={text} onChange={(e) => setText(e.target.value)}
+                <Textarea rows={4} value={text} onChange={(e) => { setText(e.target.value); if (intakeError) setIntakeError(''); }}
                   placeholder={t('e.g.\n20 contractor engineers\nOffice cleaning services\nNetwork switches x4', 'مثال:\n20 مهندس مقاول\nخدمات نظافة المكاتب\nمحولات شبكة ×4')} />
               </div>
 
@@ -251,9 +275,17 @@ export default function ProcurementRouteStep() {
             )}
 
             {/* Check procurement route CTA — enabled once the user has entered what they need */}
-            <div className="flex items-center justify-between gap-3 pt-1">
-              <span className="text-[13px] text-neutral-500">{freeValid.length > 0 ? t(`${clsInput.length} item${clsInput.length > 1 ? 's' : ''} to check`, `${clsInput.length} بند للفحص`) : t('Tell us what you’re looking for to continue', 'أخبرنا بما تبحث عنه للمتابعة')}</span>
-              <Button variant="primary" size="lg" onClick={runCheck} disabled={freeValid.length === 0}>{t('Check procurement route', 'فحص مسار الشراء')} →</Button>
+            <div className="pt-1">
+              {intakeError && (
+                <div className="mb-2 flex items-start gap-2 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-[13px] text-error-700">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10" /><path d="M12 8v5M12 16h.01" strokeLinecap="round" /></svg>
+                  <span className="leading-relaxed">{intakeError}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[13px] text-neutral-500">{freeValid.length > 0 ? t(`${clsInput.length} item${clsInput.length > 1 ? 's' : ''} to check`, `${clsInput.length} بند للفحص`) : text.trim().length > 0 ? t('Ready to check', 'جاهز للفحص') : t('Tell us what you’re looking for to continue', 'أخبرنا بما تبحث عنه للمتابعة')}</span>
+                <Button variant="primary" size="lg" onClick={runCheck} disabled={text.trim().length === 0 && freeValid.length === 0}>{t('Check procurement route', 'فحص مسار الشراء')} →</Button>
+              </div>
             </div>
           </div>
         </SectionCard>

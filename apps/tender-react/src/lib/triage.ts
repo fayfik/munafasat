@@ -84,6 +84,32 @@ export function parseItemNames(text: string): string[] {
     .filter((l) => l.length > 0);
 }
 
+// Keywords (any language) that positively identify a procurement item.
+const ITEM_KEYWORDS = [...MANPOWER, ...SERVICES, ...EQUIPMENT, ...MATERIAL];
+
+/** A token that reads like a real word rather than keyboard mashing. */
+function wordLikeToken(tok: string): boolean {
+  // Non-Latin script (e.g. Arabic) — accept, the Latin heuristics don't apply.
+  if (/[^\u0000-\u007F]/.test(tok)) return true;
+  const w = tok.replace(/[^a-zA-Z]/g, '');
+  if (w.length < 2) return false;
+  if (/^[A-Z]{2,5}$/.test(tok)) return true;              // acronym: HR, CPU, SSD
+  const vowels = (w.match(/[aeiouAEIOU]/g) || []).length;
+  if (vowels === 0 && w.length >= 3) return false;        // no vowels → mash
+  if (/[^aeiouAEIOU]{5,}/.test(w)) return false;          // 5+ consonant run
+  if (w.length >= 6 && vowels / w.length < 0.2) return false;
+  return true;
+}
+
+/** True when a name is a recognisable procurement item (matches a known
+ *  keyword, or at least reads like real words) rather than random text. */
+export function itemNameLooksReal(name: string): boolean {
+  const t = name.trim();
+  if (!t) return false;
+  if (has(t, ITEM_KEYWORDS)) return true;
+  return t.split(/[\s,;/_-]+/).filter(Boolean).some(wordLikeToken);
+}
+
 export const EXAMPLE_TEXT = [
   '20 contractor engineers (manpower)',
   'Office cleaning services',
