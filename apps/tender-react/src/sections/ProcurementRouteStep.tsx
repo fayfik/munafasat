@@ -3,6 +3,8 @@ import { useTender } from '../context/TenderContext';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { Button, Select, SectionCard, Badge, InfoBanner, Textarea } from '../components/ui';
 import { CheckIcon } from '../components/Icons';
+import DrawerClose from '../components/DrawerClose';
+import routeIllustration from '../assets/procurement-route-illustration.svg';
 import { PROJECTS } from '../data/mockData';
 import type { ProjectItem } from '../types/tender';
 import {
@@ -381,109 +383,67 @@ function CheckRow({ done, pending, labelEn, labelAr, t }: { done: boolean; pendi
   );
 }
 
-/** "Know more" — full-height illustration + explanation of the procurement route. */
+/** "Know more" — side drawer explaining the procurement route (Figma 135:3923). */
 function RouteInfoModal({ onClose, isAr, t }: { onClose: () => void; isAr: boolean; t: (en: string, ar: string) => string }) {
-  const steps: [string, string][] = [
-    [t('Pick your project and the items you need — or paste a list.', 'اختر مشروعك والبنود التي تحتاجها — أو الصق قائمة.'), ''],
-    [t('We check each item against Etimad.', 'نفحص كل بند في منصة اعتماد.'), ''],
-    [t('Items are grouped by route — one request follows one route.', 'تُجمَّع البنود حسب المسار — كل طلب يتبع مساراً واحداً.'), ''],
-    [t('You confirm and continue to build the request.', 'تؤكد وتتابع لبناء الطلب.'), ''],
+  const steps = [
+    t('Pick your project and the items you need — or paste a list.', 'اختر مشروعك والبنود التي تحتاجها — أو الصق قائمة.'),
+    t('We check each item against Etimad.', 'نفحص كل بند في منصة اعتماد.'),
+    t('Items are grouped by route — one request follows one route.', 'تُجمَّع البنود حسب المسار — كل طلب يتبع مساراً واحداً.'),
+    t('You confirm and continue to build the request.', 'تؤكد وتتابع لبناء الطلب.'),
   ];
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="relative w-full max-w-[940px] max-h-[88vh] rounded-2xl overflow-hidden bg-white shadow-2xl flex flex-col md:flex-row" onClick={(e) => e.stopPropagation()}>
-        {/* Close */}
-        <button type="button" onClick={onClose} aria-label={t('Close', 'إغلاق')}
-          className="absolute top-3 end-3 z-10 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-neutral-600 hover:text-neutral-900 flex items-center justify-center shadow-sm transition-colors">
-          <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
-        </button>
-
-        {/* Left — illustration, full height */}
-        <div className="relative md:w-[42%] min-h-[220px] md:min-h-full bg-gradient-to-br from-brand-600 via-brand-700 to-ai-700 flex items-center justify-center p-6 overflow-hidden">
-          <div className="absolute -top-16 -start-16 w-56 h-56 rounded-full bg-white/10" />
-          <div className="absolute -bottom-20 -end-10 w-64 h-64 rounded-full bg-white/5" />
-          <svg viewBox="0 0 320 460" className="relative w-full max-w-[280px] h-auto" fill="none">
-            <defs>
-              <filter id="rs" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#0f2a1e" floodOpacity="0.25" /></filter>
-            </defs>
-            {/* item cards */}
-            {[0, 1, 2].map((i) => (
-              <g key={i} filter="url(#rs)">
-                <rect x={70 + i * 10} y={20 + i * 14} width="180" height="34" rx="9" fill="white" opacity={0.95 - i * 0.12} />
-                <rect x={82 + i * 10} y={31 + i * 14} width="12" height="12" rx="3" fill="#16a34a" opacity="0.8" />
-                <rect x={102 + i * 10} y={33 + i * 14} width={110 - i * 14} height="8" rx="4" fill="#94a3b8" opacity="0.6" />
-              </g>
-            ))}
-            {/* connector down */}
-            <path d="M160 100 L160 190" stroke="white" strokeWidth="2.5" strokeOpacity="0.55" strokeDasharray="2 6" strokeLinecap="round" />
-            {/* decision hub */}
-            <circle cx="160" cy="220" r="34" fill="white" filter="url(#rs)" />
-            <path d="M149 220l7 7 15-15" stroke="#16a34a" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="160" cy="220" r="34" stroke="#16a34a" strokeWidth="2" strokeOpacity="0.4" />
-            {/* branches */}
-            <path d="M138 248 C110 300 92 320 88 352" stroke="white" strokeWidth="2.5" strokeOpacity="0.55" fill="none" strokeLinecap="round" />
-            <path d="M182 248 C210 300 228 320 232 352" stroke="white" strokeWidth="2.5" strokeOpacity="0.55" fill="none" strokeLinecap="round" />
-            {/* route A — eSouq */}
-            <g filter="url(#rs)">
-              <rect x="22" y="360" width="130" height="78" rx="12" fill="white" />
-              <circle cx="52" cy="390" r="14" fill="#dcfce7" />
-              <path d="M46 386h12l-2 9h-8z M47 399.5a1.5 1.5 0 11-.01 0 M55 399.5a1.5 1.5 0 11-.01 0" stroke="#16a34a" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-              <rect x="74" y="383" width="60" height="7" rx="3.5" fill="#16a34a" opacity="0.85" />
-              <rect x="74" y="396" width="44" height="6" rx="3" fill="#94a3b8" opacity="0.6" />
-              <rect x="34" y="420" width="90" height="7" rx="3.5" fill="#dcfce7" />
-            </g>
-            {/* route B — tender */}
-            <g filter="url(#rs)">
-              <rect x="168" y="360" width="130" height="78" rx="12" fill="white" />
-              <circle cx="198" cy="390" r="14" fill="#fef3c7" />
-              <path d="M192 384l8 8m-9 1l5-5m6 6l5-5m-13-5l9 9m-11 3l3 3m12-12l3 3" stroke="#d97706" strokeWidth="1.6" strokeLinecap="round" />
-              <rect x="220" y="383" width="60" height="7" rx="3.5" fill="#d97706" opacity="0.85" />
-              <rect x="220" y="396" width="44" height="6" rx="3" fill="#94a3b8" opacity="0.6" />
-              <rect x="180" y="420" width="90" height="7" rx="3.5" fill="#fef3c7" />
-            </g>
-          </svg>
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[2px]" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="route-info-title" dir={isAr ? 'rtl' : 'ltr'}>
+      <div className="relative w-full max-w-[400px] h-full bg-white rounded-s-[12px] shadow-2xl overflow-y-auto p-6 drawer-in" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] leading-[16.5px] font-semibold uppercase tracking-[0.275px] text-ai-700">{t('Why this step', 'لماذا هذه الخطوة')}</p>
+            <h2 id="route-info-title" className="text-[22px] leading-[24px] font-bold text-neutral-900">{t('The procurement route', 'مسار الشراء')}</h2>
+          </div>
+          <DrawerClose onClose={onClose} label={t('Close', 'إغلاق')} />
         </div>
 
-        {/* Right — explanation */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8" dir={isAr ? 'rtl' : 'ltr'}>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-ai-700">{t('Why this step', 'لماذا هذه الخطوة')}</p>
-          <h2 className="text-[22px] font-bold text-neutral-900 mt-1">{t('The procurement route', 'مسار الشراء')}</h2>
-          <p className="text-[14px] leading-relaxed text-neutral-600 mt-3">
-            {t('Before you build a request, Munafasat checks how each item can be bought. The procurement route is the channel an item takes to reach suppliers via Etimad — and getting it right keeps you compliant and saves time.',
-               'قبل بناء الطلب، تتحقق منافسات من كيفية شراء كل بند. مسار الشراء هو القناة التي يسلكها البند للوصول إلى المورّدين عبر منصة اعتماد — واختياره الصحيح يضمن الالتزام ويوفّر الوقت.')}
+        <div className="mt-3 rounded-lg bg-brand-50 py-5 flex justify-center">
+          <img src={routeIllustration} alt="" width={252} height={152} className="block" />
+        </div>
+
+        <p className="mt-[10.5px] text-[14px] leading-[22.75px] text-neutral-600">
+          {t('Before you build a request, Munafasat checks how each item can be bought. The procurement route is the channel an item takes to reach suppliers via Etimad — and getting it right keeps you compliant and saves time.',
+             'قبل بناء الطلب، تتحقق منافسات من كيفية شراء كل بند. مسار الشراء هو القناة التي يسلكها البند للوصول إلى المورّدين عبر منصة اعتماد — واختياره الصحيح يضمن الالتزام ويوفّر الوقت.')}
+        </p>
+
+        <div className="mt-[17.5px] space-y-[10.5px]">
+          <div className="rounded-[10.5px] border border-success-100 bg-success-50/60 p-[12.25px]">
+            <Badge variant="success">{t('Etimad eSouq', 'السوق الإلكتروني')}</Badge>
+            <p className="mt-[5.25px] text-[13px] leading-[19.5px] text-neutral-600">{t('Catalogue items bought directly from listed suppliers on Etimad — fast, no tender needed.', 'بنود كتالوجية تُشترى مباشرة من موردين مُدرجين في اعتماد — سريعة ولا تحتاج منافسة.')}</p>
+          </div>
+          <div className="rounded-[10.5px] border border-warning-100 bg-warning-50/60 p-[12.25px]">
+            <Badge variant="warning">{t('Competitive Tender', 'منافسة')}</Badge>
+            <p className="mt-[5.25px] text-[13px] leading-[19.5px] text-neutral-600">{t('Items that must be competed — suppliers submit offers on Etimad against your scope and BOQ.', 'بنود يجب طرحها في منافسة — يقدّم المورّدون عروضهم في اعتماد وفق نطاق العمل وجدول الكميات.')}</p>
+          </div>
+        </div>
+
+        <p className="mt-[21px] text-[12px] leading-[18px] font-semibold uppercase tracking-[0.3px] text-neutral-500">{t('How it works', 'كيف تعمل')}</p>
+        <ol className="mt-[7px] space-y-[8.75px]">
+          {steps.map((label, i) => (
+            <li key={i} className="flex items-start gap-[10.5px]">
+              <span className="mt-[1.75px] w-[21px] h-[21px] rounded-full bg-brand-50 text-brand-700 text-[12px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
+              <span className="pt-[2px] text-[13px] leading-[16px] text-neutral-700">{label}</span>
+            </li>
+          ))}
+        </ol>
+
+        <div className="mt-[21px] rounded-[10.5px] bg-ai-50 border border-ai-100 p-[12.25px]">
+          <p className="text-[12.5px] leading-[20.3px] text-ai-800">
+            {t('A request can’t mix routes. If your items span both, we split them so each follows the right process — and you can create the other request afterwards.',
+               'لا يمكن أن يجمع الطلب بين مسارين. إذا كانت بنودك تتوزع على الاثنين، نقسّمها ليتبع كل منها المسار الصحيح — ويمكنك إنشاء الطلب الآخر لاحقاً.')}
           </p>
+        </div>
 
-          <div className="mt-5 space-y-3">
-            <div className="rounded-xl border border-success-100 bg-success-50/60 p-3.5">
-              <div className="flex items-center gap-2"><Badge variant="success">{t('Etimad eSouq', 'السوق الإلكتروني')}</Badge></div>
-              <p className="text-[13px] text-neutral-600 mt-1.5">{t('Catalogue items bought directly from listed suppliers on Etimad — fast, no tender needed.', 'بنود كتالوجية تُشترى مباشرة من موردين مُدرجين في اعتماد — سريعة ولا تحتاج منافسة.')}</p>
-            </div>
-            <div className="rounded-xl border border-warning-100 bg-warning-50/60 p-3.5">
-              <div className="flex items-center gap-2"><Badge variant="warning">{t('Competitive Tender', 'منافسة')}</Badge></div>
-              <p className="text-[13px] text-neutral-600 mt-1.5">{t('Items that must be competed — suppliers submit offers on Etimad against your scope and BOQ.', 'بنود يجب طرحها في منافسة — يقدّم المورّدون عروضهم في اعتماد وفق نطاق العمل وجدول الكميات.')}</p>
-            </div>
-          </div>
-
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-500 mt-6 mb-2">{t('How it works', 'كيف تعمل')}</p>
-          <ol className="space-y-2.5">
-            {steps.map(([label], i) => (
-              <li key={i} className="flex items-start gap-3">
-                <span className="w-6 h-6 rounded-full bg-brand-50 text-brand-700 text-[12px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                <span className="text-[13px] text-neutral-700 leading-relaxed">{label}</span>
-              </li>
-            ))}
-          </ol>
-
-          <div className="mt-6 rounded-xl bg-ai-50 border border-ai-100 p-3.5">
-            <p className="text-[12.5px] text-ai-800 leading-relaxed">
-              {t('A request can’t mix routes. If your items span both, we split them so each follows the right process — and you can create the other request afterwards.',
-                 'لا يمكن أن يجمع الطلب بين مسارين. إذا كانت بنودك تتوزع على الاثنين، نقسّمها ليتبع كل منها المسار الصحيح — ويمكنك إنشاء الطلب الآخر لاحقاً.')}
-            </p>
-          </div>
-
-          <div className="mt-6 flex justify-end">
-            <Button variant="primary" onClick={onClose}>{t('Got it', 'فهمت')}</Button>
-          </div>
+        <div className="mt-[21px] flex justify-end">
+          <button type="button" onClick={onClose}
+            className="px-[14px] py-[7px] rounded-[7px] bg-brand-600 text-white text-[13px] leading-[19.5px] font-medium shadow-[0_1px_1px_rgba(27,31,25,0.06)] hover:bg-brand-700 transition-colors">
+            {t('Got it', 'فهمت')}
+          </button>
         </div>
       </div>
     </div>

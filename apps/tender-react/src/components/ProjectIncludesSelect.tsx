@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { CheckIcon, ChevronDownIcon } from './Icons';
+import DrawerClose from './DrawerClose';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Three request categories. Each routes the request through a specific set of
@@ -210,56 +211,55 @@ export function WorkflowDrawer({ open, onClose, categories, isAr, t }: {
   const reviewIds = reviewDepartments(categories);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[2px]" onClick={onClose} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
-      <div className="relative w-full max-w-[460px] h-full bg-white shadow-2xl flex flex-col drawer-in" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="shrink-0 px-5 py-4 border-b border-neutral-100 bg-gradient-to-br from-brand-600 to-ai-700 text-white">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[2px]" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="wf-drawer-title" dir={isAr ? 'rtl' : 'ltr'}>
+      <div className="relative w-full max-w-[400px] h-full bg-white rounded-s-[12px] overflow-hidden shadow-2xl flex flex-col drawer-in" onClick={(e) => e.stopPropagation()}>
+        {/* Header (Figma 135:4009) */}
+        <div className="shrink-0 p-5 bg-white border-b border-[#dae1eb]">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">{t('Approval workflow', 'مسار الاعتماد')}</p>
-              <h3 className="text-[17px] font-bold mt-0.5">{t('How this request is approved', 'كيف يُعتمد هذا الطلب')}</h3>
+            <div className="min-w-0">
+              <p className="text-[11px] leading-[16.5px] font-semibold uppercase tracking-[0.275px] text-ai-700">{t('Approval workflow', 'مسار الاعتماد')}</p>
+              <h3 id="wf-drawer-title" className="mt-[1.75px] text-[22px] leading-[24px] font-bold text-neutral-900">{t('How this request is approved', 'كيف يُعتمد هذا الطلب')}</h3>
             </div>
-            <button type="button" onClick={onClose} aria-label={t('Close', 'إغلاق')}
-              className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition-colors">
-              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
-            </button>
+            <DrawerClose onClose={onClose} label={t('Close', 'إغلاق')} />
           </div>
           {catChips.length > 0 && (
-            <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] text-white/70">{t('Based on', 'بناءً على')}:</span>
+            <div className="pt-2 flex items-center gap-1 flex-wrap">
+              <span className="text-[11px] leading-[16.5px] text-black/70">{t('Based on', 'بناءً على')}:</span>
               {catChips.map((c) => (
-                <span key={c.id} className="text-[11px] font-semibold bg-white/15 rounded-full px-2 py-0.5">{isAr ? c.ar : c.en}</span>
+                <span key={c.id} className="text-[11px] leading-[16.5px] font-semibold text-brand-600 bg-brand-600/15 rounded-full px-[7px] py-[1.75px]">{isAr ? c.ar : c.en}</span>
               ))}
             </div>
           )}
         </div>
 
         {/* Timeline */}
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        <div className="flex-1 overflow-y-auto p-5">
           <ol className="relative">
             {stages.map((d, i) => {
               const dep = DEPARTMENTS[d];
               const isReview = reviewIds.includes(d);
               const last = i === stages.length - 1;
+              // Approvers share the brand green (Figma 135:4039); reviewers keep their department colour.
+              const approver = !isReview && d !== 'requester';
               return (
-                <li key={d} className="relative flex gap-3 pb-5 last:pb-0">
+                <li key={d} className="relative flex items-start gap-[10.5px] pb-[17.5px] last:pb-0">
                   {/* connector */}
-                  {!last && <span className="absolute top-9 w-[2px] bg-neutral-200" style={{ insetInlineStart: '17px', bottom: 0 }} />}
+                  {!last && <span className="absolute top-[31.5px] bottom-0 w-[2px] bg-neutral-200" style={{ insetInlineStart: '14.75px' }} />}
                   {/* node */}
-                  <span className="relative z-10 w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-4 ring-white"
-                        style={{ backgroundColor: `${dep.color}1a`, color: dep.color }}>
+                  <span className="relative z-10 w-[31.5px] h-[31.5px] rounded-full flex items-center justify-center flex-shrink-0 shadow-[0_0_0_4px_white]"
+                        style={approver ? { backgroundColor: 'rgba(22,163,74,0.1)', color: '#517632' } : { backgroundColor: `${dep.color}1a`, color: dep.color }}>
                     <DeptGlyph kind={dep.icon} className="w-[18px] h-[18px]" />
                   </span>
-                  <div className="min-w-0 flex-1 pt-0.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[13.5px] font-semibold text-neutral-900">{isAr ? dep.ar : dep.en}</p>
+                  <div className="min-w-0 flex-1 pt-[1.75px]">
+                    <div className="flex items-center gap-[7px] flex-wrap">
+                      <p className="text-[13.5px] leading-[20.25px] font-semibold text-neutral-900">{isAr ? dep.ar : dep.en}</p>
                       {isReview && (
-                        <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5" style={{ backgroundColor: `${dep.color}14`, color: dep.color }}>
+                        <span className="text-[10px] leading-[15px] font-semibold rounded-full px-[5.25px] py-[1.75px]" style={{ backgroundColor: `${dep.color}14`, color: dep.color }}>
                           {t('Review', 'مراجعة')}
                         </span>
                       )}
                     </div>
-                    <p className="text-[12px] text-neutral-500 leading-snug mt-0.5">{isAr ? dep.descAr : dep.descEn}</p>
+                    <p className="pt-[1.75px] text-[12px] leading-[16.5px] text-neutral-500">{isAr ? dep.descAr : dep.descEn}</p>
                   </div>
                 </li>
               );
@@ -273,9 +273,9 @@ export function WorkflowDrawer({ open, onClose, categories, isAr, t }: {
           )}
         </div>
 
-        <div className="shrink-0 px-5 py-3 border-t border-neutral-100 flex justify-end">
+        <div className="shrink-0 px-[17.5px] py-[10.5px] border-t border-neutral-100 flex justify-end">
           <button type="button" onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors">
+            className="px-[14px] py-[7px] rounded-[7px] bg-brand-600 text-white text-[13px] leading-[19.5px] font-semibold hover:bg-brand-700 transition-colors">
             {t('Got it', 'تمام')}
           </button>
         </div>

@@ -50,29 +50,30 @@ export default function ReviewConfirm() {
   if (submitted) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="relative w-20 h-20 mb-5">
+        <div className="flex flex-col items-center bg-white border border-neutral-200 rounded-xl p-6">
+        <div className="relative w-[70px] h-[70px] my-6">
           {/* expanding pulse rings */}
           <span className="success-pulse absolute inset-0 rounded-full bg-success-400" />
           <span className="success-pulse absolute inset-0 rounded-full bg-success-300" style={{ animationDelay: '0.45s' }} />
           {/* badge + drawn checkmark */}
-          <div className="success-ring relative w-20 h-20 rounded-full bg-success-100 flex items-center justify-center">
-            <svg viewBox="0 0 52 52" className="w-10 h-10" fill="none" stroke="currentColor"
+          <div className="success-ring relative w-[70px] h-[70px] rounded-full bg-[#d9f2e1] flex items-center justify-center">
+            <svg viewBox="0 0 52 52" className="w-[35px] h-[35px]" fill="none" stroke="currentColor"
                  strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
-              <path className="check-draw text-success-600" d="M14 27l8 8 16-17" />
+              <path className="check-draw text-[#16a34a]" d="M14 27l8 8 16-17" />
             </svg>
           </div>
         </div>
-        <h3 className="success-copy text-xl font-semibold text-neutral-900 mb-2">
+        <h3 className="success-copy text-[17.5px] leading-[24.5px] font-semibold text-neutral-900 mb-[7px]">
           {t('Request Submitted Successfully', 'تم تقديم الطلب بنجاح')}
         </h3>
-        <p className="success-copy text-neutral-500 text-sm max-w-sm" style={{ animationDelay: '0.72s' }}>
+        <p className="success-copy text-neutral-500 text-[12.25px] leading-[17.5px] max-w-[336px]" style={{ animationDelay: '0.72s' }}>
           {t(
             'Your tender request has been submitted to your manager for review. You will receive a notification once it is reviewed.',
             'تم تقديم طلب المناقصة الخاص بك إلى مديرك للمراجعة. ستتلقى إشعاراً عند مراجعته.'
           )}
         </p>
-        <div className="success-copy mt-6 bg-neutral-50 rounded-xl border border-neutral-200 px-6 py-4 text-start" style={{ animationDelay: '0.84s' }}>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+        <div className="success-copy mt-[21px] w-[350px] max-w-full bg-neutral-50 rounded-[10.5px] border border-neutral-200 px-[21px] py-[14px] text-start" style={{ animationDelay: '0.84s' }}>
+          <div className="grid grid-cols-2 gap-x-7 gap-y-[7px] text-[12.25px] leading-[17.5px]">
             <span className="text-neutral-500">{t('Request ID', 'رقم الطلب')}</span>
             <span className="font-medium text-neutral-800" dir="ltr">{submitted.requestNo}</span>
             <span className="text-neutral-500">{t('Submitted', 'تاريخ التقديم')}</span>
@@ -82,6 +83,7 @@ export default function ReviewConfirm() {
             <span className="text-neutral-500">{t('Next Step', 'الخطوة التالية')}</span>
             <span className="font-medium text-neutral-800">{t('Manager Review (1 WD)', 'مراجعة المدير (يوم عمل واحد)')}</span>
           </div>
+        </div>
         </div>
       </div>
     );
