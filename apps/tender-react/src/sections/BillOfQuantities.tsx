@@ -179,7 +179,7 @@ export default function BillOfQuantities() {
     }
   }, [showAddForm, addCat]);
 
-  // Etimad eSouq is a direct catalogue purchase — it uses a dedicated Product/Service BOQ.
+  // Etimad eMarket is a direct catalogue purchase — it uses a dedicated Product/Service BOQ.
   // (Placed after all hooks above to respect the Rules of Hooks.)
   if (formData.sourceType === 'souq-etimad') return <EsouqBillOfQuantities />;
 
@@ -670,12 +670,12 @@ export default function BillOfQuantities() {
         {formData.boqItems.length > 0 && (
           <div className="mb-3 flex items-center gap-3 flex-wrap rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5">
             <div className="flex-1 min-w-[200px]">
-              <p className="text-[12px] font-semibold text-neutral-800">{t('Etimad Souq availability', 'التوفر في سوق اعتماد')}</p>
+              <p className="text-[12px] font-semibold text-neutral-800">{t('Etimad eMarket availability', 'التوفر في سوق اعتماد')}</p>
               <p className="text-[11px] text-neutral-500">
                 {uncheckedRows.length > 0
                   ? t(`${uncheckedRows.length} of ${namedCount} items not checked yet.`, `${uncheckedRows.length} من ${namedCount} بنود لم يُتحقق منها بعد.`)
                   : t('All items checked.', 'تم التحقق من جميع البنود.')}
-                {etimadAvailableCount > 0 && ' ' + t(`${etimadAvailableCount} available in Etimad Souq.`, `${etimadAvailableCount} متوفرة في سوق اعتماد.`)}
+                {etimadAvailableCount > 0 && ' ' + t(`${etimadAvailableCount} available in Etimad eMarket.`, `${etimadAvailableCount} متوفرة في سوق اعتماد.`)}
                 {etimadMissingJust > 0 && ' ' + t(`${etimadMissingJust} kept without a justification.`, `${etimadMissingJust} أُبقيت دون مبرر.`)}
               </p>
             </div>
@@ -691,7 +691,7 @@ export default function BillOfQuantities() {
             {etimadError && <p className="basis-full text-[11px] text-error-600">{etimadError}</p>}
             {formData.linkedEtimadRequestId && (
               <p className="basis-full text-[11px] text-success-700">
-                {t('Moved items are in a separate Etimad Souq draft under My Requests.', 'البنود المنقولة موجودة في مسودة مستقلة لسوق اعتماد ضمن طلباتي.')}
+                {t('Moved items are in a separate Etimad eMarket draft under My Requests.', 'البنود المنقولة موجودة في مسودة مستقلة لسوق اعتماد ضمن طلباتي.')}
               </p>
             )}
           </div>

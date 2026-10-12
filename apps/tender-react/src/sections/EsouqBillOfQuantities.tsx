@@ -73,8 +73,8 @@ function downloadTemplate(rows: BOQRow[]) {
   const ws = XLSX.utils.json_to_sheet(data, { header: TEMPLATE_COLS });
   ws['!cols'] = [16, 34, 16, 24, 14, 12, 10, 16, 14, 14, 14, 22, 18, 18].map((w) => ({ wch: w }));
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'eSouq BOQ');
-  const name = rows.length ? 'eSouq_BOQ_prefilled.xlsx' : 'eSouq_BOQ_template.xlsx';
+  XLSX.utils.book_append_sheet(wb, ws, 'eMarket BOQ');
+  const name = rows.length ? 'eMarket_BOQ_prefilled.xlsx' : 'eMarket_BOQ_template.xlsx';
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
   saveFile(name, buf, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', () => XLSX.writeFile(wb, name));
 }
@@ -209,7 +209,7 @@ export default function EsouqBillOfQuantities() {
       <SectionCard
         title="Bill of Quantities"
         titleAr="جدول الكميات"
-        description="Add the products and services you’re buying directly from the Etimad eSouq catalogue."
+        description="Add the products and services you’re buying directly from the Etimad eMarket catalogue."
         descriptionAr="أضف المنتجات والخدمات التي تشتريها مباشرةً من كتالوج السوق الإلكتروني (اعتماد)."
         action={
           <div className="flex items-center gap-2">
@@ -222,7 +222,7 @@ export default function EsouqBillOfQuantities() {
         }
       >
         <InfoBanner variant="info" className="mb-4">
-          {t('eSouq items are bought off-catalogue from approved suppliers — no tender needed. Each line is a Product or a Service.',
+          {t('eMarket items are bought off-catalogue from approved suppliers — no tender needed. Each line is a Product or a Service.',
              'تُشترى بنود السوق الإلكتروني من موردين معتمدين مباشرةً — دون منافسة. كل بند إما منتج أو خدمة.')}
         </InfoBanner>
 

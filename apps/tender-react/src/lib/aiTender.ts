@@ -13,7 +13,7 @@ function context(f: TenderFormData, opts: { boq?: boolean; deliverables?: boolea
   const lines: string[] = [
     `Organization: Saudi Industrial Development Fund (SIDF), a Saudi government entity. Procurement follows the Saudi Government Tenders and Procurement Law and uses the Etimad platform.`,
     `Today's date: ${today()}. Every date you propose must be after today.`,
-    `Procurement channel: ${f.sourceType === 'souq-etimad' ? 'Etimad Souq (e-marketplace)' : 'Public tender (RFP)'}`,
+    `Procurement channel: ${f.sourceType === 'souq-etimad' ? 'Etimad eMarket (e-marketplace)' : 'Public tender (RFP)'}`,
   ];
   if (cc) lines.push(`Cost center: ${cc.name} (${cc.code})`);
   if (p) {
@@ -33,8 +33,8 @@ function context(f: TenderFormData, opts: { boq?: boolean; deliverables?: boolea
     lines.push('Bill of quantities:\n' + f.boqItems.slice(0, 40).map((r) =>
       `- ${r.projectItem} / ${r.itemName}: ${r.quantity || '?'} ${r.unitOfMeasure} x SAR ${r.unitPrice || '?'}`
       + (r.etimadCheck?.status === 'available'
-        ? ` [Etimad Souq check: available; kept in tender; justification: ${(r.etimadJustification ?? '').trim() || 'MISSING'}]`
-        : r.etimadCheck ? ` [Etimad Souq check: ${r.etimadCheck.status}]` : ' [Etimad Souq check: not run]')).join('\n'));
+        ? ` [Etimad eMarket check: available; kept in tender; justification: ${(r.etimadJustification ?? '').trim() || 'MISSING'}]`
+        : r.etimadCheck ? ` [Etimad eMarket check: ${r.etimadCheck.status}]` : ' [Etimad eMarket check: not run]')).join('\n'));
   }
   if (opts.deliverables && f.deliverables.length) {
     lines.push('Deliverables:\n' + f.deliverables.map((d) =>

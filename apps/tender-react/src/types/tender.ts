@@ -36,7 +36,7 @@ export interface BOQRow {
   /** Mandatory-list reference (listed company / product) — captured for Material items. */
   mandatoryList?: string;
 
-  /* ── Etimad eSouq (direct catalogue purchase) fields ───────────────────────── */
+  /* ── Etimad eMarket (direct catalogue purchase) fields ───────────────────────── */
   /** Product · Service · Vehicle Leasing. Drives which fields apply and the group. */
   purchaseType?: 'product' | 'service' | 'vehicle-leasing';
   productId?: string;
@@ -155,6 +155,14 @@ export interface TenderFormData {
   projectId: string;
   /** Project items chosen for this tender (ids from the project's item list). */
   selectedProjectItemIds?: string[];
+  /** Why eMarket-available items were kept in a tender (step 1). */
+  routeJustification?: string;
+  /** How the requester picked the route in step 1. */
+  routeChoice?: 'tender' | 'emarket' | 'help';
+  /** Items moved out of this request into a separate draft (step 1). */
+  movedToDraft?: { count: number; route: SourceType };
+  /** Names of eMarket-available items kept in the tender with the justification above. */
+  justifiedEmarketItems?: string[];
   tenderingPurpose: string;
   scopeOfWork: string;
   scopeTerms: string;
@@ -177,7 +185,7 @@ export interface TenderFormData {
   qualificationCommitteeMembers: Person[];
   qualificationCriteria: QualMainCriteria[];
   attachments: FileAttachment[];
-  /** Etimad Souq draft that receives BOQ items moved out of this tender. */
+  /** Etimad eMarket draft that receives BOQ items moved out of this tender. */
   linkedEtimadRequestId?: string;
 }
 

@@ -5,11 +5,11 @@ import { ALL_COST_CENTERS, PROJECTS } from '../data/mockData';
 import BrowseRfpsDialog from '../components/BrowseRfpsDialog';
 import { rfpsForProjectByRoute, buildRfpImport, formatRfpDate, IMPORTED_SECTIONS_EN, IMPORTED_SECTIONS_AR, type PastRfp } from '../lib/rfpLibrary';
 import type { TenderFormData, BOQRow } from '../types/tender';
-import { SectionCard, Textarea, Badge, AIButton } from '../components/ui';
+import { SectionCard, Textarea, Badge, AIButton, InfoBanner } from '../components/ui';
 import { CheckCircleIcon, CheckIcon, ArrowLeftIcon, SparklesIcon, ChevronDownIcon } from '../components/Icons';
 import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiPurpose } from '../lib/aiTender';
-import { classifyItem, BOQ_TYPE_META } from '../lib/triage';
+import { EXPENSE_TYPES, expenseTypeOf } from '../lib/expenseTypes';
 
 export default function ProjectSetup() {
   const { formData, updateField, setImportedFromProject, rfpImport, setRfpImport } = useTender();
@@ -33,7 +33,7 @@ export default function ProjectSetup() {
     .filter((it) => chosenItemIds.includes(it.id))
     .map((it) => ({
       id: it.id, name: it.name, nameAr: it.nameAr,
-      boqType: classifyItem({ id: it.id, name: it.name, nameAr: it.nameAr, type: it.type }).boqType,
+      expense: EXPENSE_TYPES[expenseTypeOf(it)],
     }));
 
   function handleAIGeneratePurpose() {
@@ -42,7 +42,7 @@ export default function ProjectSetup() {
       const generated = isEsouq
         ? (isAr
             ? `الغرض من هذا الشراء هو توفير ${selectedProject.nameAr} عبر السوق الإلكتروني (اعتماد) من موردين معتمدين مباشرةً، لتلبية احتياجات الجهة بكفاءة وسرعة ودون الحاجة إلى منافسة.`
-            : `The purpose of this purchase is to procure ${selectedProject.name} items directly from the Etimad eSouq catalogue through approved suppliers — meeting the organization's needs efficiently and without a competitive tender.`)
+            : `The purpose of this purchase is to procure ${selectedProject.name} items directly from the Etimad eMarket catalogue through approved suppliers — meeting the organization's needs efficiently and without a competitive tender.`)
         : (isAr
             ? `الغرض من هذه المنافسة هو ${selectedProject.nameAr} بهدف تعزيز كفاءة العمليات وتحقيق أهداف التحول الرقمي وفق أعلى معايير الجودة والامتثال للأنظمة ذات الصلة.`
             : `The purpose of this tender is to procure ${selectedProject.name} services to enhance operational efficiency, support digital transformation objectives, and ensure compliance with applicable regulatory standards.`);
@@ -51,7 +51,7 @@ export default function ProjectSetup() {
     purposeAi.run(() => aiPurpose(formData, isAr), (text) => updateField('tenderingPurpose', text), sample);
   }
 
-  // eSouq RFP import seeds a representative catalogue BOQ (one of each group).
+  // eMarket RFP import seeds a representative catalogue BOQ (one of each group).
   function esouqSampleBoq(): BOQRow[] {
     return [
       { id: crypto.randomUUID(), purchaseType: 'product', projectItem: '', itemName: 'Dell Latitude 5450 Laptop', productId: 'SKU-DL-5450', supplier: 'Jarir Marketing Co.', unitOfMeasure: 'Each', orderUnit: 'Each', quantity: 25, unitPrice: 4200, shippingCharges: 1500, deliveryDate: '', respName: '', respMobile: '', itemDescription: '', lineTotal: '' },
@@ -62,7 +62,7 @@ export default function ProjectSetup() {
 
   function handleImport(rfp: PastRfp) {
     const patch: Partial<TenderFormData> = isEsouq
-      ? { tenderingPurpose: isAr ? `شراء بنود "${rfp.titleAr}" من السوق الإلكتروني (اعتماد).` : `Purchase of "${rfp.title}" items from the Etimad eSouq catalogue.`, boqItems: esouqSampleBoq() }
+      ? { tenderingPurpose: isAr ? `شراء بنود "${rfp.titleAr}" من السوق الإلكتروني (اعتماد).` : `Purchase of "${rfp.title}" items from the Etimad eMarket catalogue.`, boqItems: esouqSampleBoq() }
       : buildRfpImport(rfp, formData);
     const previous: Partial<TenderFormData> = {};
     (Object.keys(patch) as (keyof TenderFormData)[]).forEach((k) => { (previous as Record<string, unknown>)[k] = formData[k]; });
@@ -79,7 +79,7 @@ export default function ProjectSetup() {
     setRfpImport(null);
   }
 
-  const routeLabel = formData.sourceType === 'souq-etimad' ? t('Etimad eSouq', 'السوق الإلكتروني') : t('Competitive Tender', 'منافسة');
+  const routeLabel = formData.sourceType === 'souq-etimad' ? t('Etimad eMarket', 'السوق الإلكتروني') : t('Competitive Tender', 'منافسة');
 
   return (
     <div className="space-y-5">
@@ -88,12 +88,33 @@ export default function ProjectSetup() {
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{t('Procurement route', 'مسار الشراء')}</p>
           <p className="text-[15px] font-semibold text-neutral-900 mt-0.5">{routeLabel}</p>
-          <p className="text-[12px] text-neutral-500 mt-0.5">{t('Determined in the Procurement Route step.', 'محدد في خطوة مسار الشراء.')}</p>
+          <p className="text-[12px] text-neutral-500 mt-0.5">
+            {formData.routeChoice && formData.routeChoice !== 'help'
+              ? t('Chosen by you in the Procurement Route step.', 'اخترته في خطوة مسار الشراء.')
+              : t('Determined in the Procurement Route step.', 'محدد في خطوة مسار الشراء.')}
+          </p>
         </div>
-        <Badge variant="warning">{t('Auto-determined', 'محدد تلقائياً')}</Badge>
+        {formData.routeChoice && formData.routeChoice !== 'help'
+          ? <Badge variant="success">{t('Your choice', 'اختيارك')}</Badge>
+          : <Badge variant="warning">{t('Auto-determined', 'محدد تلقائياً')}</Badge>}
       </div>
 
-      {/* eSouq is a direct catalogue purchase — set expectations in purchasing terms, not tendering. */}
+      {formData.movedToDraft && (
+        <InfoBanner variant="info">
+          {t(`${formData.movedToDraft.count} item${formData.movedToDraft.count > 1 ? 's were' : ' was'} moved to a draft ${formData.movedToDraft.route === 'souq-etimad' ? 'Etimad eMarket' : 'tender'} request. You’ll find it in My Requests.`,
+             `نُقل ${formData.movedToDraft.count} بند إلى مسودة طلب ${formData.movedToDraft.route === 'souq-etimad' ? 'في السوق الإلكتروني' : 'منافسة'}. ستجدها في "طلباتي".`)}
+        </InfoBanner>
+      )}
+
+      {formData.routeJustification && (
+        <div className="rounded-xl border border-warning-100 bg-warning-50/60 px-5 py-3.5">
+          <p className="text-[12px] font-semibold text-warning-700">{t('Kept in tender with justification', 'أُبقيت في المنافسة مع مبرر')}</p>
+          {formData.justifiedEmarketItems?.length ? <p className="text-[12px] text-neutral-600 mt-0.5">{formData.justifiedEmarketItems.join('، ')}</p> : null}
+          <p className="text-[13px] text-neutral-800 mt-1.5 whitespace-pre-line">{formData.routeJustification}</p>
+        </div>
+      )}
+
+      {/* eMarket is a direct catalogue purchase — set expectations in purchasing terms, not tendering. */}
       {formData.sourceType === 'souq-etimad' && (
         <div className="rounded-xl border border-ai-100 bg-ai-50/50 px-5 py-3.5 flex items-start gap-2.5">
           <span className="w-7 h-7 rounded-lg bg-ai-100 flex items-center justify-center flex-shrink-0">
@@ -102,7 +123,7 @@ export default function ProjectSetup() {
             </svg>
           </span>
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-neutral-800">{t('Direct purchase from the Etimad eSouq catalogue', 'شراء مباشر من كتالوج السوق الإلكتروني (اعتماد)')}</p>
+            <p className="text-[13px] font-semibold text-neutral-800">{t('Direct purchase from the Etimad eMarket catalogue', 'شراء مباشر من كتالوج السوق الإلكتروني (اعتماد)')}</p>
             <p className="text-[12px] text-neutral-600 mt-0.5">{t('Buy approved products and services from listed suppliers directly — no competition, evaluation or qualification steps. Just set up the order and add your items.', 'اشترِ المنتجات والخدمات المعتمدة من الموردين المدرجين مباشرةً — دون خطوات منافسة أو تقييم أو تأهيل. فقط جهّز الطلب وأضف بنودك.')}</p>
           </div>
         </div>
@@ -135,17 +156,16 @@ export default function ProjectSetup() {
                   <tr className="bg-neutral-50 border-b border-neutral-200">
                     <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Item', 'البند')}</th>
                     <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Arabic Name', 'الاسم بالعربية')}</th>
-                    <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('BOQ Type', 'نوع البند')}</th>
+                    <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Expense type', 'نوع المصروف')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
                   {requestItems.map((item) => {
-                    const bt = BOQ_TYPE_META[item.boqType];
                     return (
                       <tr key={item.id} className="bg-white">
                         <td className="px-4 py-3 text-neutral-700 font-medium">{item.name}</td>
                         <td className="px-4 py-3 text-neutral-500 text-xs" dir="rtl">{item.nameAr || '—'}</td>
-                        <td className="px-4 py-3"><Badge variant={bt.badge}>{isAr ? bt.ar : bt.en}</Badge></td>
+                        <td className="px-4 py-3 text-[12px] text-neutral-700 whitespace-nowrap">{isAr ? item.expense.ar : item.expense.en}</td>
                       </tr>
                     );
                   })}
@@ -167,8 +187,8 @@ export default function ProjectSetup() {
               <SparklesIcon className="w-4 h-4 text-ai-600" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold text-neutral-800">{isEsouq ? t(`${similarRfps.length} similar eSouq purchases found`, `تم العثور على ${similarRfps.length} عمليات شراء مشابهة في السوق الإلكتروني`) : t(`${similarRfps.length} similar RFPs found`, `تم العثور على ${similarRfps.length} طلبات عروض مماثلة`)}</p>
-              <p className="text-[12px] text-neutral-600 mt-0.5">{isEsouq ? t(`There are ${similarRfps.length} eSouq purchases created in this project before — import one to pre-fill the purpose and catalogue items.`, `هناك ${similarRfps.length} عمليات شراء عبر السوق الإلكتروني أُنشئت في هذا المشروع سابقاً — استورد إحداها لتعبئة الغرض وبنود الكتالوج.`) : t(`There are ${similarRfps.length} similar RFPs created in this project before — import their data to complete this request faster.`, `هناك ${similarRfps.length} طلبات عروض مماثلة أُنشئت في هذا المشروع سابقاً — استورد بياناتها لإكمال هذا الطلب بشكل أسرع.`)}</p>
+              <p className="text-[13px] font-semibold text-neutral-800">{isEsouq ? t(`${similarRfps.length} similar eMarket purchases found`, `تم العثور على ${similarRfps.length} عمليات شراء مشابهة في السوق الإلكتروني`) : t(`${similarRfps.length} similar RFPs found`, `تم العثور على ${similarRfps.length} طلبات عروض مماثلة`)}</p>
+              <p className="text-[12px] text-neutral-600 mt-0.5">{isEsouq ? t(`There are ${similarRfps.length} eMarket purchases created in this project before — import one to pre-fill the purpose and catalogue items.`, `هناك ${similarRfps.length} عمليات شراء عبر السوق الإلكتروني أُنشئت في هذا المشروع سابقاً — استورد إحداها لتعبئة الغرض وبنود الكتالوج.`) : t(`There are ${similarRfps.length} similar RFPs created in this project before — import their data to complete this request faster.`, `هناك ${similarRfps.length} طلبات عروض مماثلة أُنشئت في هذا المشروع سابقاً — استورد بياناتها لإكمال هذا الطلب بشكل أسرع.`)}</p>
             </div>
             <button type="button" onClick={() => setRfpOpen((v) => !v)}
               className="inline-flex items-center gap-1 text-[12px] font-semibold text-ai-700 hover:text-ai-800 flex-shrink-0">
