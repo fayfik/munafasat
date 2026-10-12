@@ -19,7 +19,7 @@ import type {
 export const SECTIONS = [
   { id: 'procurement-route', title: 'Procurement Route', titleAr: 'مسار الشراء', desc: 'Project, items and how they can be procured', descAr: 'المشروع والبنود وطريقة شرائها' },
   { id: 'project-setup', title: 'Project Setup', titleAr: 'إعداد المشروع', desc: 'Project, cost center and item details', descAr: 'تفاصيل المشروع ومركز التكلفة والبنود' },
-  { id: 'scope-of-work', title: 'Scope of Work', titleAr: 'نطاق العمل', desc: 'Scope, terms, records and contract duration', descAr: 'النطاق والشروط والسجلات ومدة العقد' },
+  { id: 'scope-of-work', title: 'Scope of Work', titleAr: 'نطاق العمل', desc: 'Scope, terms and contract duration', descAr: 'النطاق والشروط ومدة العقد' },
   { id: 'boq', title: 'Bill of Quantities', titleAr: 'جدول الكميات', desc: 'Items, quantities and specifications', descAr: 'البنود والكميات والمواصفات' },
   { id: 'payment-schedule', title: 'Payment Schedule', titleAr: 'جدول الدفعات', desc: 'Payment stages and schedule', descAr: 'مراحل الدفع والجدول الزمني' },
   { id: 'technical-evaluation', title: 'Technical Evaluation', titleAr: 'التقييم الفني', desc: 'Scoring and evaluation methodology', descAr: 'منهجية التقييم والدرجات' },

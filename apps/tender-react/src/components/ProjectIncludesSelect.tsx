@@ -54,6 +54,8 @@ export const DEPARTMENTS: Record<DeptId, { en: string; ar: string; descEn: strin
 };
 
 const REVIEW_ORDER: DeptId[] = ['cyber', 'ea', 'bcm'];
+/** Approvers in every workflow, whatever the project includes. */
+export const MANDATORY_DEPTS: DeptId[] = ['manager', 'finance', 'procurement'];
 
 /** The ordered, de-duplicated approval chain for a set of selected categories. */
 export function workflowStages(categoryIds: string[]): DeptId[] {
@@ -116,7 +118,17 @@ export default function ProjectIncludesSelect({ value, onChange, locked = [] }: 
   const remove = (id: string) => { if (isLocked(id)) return; onChange(value.filter((v) => v !== id)); };
 
   const displayed = [...locked, ...value.filter((v) => !locked.includes(v))];
-  const deptLine = (c: IncludeCategory) => c.review.map((d) => (isAr ? DEPARTMENTS[d].ar : DEPARTMENTS[d].en)).join(isAr ? ' · ' : ' · ');
+  const deptChip = (d: DeptId, mandatory = false) => {
+    const dep = DEPARTMENTS[d];
+    const color = mandatory ? '#517632' : dep.color;
+    return (
+      <span key={d} className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+        style={{ color, borderColor: `${color}33`, backgroundColor: `${color}0f` }}>
+        <DeptGlyph kind={dep.icon} className="w-3 h-3" />
+        {isAr ? dep.ar : dep.en}
+      </span>
+    );
+  };
 
   return (
     <div ref={ref} className="relative">
@@ -145,25 +157,37 @@ export default function ProjectIncludesSelect({ value, onChange, locked = [] }: 
 
       {open && (
         <div className="absolute z-20 mt-1 w-full rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up">
-          <div className="py-1">
+          {/* Mandatory approvers — always part of the workflow */}
+          <div className="px-3 py-2.5 bg-brand-50/60 border-b border-neutral-100">
+            <div className="flex items-center gap-1.5">
+              <LockIcon className="w-3 h-3 text-brand-700" />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">{t('Mandatory in every workflow', 'إلزامية في كل مسار')}</span>
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">{MANDATORY_DEPTS.map((d) => deptChip(d, true))}</div>
+          </div>
+          <div className="py-1 divide-y divide-neutral-100">
             {PROJECT_CATEGORIES.map((c) => {
               const sel = has(c.id);
               const lock = isLocked(c.id);
               return (
-                <button key={c.id} type="button" onClick={() => toggle(c.id)} disabled={lock}
-                  className={`w-full text-start px-3 py-2.5 transition-colors flex items-start gap-2.5 ${lock ? 'cursor-default opacity-90' : 'hover:bg-neutral-50'}`}>
-                  <span className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 ${sel ? 'bg-brand-600 border-brand-600' : 'border-neutral-300'}`}>
+                <button key={c.id} type="button" onClick={() => toggle(c.id)} disabled={lock} aria-pressed={sel}
+                  className={`w-full text-start px-3 py-3 transition-colors flex items-start gap-2.5 ${lock ? 'cursor-default' : 'hover:bg-neutral-50'}`}>
+                  <span className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 ${sel ? (lock ? 'bg-neutral-400 border-neutral-400' : 'bg-brand-600 border-brand-600') : 'border-neutral-300'}`}>
                     {sel && <CheckIcon className="w-3 h-3 text-white" />}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[13px] font-semibold text-neutral-900">{isAr ? c.ar : c.en}</span>
-                      {lock && <LockIcon className="w-3 h-3 text-neutral-400" />}
+                      {lock && (
+                        <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-neutral-500 bg-neutral-100 rounded-full px-1.5 py-0.5">
+                          <LockIcon className="w-2.5 h-2.5" />{t('From your items', 'من بنودك')}
+                        </span>
+                      )}
                     </span>
                     <span className="block text-[12px] text-neutral-500 leading-snug mt-0.5">{isAr ? c.descAr : c.descEn}</span>
-                    <span className="mt-1 flex items-center gap-1 flex-wrap">
-                      <span className="text-[10.5px] font-medium text-neutral-400">{t('Approvers', 'جهات الاعتماد')}:</span>
-                      <span className="text-[10.5px] font-medium text-neutral-600">{deptLine(c)}</span>
+                    <span className="mt-2 flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] text-neutral-500">{t('Adds review by', 'يضيف مراجعة من')}:</span>
+                      {c.review.map((d) => deptChip(d))}
                     </span>
                   </span>
                 </button>
@@ -172,8 +196,8 @@ export default function ProjectIncludesSelect({ value, onChange, locked = [] }: 
           </div>
           <div className="px-3 py-2 border-t border-neutral-100 bg-neutral-50/60">
             <p className="text-[11px] text-neutral-500 leading-snug">
-              {t('Auto-filled categories are locked. Add others manually — each adds its departments to the approval workflow.',
-                 'الفئات المُعبّأة تلقائياً مقفلة. أضف غيرها يدوياً — كل فئة تضيف جهاتها إلى مسار الاعتماد.')}
+              {t('Categories from your items are locked. Each category you add brings its review departments into the approval workflow.',
+                 'الفئات المستمدة من بنودك مقفلة. كل فئة تضيفها تُدخل جهات المراجعة الخاصة بها في مسار الاعتماد.')}
             </p>
           </div>
         </div>
@@ -256,6 +280,11 @@ export function WorkflowDrawer({ open, onClose, categories, isAr, t }: {
                       {isReview && (
                         <span className="text-[10px] leading-[15px] font-semibold rounded-full px-[5.25px] py-[1.75px]" style={{ backgroundColor: `${dep.color}14`, color: dep.color }}>
                           {t('Review', 'مراجعة')}
+                        </span>
+                      )}
+                      {MANDATORY_DEPTS.includes(d) && (
+                        <span className="text-[10px] leading-[15px] font-semibold rounded-full px-[5.25px] py-[1.75px] bg-[rgba(22,163,74,0.1)] text-brand-700">
+                          {t('Mandatory', 'إلزامي')}
                         </span>
                       )}
                     </div>

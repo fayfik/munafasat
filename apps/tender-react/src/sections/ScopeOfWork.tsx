@@ -110,7 +110,6 @@ export default function ScopeOfWork() {
   const endDate = calcEndDate(formData.startDate, formData.contractDuration, formData.contractDurationType);
   const yearsCalc = calcYears(formData.startDate, formData.contractDuration, formData.contractDurationType);
 
-  const regulatoryRecords = selectedProject?.regulatoryRecords ?? '';
   // Auto-derived (locked) categories from the request's items — can't be removed.
   const lockedIncludes = deriveIncludesFromItems(formData.boqItems.map((b) => b.itemName).filter(Boolean));
   const allIncludes = [...new Set([...lockedIncludes, ...formData.scopeIncludes])];
@@ -226,40 +225,6 @@ export default function ScopeOfWork() {
         <AiNote error={termsAi.error} usedSample={termsAi.usedSample} />
       </SectionCard>
 
-      {/* Regulatory Records */}
-      <SectionCard
-        title="Regulatory Records & Licenses"
-        titleAr="السجلات والتراخيص النظامية"
-        description="Required certifications and registrations — auto-fetched from project configuration."
-        descriptionAr="الشهادات والتسجيلات المطلوبة — مجلوبة تلقائياً من إعداد المشروع."
-      >
-        {regulatoryRecords ? (
-          <div className="flex flex-wrap gap-2">
-            {regulatoryRecords.split(',').map((record) => record.trim()).filter(Boolean).map((record, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium bg-neutral-100 text-neutral-700 border border-neutral-200"
-              >
-                <svg className="w-3 h-3 text-neutral-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                </svg>
-                {record}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-body-sm text-neutral-400 italic">
-            {t('Select a project to load regulatory requirements.', 'اختر مشروعاً لتحميل المتطلبات التنظيمية.')}
-          </p>
-        )}
-        <InfoBanner variant="info" className="mt-4">
-          {t(
-            'Regulatory requirements are auto-fetched based on the selected project type. Vendors will be required to provide valid copies of all listed records with their proposals.',
-            'يتم جلب المتطلبات التنظيمية تلقائياً بناءً على نوع المشروع المختار. سيُطلب من الموردين تقديم نسخ سارية من جميع السجلات المدرجة مع عروضهم.'
-          )}
-        </InfoBanner>
-      </SectionCard>
-
       {/* Contract Duration & Location — moved here from Deliverables */}
       <SectionCard
         title="Contract Duration & Location"
@@ -286,14 +251,18 @@ export default function ScopeOfWork() {
             </FormField>
             <FormField label="Contract Duration" labelAr="مدة العقد" required>
               <div className="flex gap-2">
-                <Input type="number" min={1} value={formData.contractDuration}
-                  onChange={(e) => updateField('contractDuration', e.target.value)} placeholder={t('e.g. 18', 'مثال: 18')} className="flex-1" />
-                <Select value={formData.contractDurationType}
-                  onChange={(e) => updateField('contractDurationType', e.target.value as 'days' | 'months' | 'years')} className="w-28">
-                  <option value="days">{t('Days', 'أيام')}</option>
-                  <option value="months">{t('Months', 'أشهر')}</option>
-                  <option value="years">{t('Years', 'سنوات')}</option>
-                </Select>
+                <div className="w-32 flex-shrink-0">
+                  <Select value={formData.contractDurationType} aria-label={t('Duration unit', 'وحدة المدة')}
+                    onChange={(e) => updateField('contractDurationType', e.target.value as 'days' | 'months' | 'years')}>
+                    <option value="days">{t('Days', 'أيام')}</option>
+                    <option value="months">{t('Months', 'أشهر')}</option>
+                    <option value="years">{t('Years', 'سنوات')}</option>
+                  </Select>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <Input type="number" min={1} value={formData.contractDuration} aria-label={t('Number of units', 'العدد')}
+                    onChange={(e) => updateField('contractDuration', e.target.value)} placeholder={t('e.g. 18', 'مثال: 18')} />
+                </div>
               </div>
             </FormField>
           </div>

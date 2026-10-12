@@ -3,6 +3,7 @@ import { useTender, SECTIONS } from '../context/TenderContext';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { PROJECTS, ALL_COST_CENTERS } from '../data/mockData';
 import { SectionCard, Button, Badge, InfoBanner } from '../components/ui';
+import RegulatoryRecordsCard from '../components/RegulatoryRecordsCard';
 import { CheckCircleIcon, ExclamationCircleIcon, PencilIcon, SparklesIcon, AlertTriangleIcon, CheckIcon } from '../components/Icons';
 import type { SectionStatus } from '../types/tender';
 import { useAiAction, AiNote } from '../lib/useAiAction';
@@ -279,6 +280,9 @@ export default function ReviewConfirm() {
         )}
       </ReviewSection>
       )}
+
+      {/* Regulatory Records & Licenses — moved here from Scope of Work (tendering only) */}
+      {!isEsouq && <RegulatoryRecordsCard records={selectedProject?.regulatoryRecords ?? ''} />}
 
       <ReviewSection title="Bill of Quantities" titleAr="جدول الكميات" sectionIdx={3} status={sectionStatuses[3]}>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
