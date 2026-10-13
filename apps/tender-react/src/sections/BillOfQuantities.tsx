@@ -730,12 +730,12 @@ export default function BillOfQuantities() {
 
         {/* Upload zone — two side-by-side step cards: 1) download template, 2) upload file */}
         {showUploadZone && (
-          <div className="mb-4">
+          <div className="mb-4 rounded-2xl border border-neutral-200 bg-gradient-to-b from-neutral-50/70 to-white p-5 sm:p-6">
             {/* Header + back to options */}
-            <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex items-start justify-between gap-3 mb-4">
               <div>
-                <h3 className="text-sm font-bold text-neutral-900">{t('Build from a template', 'ابدأ من نموذج')}</h3>
-                <p className="text-[12px] text-neutral-500">{t('Two quick steps — download, fill it in Excel, then upload.', 'خطوتان سريعتان — نزّل النموذج، أكمله في Excel، ثم ارفعه.')}</p>
+                <h3 className="text-base font-bold text-neutral-900">{t('Build from a template', 'ابدأ من نموذج')}</h3>
+                <p className="mt-0.5 text-[12px] text-neutral-500">{t('Two quick steps — download the sheet, fill it in Excel, then upload it back.', 'خطوتان سريعتان — نزّل الملف، أكمله في Excel، ثم ارفعه مرة أخرى.')}</p>
               </div>
               {uploadingEmpty && (
                 <button
@@ -749,12 +749,12 @@ export default function BillOfQuantities() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* STEP 1 · Download the template */}
-              <div className="relative flex flex-col rounded-xl border border-neutral-200 bg-white p-5">
-                <div className="flex items-center gap-2 mb-3">
+              <div className="relative flex flex-col rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-600 text-white text-[12px] font-bold tabular-nums">1</span>
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">{t('Step 1', 'الخطوة 1')}</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">{t('Step 1 · Download', 'الخطوة 1 · التنزيل')}</span>
                 </div>
                 <span className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 mb-3">
                   <DownloadIcon className="w-6 h-6" />
@@ -763,12 +763,12 @@ export default function BillOfQuantities() {
                 <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
                   {formData.boqItems.length > 0
                     ? t('Get your current BOQ as a pre-filled Excel file to edit offline.', 'احصل على جدول الكميات الحالي كملف Excel مملوء لتعديله دون اتصال.')
-                    : t('Get the Excel file with the right columns, then fill in your items.', 'احصل على ملف Excel بالأعمدة الصحيحة، ثم املأ بنودك.')}
+                    : t('An Excel sheet with the right columns and categories, ready to fill in.', 'ملف Excel بالأعمدة والفئات الصحيحة، جاهز للتعبئة.')}
                 </p>
                 <button
                   type="button"
                   onClick={() => downloadBOQExcel(formData.boqItems)}
-                  className="mt-4 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors shadow-sm"
+                  className="mt-5 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors shadow-sm"
                 >
                   <DownloadIcon className="w-4 h-4" />
                   {formData.boqItems.length > 0 ? t('Download pre-filled', 'تنزيل مملوء') : t('Download template', 'تنزيل النموذج')}
@@ -776,13 +776,21 @@ export default function BillOfQuantities() {
               </div>
 
               {/* STEP 2 · Upload the completed file */}
-              <div className="relative flex flex-col rounded-xl border border-neutral-200 bg-white p-5">
-                <div className="flex items-center gap-2 mb-3">
+              <div className="relative flex flex-col rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-600 text-white text-[12px] font-bold tabular-nums">2</span>
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">{t('Step 2', 'الخطوة 2')}</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">{t('Step 2 · Upload', 'الخطوة 2 · الرفع')}</span>
                 </div>
+                <span className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 mb-3">
+                  <UploadIcon className="w-6 h-6" />
+                </span>
+                <p className="text-sm font-bold text-neutral-900">{t('Upload the completed file', 'ارفع الملف المكتمل')}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
+                  {t('Drag your filled Excel file onto the area below, or browse to select it.', 'اسحب ملف Excel المكتمل إلى المنطقة أدناه، أو تصفح لاختياره.')}
+                </p>
                 <div
-                  className="flex-1 flex flex-col items-center justify-center text-center border-2 border-dashed border-neutral-300 rounded-xl p-5 min-h-[150px] transition-colors hover:border-brand-400 hover:bg-brand-50/30"
+                  className="mt-5 flex flex-col items-center justify-center text-center border-2 border-dashed border-neutral-300 rounded-xl px-4 py-5 transition-colors hover:border-brand-400 hover:bg-brand-50/30 cursor-pointer"
+                  onClick={() => !uploadLoading && fileInputRef.current?.click()}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
                     e.preventDefault();
@@ -791,25 +799,18 @@ export default function BillOfQuantities() {
                   }}
                 >
                   {uploadLoading ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <SparklesIcon className="w-7 h-7 text-brand-400 spin-slow" />
-                      <p className="text-sm text-neutral-600">{t('Reading file…', 'جاري قراءة الملف…')}</p>
+                    <div className="flex items-center gap-2 py-1">
+                      <SparklesIcon className="w-5 h-5 text-brand-500 spin-slow" />
+                      <p className="text-[13px] text-neutral-600">{t('Reading file…', 'جاري قراءة الملف…')}</p>
                     </div>
                   ) : (
                     <>
-                      <UploadIcon className="w-8 h-8 text-neutral-300 mb-2" />
-                      <p className="text-sm font-bold text-neutral-900">{t('Upload the completed file', 'ارفع الملف المكتمل')}</p>
-                      <p className="text-[12px] text-neutral-500 mt-0.5">
-                        {t('Drop your Excel file here, or ', 'اسحب ملف Excel هنا، أو ')}
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="text-brand-600 font-semibold hover:text-brand-700 transition-colors"
-                        >
-                          {t('browse', 'تصفح')}
-                        </button>
+                      <UploadIcon className="w-6 h-6 text-neutral-300 mb-1.5" />
+                      <p className="text-[13px] text-neutral-600">
+                        {t('Drop file here, or ', 'أسقط الملف هنا، أو ')}
+                        <span className="text-brand-600 font-semibold">{t('browse', 'تصفح')}</span>
                       </p>
-                      <p className="text-[11px] text-neutral-400 mt-2">{t('Supports .xlsx and .xls · Max 10MB', 'يدعم .xlsx و .xls · الحد الأقصى 10 ميجابايت')}</p>
+                      <p className="text-[11px] text-neutral-400 mt-1">{t('.xlsx / .xls · Max 10MB', '.xlsx / .xls · الحد الأقصى 10 ميجابايت')}</p>
                     </>
                   )}
                 </div>
@@ -964,7 +965,7 @@ export default function BillOfQuantities() {
         )}
 
         {/* B · spreadsheet */}
-        {!isEmptyState && layout === 'sheet' && (
+        {formData.boqItems.length > 0 && layout === 'sheet' && (
           <BoqSheet
             rows={formData.boqItems}
             setRows={(rows) => updateField('boqItems', rows)}
@@ -1151,7 +1152,7 @@ export default function BillOfQuantities() {
         )}
 
         {/* C · grouped by Etimad category */}
-        {!isEmptyState && layout === 'grouped' && (
+        {formData.boqItems.length > 0 && layout === 'grouped' && (
           <div className="space-y-3">
             {BOQ_CATEGORIES.map((cat) => {
               const m = BOQ_CATEGORY_META[cat];
@@ -1231,7 +1232,7 @@ export default function BillOfQuantities() {
         {layout === 'cards' && showAddForm && <div ref={addFormRef}>{renderItemForm('add')}</div>}
 
         {/* Add item CTA — bottom of table (Grid) */}
-        {!isEmptyState && layout === 'cards' && !showAddForm && (
+        {formData.boqItems.length > 0 && layout === 'cards' && !showAddForm && (
           <button
             onClick={() => { closeItemForm(); setShowAddForm(true); }}
             className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm"
