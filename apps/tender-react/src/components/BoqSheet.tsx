@@ -205,7 +205,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                 i === TOTAL_AFTER ? <Th key="total" className="text-end">{t('Total (SAR)', 'الإجمالي (ر.س)')}</Th> : null,
               ])}
               <Th>{t('Docs', 'مستندات')}</Th>
-              <Th>{t('Etimad Souq', 'سوق اعتماد')}</Th>
+              <Th>{t('Etimad E-Market', 'سوق اعتماد')}</Th>
               <Th><span className="sr-only">{t('Actions', 'إجراءات')}</span></Th>
             </tr>
           </thead>
@@ -327,7 +327,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                     <td className="sticky start-0 z-20 bg-neutral-50 border-b border-e border-neutral-200" />
                     <td colSpan={colCount - 1} className="border-b border-neutral-200 bg-neutral-50/60 p-0">
                       <div className="sticky w-[min(640px,calc(100vw-120px))] p-2.5" style={{ insetInlineStart: 40 }}>
-                        <p className="text-[11px] font-semibold text-neutral-500 mb-1.5 truncate">{t('Etimad Souq check for', 'نتيجة سوق اعتماد لـ')} “{row.itemName || t('row', 'صف') + ' ' + (r + 1)}”</p>
+                        <p className="text-[11px] font-semibold text-neutral-500 mb-1.5 truncate">{t('Etimad E-Market check for', 'نتيجة سوق اعتماد لـ')} “{row.itemName || t('row', 'صف') + ' ' + (r + 1)}”</p>
                         <EtimadPanel row={row} checking={checkingIds.has(row.id)} onCheck={() => onCheck(row)} onMove={() => onMove(row)} onUpdate={(patch) => onUpdate(row.id, patch)} />
                       </div>
                     </td>
@@ -404,10 +404,10 @@ function EtimadChip({ row, checking, open, onCheck, onToggle }: { row: BOQRow; c
   }
   let label: string; let tone: string;
   if (check.status === 'available') {
-    if (!row.etimadKeep) { label = t('In Etimad Souq', 'متوفر في السوق'); tone = 'bg-warning-50 text-warning-700 border-warning-100'; }
+    if (!row.etimadKeep) { label = t('In Etimad E-Market', 'متوفر في السوق'); tone = 'bg-warning-50 text-warning-700 border-warning-100'; }
     else if (needsJustification(row)) { label = t('Kept · needs reason', 'مُبقى · يحتاج مبرراً'); tone = 'bg-error-50 text-error-700 border-error-100'; }
     else { label = t('Kept · justified', 'مُبقى · مبرر'); tone = 'bg-success-50 text-success-700 border-success-100'; }
-  } else if (check.status === 'not-available') { label = t('Not in Souq', 'غير متوفر في السوق'); tone = 'bg-success-50 text-success-700 border-success-100'; }
+  } else if (check.status === 'not-available') { label = t('Not in E-Market', 'غير متوفر في السوق'); tone = 'bg-success-50 text-success-700 border-success-100'; }
   else { label = t('Unclear', 'غير واضح'); tone = 'bg-neutral-50 text-neutral-600 border-neutral-200'; }
   return (
     <button type="button" onClick={onToggle} aria-expanded={open} className={`${base} ${tone} hover:brightness-95`}>

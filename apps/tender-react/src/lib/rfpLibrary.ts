@@ -29,7 +29,7 @@ export const PAST_RFPS: PastRfp[] = [
   { id: 'rfp-2024-019', code: 'RFP-2024-019', title: 'HR & Payroll Module Rollout', titleAr: 'إطلاق وحدة الموارد البشرية والرواتب', created: '2024-06-18', projectId: 'proj-001', department: 'Human Capital', value: 'SAR 1.1M' },
   { id: 'rfp-2024-012', code: 'RFP-2024-012', title: 'ERP Data Migration & Cleansing', titleAr: 'ترحيل وتنظيف بيانات نظام تخطيط الموارد', created: '2024-04-22', projectId: 'proj-001', department: 'IT & Digital Transformation', value: 'SAR 980K' },
   { id: 'rfp-2023-058', code: 'RFP-2023-058', title: 'ERP End-User Training Programme', titleAr: 'برنامج تدريب مستخدمي نظام تخطيط الموارد', created: '2023-12-05', projectId: 'proj-001', department: 'IT & Digital Transformation', value: 'SAR 540K' },
-  // Etimad eSouq (direct catalogue purchases)
+  // Etimad E-Market (direct catalogue purchases)
   { id: 'esq-2024-061', code: 'ESQ-2024-061', title: 'Staff Laptops & Peripherals Supply', titleAr: 'توريد أجهزة الموظفين والملحقات', created: '2024-11-20', projectId: 'proj-001', department: 'IT & Digital Transformation', value: 'SAR 420K', route: 'souq-etimad' },
   { id: 'esq-2024-055', code: 'ESQ-2024-055', title: 'Microsoft 365 Licence Renewal', titleAr: 'تجديد تراخيص مايكروسوفت 365', created: '2024-10-05', projectId: 'proj-001', department: 'IT & Digital Transformation', value: 'SAR 310K', route: 'souq-etimad' },
   { id: 'esq-2024-050', code: 'ESQ-2024-050', title: 'Server & Network Hardware Purchase', titleAr: 'شراء خوادم وأجهزة الشبكة', created: '2024-09-18', projectId: 'proj-001', department: 'IT & Digital Transformation', value: 'SAR 680K', route: 'souq-etimad' },

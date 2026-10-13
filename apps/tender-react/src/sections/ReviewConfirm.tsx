@@ -8,6 +8,7 @@ import type { SectionStatus } from '../types/tender';
 import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiExecutiveSummary } from '../lib/aiTender';
 import { isStale, needsJustification } from '../lib/etimadCheck';
+import RegulatoryRecordsCard from '../components/RegulatoryRecordsCard';
 
 function formatSAR(n: number) {
   return new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -15,7 +16,7 @@ function formatSAR(n: number) {
 
 
 export default function ReviewConfirm() {
-  const { formData, sectionStatuses, goToSection, boqSubtotal, boqVat, boqTotal, paymentPctTotal, evalWeightTotal, qualPctTotal, importedFromProject, readyToSubmit, submit, submitted, isSubmitting, status } = useTender();
+  const { formData, updateField, sectionStatuses, goToSection, boqSubtotal, boqVat, boqTotal, paymentPctTotal, evalWeightTotal, qualPctTotal, importedFromProject, readyToSubmit, submit, submitted, isSubmitting, status } = useTender();
   const { isAr } = useLanguage();
   const t = useT();
   const [aiSummaryVisible, setAiSummaryVisible] = useState(false);
@@ -27,7 +28,7 @@ export default function ReviewConfirm() {
   const selectedCC = ALL_COST_CENTERS.find((c) => c.id === formData.costCenterId);
   const extraCCs = (formData.additionalCostCenterIds ?? []).map((id) => ALL_COST_CENTERS.find((c) => c.id === id)).filter(Boolean) as typeof ALL_COST_CENTERS;
 
-  // eSouq reviews only its own steps (no scope / payment / technical / qualification).
+  // E-Market reviews only its own steps (no scope / payment / technical / qualification).
   const isEsouq = formData.sourceType === 'souq-etimad';
   const ESOUQ_IDS = ['procurement-route', 'project-setup', 'boq', 'attachments', 'review'];
   const reqIdxs = SECTIONS.map((_, i) => i).filter((i) => SECTIONS[i].id !== 'review' && (!isEsouq || ESOUQ_IDS.includes(SECTIONS[i].id)));
@@ -170,7 +171,7 @@ export default function ReviewConfirm() {
         </div>
       )}
 
-      {/* Etimad Souq check (tendering only — eSouq items are already catalogue items) */}
+      {/* Etimad E-Market check (tendering only — E-Market items are already catalogue items) */}
       {!isEsouq && (() => {
         const rows = formData.boqItems;
         if (rows.length === 0) return null;
@@ -181,17 +182,17 @@ export default function ReviewConfirm() {
           <div className="rounded-xl border border-warning-100 bg-warning-50 px-5 py-4 space-y-2">
             <div className="flex items-center gap-2">
               <AlertTriangleIcon className="w-4 h-4 text-warning-600" />
-              <span className="text-sm font-semibold text-warning-700">{t('Etimad Souq check', 'التحقق من سوق اعتماد')}</span>
+              <span className="text-sm font-semibold text-warning-700">{t('Etimad E-Market check', 'التحقق من سوق اعتماد')}</span>
             </div>
             {missing.length > 0 && (
               <p className="text-[13px] text-warning-700">
-                {t(`${missing.length} BOQ item(s) are available in Etimad Souq but kept in this tender without a justification: `, `${missing.length} بند/بنود متوفرة في سوق اعتماد وأُبقيت في هذه المنافسة دون مبرر: `)}
+                {t(`${missing.length} BOQ item(s) are available in Etimad E-Market but kept in this tender without a justification: `, `${missing.length} بند/بنود متوفرة في سوق اعتماد وأُبقيت في هذه المنافسة دون مبرر: `)}
                 <strong>{missing.map((r) => r.itemName).join('، ')}</strong>
               </p>
             )}
             {unchecked > 0 && (
               <p className="text-[13px] text-warning-700">
-                {t(`${unchecked} BOQ item(s) have not been checked against Etimad Souq.`, `${unchecked} بند/بنود لم يُتحقق من توفرها في سوق اعتماد.`)}
+                {t(`${unchecked} BOQ item(s) have not been checked against Etimad E-Market.`, `${unchecked} بند/بنود لم يُتحقق من توفرها في سوق اعتماد.`)}
               </p>
             )}
             <Button variant="ghost" size="sm" onClick={() => goToSection(3)}>
@@ -200,6 +201,15 @@ export default function ReviewConfirm() {
           </div>
         );
       })()}
+
+      {/* Mandatory & Regulatory Records — moved here from Scope of Work */}
+      {!isEsouq && selectedProject && (
+        <RegulatoryRecordsCard
+          records={selectedProject.regulatoryRecords ?? ''}
+          extra={formData.extraRegulatoryRecords ?? []}
+          onChange={(v) => updateField('extraRegulatoryRecords', v)}
+        />
+      )}
 
       {/* AI Summary */}
       {!aiSummaryVisible ? (
@@ -258,7 +268,7 @@ export default function ReviewConfirm() {
           )}
           <ReviewField label={t('Project', 'المشروع')} value={(isAr ? selectedProject?.nameAr : selectedProject?.name) ?? '—'} />
           <ReviewField label={t('Project Code', 'رمز المشروع')} value={selectedProject?.code ?? '—'} />
-          <ReviewField label={t('Source Type', 'نوع المصدر')} value={formData.sourceType === 'tendering' ? t('Tender', 'منافسة') : t('Etimad Souq', 'سوق اعتماد')} />
+          <ReviewField label={t('Source Type', 'نوع المصدر')} value={formData.sourceType === 'tendering' ? t('Tender', 'منافسة') : t('Etimad E-Market', 'سوق اعتماد')} />
         </dl>
       </ReviewSection>
 

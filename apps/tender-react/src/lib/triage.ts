@@ -1,6 +1,6 @@
 // Procurement-route triage (v2).
 //
-// Two routes only — Etimad eSouq or Tendering. (The "product / mandatory
+// Two routes only — Etimad E-Market or Tendering. (The "product / mandatory
 // catalogue" of listed Saudi companies is a choice INSIDE tendering, per item,
 // not a separate route.) A single Etimad request is scoped to ONE BOQ type AND
 // ONE route, so selected project items are grouped by (BOQ type × route): each
@@ -69,7 +69,7 @@ export function classifyItem(item: ClsItem, override?: RouteKey | null): ItemVer
   const bt = BOQ_TYPE_META[boqType];
   return {
     id: item.id, name: item.name, nameAr: item.nameAr ?? item.name, projectItemId: item.projectItemId, boqType, route,
-    reason: `${bt.en} · ${route === 'souq-etimad' ? 'standard catalogue item, buy on eSouq' : 'requires a competitive tender'}`,
+    reason: `${bt.en} · ${route === 'souq-etimad' ? 'standard catalogue item, buy on E-Market' : 'requires a competitive tender'}`,
     reasonAr: `${bt.ar} · ${route === 'souq-etimad' ? 'بند كتالوجي، يُشترى من السوق الإلكتروني' : 'يتطلب منافسة'}`,
   };
 }
@@ -118,7 +118,7 @@ export const EXAMPLE_TEXT = [
 ].join('\n');
 
 export function groupItems(verdicts: ItemVerdict[]): RequestGroup[] {
-  // One request per ROUTE — an Etimad eSouq request and/or a Competitive Tender
+  // One request per ROUTE — an Etimad E-Market request and/or a Competitive Tender
   // request. BOQ types are bundled within each route, not split into their own card.
   const map = new Map<RouteKey, RequestGroup>();
   for (const v of verdicts) {
@@ -127,7 +127,7 @@ export function groupItems(verdicts: ItemVerdict[]): RequestGroup[] {
     g.items.push(v);
     if (!g.boqTypes.includes(v.boqType)) g.boqTypes.push(v.boqType);
   }
-  // Tendering first, then eSouq.
+  // Tendering first, then E-Market.
   return [...map.values()].sort((a, b) => (a.route === b.route ? 0 : a.route === 'tendering' ? -1 : 1));
 }
 
@@ -141,7 +141,7 @@ export function forcedRoute(): RouteKey | null {
 }
 
 export const ROUTE_META: Record<RouteKey, { en: string; ar: string; shortEn: string; shortAr: string; badge: 'success' | 'warning'; sourceType: SourceType }> = {
-  'souq-etimad': { en: 'Etimad eSouq', ar: 'السوق الإلكتروني', shortEn: 'eSouq', shortAr: 'السوق', badge: 'success', sourceType: 'souq-etimad' },
+  'souq-etimad': { en: 'Etimad E-Market', ar: 'السوق الإلكتروني', shortEn: 'E-Market', shortAr: 'السوق', badge: 'success', sourceType: 'souq-etimad' },
   'tendering':   { en: 'Competitive Tender', ar: 'منافسة', shortEn: 'Tender', shortAr: 'منافسة', badge: 'warning', sourceType: 'tendering' },
 };
 

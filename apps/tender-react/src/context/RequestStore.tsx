@@ -30,7 +30,7 @@ export function summarize(form: TenderFormData) {
   const subtotal = form.boqItems.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0), 0);
   const total = subtotal * 1.15;
   return {
-    title: (p?.name ?? 'Untitled tender request') + (form.sourceType === 'souq-etimad' ? ' — Etimad Souq' : ''),
+    title: (p?.name ?? 'Untitled tender request') + (form.sourceType === 'souq-etimad' ? ' — Etimad E-Market' : ''),
     department: cc?.name ?? '—',
     budget: total > 0 ? `SAR ${Math.round(total).toLocaleString('en-US')}` : '—',
     type: form.sourceType,

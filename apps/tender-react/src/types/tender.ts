@@ -36,7 +36,7 @@ export interface BOQRow {
   /** Mandatory-list reference (listed company / product) — captured for Material items. */
   mandatoryList?: string;
 
-  /* ── Etimad eSouq (direct catalogue purchase) fields ───────────────────────── */
+  /* ── Etimad E-Market (direct catalogue purchase) fields ───────────────────────── */
   /** Product · Service · Vehicle Leasing. Drives which fields apply and the group. */
   purchaseType?: 'product' | 'service' | 'vehicle-leasing';
   productId?: string;
@@ -160,6 +160,8 @@ export interface TenderFormData {
   scopeTerms: string;
   /** "What does this project include" — selected category ids or custom labels. */
   scopeIncludes: string[];
+  /** Requester-added regulatory records (beyond the project's default/locked set). */
+  extraRegulatoryRecords: string[];
   boqItems: BOQRow[];
   hasBrandName: boolean | null;
   brandNameJustification: string;
@@ -177,7 +179,7 @@ export interface TenderFormData {
   qualificationCommitteeMembers: Person[];
   qualificationCriteria: QualMainCriteria[];
   attachments: FileAttachment[];
-  /** Etimad Souq draft that receives BOQ items moved out of this tender. */
+  /** Etimad E-Market draft that receives BOQ items moved out of this tender. */
   linkedEtimadRequestId?: string;
 }
 

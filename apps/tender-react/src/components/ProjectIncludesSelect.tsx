@@ -142,6 +142,24 @@ export default function ProjectIncludesSelect({ value, onChange, locked = [] }: 
         </div>
       )}
 
+      {/* Approvers this selection routes through — shown as tags on the right. */}
+      {displayed.length > 0 && (
+        <div className="mt-2.5 flex items-start gap-2 flex-wrap rounded-lg border border-neutral-200 bg-neutral-50/70 px-3 py-2">
+          <span className="text-[11px] font-semibold text-neutral-500 mt-1 whitespace-nowrap">{t('Approvals required', 'الاعتمادات المطلوبة')}:</span>
+          <div className="flex flex-wrap gap-1.5 flex-1 justify-end">
+            {workflowStages(displayed).filter((d) => d !== 'requester').map((d) => {
+              const dep = DEPARTMENTS[d];
+              return (
+                <span key={d} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border"
+                  style={{ backgroundColor: `${dep.color}14`, color: dep.color, borderColor: `${dep.color}33` }}>
+                  {isAr ? dep.ar : dep.en}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {open && (
         <div className="absolute z-20 mt-1 w-full rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up">
           <div className="py-1">
@@ -200,6 +218,33 @@ function DeptGlyph({ kind, className = '' }: { kind: DeptIconKind; className?: s
   }
 }
 
+/** One sequential node in the approval timeline. */
+function StageRow({ d, isAr, t, connector = false, review = false }: {
+  d: DeptId; isAr: boolean; t: (en: string, ar: string) => string; connector?: boolean; review?: boolean;
+}) {
+  const dep = DEPARTMENTS[d];
+  return (
+    <li className="relative flex gap-3 pb-5 last:pb-0">
+      {connector && <span className="absolute top-9 w-[2px] bg-neutral-200" style={{ insetInlineStart: '17px', bottom: 0 }} />}
+      <span className="relative z-10 w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-4 ring-white"
+            style={{ backgroundColor: `${dep.color}1a`, color: dep.color }}>
+        <DeptGlyph kind={dep.icon} className="w-[18px] h-[18px]" />
+      </span>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-[13.5px] font-semibold text-neutral-900">{isAr ? dep.ar : dep.en}</p>
+          {review && (
+            <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5" style={{ backgroundColor: `${dep.color}14`, color: dep.color }}>
+              {t('Review', 'مراجعة')}
+            </span>
+          )}
+        </div>
+        <p className="text-[12px] text-neutral-500 leading-snug mt-0.5">{isAr ? dep.descAr : dep.descEn}</p>
+      </div>
+    </li>
+  );
+}
+
 export function WorkflowDrawer({ open, onClose, categories, isAr, t }: {
   open: boolean; onClose: () => void; categories: string[];
   isAr: boolean; t: (en: string, ar: string) => string;
@@ -208,6 +253,10 @@ export function WorkflowDrawer({ open, onClose, categories, isAr, t }: {
   const stages = workflowStages(categories);
   const catChips = categories.map((id) => PROJECT_CATEGORIES.find((c) => c.id === id)).filter(Boolean) as IncludeCategory[];
   const reviewIds = reviewDepartments(categories);
+  const reviewSet = new Set<DeptId>(reviewIds);
+  // Sequential approvals before/after the concurrent review block.
+  const preStages = stages.filter((d) => !reviewSet.has(d) && d !== 'procurement');
+  const postStages = stages.filter((d) => d === 'procurement');
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[2px]" onClick={onClose} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
@@ -237,33 +286,50 @@ export function WorkflowDrawer({ open, onClose, categories, isAr, t }: {
         {/* Timeline */}
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <ol className="relative">
-            {stages.map((d, i) => {
-              const dep = DEPARTMENTS[d];
-              const isReview = reviewIds.includes(d);
-              const last = i === stages.length - 1;
-              return (
-                <li key={d} className="relative flex gap-3 pb-5 last:pb-0">
-                  {/* connector */}
-                  {!last && <span className="absolute top-9 w-[2px] bg-neutral-200" style={{ insetInlineStart: '17px', bottom: 0 }} />}
-                  {/* node */}
-                  <span className="relative z-10 w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-4 ring-white"
-                        style={{ backgroundColor: `${dep.color}1a`, color: dep.color }}>
-                    <DeptGlyph kind={dep.icon} className="w-[18px] h-[18px]" />
-                  </span>
-                  <div className="min-w-0 flex-1 pt-0.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[13.5px] font-semibold text-neutral-900">{isAr ? dep.ar : dep.en}</p>
-                      {isReview && (
-                        <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5" style={{ backgroundColor: `${dep.color}14`, color: dep.color }}>
-                          {t('Review', 'مراجعة')}
-                        </span>
-                      )}
+            {/* Sequential approvals */}
+            {preStages.map((d) => <StageRow key={d} d={d} isAr={isAr} t={t} connector />)}
+
+            {/* Concurrent review block — these reviews run at the same time, in any order */}
+            {reviewIds.length > 0 && (
+              <li className="relative flex gap-3 pb-5">
+                {postStages.length > 0 && <span className="absolute top-9 w-[2px] bg-neutral-200" style={{ insetInlineStart: '17px', bottom: 0 }} />}
+                <span className="relative z-10 w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-4 ring-white bg-neutral-100 text-neutral-500">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+                    <circle cx="6" cy="6" r="2.2" /><circle cx="6" cy="18" r="2.2" /><circle cx="18" cy="12" r="2.2" /><path d="M8 6h5a3 3 0 013 3v.5M8 18h5a3 3 0 003-3v-.5" />
+                  </svg>
+                </span>
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <div className="rounded-xl border border-dashed border-brand-300 bg-brand-50/40 px-3 py-2.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-[11px] font-bold text-brand-700 uppercase tracking-wide">{t('Parallel review', 'مراجعة متوازية')}</p>
+                      <span className="text-[10.5px] text-brand-600">· {t('run at the same time, in any order', 'تُجرى في وقت واحد وبأي ترتيب')}</span>
                     </div>
-                    <p className="text-[12px] text-neutral-500 leading-snug mt-0.5">{isAr ? dep.descAr : dep.descEn}</p>
+                    <div className="mt-2.5 space-y-2.5">
+                      {reviewIds.map((d) => {
+                        const dep = DEPARTMENTS[d];
+                        return (
+                          <div key={d} className="flex items-center gap-2.5">
+                            <span className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${dep.color}1a`, color: dep.color }}>
+                              <DeptGlyph kind={dep.icon} className="w-4 h-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-[12.5px] font-semibold text-neutral-900">{isAr ? dep.ar : dep.en}</p>
+                                <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5" style={{ backgroundColor: `${dep.color}14`, color: dep.color }}>{t('Review', 'مراجعة')}</span>
+                              </div>
+                              <p className="text-[11px] text-neutral-500 leading-snug">{isAr ? dep.descAr : dep.descEn}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </li>
-              );
-            })}
+                </div>
+              </li>
+            )}
+
+            {/* Sequential approvals after the parallel review */}
+            {postStages.map((d) => <StageRow key={d} d={d} isAr={isAr} t={t} />)}
           </ol>
 
           {categories.length === 0 && (

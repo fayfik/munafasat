@@ -1,7 +1,7 @@
 // "Check Etimad availability" for BOQ items.
 //
 // TODAY: Claude estimates whether each item is the kind of standard,
-// catalog-listed good or service normally bought through Etimad Souq
+// catalog-listed good or service normally bought through Etimad E-Market
 // (the e-marketplace) rather than a competitive tender. Results are
 // marked source: 'estimate' and the UI says so.
 //
@@ -43,9 +43,9 @@ async function checkWithEstimate(rows: BOQRow[], form: TenderFormData, isAr: boo
       totalSAR: q * u,
     };
   });
-  const prompt = `You are assisting a procurement officer at a Saudi government entity. Etimad Souq is the Saudi government e-marketplace on the Etimad platform, where standard, catalogued goods and simple services (office supplies, IT hardware and peripherals, standard software licenses and subscriptions, furniture, consumables, and similar off-the-shelf items with fixed specifications and list prices) are bought directly from registered suppliers instead of through a competitive tender. Custom, bespoke or high-complexity work (system implementation, integration, consulting, custom development, managed services with bespoke SLAs, construction) generally needs a tender.
+  const prompt = `You are assisting a procurement officer at a Saudi government entity. Etimad E-Market is the Saudi government e-marketplace on the Etimad platform, where standard, catalogued goods and simple services (office supplies, IT hardware and peripherals, standard software licenses and subscriptions, furniture, consumables, and similar off-the-shelf items with fixed specifications and list prices) are bought directly from registered suppliers instead of through a competitive tender. Custom, bespoke or high-complexity work (system implementation, integration, consulting, custom development, managed services with bespoke SLAs, construction) generally needs a tender.
 
-You cannot see the live Etimad catalog. Give your best ESTIMATE, for each item below, of whether it is likely to be available to buy through Etimad Souq.
+You cannot see the live Etimad catalog. Give your best ESTIMATE, for each item below, of whether it is likely to be available to buy through Etimad E-Market.
 ${p ? `Project: ${p.name}. ${p.purpose}` : ''}
 
 Items:
@@ -53,7 +53,7 @@ ${JSON.stringify(items)}
 
 Reply with only a JSON array, one object per item, in the same order:
 {"id": string (copy the item id), "status": "available" | "not-available" | "uncertain", "comment": string}
-- "available": standard catalog-type item likely listed on Etimad Souq. In the comment say why, and name the kind of Etimad Souq category it would fall under.
+- "available": standard catalog-type item likely listed on Etimad E-Market. In the comment say why, and name the kind of Etimad E-Market category it would fall under.
 - "not-available": needs a tender (custom scope, bespoke service, complex integration, or very high-value tailored work). Say why in one sentence.
 - "uncertain": could go either way; say what the officer should confirm on Etimad.
 Consider the quantity and value: a very large volume or value may still warrant a tender even for a standard item; mention it if so.
@@ -111,16 +111,16 @@ function demoVerdict(r: BOQRow, isAr: boolean): { status: EtimadAvailability; co
   if (tender) {
     return { status: 'not-available', comment: isAr
       ? `خدمة مخصصة ("${tender}") بنطاق خاص بالمشروع، ولا تُدرج عادة في سوق اعتماد، لذا تتطلب منافسة.`
-      : `A tailored service ("${tender}") with project-specific scope. These are not normally listed on Etimad Souq and need a competitive tender.` };
+      : `A tailored service ("${tender}") with project-specific scope. These are not normally listed on Etimad E-Market and need a competitive tender.` };
   }
   if (catalog) {
     return { status: 'available', comment: isAr
       ? `بند قياسي ("${catalog}") تتوفر أمثاله عادة لدى موردين مسجلين في سوق اعتماد.${big ? ` القيمة كبيرة (${sar})، فقد تبرر منافسة للحصول على سعر أفضل.` : ''}`
-      : `A standard catalog-type item ("${catalog}") that registered suppliers usually list on Etimad Souq.${big ? ` The value is large (${sar}), which may justify a tender to get a better price.` : ''}` };
+      : `A standard catalog-type item ("${catalog}") that registered suppliers usually list on Etimad E-Market.${big ? ` The value is large (${sar}), which may justify a tender to get a better price.` : ''}` };
   }
   return { status: 'uncertain', comment: isAr
     ? 'لا يطابق البند فئة معروفة في سوق اعتماد. ابحث عنه في اعتماد أو تحقق من وجود اتفاقية إطارية تغطيه.'
-    : 'This item does not match a known Etimad Souq category. Search for it on Etimad, or check whether a framework agreement covers it.' };
+    : 'This item does not match a known Etimad E-Market category. Search for it on Etimad, or check whether a framework agreement covers it.' };
 }
 
 async function checkWithDemoRules(rows: BOQRow[], isAr: boolean): Promise<Record<string, EtimadCheck>> {

@@ -4,7 +4,7 @@ import { useT, useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiScope, aiTerms } from '../lib/aiTender';
 import { PROJECTS } from '../data/mockData';
-import { FormField, SectionCard, Textarea, AIButton, InfoBanner, Input, Select } from '../components/ui';
+import { FormField, SectionCard, Textarea, AIButton, Input, Select } from '../components/ui';
 import { SparklesIcon } from '../components/Icons';
 import ProjectIncludesSelect, { deriveIncludesFromItems, reviewDepartments, DEPARTMENTS, WorkflowDrawer } from '../components/ProjectIncludesSelect';
 
@@ -110,9 +110,16 @@ export default function ScopeOfWork() {
   const endDate = calcEndDate(formData.startDate, formData.contractDuration, formData.contractDurationType);
   const yearsCalc = calcYears(formData.startDate, formData.contractDuration, formData.contractDurationType);
 
-  const regulatoryRecords = selectedProject?.regulatoryRecords ?? '';
-  // Auto-derived (locked) categories from the request's items — can't be removed.
-  const lockedIncludes = deriveIncludesFromItems(formData.boqItems.map((b) => b.itemName).filter(Boolean));
+  // Start date can't be in the past — block past dates in the picker and flag any that slip through.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const startInPast = formData.startDate !== '' && formData.startDate < todayStr;
+
+  // Auto-derived (locked) categories from the request's selected budgeted items
+  // (plus any BOQ lines that have been added) — can't be removed.
+  const budgetedNames = (selectedProject?.items ?? [])
+    .filter((it) => (formData.selectedProjectItemIds ?? []).includes(it.id))
+    .map((it) => it.name);
+  const lockedIncludes = deriveIncludesFromItems([...budgetedNames, ...formData.boqItems.map((b) => b.itemName)].filter(Boolean));
   const allIncludes = [...new Set([...lockedIncludes, ...formData.scopeIncludes])];
   const reviewIds = reviewDepartments(allIncludes);
 
@@ -128,7 +135,7 @@ export default function ScopeOfWork() {
       >
         <div className="space-y-4">
           {/* What the project includes — 3 categories; each routes the request to specific departments */}
-          <FormField label="What does this project include?" labelAr="ماذا يتضمن مشروعك؟" required
+          <FormField label="Which department's approval is necessary?" labelAr="ما الإدارات التي يلزم اعتمادها؟" required
             hint={t('Auto-selected from your project and items (locked). Add others manually — each category changes which departments approve the request.', 'مُحدّدة تلقائياً من مشروعك وبنودك (مقفلة). أضف غيرها يدوياً — كل فئة تغيّر الجهات التي تعتمد الطلب.')}>
             <ProjectIncludesSelect value={formData.scopeIncludes} onChange={(v) => updateField('scopeIncludes', v)} locked={lockedIncludes} />
 
@@ -226,40 +233,6 @@ export default function ScopeOfWork() {
         <AiNote error={termsAi.error} usedSample={termsAi.usedSample} />
       </SectionCard>
 
-      {/* Regulatory Records */}
-      <SectionCard
-        title="Regulatory Records & Licenses"
-        titleAr="السجلات والتراخيص النظامية"
-        description="Required certifications and registrations — auto-fetched from project configuration."
-        descriptionAr="الشهادات والتسجيلات المطلوبة — مجلوبة تلقائياً من إعداد المشروع."
-      >
-        {regulatoryRecords ? (
-          <div className="flex flex-wrap gap-2">
-            {regulatoryRecords.split(',').map((record) => record.trim()).filter(Boolean).map((record, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium bg-neutral-100 text-neutral-700 border border-neutral-200"
-              >
-                <svg className="w-3 h-3 text-neutral-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                </svg>
-                {record}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-body-sm text-neutral-400 italic">
-            {t('Select a project to load regulatory requirements.', 'اختر مشروعاً لتحميل المتطلبات التنظيمية.')}
-          </p>
-        )}
-        <InfoBanner variant="info" className="mt-4">
-          {t(
-            'Regulatory requirements are auto-fetched based on the selected project type. Vendors will be required to provide valid copies of all listed records with their proposals.',
-            'يتم جلب المتطلبات التنظيمية تلقائياً بناءً على نوع المشروع المختار. سيُطلب من الموردين تقديم نسخ سارية من جميع السجلات المدرجة مع عروضهم.'
-          )}
-        </InfoBanner>
-      </SectionCard>
-
       {/* Contract Duration & Location — moved here from Deliverables */}
       <SectionCard
         title="Contract Duration & Location"
@@ -282,18 +255,25 @@ export default function ScopeOfWork() {
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Work/Services Start Date" labelAr="تاريخ بدء الأعمال" required>
-              <Input type="date" value={formData.startDate} onChange={(e) => updateField('startDate', e.target.value)} />
+              <Input type="date" min={todayStr} value={formData.startDate} onChange={(e) => updateField('startDate', e.target.value)}
+                className={startInPast ? 'border-error-300 focus:border-error-400 focus:ring-error-400/20' : ''} />
+              {startInPast && (
+                <p className="mt-1 flex items-center gap-1.5 text-[12px] text-error-600">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5 flex-shrink-0"><circle cx="12" cy="12" r="10" /><path d="M12 8v5M12 16h.01" strokeLinecap="round" /></svg>
+                  {t('Start date can’t be in the past — pick today or a future date.', 'لا يمكن أن يكون تاريخ البدء في الماضي — اختر اليوم أو تاريخاً لاحقاً.')}
+                </p>
+              )}
             </FormField>
             <FormField label="Contract Duration" labelAr="مدة العقد" required>
               <div className="flex gap-2">
-                <Input type="number" min={1} value={formData.contractDuration}
-                  onChange={(e) => updateField('contractDuration', e.target.value)} placeholder={t('e.g. 18', 'مثال: 18')} className="flex-1" />
                 <Select value={formData.contractDurationType}
                   onChange={(e) => updateField('contractDurationType', e.target.value as 'days' | 'months' | 'years')} className="w-28">
                   <option value="days">{t('Days', 'أيام')}</option>
                   <option value="months">{t('Months', 'أشهر')}</option>
                   <option value="years">{t('Years', 'سنوات')}</option>
                 </Select>
+                <Input type="number" min={1} value={formData.contractDuration}
+                  onChange={(e) => updateField('contractDuration', e.target.value)} placeholder={t('e.g. 18', 'مثال: 18')} className="flex-1" />
               </div>
             </FormField>
           </div>

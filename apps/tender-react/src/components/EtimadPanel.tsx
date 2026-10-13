@@ -76,7 +76,7 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
     const r = await onMove();
     setMoving(false);
     if (r === 'preview') setMoveMsg(t('Moving items needs saving, which is off in preview mode. Open the page in Claude to use it.', 'نقل البنود يتطلب الحفظ، وهو غير متاح في وضع المعاينة. افتح الصفحة في Claude لاستخدامه.'));
-    if (r === 'error') setMoveMsg(t('Could not create the Etimad Souq draft. Check that you can edit this page, then try again.', 'تعذّر إنشاء مسودة سوق اعتماد. تأكد من صلاحية التعديل ثم حاول مجدداً.'));
+    if (r === 'error') setMoveMsg(t('Could not create the Etimad E-Market draft. Check that you can edit this page, then try again.', 'تعذّر إنشاء مسودة سوق اعتماد. تأكد من صلاحية التعديل ثم حاول مجدداً.'));
   }
 
   if (check.status === 'not-available') {
@@ -84,7 +84,7 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
       <div className="rounded-lg border border-success-100 bg-success-50 px-3 py-2">
         <div className="flex items-center gap-1.5 flex-wrap">
           <CheckCircleIcon className="w-3.5 h-3.5 text-success-600" />
-          <span className="text-[12px] font-semibold text-success-700">{t('Not in Etimad Souq. Proceed with tendering.', 'غير متوفر في سوق اعتماد. تابع بالمنافسة.')}</span>
+          <span className="text-[12px] font-semibold text-success-700">{t('Not in Etimad E-Market. Proceed with tendering.', 'غير متوفر في سوق اعتماد. تابع بالمنافسة.')}</span>
           <span className="ms-auto">{checkButton(t('Check again', 'تحقق مجدداً'))}</span>
         </div>
         {check.comment && <p className="text-[11px] text-success-700 mt-1">{check.comment}</p>}
@@ -107,12 +107,12 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
     );
   }
 
-  // Available in Etimad Souq
+  // Available in Etimad E-Market
   return (
     <div className="rounded-lg border border-warning-100 bg-warning-50 px-3 py-2.5 space-y-2">
       <div className="flex items-center gap-1.5 flex-wrap">
         <AlertTriangleIcon className="w-3.5 h-3.5 text-warning-600" />
-        <span className="text-[12px] font-semibold text-warning-700">{t('Available in Etimad Souq', 'متوفر في سوق اعتماد')}</span>
+        <span className="text-[12px] font-semibold text-warning-700">{t('Available in Etimad E-Market', 'متوفر في سوق اعتماد')}</span>
         <span className="ms-auto">{checkButton(t('Check again', 'تحقق مجدداً'))}</span>
       </div>
       {check.comment && <p className="text-[11px] text-warning-700">{check.comment}</p>}
@@ -120,7 +120,7 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
       {!row.etimadKeep ? (
         <>
           <p className="text-[11px] text-warning-700">
-            {t('We suggest buying this item through a separate Etimad Souq request instead of this tender.', 'نقترح شراء هذا البند عبر طلب مستقل في سوق اعتماد بدلاً من هذه المنافسة.')}
+            {t('We suggest buying this item through a separate Etimad E-Market request instead of this tender.', 'نقترح شراء هذا البند عبر طلب مستقل في سوق اعتماد بدلاً من هذه المنافسة.')}
           </p>
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -129,7 +129,7 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
               disabled={moving}
               className="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold hover:bg-brand-700 disabled:opacity-60 transition-colors"
             >
-              {moving ? t('Moving…', 'جاري النقل…') : t('Move to Etimad Souq request', 'نقل إلى طلب سوق اعتماد')}
+              {moving ? t('Moving…', 'جاري النقل…') : t('Move to Etimad E-Market request', 'نقل إلى طلب سوق اعتماد')}
             </button>
             <button
               type="button"
@@ -187,7 +187,7 @@ function JustificationBox({ rowId, saved, onSubmit, onMoveInstead }: { rowId: st
   return (
     <div className="space-y-1.5">
       <label htmlFor={fieldId} className="block text-[11px] font-semibold text-warning-700">
-        {t('Why tender this item instead of buying it on Etimad Souq?', 'لماذا يُطرح هذا البند في منافسة بدلاً من شرائه من سوق اعتماد؟')}
+        {t('Why tender this item instead of buying it on Etimad E-Market?', 'لماذا يُطرح هذا البند في منافسة بدلاً من شرائه من سوق اعتماد؟')}
       </label>
       <textarea
         id={fieldId}
@@ -215,7 +215,7 @@ function JustificationBox({ rowId, saved, onSubmit, onMoveInstead }: { rowId: st
           <span className="text-[11px] text-warning-700">{t('Required. Reviewers will ask for it.', 'مطلوب، فسيطلبه المراجعون.')}</span>
         )}
         <button type="button" onClick={onMoveInstead} className="text-[11px] font-semibold text-brand-700 hover:text-brand-800 ms-auto">
-          {t('Move to Etimad Souq instead', 'النقل إلى سوق اعتماد بدلاً من ذلك')}
+          {t('Move to Etimad E-Market instead', 'النقل إلى سوق اعتماد بدلاً من ذلك')}
         </button>
       </div>
     </div>

@@ -4,7 +4,7 @@ import { TrashIcon, PlusIcon } from './Icons';
 import type { BOQRow } from '../types/tender';
 
 /**
- * Inline-editable spreadsheet for the Etimad eSouq BOQ — one table per group
+ * Inline-editable spreadsheet for the Etimad E-Market BOQ — one table per group
  * (Product / Service / Vehicle Leasing). Every cell is edited in place; Enter
  * moves down (adding a row at the end), arrows move between rows. The purchase
  * type is fixed per table, so there is no Type column.

@@ -257,7 +257,7 @@ function RequestRow({ tender, onOpen }: { tender: TenderDraft; onOpen: () => voi
       </td>
       <td className="px-4 py-3.5">
         <Badge variant={tender.type === 'tendering' ? 'info' : 'default'}>
-          {tender.type === 'tendering' ? t('Tender', 'منافسة') : t('Etimad Souq', 'سوق اعتماد')}
+          {tender.type === 'tendering' ? t('Tender', 'منافسة') : t('Etimad E-Market', 'سوق اعتماد')}
         </Badge>
       </td>
       <td className="px-4 py-3.5 text-[12px] text-neutral-600">{tender.department}</td>

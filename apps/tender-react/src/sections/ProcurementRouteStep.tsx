@@ -9,6 +9,7 @@ import {
   classifyItem, groupItems, forcedRoute, parseItemNames, itemNameLooksReal, EXAMPLE_TEXT, ROUTE_META, BOQ_TYPE_META,
   type ClsItem, type ItemVerdict, type RequestGroup, type RouteKey,
 } from '../lib/triage';
+import { EXPENSE_TYPES, expenseTypeOf } from '../lib/expenseTypes';
 
 interface FreeItem { id: string; name: string; }
 const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : `f_${Math.random().toString(36).slice(2)}`);
@@ -167,7 +168,7 @@ export default function ProcurementRouteStep() {
         <SectionCard
           title="What are you procuring?"
           titleAr="ما الذي تقوم بشرائه؟"
-          description="Pick your project and the items you need. We’ll route each one the right way — Etimad eSouq or a competitive tender."
+          description="Pick your project and the items you need. We’ll route each one the right way — Etimad E-Market or a competitive tender."
           descriptionAr="اختر مشروعك والبنود التي تحتاجها. سنوجّه كل بند إلى المسار الصحيح — السوق الإلكتروني (اعتماد) أو منافسة."
           action={
             <button type="button" onClick={() => setShowInfo(true)}
@@ -187,9 +188,12 @@ export default function ProcurementRouteStep() {
 
             {project && (
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[13px] font-medium text-neutral-800">{t('Project Items', 'بنود المشروع')}</p>
-                  <span className="text-[12px] text-neutral-500">{t(`${itemIds.length} of ${items.length} selected`, `${itemIds.length} من ${items.length} محددة`)}</span>
+                <div className="mb-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[13px] font-medium text-neutral-800">{t('Budgeted items', 'البنود المعتمدة')}</p>
+                    <span className="text-[12px] text-neutral-500">{t(`${itemIds.length} of ${items.length} selected`, `${itemIds.length} من ${items.length} محددة`)}</span>
+                  </div>
+                  <p className="text-[12px] text-neutral-500 mt-0.5">{t('Select one or more to be part of this request.', 'اختر بنداً واحداً أو أكثر ليكون جزءاً من هذا الطلب.')}</p>
                 </div>
                 <div className="rounded-xl border border-neutral-200 overflow-hidden">
                   <table className="w-full text-sm">
@@ -198,19 +202,19 @@ export default function ProcurementRouteStep() {
                         <th className="w-12 ps-4 py-2.5"><Check checked={itemIds.length === items.length} mixed={itemIds.length > 0 && itemIds.length < items.length} onChange={toggleAll} /></th>
                         <th className="text-start px-3 py-2.5 text-xs font-medium text-neutral-500">{t('Item', 'البند')}</th>
                         <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Arabic Name', 'الاسم بالعربية')}</th>
-                        <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('BOQ Type', 'نوع البند')}</th>
+                        <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Expense type', 'نوع المصروف')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-100">
                       {items.map((item) => {
                         const checked = itemIds.includes(item.id);
-                        const bt = BOQ_TYPE_META[classifyItem(item).boqType];
+                        const et = EXPENSE_TYPES[expenseTypeOf(item)];
                         return (
                           <tr key={item.id} onClick={() => toggle(item.id)} className={`cursor-pointer transition-colors ${checked ? 'bg-brand-50/60' : 'bg-white hover:bg-neutral-50'}`}>
                             <td className="ps-4 py-3" onClick={(e) => e.stopPropagation()}><Check checked={checked} onChange={() => toggle(item.id)} /></td>
                             <td className="px-3 py-3 text-neutral-700 font-medium">{item.name}</td>
                             <td className="px-4 py-3 text-neutral-500 text-xs" dir="rtl">{item.nameAr}</td>
-                            <td className="px-4 py-3"><Badge variant={bt.badge}>{isAr ? bt.ar : bt.en}</Badge></td>
+                            <td className="px-4 py-3"><Badge variant={et.badge}>{isAr ? et.ar : et.en}</Badge></td>
                           </tr>
                         );
                       })}
@@ -229,7 +233,7 @@ export default function ProcurementRouteStep() {
                 </span>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-[14px] font-semibold text-neutral-900">{t('Tell us what you’re looking for', 'أخبرنا بما تبحث عنه')}</p>
+                    <p className="text-[14px] font-semibold text-neutral-900">{t('Tell us what you’re purchasing', 'أخبرنا بما ستشتريه')}</p>
                     <span className="text-[11px] font-semibold text-ai-700 bg-ai-100 rounded-full px-2 py-0.5">{t('Required', 'مطلوب')}</span>
                   </div>
                   <p className="text-[13px] text-neutral-600 mt-1 leading-relaxed">{t('Add the materials or services you need — type them, paste a list, or attach a file. We’ll check each one against the Etimad catalogue and suppliers in Saudi Arabia to set the right procurement route. This check is a required step before the request can be built.', 'أضف المواد أو الخدمات التي تحتاجها — اكتبها أو الصق قائمة أو أرفق ملفاً. سنتحقق من كل منها في كتالوج اعتماد ولدى الموردين في المملكة العربية السعودية لتحديد مسار الشراء الصحيح. هذا الفحص خطوة إلزامية قبل بناء الطلب.')}</p>
@@ -255,13 +259,13 @@ export default function ProcurementRouteStep() {
                 <div className="mt-3 space-y-1.5">
                   <p className="text-[12px] font-medium text-neutral-600">{t(`AI identified ${freeValid.length} item${freeValid.length > 1 ? 's' : ''} — review and edit:`, `حدد الذكاء الاصطناعي ${freeValid.length} بند — راجع وعدّل:`)}</p>
                   {freeItems.map((f) => {
-                    const bt = f.name.trim() ? BOQ_TYPE_META[classifyItem({ id: f.id, name: f.name.trim() }).boqType] : null;
+                    const et = f.name.trim() ? EXPENSE_TYPES[expenseTypeOf({ name: f.name.trim() })] : null;
                     return (
                       <div key={f.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5">
                         <input value={f.name} onChange={(e) => editFree(f.id, e.target.value)}
                           className="flex-1 min-w-0 text-[13px] text-neutral-800 bg-transparent outline-none placeholder:text-neutral-500"
                           placeholder={t('Item name…', 'اسم البند…')} />
-                        {bt && <Badge variant={bt.badge}>{isAr ? bt.ar : bt.en}</Badge>}
+                        {et && <Badge variant={et.badge}>{isAr ? et.ar : et.en}</Badge>}
                         <button type="button" onClick={() => removeFree(f.id)} className="w-6 h-6 rounded-md text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 flex items-center justify-center flex-shrink-0" aria-label={t('Remove', 'إزالة')}>×</button>
                       </div>
                     );
@@ -281,8 +285,8 @@ export default function ProcurementRouteStep() {
                 </div>
               )}
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[13px] text-neutral-500">{clsInput.length > 0 ? t(`${clsInput.length} item${clsInput.length > 1 ? 's' : ''} to check`, `${clsInput.length} بند للفحص`) : text.trim().length > 0 ? t('Ready to check', 'جاهز للفحص') : t('Tell us what you’re looking for to continue', 'أخبرنا بما تبحث عنه للمتابعة')}</span>
-                <Button variant="primary" size="lg" onClick={runCheck} disabled={text.trim().length === 0 && freeValid.length === 0 && selected.length === 0}>{t('Check procurement route', 'فحص مسار الشراء')} →</Button>
+                <span className="text-[13px] text-neutral-500">{clsInput.length > 0 ? t(`${clsInput.length} item${clsInput.length > 1 ? 's' : ''} to check`, `${clsInput.length} بند للفحص`) : text.trim().length > 0 ? t('Ready to check', 'جاهز للفحص') : t('Tell us what you’re purchasing to continue', 'أخبرنا بما ستشتريه للمتابعة')}</span>
+                <Button variant="primary" size="lg" onClick={runCheck} disabled={text.trim().length === 0 && freeValid.length === 0}>{t('Check procurement route', 'فحص مسار الشراء')} →</Button>
               </div>
             </div>
           </div>
@@ -294,7 +298,7 @@ export default function ProcurementRouteStep() {
         <SectionCard>
           <div className="py-6 max-w-[460px] mx-auto">
             <p className="text-center text-[14px] font-medium text-neutral-700 mb-5">{t('Validating against Etimad…', 'التحقق من اعتماد…')}</p>
-            <CheckRow done={check1} labelEn="Checking Etimad eSouq availability" labelAr="فحص توفر السوق الإلكتروني في اعتماد" t={t} />
+            <CheckRow done={check1} labelEn="Checking Etimad E-Market availability" labelAr="فحص توفر السوق الإلكتروني في اعتماد" t={t} />
             <CheckRow done={check2} pending={!check1} labelEn="Grouping by BOQ type & route" labelAr="التجميع حسب نوع البند والمسار" t={t} />
           </div>
         </SectionCard>
@@ -305,7 +309,7 @@ export default function ProcurementRouteStep() {
         <div className="space-y-5">
           {groups.length > 1 && (
             <InfoBanner variant="warning">
-              {t(`These items follow two different procurement routes, so they’re split into ${groups.length} requests — one Etimad eSouq request and one Competitive Tender request. Pick the one to create now; the other can be created afterwards as a separate request from My Requests.`,
+              {t(`These items follow two different procurement routes, so they’re split into ${groups.length} requests — one Etimad E-Market request and one Competitive Tender request. Pick the one to create now; the other can be created afterwards as a separate request from My Requests.`,
                  `تتبع هذه البنود مسارَي شراء مختلفين، لذا تُقسَّم إلى ${groups.length} طلبات — طلب للسوق الإلكتروني وطلب للمنافسة. اختر الطلب الذي تريد إنشاءه الآن؛ ويمكن إنشاء الآخر لاحقاً كطلب منفصل من "طلباتي".`)}
             </InfoBanner>
           )}
@@ -338,18 +342,18 @@ export default function ProcurementRouteStep() {
           <div className="flex items-center justify-between">
             <Button variant="secondary" onClick={() => setPhase('select')}>← {t('Back to items', 'العودة إلى البنود')}</Button>
             <Button variant="primary" size="lg" onClick={confirmChosen}>
-              {chosen.route === 'tendering' ? t('Create this request & continue', 'إنشاء هذا الطلب والمتابعة') : t('Create eSouq purchase & continue', 'إنشاء طلب الشراء ومتابعة')} →
+              {chosen.route === 'tendering' ? t('Create this request & continue', 'إنشاء هذا الطلب والمتابعة') : t('Create E-Market purchase & continue', 'إنشاء طلب الشراء ومتابعة')} →
             </Button>
           </div>
         </div>
       )}
 
-      {/* LANDING (eSouq) */}
+      {/* LANDING (E-Market) */}
       {phase === 'landing' && chosen && (
         <SectionCard>
           <div className="py-8 text-center max-w-[460px] mx-auto">
             <div className="w-12 h-12 rounded-full bg-success-50 flex items-center justify-center mx-auto mb-4"><CheckIcon className="w-6 h-6 text-success-600" /></div>
-            <h3 className="text-[16px] font-semibold text-neutral-900">{t('Routed to Etimad eSouq', 'تمت الإحالة إلى السوق الإلكتروني')}</h3>
+            <h3 className="text-[16px] font-semibold text-neutral-900">{t('Routed to Etimad E-Market', 'تمت الإحالة إلى السوق الإلكتروني')}</h3>
             <p className="text-[13px] text-neutral-500 mt-1.5">{t('These items are bought off-catalogue, so the tender steps don’t apply.', 'تُشترى هذه البنود من الكتالوج، لذا لا تنطبق خطوات المنافسة.')}</p>
             <div className="flex justify-center mt-5"><Button variant="secondary" onClick={() => setPhase('result')}>{t('Back to result', 'العودة إلى النتيجة')}</Button></div>
           </div>
@@ -423,7 +427,7 @@ function RouteInfoModal({ onClose, isAr, t }: { onClose: () => void; isAr: boole
             {/* branches */}
             <path d="M138 248 C110 300 92 320 88 352" stroke="white" strokeWidth="2.5" strokeOpacity="0.55" fill="none" strokeLinecap="round" />
             <path d="M182 248 C210 300 228 320 232 352" stroke="white" strokeWidth="2.5" strokeOpacity="0.55" fill="none" strokeLinecap="round" />
-            {/* route A — eSouq */}
+            {/* route A — E-Market */}
             <g filter="url(#rs)">
               <rect x="22" y="360" width="130" height="78" rx="12" fill="white" />
               <circle cx="52" cy="390" r="14" fill="#dcfce7" />
@@ -455,7 +459,7 @@ function RouteInfoModal({ onClose, isAr, t }: { onClose: () => void; isAr: boole
 
           <div className="mt-5 space-y-3">
             <div className="rounded-xl border border-success-100 bg-success-50/60 p-3.5">
-              <div className="flex items-center gap-2"><Badge variant="success">{t('Etimad eSouq', 'السوق الإلكتروني')}</Badge></div>
+              <div className="flex items-center gap-2"><Badge variant="success">{t('Etimad E-Market', 'السوق الإلكتروني')}</Badge></div>
               <p className="text-[13px] text-neutral-600 mt-1.5">{t('Catalogue items bought directly from listed suppliers on Etimad — fast, no tender needed.', 'بنود كتالوجية تُشترى مباشرة من موردين مُدرجين في اعتماد — سريعة ولا تحتاج منافسة.')}</p>
             </div>
             <div className="rounded-xl border border-warning-100 bg-warning-50/60 p-3.5">
