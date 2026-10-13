@@ -13,6 +13,7 @@ import { BOQ_CATEGORIES, BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCat
 import { effectiveQty } from '../lib/boqManpower';
 import RegulatoryRecordsCard from '../components/RegulatoryRecordsCard';
 import { LOCKED_TECH_DOCS } from './TechnicalEvaluation';
+import { downloadRfpPdf } from '../lib/rfpPdf';
 
 function formatSAR(n: number) {
   return new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -497,6 +498,35 @@ function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grand
     try { navigator.clipboard?.writeText(text); setCopied(true); window.setTimeout(() => setCopied(false), 2000); } catch { setCopied(true); window.setTimeout(() => setCopied(false), 2000); }
   }
 
+  function downloadPdf() {
+    const vat = Math.max(0, grandTotal - subtotal);
+    const lineTotal = (r: typeof formData.boqItems[number]) => effectiveQty(r) * (Number(r.unitPrice) || 0);
+    downloadRfpPdf({
+      requestNo, submittedAt: at,
+      projectName: selectedProject?.name ?? projectName,
+      deptName, projectCode: selectedProject?.code,
+      email,
+      sourceLabel: formData.sourceType === 'tendering' ? 'Competitive Tender' : 'Etimad E-Market',
+      subtotal, vat, grandTotal,
+      purpose: formData.tenderingPurpose || undefined,
+      scopeOfWork: formData.scopeOfWork || undefined,
+      scopeTerms: formData.scopeTerms || undefined,
+      executionLocation: formData.executionLocation || undefined,
+      startDate: formData.startDate || undefined,
+      duration: formData.contractDuration ? `${formData.contractDuration} ${formData.contractDurationType}` : undefined,
+      boq: formData.boqItems.map((r) => ({ name: r.itemName, category: BOQ_CATEGORY_META[r.category ?? deriveCategory(r.itemName)].en, qty: effectiveQty(r) || '', unitPrice: Number(r.unitPrice) || 0, total: lineTotal(r) })),
+      payments: formData.paymentStages.map((s) => ({ name: s.stageName, pct: Number(s.percentage) || 0, amount: ((Number(s.percentage) || 0) / 100) * subtotal, start: s.startDate, duration: s.duration })),
+      techDocs: [...LOCKED_TECH_DOCS.map((x) => x.en), ...(formData.technicalDocumentsList as string[])],
+      techRequirements: formData.technicalRequirements.map((r) => ({ requirement: r.requirement, description: r.description })),
+      evalCriteria: formData.evaluationCriteria.map((c) => ({ description: c.description, howApplied: c.howApplied, weight: Number(c.weight) || 0 })),
+      passingPct: formData.technicalPassingPercentage || undefined,
+      qualCriteria: formData.qualificationCriteria.map((m) => ({ name: m.name, percentage: Number(m.percentage) || 0, subs: m.subCriteria.map((s) => ({ name: s.name, range: s.range, percentage: Number(s.percentage) || 0 })) })),
+      techCommittee: formData.technicalCommitteeMembers.map((m) => m.name),
+      qualCommittee: formData.qualificationCommitteeMembers.map((m) => m.name),
+      attachments: formData.attachments.map((a) => a.name),
+    });
+  }
+
   const steps = [
     { icon: <ClockIcon className="w-4 h-4" />, tone: 'bg-blue-50 text-blue-600', en: 'Procurement Committee Review', ar: 'مراجعة لجنة المشتريات', metaEn: '2–5 business days', metaAr: '2–5 أيام عمل' },
     { icon: <CheckCircleIcon className="w-4 h-4" />, tone: 'bg-brand-50 text-brand-600', en: 'Budget & Policy Approval', ar: 'اعتماد الميزانية والسياسات', metaEn: '3–7 business days', metaAr: '3–7 أيام عمل' },
@@ -571,7 +601,7 @@ function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grand
       {/* CTAs */}
       <div className="success-copy mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ animationDelay: '1s' }}>
         <CtaCard primary icon={<ExternalGlyph />} title={t('View RFP', 'عرض الطلب')} sub={t('Open full document', 'فتح المستند الكامل')} onClick={() => setShowRfp(true)} />
-        <CtaCard icon={<DownloadIcon className="w-[18px] h-[18px]" />} title={t('Download PDF', 'تنزيل PDF')} sub={t('Save a local copy', 'حفظ نسخة محلية')} onClick={() => window.print()} />
+        <CtaCard icon={<DownloadIcon className="w-[18px] h-[18px]" />} title={t('Download PDF', 'تنزيل PDF')} sub={t('Save a local copy', 'حفظ نسخة محلية')} onClick={downloadPdf} />
         <CtaCard icon={<ShareGlyph />} title={copied ? t('Link copied', 'تم نسخ الرابط') : t('Share', 'مشاركة')} sub={t('Send link to colleagues', 'إرسال رابط للزملاء')} onClick={share} />
         <CtaCard icon={<DocumentIcon className="w-[18px] h-[18px]" />} title={t('Return to Requests', 'العودة إلى الطلبات')} sub={t('Back to your dashboard', 'العودة إلى لوحتك')} onClick={() => onExit?.()} />
       </div>
