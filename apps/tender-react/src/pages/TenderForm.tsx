@@ -263,7 +263,7 @@ export default function TenderForm({ onBack }: Props) {
             </div>
 
             <div className="space-y-5">
-              <CurrentSection />
+              {CurrentSection === ReviewConfirm ? <ReviewConfirm onExit={onBack} /> : <CurrentSection />}
             </div>
 
             {/* Step navigation — hidden on the Procurement Route step, which drives its own flow */}
