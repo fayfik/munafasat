@@ -2,7 +2,7 @@ export type SourceType = 'tendering' | 'souq-etimad';
 export type ContractDurationType = 'days' | 'months' | 'years';
 export type ProjectItemType = 'assets' | 'services' | 'consumables';
 /** Etimad BOQ categorisation captured per BOQ line. */
-export type BOQCategory = 'service' | 'equipment' | 'material';
+export type BOQCategory = 'service' | 'equipment' | 'material' | 'manpower';
 export type SectionStatus = 'completed' | 'in-progress' | 'not-started' | 'missing';
 export type TenderStatus = 'draft' | 'submitted' | 'under-review' | 'approved' | 'returned';
 
@@ -33,8 +33,21 @@ export interface BOQRow {
   etimadJustification?: string;
   /** Supporting documents attached to this line (specs, drawings, quotes…). */
   attachments?: FileAttachment[];
-  /** Mandatory-list reference (listed company / product) — captured for Material items. */
+  /** Mandatory-list reference (listed company / product) — captured for Material & Equipment items. */
   mandatoryList?: string;
+
+  /* ── Man Power category fields ────────────────────────────────────────────── */
+  jobTitle?: string;
+  staffCount?: number | '';
+  /** Minimum accepted qualification (value from QUALIFICATIONS). */
+  minQualification?: string;
+  minExperienceYears?: number | '';
+  officialWorkingHours?: number | '';
+  extraWorkingHours?: number | '';
+  /** Whether a specific nationality is required for this manpower line. */
+  nationalityRequired?: boolean;
+  /** Selected nationalities (when nationalityRequired). */
+  nationalities?: string[];
 
   /* ── Etimad E-Market (direct catalogue purchase) fields ───────────────────────── */
   /** Product · Service · Vehicle Leasing. Drives which fields apply and the group. */

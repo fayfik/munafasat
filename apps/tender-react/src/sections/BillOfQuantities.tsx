@@ -9,6 +9,7 @@ import HoverNote from '../components/HoverNote';
 import BoqAttachments from '../components/BoqAttachments';
 import type { BOQRow, BOQCategory, FileAttachment } from '../types/tender';
 import { BOQ_CATEGORIES, BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
+import { QUALIFICATIONS, NATIONALITIES, nationalityLabel, effectiveQty, generateManpowerDescription } from '../lib/boqManpower';
 import { useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiBoq, type AiBoqRow } from '../lib/aiTender';
@@ -130,8 +131,8 @@ function MandatoryListTile({ t, isAr, className = '' }: { t: (en: string, ar: st
       <div className="min-w-0 flex-1">
         <p className="text-[13px] font-semibold text-warning-800">{t('Mandatory List — National Products', 'القائمة الإلزامية — المنتجات الوطنية')}</p>
         <p className="text-[12px] text-warning-700 mt-0.5 leading-relaxed">
-          {t('Material items may fall under the mandatory list of national products and must be purchased from approved listed companies.',
-             'قد تندرج بنود المواد ضمن القائمة الإلزامية للمنتجات الوطنية، ويجب شراؤها من الشركات المدرجة المعتمدة.')}
+          {t('Material and equipment items may fall under the mandatory list of national products and must be purchased from approved listed companies.',
+             'قد تندرج بنود المواد والمعدات ضمن القائمة الإلزامية للمنتجات الوطنية، ويجب شراؤها من الشركات المدرجة المعتمدة.')}
         </p>
         <span className="inline-flex items-center gap-1 mt-2 text-[12px] font-semibold text-warning-800 group-hover:underline">
           {t('View Listed companies', 'عرض الشركات المدرجة')}
@@ -142,12 +143,43 @@ function MandatoryListTile({ t, isAr, className = '' }: { t: (en: string, ar: st
   );
 }
 
+/** Chip-style multi-select for Man Power nationalities. */
+function NationalityMultiSelect({ selected, onToggle, isAr, t }: {
+  selected: string[]; onToggle: (v: string) => void; isAr: boolean; t: (en: string, ar: string) => string;
+}) {
+  return (
+    <div className="rounded-lg border border-neutral-300 bg-white px-3 py-2.5">
+      <div className="flex flex-wrap gap-1.5">
+        {NATIONALITIES.map((n) => {
+          const on = selected.includes(n.value);
+          return (
+            <button key={n.value} type="button" onClick={() => onToggle(n.value)}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400'}`}>
+              {isAr ? n.ar : n.en}
+              {on && <span aria-hidden>×</span>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-neutral-500 mt-2">
+        {selected.length > 0
+          ? t(`${selected.length} selected`, `${selected.length} محددة`)
+          : t('Select one or more nationalities.', 'اختر جنسية واحدة أو أكثر.')}
+      </p>
+    </div>
+  );
+}
+
 const EMPTY_FORM = {
   projectItem: '', category: '' as BOQCategory | '', itemName: '', itemDescription: '',
   unitOfMeasure: 'Each', quantity: '' as number | '',
   unitPrice: '' as number | '', deliveryDate: '',
   hasBrandName: false, brandJustification: '', attachments: [] as FileAttachment[],
   mandatoryList: '',
+  // Man Power fields
+  jobTitle: '', staffCount: '' as number | '', minQualification: '',
+  minExperienceYears: '' as number | '', officialWorkingHours: '' as number | '',
+  extraWorkingHours: '' as number | '', nationalityRequired: false, nationalities: [] as string[],
 };
 
 const GROUP_COLORS = ['bg-brand-500', 'bg-ai-500', 'bg-warning-500', 'bg-success-600', 'bg-error-500', 'bg-neutral-400'];
@@ -169,6 +201,7 @@ export default function BillOfQuantities() {
   const [checkingIds, setCheckingIds] = useState<Set<string>>(new Set());
   const [etimadError, setEtimadError] = useState('');
   const [addCat, setAddCat] = useState<BOQCategory | null>(null); // grouped-view: which category the add form targets
+  const [manpowerGenLoading, setManpowerGenLoading] = useState(false);
   const addFormRef = useRef<HTMLDivElement>(null);
   const layout = useBoqLayout();
 
@@ -240,9 +273,8 @@ export default function BillOfQuantities() {
   const projectItems = (selectedProject?.items ?? []).filter((it) => chosenIds.length === 0 || chosenIds.includes(it.id));
 
   const rowTotal = (row: BOQRow) => {
-    const q = typeof row.quantity === 'number' ? row.quantity : 0;
     const p = typeof row.unitPrice === 'number' ? row.unitPrice : 0;
-    return q * p;
+    return effectiveQty(row) * p;
   };
 
   const groups: { key: string; rows: BOQRow[] }[] = [];
@@ -314,6 +346,10 @@ export default function BillOfQuantities() {
       deliveryDate: row.deliveryDate, hasBrandName: !!row.hasBrandName, brandJustification: row.brandJustification ?? '',
       attachments: row.attachments ?? [],
       mandatoryList: row.mandatoryList ?? '',
+      jobTitle: row.jobTitle ?? '', staffCount: row.staffCount ?? '', minQualification: row.minQualification ?? '',
+      minExperienceYears: row.minExperienceYears ?? '', officialWorkingHours: row.officialWorkingHours ?? '',
+      extraWorkingHours: row.extraWorkingHours ?? '', nationalityRequired: !!row.nationalityRequired,
+      nationalities: row.nationalities ?? [],
     });
   }
 
@@ -325,12 +361,13 @@ export default function BillOfQuantities() {
     closeItemForm();
   }
 
-  // Grouped view: open the add form pre-set to a category.
-  function startAddInCategory(cat: BOQCategory) {
-    setEditingId(null);
-    setNewItem({ ...EMPTY_FORM, category: cat });
-    setAddCat(cat);
-    setShowAddForm(true);
+  // Man Power: build the item description from the entered fields (AI-style).
+  function generateManpowerDesc() {
+    setManpowerGenLoading(true);
+    window.setTimeout(() => {
+      setNewItem((p) => ({ ...p, itemDescription: generateManpowerDescription({ ...p, category: 'manpower' }, isAr) }));
+      setManpowerGenLoading(false);
+    }, 650);
   }
 
   function renderItemForm(mode: 'add' | 'edit', lockedCategory?: BOQCategory | null) {
@@ -344,6 +381,19 @@ export default function BillOfQuantities() {
     const itemNameOptions = newItem.projectItem && !baseItemNames.includes(newItem.projectItem)
       ? [...baseItemNames, newItem.projectItem]
       : baseItemNames;
+    // Effective category drives which fields show. Man Power has its own field set;
+    // Material & Equipment show the mandatory-list field.
+    const effCat: BOQCategory | '' = (lockedCategory ?? (newItem.category || '')) as BOQCategory | '';
+    const isMan = effCat === 'manpower';
+    const showMandatory = effCat === 'material' || effCat === 'equipment';
+    const toggleNationality = (v: string) =>
+      setNewItem((p) => ({ ...p, nationalities: p.nationalities.includes(v) ? p.nationalities.filter((n) => n !== v) : [...p.nationalities, v] }));
+    const manInvalid = isMan && (
+      !newItem.jobTitle.trim() || newItem.staffCount === '' || !newItem.minQualification ||
+      newItem.minExperienceYears === '' || (newItem.nationalityRequired && newItem.nationalities.length === 0)
+    );
+    const formInvalid = !newItem.projectItem || !newItem.itemName ||
+      (!isMan && newItem.hasBrandName && !newItem.brandJustification.trim()) || manInvalid;
     return (
           <div className={`${mode === 'edit' ? 'm-3' : 'mt-3'} rounded-xl border border-neutral-200 bg-neutral-50/60 overflow-hidden`}>
             <div className="flex items-start justify-between px-4 py-3 border-b border-neutral-200 bg-white">
@@ -391,8 +441,8 @@ export default function BillOfQuantities() {
                 </FormField>
               </div>
 
-              {/* Mandatory-list field — shown when the item is a Material */}
-              {(lockedCategory ?? newItem.category) === 'material' && (
+              {/* Mandatory-list field — shown for Material & Equipment */}
+              {showMandatory && (
                 <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3.5">
                   <label className="block text-[13px] font-semibold text-warning-800 mb-1.5">{t('Mandatory List', 'القائمة الإلزامية')}</label>
                   <Input
@@ -402,8 +452,8 @@ export default function BillOfQuantities() {
                     placeholder={t('Listed company or product reference…', 'الشركة المدرجة أو مرجع المنتج…')}
                   />
                   <p className="text-[12px] text-warning-700 mt-2 leading-relaxed">
-                    {t('Material items may fall under the mandatory list of national products and must be purchased from approved listed companies.',
-                       'قد تندرج بنود المواد ضمن القائمة الإلزامية للمنتجات الوطنية، ويجب شراؤها من الشركات المدرجة المعتمدة.')}
+                    {t('Material and equipment items may fall under the mandatory list of national products and must be purchased from approved listed companies.',
+                       'قد تندرج بنود المواد والمعدات ضمن القائمة الإلزامية للمنتجات الوطنية، ويجب شراؤها من الشركات المدرجة المعتمدة.')}
                   </p>
                   <a href={MANDATORY_LIST_URL} target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 mt-2 text-[12px] font-semibold text-warning-800 hover:underline">
@@ -419,99 +469,199 @@ export default function BillOfQuantities() {
                   type="text"
                   value={newItem.itemName}
                   onChange={(e) => setNewItem((p) => ({ ...p, itemName: e.target.value }))}
-                  placeholder={t('Item name…', 'اسم البند…')}
+                  placeholder={isMan ? t('e.g. Senior ERP Consultant (role)', 'مثال: مستشار أول (المسمى)') : t('Item name…', 'اسم البند…')}
                 />
               </FormField>
 
-              {/* 3. Description */}
-              <FormField label="Description" labelAr="الوصف">
-                <Textarea
-                  value={newItem.itemDescription}
-                  onChange={(e) => setNewItem((p) => ({ ...p, itemDescription: e.target.value }))}
-                  placeholder={t('Describe this item…', 'صف هذا البند…')}
-                  rows={3}
-                />
-              </FormField>
-
-              {/* 4. Unit / Qty / Unit Price */}
-              <div className="grid grid-cols-3 gap-4">
-                <FormField label="Unit of Measure" labelAr="وحدة القياس">
-                  <Select
-                    value={newItem.unitOfMeasure}
-                    onChange={(e) => setNewItem((p) => ({ ...p, unitOfMeasure: e.target.value }))}
-                  >
-                    {UNITS_OF_MEASURE.map((u) => <option key={u} value={u}>{u}</option>)}
-                  </Select>
-                </FormField>
-                <FormField label="Quantity" labelAr="الكمية">
-                  <Input
-                    type="number" min={0}
-                    value={newItem.quantity}
-                    onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value === '' ? '' : Number(e.target.value) }))}
-                    placeholder="1"
-                  />
-                </FormField>
-                <FormField label="Unit Price (SAR)" labelAr="سعر الوحدة">
-                  <Input
-                    type="number" min={0}
-                    value={newItem.unitPrice}
-                    onChange={(e) => setNewItem((p) => ({ ...p, unitPrice: e.target.value === '' ? '' : Number(e.target.value) }))}
-                    placeholder="0.00"
-                  />
-                </FormField>
-              </div>
-
-              {/* 5. Delivery Date + Has Brand Name */}
-              <div className="grid grid-cols-2 gap-4 items-start">
-                <FormField label="Delivery Date" labelAr="موعد التسليم">
-                  <Input
-                    type="date"
-                    value={newItem.deliveryDate}
-                    onChange={(e) => setNewItem((p) => ({ ...p, deliveryDate: e.target.value }))}
-                  />
-                </FormField>
-                <FormField label="Has Brand Name?" labelAr="هل يوجد علامة تجارية؟">
-                  <div className="flex rounded-lg border border-neutral-300 overflow-hidden mt-0.5" dir="ltr">
-                    <button
-                      type="button"
-                      onClick={() => setNewItem((p) => ({ ...p, hasBrandName: true }))}
-                      className={`flex-1 py-2 text-sm font-medium transition-colors ${newItem.hasBrandName ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
-                    >
-                      {t('Yes', 'نعم')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewItem((p) => ({ ...p, hasBrandName: false, brandJustification: '' }))}
-                      className={`flex-1 py-2 text-sm font-medium border-s border-neutral-300 transition-colors ${!newItem.hasBrandName ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
-                    >
-                      {t('No', 'لا')}
-                    </button>
+              {isMan ? (
+                <>
+                  {/* Man Power fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Job Title" labelAr="المسمى الوظيفي" required>
+                      <Input type="text" value={newItem.jobTitle}
+                        onChange={(e) => setNewItem((p) => ({ ...p, jobTitle: e.target.value }))}
+                        placeholder={t('e.g. ERP Technical Consultant', 'مثال: مستشار تقني')} />
+                    </FormField>
+                    <FormField label="Staff Count" labelAr="عدد الموظفين" required>
+                      <Input type="number" min={1} value={newItem.staffCount}
+                        onChange={(e) => setNewItem((p) => ({ ...p, staffCount: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder="1" />
+                    </FormField>
                   </div>
-                </FormField>
-              </div>
 
-              {/* 6. Brand Justification — when hasBrandName */}
-              {newItem.hasBrandName && (
-                <div className="slide-up">
-                  <FormField label="Brand Justification" labelAr="مبرر العلامة التجارية" required>
+                  {/* Description with AI generate */}
+                  <FormField label="Item Description" labelAr="وصف البند"
+                    action={<AIButton onClick={generateManpowerDesc} loading={manpowerGenLoading} label={t('Generate with AI', 'توليد بالذكاء الاصطناعي')} />}>
+                    <Textarea value={newItem.itemDescription}
+                      onChange={(e) => setNewItem((p) => ({ ...p, itemDescription: e.target.value }))}
+                      placeholder={t('Describe the role, responsibilities and requirements…', 'صف الدور والمسؤوليات والمتطلبات…')}
+                      rows={3} />
+                  </FormField>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Minimum Accepted Qualification" labelAr="الحد الأدنى للمؤهل المقبول" required>
+                      <Select value={newItem.minQualification}
+                        onChange={(e) => setNewItem((p) => ({ ...p, minQualification: e.target.value }))}>
+                        <option value="">{t('Select…', 'اختر…')}</option>
+                        {QUALIFICATIONS.map((q) => <option key={q.value} value={q.value}>{t(q.en, q.ar)}</option>)}
+                      </Select>
+                    </FormField>
+                    <FormField label="Minimum Years of Experience" labelAr="الحد الأدنى لسنوات الخبرة" required>
+                      <Input type="number" min={0} value={newItem.minExperienceYears}
+                        onChange={(e) => setNewItem((p) => ({ ...p, minExperienceYears: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder="0" />
+                    </FormField>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Official Working Hours" labelAr="ساعات العمل الرسمية">
+                      <Input type="number" min={0} value={newItem.officialWorkingHours}
+                        onChange={(e) => setNewItem((p) => ({ ...p, officialWorkingHours: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder={t('e.g. 8', 'مثال: 8')} />
+                    </FormField>
+                    <FormField label="Expected Extra Working Hours" labelAr="ساعات العمل الإضافية المتوقعة">
+                      <Input type="number" min={0} value={newItem.extraWorkingHours}
+                        onChange={(e) => setNewItem((p) => ({ ...p, extraWorkingHours: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder={t('e.g. 2', 'مثال: 2')} />
+                    </FormField>
+                  </div>
+
+                  {/* Nationality — radio; if Yes, multi-select nationalities */}
+                  <div className="grid grid-cols-2 gap-4 items-start">
+                    <FormField label="Nationality required?" labelAr="هل الجنسية مطلوبة؟">
+                      <div className="flex rounded-lg border border-neutral-300 overflow-hidden mt-0.5" dir="ltr">
+                        <button type="button" onClick={() => setNewItem((p) => ({ ...p, nationalityRequired: true }))}
+                          className={`flex-1 py-2 text-sm font-medium transition-colors ${newItem.nationalityRequired ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}>
+                          {t('Yes', 'نعم')}
+                        </button>
+                        <button type="button" onClick={() => setNewItem((p) => ({ ...p, nationalityRequired: false, nationalities: [] }))}
+                          className={`flex-1 py-2 text-sm font-medium border-s border-neutral-300 transition-colors ${!newItem.nationalityRequired ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}>
+                          {t('No', 'لا')}
+                        </button>
+                      </div>
+                    </FormField>
+                    <FormField label="Unit Price (SAR)" labelAr="سعر الوحدة"
+                      hint={t('Rate per staff — total = staff count × rate.', 'التكلفة لكل موظف — الإجمالي = العدد × التكلفة.')}>
+                      <Input type="number" min={0} value={newItem.unitPrice}
+                        onChange={(e) => setNewItem((p) => ({ ...p, unitPrice: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder="0.00" />
+                    </FormField>
+                  </div>
+
+                  {newItem.nationalityRequired && (
+                    <div className="slide-up">
+                      <FormField label="Select Nationality" labelAr="اختر الجنسية" required>
+                        <NationalityMultiSelect selected={newItem.nationalities} onToggle={toggleNationality} isAr={isAr} t={t} />
+                      </FormField>
+                    </div>
+                  )}
+
+                  {/* Delivery + Attachments */}
+                  <div className="grid grid-cols-2 gap-4 items-start">
+                    <FormField label="Delivery Date" labelAr="موعد التسليم">
+                      <Input type="date" value={newItem.deliveryDate}
+                        onChange={(e) => setNewItem((p) => ({ ...p, deliveryDate: e.target.value }))} />
+                    </FormField>
+                  </div>
+
+                  <FormField label="Attachments" labelAr="المرفقات">
+                    <BoqAttachments attachments={newItem.attachments} onChange={(next) => setNewItem((p) => ({ ...p, attachments: next }))} />
+                    <p className="text-[11px] text-neutral-500 mt-1">{t('CVs, certificates, or any supporting document for this role.', 'السير الذاتية أو الشهادات أو أي مستند داعم لهذا الدور.')}</p>
+                  </FormField>
+                </>
+              ) : (
+                <>
+                  {/* 3. Description */}
+                  <FormField label="Description" labelAr="الوصف">
                     <Textarea
-                      value={newItem.brandJustification}
-                      onChange={(e) => setNewItem((p) => ({ ...p, brandJustification: e.target.value }))}
-                      placeholder={t('Explain why a specific brand is required…', 'اشرح سبب الحاجة لعلامة تجارية محددة…')}
+                      value={newItem.itemDescription}
+                      onChange={(e) => setNewItem((p) => ({ ...p, itemDescription: e.target.value }))}
+                      placeholder={t('Describe this item…', 'صف هذا البند…')}
                       rows={3}
                     />
                   </FormField>
-                </div>
-              )}
 
-              {/* Attachments */}
-              <FormField label="Attachments" labelAr="المرفقات">
-                <BoqAttachments
-                  attachments={newItem.attachments}
-                  onChange={(next) => setNewItem((p) => ({ ...p, attachments: next }))}
-                />
-                <p className="text-[11px] text-neutral-500 mt-1">{t('Specs, drawings, quotes or any supporting document for this item.', 'المواصفات أو الرسومات أو عروض الأسعار أو أي مستند داعم لهذا البند.')}</p>
-              </FormField>
+                  {/* 4. Unit / Qty / Unit Price */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField label="Unit of Measure" labelAr="وحدة القياس">
+                      <Select
+                        value={newItem.unitOfMeasure}
+                        onChange={(e) => setNewItem((p) => ({ ...p, unitOfMeasure: e.target.value }))}
+                      >
+                        {UNITS_OF_MEASURE.map((u) => <option key={u} value={u}>{u}</option>)}
+                      </Select>
+                    </FormField>
+                    <FormField label="Quantity" labelAr="الكمية">
+                      <Input
+                        type="number" min={0}
+                        value={newItem.quantity}
+                        onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder="1"
+                      />
+                    </FormField>
+                    <FormField label="Unit Price (SAR)" labelAr="سعر الوحدة">
+                      <Input
+                        type="number" min={0}
+                        value={newItem.unitPrice}
+                        onChange={(e) => setNewItem((p) => ({ ...p, unitPrice: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder="0.00"
+                      />
+                    </FormField>
+                  </div>
+
+                  {/* 5. Delivery Date + Has Brand Name */}
+                  <div className="grid grid-cols-2 gap-4 items-start">
+                    <FormField label="Delivery Date" labelAr="موعد التسليم">
+                      <Input
+                        type="date"
+                        value={newItem.deliveryDate}
+                        onChange={(e) => setNewItem((p) => ({ ...p, deliveryDate: e.target.value }))}
+                      />
+                    </FormField>
+                    <FormField label="Has Brand Name?" labelAr="هل يوجد علامة تجارية؟">
+                      <div className="flex rounded-lg border border-neutral-300 overflow-hidden mt-0.5" dir="ltr">
+                        <button
+                          type="button"
+                          onClick={() => setNewItem((p) => ({ ...p, hasBrandName: true }))}
+                          className={`flex-1 py-2 text-sm font-medium transition-colors ${newItem.hasBrandName ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
+                        >
+                          {t('Yes', 'نعم')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem((p) => ({ ...p, hasBrandName: false, brandJustification: '' }))}
+                          className={`flex-1 py-2 text-sm font-medium border-s border-neutral-300 transition-colors ${!newItem.hasBrandName ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
+                        >
+                          {t('No', 'لا')}
+                        </button>
+                      </div>
+                    </FormField>
+                  </div>
+
+                  {/* 6. Brand Justification — when hasBrandName */}
+                  {newItem.hasBrandName && (
+                    <div className="slide-up">
+                      <FormField label="Brand Justification" labelAr="مبرر العلامة التجارية" required>
+                        <Textarea
+                          value={newItem.brandJustification}
+                          onChange={(e) => setNewItem((p) => ({ ...p, brandJustification: e.target.value }))}
+                          placeholder={t('Explain why a specific brand is required…', 'اشرح سبب الحاجة لعلامة تجارية محددة…')}
+                          rows={3}
+                        />
+                      </FormField>
+                    </div>
+                  )}
+
+                  {/* Attachments */}
+                  <FormField label="Attachments" labelAr="المرفقات">
+                    <BoqAttachments
+                      attachments={newItem.attachments}
+                      onChange={(next) => setNewItem((p) => ({ ...p, attachments: next }))}
+                    />
+                    <p className="text-[11px] text-neutral-500 mt-1">{t('Specs, drawings, quotes or any supporting document for this item.', 'المواصفات أو الرسومات أو عروض الأسعار أو أي مستند داعم لهذا البند.')}</p>
+                  </FormField>
+                </>
+              )}
 
               {/* Actions */}
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
@@ -523,7 +673,7 @@ export default function BillOfQuantities() {
                 </button>
                 <button
                   onClick={mode === 'edit' ? handleSaveEdit : handleAddItem}
-                  disabled={!newItem.projectItem || !newItem.itemName || (newItem.hasBrandName && !newItem.brandJustification.trim())}
+                  disabled={formInvalid}
                   className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {mode === 'edit' ? t('Save changes', 'حفظ التغييرات') : t('Add to BOQ', 'إضافة إلى الجدول')}
@@ -572,8 +722,8 @@ export default function BillOfQuantities() {
           </div>
         </div>
 
-        {/* Mandatory-list notice — visible in every view when the BOQ has a Material item */}
-        {formData.boqItems.some((r) => (r.category ?? deriveCategory(r.itemName)) === 'material') && (
+        {/* Mandatory-list notice — visible in every view when the BOQ has a Material or Equipment item */}
+        {formData.boqItems.some((r) => { const c = r.category ?? deriveCategory(r.itemName); return c === 'material' || c === 'equipment'; }) && (
           <MandatoryListTile t={t} isAr={isAr} className="mb-3" />
         )}
 
@@ -662,7 +812,7 @@ export default function BillOfQuantities() {
         {layout === 'cards' && groups.length === 0 && !showAddForm && (
           <div className="rounded-xl border-2 border-dashed border-neutral-200 py-10 text-center">
             <p className="text-sm text-neutral-500">
-              {t('No items yet. Click "Add BOQ Item" below or use AI Suggest.', 'لا توجد بنود. انقر "إضافة بند" أدناه أو استخدم اقتراح الذكاء الاصطناعي.')}
+              {t('No items yet. Click "Add item" below or use AI Suggest.', 'لا توجد بنود. انقر "إضافة بند" أدناه أو استخدم اقتراح الذكاء الاصطناعي.')}
             </p>
           </div>
         )}
@@ -891,7 +1041,6 @@ export default function BillOfQuantities() {
               const m = BOQ_CATEGORY_META[cat];
               const rows = formData.boqItems.filter((r) => (r.category ?? deriveCategory(r.itemName)) === cat);
               const subtotal = rows.reduce((s, r) => s + rowTotal(r), 0);
-              const addingHere = showAddForm && addCat === cat;
               return (
                 <div key={cat} className="rounded-xl border border-neutral-200 overflow-hidden">
                   <div className="flex items-center gap-2.5 px-4 py-3 bg-neutral-50 border-b border-neutral-200">
@@ -942,35 +1091,37 @@ export default function BillOfQuantities() {
                     </div>
                   )}
 
-                  {addingHere ? (
-                    <div ref={addFormRef} className="border-t border-neutral-100">{renderItemForm('add', cat)}</div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => startAddInCategory(cat)}
-                      className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-[12px] font-semibold text-brand-700 hover:bg-brand-50/60 transition-colors border-t border-neutral-100"
-                    >
-                      <PlusIcon className="w-3.5 h-3.5" />
-                      {t(`Add ${m.en} item`, `إضافة بند ${m.ar}`)}
-                    </button>
-                  )}
                 </div>
               );
             })}
+
+            {/* Add item CTA — bottom of table (Grouped) */}
+            {showAddForm ? (
+              <div ref={addFormRef}>{renderItemForm('add')}</div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { closeItemForm(); setShowAddForm(true); }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                {t('Add item', 'إضافة بند')}
+              </button>
+            )}
           </div>
         )}
 
         {/* Add BOQ item — inline form */}
         {layout === 'cards' && showAddForm && <div ref={addFormRef}>{renderItemForm('add')}</div>}
 
-        {/* Add row link */}
+        {/* Add item CTA — bottom of table (Grid) */}
         {layout === 'cards' && !showAddForm && (
           <button
             onClick={() => { closeItemForm(); setShowAddForm(true); }}
             className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm"
           >
             <PlusIcon className="w-3.5 h-3.5" />
-            {t('Add BOQ Item', 'إضافة بند')}
+            {t('Add item', 'إضافة بند')}
           </button>
         )}
 
