@@ -680,6 +680,10 @@ export default function BillOfQuantities() {
   }
 
 
+  // Empty state: no items yet, and not actively adding or uploading.
+  // In this state we show ONLY the three option cards — every other control is hidden.
+  const isEmptyState = formData.boqItems.length === 0 && !showAddForm && !showUploadZone;
+
   return (
     <div className="space-y-5">
       <SectionCard
@@ -688,6 +692,7 @@ export default function BillOfQuantities() {
         description="Define all items, quantities, and unit prices for this tender."
         descriptionAr="حدد جميع البنود والكميات وأسعار الوحدة لهذه المنافسة."
         action={
+          isEmptyState ? undefined : (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowUploadZone((v) => !v)}
@@ -698,9 +703,11 @@ export default function BillOfQuantities() {
             </button>
             <AIButton onClick={handleAISuggest} loading={aiLoading} label={t('AI Suggest BOQ', 'اقتراح جدول الكميات')} />
           </div>
+          )
         }
       >
-        {/* Layout switch: Grid (grouped items + form) or Table (spreadsheet) */}
+        {/* Layout switch: Grid (grouped items + form) or Table (spreadsheet) — hidden in empty state */}
+        {!isEmptyState && (
         <div className="flex items-center justify-end mb-3">
           <div role="radiogroup" aria-label={t('BOQ view', 'طريقة عرض جدول الكميات')} className="inline-flex rounded-lg border border-neutral-300 bg-neutral-50 p-0.5">
             {([
@@ -716,6 +723,7 @@ export default function BillOfQuantities() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Upload zone */}
         {showUploadZone && (
@@ -798,8 +806,8 @@ export default function BillOfQuantities() {
 
         <AiNote error={boqAi.error} usedSample={boqAi.usedSample} />
 
-        {/* Empty state — three ways to build the BOQ (hidden while adding or uploading) */}
-        {layout === 'cards' && groups.length === 0 && !showAddForm && !showUploadZone && (
+        {/* Empty state — three ways to build the BOQ (replaces the whole body) */}
+        {isEmptyState && (
           <div className="rounded-2xl border border-neutral-200 bg-gradient-to-b from-neutral-50/70 to-white p-6 sm:p-8">
             {/* Illustration + heading */}
             <div className="text-center mb-7">
@@ -864,7 +872,7 @@ export default function BillOfQuantities() {
               {/* 3 · Add manually */}
               <button
                 type="button"
-                onClick={() => { closeItemForm(); setShowAddForm(true); }}
+                onClick={() => { setBoqLayout('cards'); closeItemForm(); setShowAddForm(true); }}
                 className="group relative flex flex-col text-start rounded-xl border border-neutral-200 bg-white p-4 hover:border-brand-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
               >
                 <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-neutral-100 text-neutral-700 ring-1 ring-neutral-200 mb-3 group-hover:scale-105 transition-transform">
@@ -914,7 +922,7 @@ export default function BillOfQuantities() {
         )}
 
         {/* B · spreadsheet */}
-        {layout === 'sheet' && (
+        {!isEmptyState && layout === 'sheet' && (
           <BoqSheet
             rows={formData.boqItems}
             setRows={(rows) => updateField('boqItems', rows)}
@@ -1101,7 +1109,7 @@ export default function BillOfQuantities() {
         )}
 
         {/* C · grouped by Etimad category */}
-        {layout === 'grouped' && (
+        {!isEmptyState && layout === 'grouped' && (
           <div className="space-y-3">
             {BOQ_CATEGORIES.map((cat) => {
               const m = BOQ_CATEGORY_META[cat];
@@ -1181,7 +1189,7 @@ export default function BillOfQuantities() {
         {layout === 'cards' && showAddForm && <div ref={addFormRef}>{renderItemForm('add')}</div>}
 
         {/* Add item CTA — bottom of table (Grid) */}
-        {layout === 'cards' && !showAddForm && (
+        {!isEmptyState && layout === 'cards' && !showAddForm && (
           <button
             onClick={() => { closeItemForm(); setShowAddForm(true); }}
             className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm"
