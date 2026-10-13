@@ -119,30 +119,6 @@ export const AI_BOQ_ROWS_AR = [
 
 const MANDATORY_LIST_URL = 'https://lcgpa.gov.sa/p/ar_SA/MandatoryListNationalProducts';
 
-/** Notice tile shown for the "Material" category — links to the Local Content
- *  authority's mandatory list of national products / listed companies. */
-function MandatoryListTile({ t, isAr, className = '' }: { t: (en: string, ar: string) => string; isAr: boolean; className?: string }) {
-  return (
-    <a href={MANDATORY_LIST_URL} target="_blank" rel="noopener noreferrer"
-      className={`group flex items-start gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3.5 hover:border-warning-400 hover:bg-warning-100/60 transition-colors ${className}`}>
-      <span className="w-9 h-9 rounded-lg bg-warning-100 text-warning-700 flex items-center justify-center flex-shrink-0">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-semibold text-warning-800">{t('Mandatory List — National Products', 'القائمة الإلزامية — المنتجات الوطنية')}</p>
-        <p className="text-[12px] text-warning-700 mt-0.5 leading-relaxed">
-          {t('Material and equipment items may fall under the mandatory list of national products and must be purchased from approved listed companies.',
-             'قد تندرج بنود المواد والمعدات ضمن القائمة الإلزامية للمنتجات الوطنية، ويجب شراؤها من الشركات المدرجة المعتمدة.')}
-        </p>
-        <span className="inline-flex items-center gap-1 mt-2 text-[12px] font-semibold text-warning-800 group-hover:underline">
-          {t('View Listed companies', 'عرض الشركات المدرجة')}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 ${isAr ? 'scale-x-[-1]' : ''}`}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
-        </span>
-      </div>
-    </a>
-  );
-}
-
 /** Dropdown multi-select for Man Power nationalities. */
 function NationalityMultiSelect({ selected, onToggle, isAr, t }: {
   selected: string[]; onToggle: (v: string) => void; isAr: boolean; t: (en: string, ar: string) => string;
@@ -740,11 +716,6 @@ export default function BillOfQuantities() {
             ))}
           </div>
         </div>
-
-        {/* Mandatory-list notice — visible in every view when the BOQ has a Material or Equipment item */}
-        {formData.boqItems.some((r) => { const c = r.category ?? deriveCategory(r.itemName); return c === 'material' || c === 'equipment'; }) && (
-          <MandatoryListTile t={t} isAr={isAr} className="mb-3" />
-        )}
 
         {/* Upload zone */}
         {showUploadZone && (
