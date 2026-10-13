@@ -5,6 +5,8 @@ import { SectionCard, PeoplePicker, InfoBanner, AIButton } from '../components/u
 import { SparklesIcon, AlertTriangleIcon, CheckCircleIcon } from '../components/Icons';
 import { useAiAction, AiNote, num, str } from '../lib/useAiAction';
 import { aiQualification, type AiQual } from '../lib/aiTender';
+import ImportCriteriaDrawer, { type DrawerItem } from '../components/ImportCriteriaDrawer';
+import { SIMILAR_PROJECTS, QUAL_LIBRARY, type LibQualMain } from '../lib/criteriaLibrary';
 
 const RANGE_PLACEHOLDERS: Record<string, [string, string]> = {
   'qs-1-1': ['e.g. 5–15 years', 'مثال: 5–15 سنة'],
@@ -30,11 +32,38 @@ const AI_QUAL_RANGES_AR: Record<string, AISuggestion> = {
 };
 
 export default function QualificationCriteria() {
-  const { formData, updateQualMain, updateQualSub, setQualificationCommitteeMembers, qualPctTotal } = useTender();
+  const { formData, updateField, updateQualMain, updateQualSub, setQualificationCommitteeMembers, qualPctTotal } = useTender();
   const { isAr } = useLanguage();
   const t = useT();
   const qualAi = useAiAction();
   const aiLoading = qualAi.loading;
+  const [showQualImport, setShowQualImport] = useState(false);
+
+  // Import qualification criteria (main + sub) from similar past projects.
+  const qualItemsFor = (pid: string): DrawerItem[] => (QUAL_LIBRARY[pid] ?? []).map((m) => ({
+    key: m.id, title: m.name, titleAr: m.nameAr,
+    sub: m.subCriteria.map((s) => s.name).join(' · '),
+    subAr: m.subCriteria.map((s) => s.nameAr).join(' · '),
+    badge: `${m.percentage}%`, addedBy: m.addedBy, addedByAr: m.addedByAr, addedOn: m.addedOn,
+  }));
+  const allLibQual: LibQualMain[] = Object.values(QUAL_LIBRARY).flat();
+  const existingQualKeys = new Set(
+    allLibQual.filter((m) => formData.qualificationCriteria.some((c) => {
+      const n = c.name.trim(); return n === m.name.trim() || n === m.nameAr.trim();
+    })).map((m) => m.id),
+  );
+  function importQual(keys: string[]) {
+    const existingNames = new Set(formData.qualificationCriteria.map((c) => c.name.trim()));
+    const additions = keys
+      .map((k) => allLibQual.find((m) => m.id === k))
+      .filter((m): m is LibQualMain => !!m)
+      .map((m) => ({
+        id: crypto.randomUUID(), name: isAr ? m.nameAr : m.name, nameAr: m.nameAr, percentage: m.percentage,
+        subCriteria: m.subCriteria.map((s) => ({ id: crypto.randomUUID(), name: isAr ? s.nameAr : s.name, nameAr: s.nameAr, range: s.range, percentage: s.percentage })),
+      }))
+      .filter((c) => !existingNames.has(c.name.trim()));
+    if (additions.length) updateField('qualificationCriteria', [...formData.qualificationCriteria, ...additions]);
+  }
 
   function handleAISuggest() {
     const applySample = () => {
@@ -95,7 +124,16 @@ export default function QualificationCriteria() {
         titleAr="معايير التأهيل"
         description="Define minimum qualification thresholds. Main criteria percentages must total 100%, as must each sub-criteria group."
         descriptionAr="حدد الحدود الدنيا للتأهيل. يجب أن تكون مجموع نسب المعايير الرئيسية 100%، وكذلك كل مجموعة معايير فرعية."
-        action={<AIButton onClick={handleAISuggest} loading={aiLoading} label={t('AI Suggest Values', 'اقتراح القيم')} />}
+        action={
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setShowQualImport(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-200 bg-brand-50 text-brand-700 text-[12px] font-semibold hover:bg-brand-100 transition-colors">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="8" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /><path d="M17 14v6M14 17h6" /></svg>
+              {t('Import from similar projects', 'استيراد من مشاريع مماثلة')}
+            </button>
+            <AIButton onClick={handleAISuggest} loading={aiLoading} label={t('AI Suggest Values', 'اقتراح القيم')} />
+          </div>
+        }
       >
         {aiLoading && (
           <div className="mb-4 rounded-lg border border-ai-200 bg-ai-50 p-4 ai-loading">
@@ -215,6 +253,19 @@ export default function QualificationCriteria() {
           )}
         </InfoBanner>
       </SectionCard>
+
+      <ImportCriteriaDrawer
+        open={showQualImport}
+        onClose={() => setShowQualImport(false)}
+        title="Import qualification criteria"
+        titleAr="استيراد معايير التأهيل"
+        projects={SIMILAR_PROJECTS}
+        itemsFor={qualItemsFor}
+        existingKeys={existingQualKeys}
+        onImport={importQual}
+        isAr={isAr}
+        t={t}
+      />
     </div>
   );
 }
