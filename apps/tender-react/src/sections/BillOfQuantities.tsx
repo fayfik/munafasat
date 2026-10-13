@@ -4,7 +4,7 @@ import { useTender } from '../context/TenderContext';
 import { useT } from '../context/LanguageContext';
 import { PROJECTS, UNITS_OF_MEASURE } from '../data/mockData';
 import { FormField, SectionCard, AIButton, InfoBanner, Input, Select, Textarea, Badge } from '../components/ui';
-import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, ChevronDownIcon, CheckIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon } from '../components/Icons';
+import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, ChevronDownIcon, CheckIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon, DocumentIcon } from '../components/Icons';
 import HoverNote from '../components/HoverNote';
 import BoqAttachments from '../components/BoqAttachments';
 import type { BOQRow, BOQCategory, FileAttachment } from '../types/tender';
@@ -798,12 +798,88 @@ export default function BillOfQuantities() {
 
         <AiNote error={boqAi.error} usedSample={boqAi.usedSample} />
 
-        {/* Empty state — hidden while add form is open */}
-        {layout === 'cards' && groups.length === 0 && !showAddForm && (
-          <div className="rounded-xl border-2 border-dashed border-neutral-200 py-10 text-center">
-            <p className="text-sm text-neutral-500">
-              {t('No items yet. Click "Add item" below or use AI Suggest.', 'لا توجد بنود. انقر "إضافة بند" أدناه أو استخدم اقتراح الذكاء الاصطناعي.')}
-            </p>
+        {/* Empty state — three ways to build the BOQ (hidden while adding or uploading) */}
+        {layout === 'cards' && groups.length === 0 && !showAddForm && !showUploadZone && (
+          <div className="rounded-2xl border border-neutral-200 bg-gradient-to-b from-neutral-50/70 to-white p-6 sm:p-8">
+            {/* Illustration + heading */}
+            <div className="text-center mb-7">
+              <div className="relative mx-auto mb-4 w-16 h-16">
+                <div className="absolute inset-0 rounded-2xl bg-brand-100/70 rotate-6" />
+                <div className="absolute inset-0 rounded-2xl bg-white border border-brand-200 shadow-sm flex items-center justify-center">
+                  <DocumentIcon className="w-8 h-8 text-brand-600" />
+                </div>
+              </div>
+              <h3 className="text-base font-bold text-neutral-900">
+                {t('Start your Bill of Quantities', 'ابدأ جدول الكميات')}
+              </h3>
+              <p className="mt-1.5 text-sm text-neutral-500 max-w-md mx-auto leading-relaxed">
+                {t('Choose how you want to add items — you can switch methods or mix them anytime.', 'اختر طريقة إضافة البنود — يمكنك تبديل الطرق أو الجمع بينها في أي وقت.')}
+              </p>
+            </div>
+
+            {/* Three option tiles */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* 1 · Upload via template */}
+              <button
+                type="button"
+                onClick={() => setShowUploadZone(true)}
+                className="group relative flex flex-col text-start rounded-xl border border-neutral-200 bg-white p-4 hover:border-brand-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 mb-3 group-hover:scale-105 transition-transform">
+                  <UploadIcon className="w-5 h-5" />
+                </span>
+                <p className="text-sm font-bold text-neutral-900">{t('Upload via template', 'الرفع عبر نموذج')}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
+                  {t('Download the Excel template, fill it in, and upload. Fastest for long lists.', 'نزّل نموذج Excel، أكمله، ثم ارفعه. الأسرع للقوائم الطويلة.')}
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600">
+                  {t('Choose a file', 'اختر ملفاً')}
+                  <ChevronRightIcon className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </span>
+              </button>
+
+              {/* 2 · Generate with AI (recommended) */}
+              <button
+                type="button"
+                onClick={handleAISuggest}
+                disabled={aiLoading}
+                className="group relative flex flex-col text-start rounded-xl border border-ai-200 bg-gradient-to-b from-ai-50/80 to-white p-4 hover:border-ai-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-70 disabled:cursor-wait"
+              >
+                <span className="absolute top-3 end-3 text-[9px] font-bold uppercase tracking-wide text-ai-700 bg-white/90 border border-ai-200 rounded-full px-2 py-0.5">
+                  {t('Recommended', 'موصى به')}
+                </span>
+                <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-ai-100 text-ai-600 ring-1 ring-ai-200 mb-3 group-hover:scale-105 transition-transform">
+                  <SparklesIcon className={`w-5 h-5 ${aiLoading ? 'spin-slow' : ''}`} />
+                </span>
+                <p className="text-sm font-bold text-neutral-900">{t('Generate with AI', 'التوليد بالذكاء الاصطناعي')}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
+                  {t('Let AI draft items from your project scope, then review and adjust.', 'دع الذكاء الاصطناعي يصيغ البنود من نطاق مشروعك، ثم راجع وعدّل.')}
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-ai-700">
+                  {aiLoading ? t('Generating…', 'جارٍ التوليد…') : t('Suggest items', 'اقترح البنود')}
+                  {!aiLoading && <ChevronRightIcon className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />}
+                </span>
+              </button>
+
+              {/* 3 · Add manually */}
+              <button
+                type="button"
+                onClick={() => { closeItemForm(); setShowAddForm(true); }}
+                className="group relative flex flex-col text-start rounded-xl border border-neutral-200 bg-white p-4 hover:border-brand-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-neutral-100 text-neutral-700 ring-1 ring-neutral-200 mb-3 group-hover:scale-105 transition-transform">
+                  <PlusIcon className="w-5 h-5" />
+                </span>
+                <p className="text-sm font-bold text-neutral-900">{t('Add manually', 'الإضافة يدوياً')}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
+                  {t('Enter each item yourself with full control over every detail.', 'أدخل كل بند بنفسك مع تحكم كامل في كل التفاصيل.')}
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-neutral-700">
+                  {t('Add first item', 'أضف أول بند')}
+                  <ChevronRightIcon className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </span>
+              </button>
+            </div>
           </div>
         )}
 
