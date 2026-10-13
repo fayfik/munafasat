@@ -89,7 +89,7 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
 
       {/* ── Request overview hero ─────────────────────────────────── */}
       <div className="rounded-2xl overflow-hidden border border-neutral-200 shadow-sm bg-white">
-        <div className="relative px-6 py-5 bg-gradient-to-br from-brand-600 via-brand-700 to-ai-700 text-white">
+        <div className="relative px-6 py-5 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 text-white">
           <div className="absolute -top-10 -end-8 w-44 h-44 rounded-full bg-white/10" />
           <div className="absolute -bottom-16 -start-6 w-48 h-48 rounded-full bg-white/5" />
           <div className="relative flex items-start justify-between gap-4 flex-wrap">
@@ -499,7 +499,7 @@ function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grand
 
   const steps = [
     { icon: <ClockIcon className="w-4 h-4" />, tone: 'bg-blue-50 text-blue-600', en: 'Procurement Committee Review', ar: 'مراجعة لجنة المشتريات', metaEn: '2–5 business days', metaAr: '2–5 أيام عمل' },
-    { icon: <CheckCircleIcon className="w-4 h-4" />, tone: 'bg-ai-50 text-ai-600', en: 'Budget & Policy Approval', ar: 'اعتماد الميزانية والسياسات', metaEn: '3–7 business days', metaAr: '3–7 أيام عمل' },
+    { icon: <CheckCircleIcon className="w-4 h-4" />, tone: 'bg-brand-50 text-brand-600', en: 'Budget & Policy Approval', ar: 'اعتماد الميزانية والسياسات', metaEn: '3–7 business days', metaAr: '3–7 أيام عمل' },
     { icon: <EyeGlyph />, tone: 'bg-warning-50 text-warning-600', en: 'RFP Published to Vendor Portal', ar: 'نشر الطلب في بوابة الموردين', metaEn: 'Upon approval', metaAr: 'عند الاعتماد' },
     { icon: <PeopleGlyph />, tone: 'bg-success-50 text-success-600', en: 'Vendor Submission Period', ar: 'فترة تقديم الموردين', metaEn: '30 days open window', metaAr: 'نافذة مفتوحة 30 يوماً' },
   ];
@@ -525,7 +525,7 @@ function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grand
 
       {/* RFP summary card */}
       <div className="success-copy mt-6 rounded-2xl overflow-hidden border border-neutral-200 shadow-sm bg-white" style={{ animationDelay: '0.8s' }}>
-        <div className="px-5 py-4 bg-gradient-to-br from-ai-600 to-brand-700 text-white flex items-start justify-between gap-3">
+        <div className="px-5 py-4 bg-gradient-to-br from-brand-600 to-brand-800 text-white flex items-start justify-between gap-3">
           <div>
             <p className="text-[10.5px] font-semibold uppercase tracking-widest text-white/70">{t('Request for proposal', 'طلب عرض أسعار')}</p>
             <p className="text-[18px] font-bold mt-0.5 tracking-wide" dir="ltr">{requestNo}</p>
@@ -592,7 +592,7 @@ function RfpModal({ onClose, requestNo, projectName, deptName, subtotal, grandTo
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
       <div className="relative w-full max-w-[680px] max-h-[86vh] overflow-y-auto rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 px-6 py-4 bg-gradient-to-br from-ai-600 to-brand-700 text-white flex items-center justify-between">
+        <div className="sticky top-0 px-6 py-4 bg-gradient-to-br from-brand-600 to-brand-800 text-white flex items-center justify-between">
           <div><p className="text-[10.5px] uppercase tracking-widest text-white/70">{t('Request for proposal', 'طلب عرض أسعار')}</p><p className="text-[16px] font-bold" dir="ltr">{requestNo}</p></div>
           <button type="button" onClick={onClose} aria-label={t('Close', 'إغلاق')} className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center"><svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg></button>
         </div>
@@ -656,7 +656,7 @@ function MiniCard({ icon, label, value, ltr }: { icon: ReactNode; label: string;
 function CtaCard({ icon, title, sub, onClick, primary }: { icon: ReactNode; title: string; sub: string; onClick: () => void; primary?: boolean }) {
   return (
     <button type="button" onClick={onClick}
-      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-start transition-colors ${primary ? 'bg-ai-600 border-ai-600 text-white hover:bg-ai-700' : 'bg-white border-neutral-200 text-neutral-800 hover:border-neutral-300 hover:bg-neutral-50'}`}>
+      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-start transition-colors ${primary ? 'bg-brand-600 border-brand-600 text-white hover:bg-brand-700' : 'bg-white border-neutral-200 text-neutral-800 hover:border-neutral-300 hover:bg-neutral-50'}`}>
       <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${primary ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'}`}>{icon}</span>
       <div><p className="text-[13.5px] font-semibold leading-tight">{title}</p><p className={`text-[11.5px] ${primary ? 'text-white/70' : 'text-neutral-400'}`}>{sub}</p></div>
     </button>
