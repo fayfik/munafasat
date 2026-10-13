@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, Fragment, type ReactNode } from 'react';
 import { useTender, SECTIONS } from '../context/TenderContext';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { useRequests } from '../context/RequestStore';
@@ -12,6 +12,7 @@ import { isStale, needsJustification } from '../lib/etimadCheck';
 import { BOQ_CATEGORIES, BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
 import { effectiveQty } from '../lib/boqManpower';
 import RegulatoryRecordsCard from '../components/RegulatoryRecordsCard';
+import { LOCKED_TECH_DOCS } from './TechnicalEvaluation';
 
 function formatSAR(n: number) {
   return new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -40,7 +41,8 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
 
   const isEsouq = formData.sourceType === 'souq-etimad';
   const ESOUQ_IDS = ['procurement-route', 'project-setup', 'boq', 'attachments', 'review'];
-  const reqIdxs = SECTIONS.map((_, i) => i).filter((i) => SECTIONS[i].id !== 'review' && (!isEsouq || ESOUQ_IDS.includes(SECTIONS[i].id)));
+  // Attachments is optional — it does not count toward completion / the 100% total.
+  const reqIdxs = SECTIONS.map((_, i) => i).filter((i) => SECTIONS[i].id !== 'review' && SECTIONS[i].id !== 'attachments' && (!isEsouq || ESOUQ_IDS.includes(SECTIONS[i].id)));
 
   const incompleteSections = reqIdxs
     .map((i) => ({ status: sectionStatuses[i], section: SECTIONS[i], idx: i }))
@@ -183,19 +185,37 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
           {extraCCs.length > 0 && <ReviewField label={t('Additional Cost Centers', 'مراكز تكلفة إضافية')} value={extraCCs.map((c) => `${c.name} (${c.code})`).join(', ')} />}
           <ReviewField label={t('Source Type', 'نوع المصدر')} value={formData.sourceType === 'tendering' ? t('Competitive Tender', 'منافسة') : t('Etimad E-Market', 'سوق اعتماد')} />
         </dl>
+        {formData.tenderingPurpose && (
+          <div className="mt-4 pt-4 border-t border-neutral-100">
+            <p className="text-[11px] text-neutral-400 mb-1">{isEsouq ? t('Purpose of purchase', 'الغرض من الشراء') : t('Purpose of tendering', 'الغرض من المنافسة')}</p>
+            <p className="text-[13px] text-neutral-700 leading-relaxed whitespace-pre-line">{formData.tenderingPurpose}</p>
+          </div>
+        )}
       </ReviewSection>
 
       {/* ── Scope of work ────────────────────────────────────────── */}
       {!isEsouq && (
         <ReviewSection title="Scope of Work" titleAr="نطاق العمل" sectionIdx={2} status={sectionStatuses[2]}>
           {formData.scopeOfWork ? (
-            <p className="text-[13px] text-neutral-600 leading-relaxed whitespace-pre-line line-clamp-4">{formData.scopeOfWork}</p>
+            <p className="text-[13px] text-neutral-600 leading-relaxed whitespace-pre-line">{formData.scopeOfWork}</p>
           ) : <span className="text-neutral-400 italic text-sm">{t('Not completed', 'غير مكتمل')}</span>}
+          {formData.scopeTerms && (
+            <div className="mt-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 mb-1">{t('Scope-specific terms & conditions', 'الشروط الخاصة بالنطاق')}</p>
+              <p className="text-[12.5px] text-neutral-600 leading-relaxed whitespace-pre-line">{formData.scopeTerms}</p>
+            </div>
+          )}
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <MiniCard icon={<CalendarGlyph />} label={t('Start date', 'تاريخ البدء')} value={formData.startDate || '—'} ltr />
             <MiniCard icon={<ClockIcon className="w-4 h-4" />} label={t('Duration', 'المدة')} value={formData.contractDuration ? `${formData.contractDuration} ${t(formData.contractDurationType, formData.contractDurationType === 'days' ? 'أيام' : formData.contractDurationType === 'months' ? 'أشهر' : 'سنوات')}` : '—'} />
-            <MiniCard icon={<PinGlyph />} label={t('Location', 'الموقع')} value={formData.executionLocation ? (formData.executionLocation.length > 42 ? formData.executionLocation.slice(0, 42) + '…' : formData.executionLocation) : '—'} />
+            <MiniCard icon={<PinGlyph />} label={t('Location', 'الموقع')} value={formData.executionLocation ? t('See below', 'انظر أدناه') : '—'} />
           </div>
+          {formData.executionLocation && (
+            <div className="mt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 mb-1">{t('Execution location', 'مكان التنفيذ')}</p>
+              <p className="text-[12.5px] text-neutral-600 leading-relaxed whitespace-pre-line">{formData.executionLocation}</p>
+            </div>
+          )}
         </ReviewSection>
       )}
 
@@ -311,24 +331,70 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
       {/* ── Technical evaluation ─────────────────────────────────── */}
       {!isEsouq && (
         <ReviewSection title="Technical Evaluation" titleAr="التقييم الفني" sectionIdx={5} status={sectionStatuses[5]}>
+          <SubLabel>{t('Evaluation committee', 'لجنة التقييم')}</SubLabel>
           <CommitteeRow members={formData.technicalCommitteeMembers} isAr={isAr} t={t} />
+
+          <div className="mt-4">
+            <SubLabel>{t('Technical documents', 'الوثائق الفنية')}</SubLabel>
+            <div className="flex flex-wrap gap-1.5">
+              {LOCKED_TECH_DOCS.map((d, i) => (
+                <span key={`l-${i}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11.5px] bg-neutral-100 text-neutral-600 border border-neutral-200">
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="w-2.5 h-2.5 text-neutral-400"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                  {isAr ? d.ar : d.en}
+                </span>
+              ))}
+              {(formData.technicalDocumentsList as string[]).map((dco, i) => (
+                <span key={`u-${i}`} className="inline-flex items-center px-2.5 py-1 rounded-full text-[11.5px] bg-white text-neutral-700 border border-neutral-200">{dco}</span>
+              ))}
+            </div>
+          </div>
+
+          {formData.technicalRequirements.length > 0 && (
+            <div className="mt-4">
+              <SubLabel>{t('Technical requirements', 'المتطلبات الفنية')}</SubLabel>
+              <div className="overflow-x-auto rounded-xl border border-neutral-200">
+                <table className="w-full text-[12.5px]">
+                  <thead>
+                    <tr className="bg-neutral-50 border-b border-neutral-200 text-[11px] text-neutral-500">
+                      <th className="text-start px-3 py-2 font-medium w-8">#</th>
+                      <th className="text-start px-3 py-2 font-medium w-48">{t('Requirement', 'المتطلب')}</th>
+                      <th className="text-start px-3 py-2 font-medium">{t('Description', 'الوصف')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {formData.technicalRequirements.map((r, idx) => (
+                      <tr key={r.id} className="bg-white align-top">
+                        <td className="px-3 py-2 text-neutral-400 text-center">{idx + 1}</td>
+                        <td className="px-3 py-2 font-medium text-neutral-800">{r.requirement || '—'}</td>
+                        <td className="px-3 py-2 text-neutral-600 leading-snug">{r.description || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {formData.evaluationCriteria.length > 0 ? (
-            <div className="mt-4 space-y-2.5">
-              {formData.evaluationCriteria.map((c, i) => {
-                const w = Number(c.weight) || 0;
-                return (
-                  <div key={c.id} className="flex items-center gap-3">
-                    <span className="text-[12.5px] text-neutral-700 w-[46%] truncate" title={c.description}>{c.description || t('Criterion', 'معيار')}</span>
-                    <div className="flex-1 h-2 rounded-full bg-neutral-100 overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${Math.min(w, 100)}%`, background: SERIES[i % SERIES.length] }} />
+            <div className="mt-4">
+              <SubLabel>{t('Evaluation criteria & weights', 'معايير التقييم والأوزان')}</SubLabel>
+              <div className="space-y-2.5">
+                {formData.evaluationCriteria.map((c, i) => {
+                  const w = Number(c.weight) || 0;
+                  return (
+                    <div key={c.id} className="flex items-center gap-3">
+                      <span className="text-[12.5px] text-neutral-700 w-[46%] truncate" title={c.description}>{c.description || t('Criterion', 'معيار')}</span>
+                      <div className="flex-1 h-2 rounded-full bg-neutral-100 overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${Math.min(w, 100)}%`, background: SERIES[i % SERIES.length] }} />
+                      </div>
+                      <span className="text-[12px] font-semibold text-neutral-700 tabular-nums w-10 text-end">{w}%</span>
                     </div>
-                    <span className="text-[12px] font-semibold text-neutral-700 tabular-nums w-10 text-end">{w}%</span>
-                  </div>
-                );
-              })}
-              <div className="flex items-center gap-4 pt-2 mt-1 border-t border-neutral-100 text-[12px]">
-                <span className={`font-semibold ${evalWeightTotal === 100 ? 'text-success-600' : 'text-warning-600'}`}>{t('Total weight', 'إجمالي الأوزان')}: {evalWeightTotal}% {evalWeightTotal === 100 ? '✓' : '⚠'}</span>
-                <span className="text-neutral-500">{t('Passing', 'الاجتياز')}: <span className="font-semibold text-neutral-800">{formData.technicalPassingPercentage || '—'}%</span></span>
+                  );
+                })}
+                <div className="flex items-center gap-4 pt-2 mt-1 border-t border-neutral-100 text-[12px]">
+                  <span className={`font-semibold ${evalWeightTotal === 100 ? 'text-success-600' : 'text-warning-600'}`}>{t('Total weight', 'إجمالي الأوزان')}: {evalWeightTotal}% {evalWeightTotal === 100 ? '✓' : '⚠'}</span>
+                  <span className="text-neutral-500">{t('Passing', 'الاجتياز')}: <span className="font-semibold text-neutral-800">{formData.technicalPassingPercentage || '—'}%</span></span>
+                </div>
               </div>
             </div>
           ) : <p className="mt-3 text-sm text-neutral-400 italic">{t('No evaluation criteria', 'لا توجد معايير تقييم')}</p>}
@@ -338,34 +404,52 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
       {/* ── Qualification criteria ───────────────────────────────── */}
       {!isEsouq && (
         <ReviewSection title="Qualification Criteria" titleAr="معايير التأهيل" sectionIdx={6} status={sectionStatuses[6]}>
+          <SubLabel>{t('Qualification committee', 'لجنة التأهيل')}</SubLabel>
           <CommitteeRow members={formData.qualificationCommitteeMembers} isAr={isAr} t={t} />
           {formData.qualificationCriteria.length > 0 ? (
-            <div className="mt-4 space-y-3">
-              {formData.qualificationCriteria.map((m, i) => {
-                const p = Number(m.percentage) || 0;
-                return (
-                  <div key={m.id}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[12.5px] font-semibold text-neutral-800 w-[46%] truncate">{isAr ? m.nameAr : m.name}</span>
-                      <div className="flex-1 h-2 rounded-full bg-neutral-100 overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${Math.min(p, 100)}%`, background: SERIES[i % SERIES.length] }} />
-                      </div>
-                      <span className="text-[12px] font-semibold text-neutral-700 tabular-nums w-10 text-end">{p}%</span>
-                    </div>
-                    {m.subCriteria.length > 0 && (
-                      <div className="mt-1 ms-3 ps-3 border-s border-neutral-100 flex flex-wrap gap-x-4 gap-y-0.5">
-                        {m.subCriteria.map((s) => (
-                          <span key={s.id} className="text-[11px] text-neutral-500">{isAr ? s.nameAr : s.name}{s.range ? <span className="text-neutral-400"> · {s.range}</span> : ''} <span className="text-neutral-400">({s.percentage}%)</span></span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              <div className="pt-2 mt-1 border-t border-neutral-100 text-[12px]">
+            <>
+              <div className="mt-4 rounded-xl border border-neutral-200 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-neutral-50 border-b border-neutral-200 text-[11px] text-neutral-500">
+                      <th className="text-start px-4 py-2 font-medium min-w-[220px]">{t('Criteria', 'المعايير')}</th>
+                      <th className="text-start px-4 py-2 font-medium min-w-[140px]">{t('Range', 'النطاق')}</th>
+                      <th className="text-end px-4 py-2 font-medium w-24">{t('Weight (%)', 'الوزن (%)')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formData.qualificationCriteria.map((main) => {
+                      const subTotal = main.subCriteria.reduce((s, c) => s + (typeof c.percentage === 'number' ? c.percentage : 0), 0);
+                      const subOk = subTotal === 100;
+                      return (
+                        <Fragment key={main.id}>
+                          <tr className="bg-neutral-50 border-t border-b border-neutral-200">
+                            <td className="px-4 py-2.5"><p className="text-[13px] font-semibold text-neutral-800">{isAr ? main.nameAr : main.name}</p></td>
+                            <td className="px-4 py-2.5 text-[11px] text-neutral-400 italic">{t('Main category', 'فئة رئيسية')}</td>
+                            <td className="px-4 py-2.5 text-end"><span className="text-[13px] font-semibold text-neutral-800 tabular-nums">{Number(main.percentage) || 0}%</span></td>
+                          </tr>
+                          {main.subCriteria.map((sub) => (
+                            <tr key={sub.id} className="bg-white border-b border-neutral-100">
+                              <td className="px-4 py-2 ps-8"><span className="text-neutral-300 me-1">└</span><span className="text-[12px] text-neutral-700">{isAr ? sub.nameAr : sub.name}</span></td>
+                              <td className="px-4 py-2 text-[12px] text-neutral-600">{sub.range || '—'}</td>
+                              <td className="px-4 py-2 text-end text-[12px] text-neutral-700 tabular-nums">{Number(sub.percentage) || 0}%</td>
+                            </tr>
+                          ))}
+                          <tr className={`border-b-2 border-neutral-200 ${subOk ? 'bg-success-50/40' : 'bg-warning-50/40'}`}>
+                            <td className="px-4 py-1.5 ps-8 text-[11px] text-neutral-400 italic">{t('Sub-criteria total', 'إجمالي المعايير الفرعية')}</td>
+                            <td />
+                            <td className={`px-4 py-1.5 text-end text-[11px] font-semibold tabular-nums ${subOk ? 'text-success-600' : 'text-warning-600'}`}>{subTotal}% {!subOk && '⚠'}</td>
+                          </tr>
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="pt-2 mt-2 text-[12px]">
                 <span className={`font-semibold ${qualPctTotal === 100 ? 'text-success-600' : 'text-warning-600'}`}>{t('Main criteria total', 'إجمالي المعايير الرئيسية')}: {qualPctTotal}% {qualPctTotal === 100 ? '✓' : '⚠'}</span>
               </div>
-            </div>
+            </>
           ) : <p className="mt-3 text-sm text-neutral-400 italic">{t('No qualification criteria', 'لا توجد معايير تأهيل')}</p>}
         </ReviewSection>
       )}
@@ -541,6 +625,9 @@ function RfpModal({ onClose, requestNo, projectName, deptName, subtotal, grandTo
 }
 
 /* ── Small building blocks ─────────────────────────────────────── */
+function SubLabel({ children }: { children: ReactNode }) {
+  return <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 mb-2">{children}</p>;
+}
 function HeroStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div>

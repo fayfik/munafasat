@@ -9,7 +9,7 @@ import ImportCriteriaDrawer, { type DrawerItem } from '../components/ImportCrite
 import { SIMILAR_PROJECTS, EVAL_LIBRARY, type LibEvalCriterion } from '../lib/criteriaLibrary';
 
 // Mandatory documents — always required, can't be removed (locked).
-const LOCKED_TECH_DOCS: { en: string; ar: string }[] = [
+export const LOCKED_TECH_DOCS: { en: string; ar: string }[] = [
   { en: 'Vendor Technical Proposal (Arabic & English)', ar: 'العرض الفني للمورد (عربي وإنجليزي)' },
   { en: 'Valid Commercial Registration (CR)', ar: 'سجل تجاري ساري المفعول' },
   { en: 'Cybersecurity Compliance Certificate (NCA ECC-1:2018)', ar: 'شهادة الامتثال للأمن السيبراني (ECC-1:2018)' },

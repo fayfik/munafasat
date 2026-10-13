@@ -4,7 +4,7 @@ import { useTender } from '../context/TenderContext';
 import { useT } from '../context/LanguageContext';
 import { PROJECTS, UNITS_OF_MEASURE } from '../data/mockData';
 import { FormField, SectionCard, AIButton, InfoBanner, Input, Select, Textarea, Badge } from '../components/ui';
-import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon } from '../components/Icons';
+import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, ChevronDownIcon, CheckIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon } from '../components/Icons';
 import HoverNote from '../components/HoverNote';
 import BoqAttachments from '../components/BoqAttachments';
 import type { BOQRow, BOQCategory, FileAttachment } from '../types/tender';
@@ -143,29 +143,48 @@ function MandatoryListTile({ t, isAr, className = '' }: { t: (en: string, ar: st
   );
 }
 
-/** Chip-style multi-select for Man Power nationalities. */
+/** Dropdown multi-select for Man Power nationalities. */
 function NationalityMultiSelect({ selected, onToggle, isAr, t }: {
   selected: string[]; onToggle: (v: string) => void; isAr: boolean; t: (en: string, ar: string) => string;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function h(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  const label = selected.length > 0
+    ? selected.map((v) => nationalityLabel(v, isAr)).join('، ')
+    : t('Select nationalities…', 'اختر الجنسيات…');
   return (
-    <div className="rounded-lg border border-neutral-300 bg-white px-3 py-2.5">
-      <div className="flex flex-wrap gap-1.5">
-        {NATIONALITIES.map((n) => {
-          const on = selected.includes(n.value);
-          return (
-            <button key={n.value} type="button" onClick={() => onToggle(n.value)}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400'}`}>
-              {isAr ? n.ar : n.en}
-              {on && <span aria-hidden>×</span>}
-            </button>
-          );
-        })}
-      </div>
-      <p className="text-[11px] text-neutral-500 mt-2">
-        {selected.length > 0
-          ? t(`${selected.length} selected`, `${selected.length} محددة`)
-          : t('Select one or more nationalities.', 'اختر جنسية واحدة أو أكثر.')}
-      </p>
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className={`w-full flex items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md shadow-sm transition-colors hover:border-neutral-400 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 ${selected.length ? 'text-neutral-900' : 'text-neutral-400'}`}>
+        <span className="flex-1 truncate text-start">{label}</span>
+        {selected.length > 0 && <span className="text-[10px] font-bold text-white bg-brand-600 rounded-full px-1.5 py-0.5 flex-shrink-0">{selected.length}</span>}
+        <ChevronDownIcon className={`w-4 h-4 text-neutral-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto rounded-xl border border-neutral-200 bg-white shadow-lg slide-up">
+          <ul className="py-1">
+            {NATIONALITIES.map((n) => {
+              const on = selected.includes(n.value);
+              return (
+                <li key={n.value}>
+                  <button type="button" onClick={() => onToggle(n.value)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-start hover:bg-neutral-50 transition-colors">
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${on ? 'bg-brand-600 border-brand-600' : 'border-neutral-300'}`}>
+                      {on && <CheckIcon className="w-3 h-3 text-white" />}
+                    </span>
+                    <span className="text-[13px] text-neutral-700">{isAr ? n.ar : n.en}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

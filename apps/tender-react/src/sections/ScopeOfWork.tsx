@@ -92,6 +92,17 @@ export default function ScopeOfWork() {
   const termsLoading = termsAi.loading;
   const [aiScopeText, setAiScopeText] = useState<string | null>(null);
   const [wfOpen, setWfOpen] = useState(false);
+  const [locLoading, setLocLoading] = useState(false);
+
+  function generateLocation() {
+    setLocLoading(true);
+    window.setTimeout(() => {
+      updateField('executionLocation', isAr
+        ? 'المقر الرئيسي للجهة — الرياض، ومقر المقاول لأعمال التطوير. يجب أن تبقى جميع البيانات والأنظمة مُستضافة داخل المملكة العربية السعودية طوال مدة العقد.'
+        : "The organization's headquarters — Riyadh, with the contractor's premises for off-site development. All data and systems must remain hosted within the Kingdom of Saudi Arabia for the full contract duration.");
+      setLocLoading(false);
+    }, 650);
+  }
 
   const selectedProject = PROJECTS.find((p) => p.id === formData.projectId);
 
@@ -241,7 +252,8 @@ export default function ScopeOfWork() {
         descriptionAr="حدد مكان تنفيذ العمل والجدول الزمني للعقد."
       >
         <div className="space-y-4">
-          <FormField label="Work & Services Execution Location" labelAr="مكان تنفيذ الأعمال والخدمات" required>
+          <FormField label="Work & Services Execution Location" labelAr="مكان تنفيذ الأعمال والخدمات" required
+            action={<AIButton onClick={generateLocation} loading={locLoading} label={t('Generate with AI', 'توليد بالذكاء الاصطناعي')} />}>
             <Textarea
               value={formData.executionLocation}
               onChange={(e) => updateField('executionLocation', e.target.value)}
