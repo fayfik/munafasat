@@ -683,6 +683,9 @@ export default function BillOfQuantities() {
   // Empty state: no items yet, and not actively adding or uploading.
   // In this state we show ONLY the three option cards — every other control is hidden.
   const isEmptyState = formData.boqItems.length === 0 && !showAddForm && !showUploadZone;
+  // Template flow reached from the empty state (no items yet): show just the two step
+  // cards + a Back link, and hide the toolbar / layout switch so it reads as its own screen.
+  const uploadingEmpty = showUploadZone && formData.boqItems.length === 0 && !showAddForm;
 
   return (
     <div className="space-y-5">
@@ -692,7 +695,7 @@ export default function BillOfQuantities() {
         description="Define all items, quantities, and unit prices for this tender."
         descriptionAr="حدد جميع البنود والكميات وأسعار الوحدة لهذه المنافسة."
         action={
-          isEmptyState ? undefined : (
+          (isEmptyState || uploadingEmpty) ? undefined : (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowUploadZone((v) => !v)}
@@ -706,8 +709,8 @@ export default function BillOfQuantities() {
           )
         }
       >
-        {/* Layout switch: Grid (grouped items + form) or Table (spreadsheet) — hidden in empty state */}
-        {!isEmptyState && (
+        {/* Layout switch: Grid (grouped items + form) or Table (spreadsheet) — hidden in empty / template flow */}
+        {!isEmptyState && !uploadingEmpty && (
         <div className="flex items-center justify-end mb-3">
           <div role="radiogroup" aria-label={t('BOQ view', 'طريقة عرض جدول الكميات')} className="inline-flex rounded-lg border border-neutral-300 bg-neutral-50 p-0.5">
             {([
@@ -725,72 +728,111 @@ export default function BillOfQuantities() {
         </div>
         )}
 
-        {/* Upload zone */}
+        {/* Upload zone — two side-by-side step cards: 1) download template, 2) upload file */}
         {showUploadZone && (
-          <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 overflow-hidden">
-            {/* Drop area */}
-            <div
-              className="border-2 border-dashed border-neutral-300 rounded-xl m-3 p-6 text-center transition-colors hover:border-brand-400 hover:bg-brand-50/30"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                const file = e.dataTransfer.files[0];
-                if (file) handleFileUpload(file);
-              }}
-            >
-              {uploadLoading ? (
-                <div className="flex flex-col items-center gap-2">
-                  <SparklesIcon className="w-7 h-7 text-brand-400 spin-slow" />
-                  <p className="text-sm text-neutral-600">{t('Reading file…', 'جاري قراءة الملف…')}</p>
-                </div>
-              ) : (
-                <>
-                  <UploadIcon className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-neutral-600">{t('Drop your Excel file here, or', 'اسحب ملف Excel هنا، أو')}</p>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-sm text-brand-600 font-semibold hover:text-brand-700 mt-0.5 transition-colors"
-                  >
-                    {t('browse to upload', 'تصفح للرفع')}
-                  </button>
-                  <p className="text-xs text-neutral-500 mt-2">{t('Supports .xlsx and .xls · Max 10MB', 'يدعم .xlsx و .xls · الحد الأقصى 10 ميجابايت')}</p>
-                </>
+          <div className="mb-4">
+            {/* Header + back to options */}
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 className="text-sm font-bold text-neutral-900">{t('Build from a template', 'ابدأ من نموذج')}</h3>
+                <p className="text-[12px] text-neutral-500">{t('Two quick steps — download, fill it in Excel, then upload.', 'خطوتان سريعتان — نزّل النموذج، أكمله في Excel، ثم ارفعه.')}</p>
+              </div>
+              {uploadingEmpty && (
+                <button
+                  type="button"
+                  onClick={() => setShowUploadZone(false)}
+                  className="flex-shrink-0 inline-flex items-center gap-1 text-[12px] font-medium text-neutral-500 hover:text-neutral-700 transition-colors"
+                >
+                  <ChevronRightIcon className="w-3.5 h-3.5 rotate-180" />
+                  {t('Back to options', 'العودة للخيارات')}
+                </button>
               )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFileUpload(file);
-                  e.target.value = '';
-                }}
-              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* STEP 1 · Download the template */}
+              <div className="relative flex flex-col rounded-xl border border-neutral-200 bg-white p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-600 text-white text-[12px] font-bold tabular-nums">1</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">{t('Step 1', 'الخطوة 1')}</span>
+                </div>
+                <span className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 mb-3">
+                  <DownloadIcon className="w-6 h-6" />
+                </span>
+                <p className="text-sm font-bold text-neutral-900">{t('Download the template', 'نزّل النموذج')}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
+                  {formData.boqItems.length > 0
+                    ? t('Get your current BOQ as a pre-filled Excel file to edit offline.', 'احصل على جدول الكميات الحالي كملف Excel مملوء لتعديله دون اتصال.')
+                    : t('Get the Excel file with the right columns, then fill in your items.', 'احصل على ملف Excel بالأعمدة الصحيحة، ثم املأ بنودك.')}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => downloadBOQExcel(formData.boqItems)}
+                  className="mt-4 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors shadow-sm"
+                >
+                  <DownloadIcon className="w-4 h-4" />
+                  {formData.boqItems.length > 0 ? t('Download pre-filled', 'تنزيل مملوء') : t('Download template', 'تنزيل النموذج')}
+                </button>
+              </div>
+
+              {/* STEP 2 · Upload the completed file */}
+              <div className="relative flex flex-col rounded-xl border border-neutral-200 bg-white p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-600 text-white text-[12px] font-bold tabular-nums">2</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">{t('Step 2', 'الخطوة 2')}</span>
+                </div>
+                <div
+                  className="flex-1 flex flex-col items-center justify-center text-center border-2 border-dashed border-neutral-300 rounded-xl p-5 min-h-[150px] transition-colors hover:border-brand-400 hover:bg-brand-50/30"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    if (file) handleFileUpload(file);
+                  }}
+                >
+                  {uploadLoading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <SparklesIcon className="w-7 h-7 text-brand-400 spin-slow" />
+                      <p className="text-sm text-neutral-600">{t('Reading file…', 'جاري قراءة الملف…')}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <UploadIcon className="w-8 h-8 text-neutral-300 mb-2" />
+                      <p className="text-sm font-bold text-neutral-900">{t('Upload the completed file', 'ارفع الملف المكتمل')}</p>
+                      <p className="text-[12px] text-neutral-500 mt-0.5">
+                        {t('Drop your Excel file here, or ', 'اسحب ملف Excel هنا، أو ')}
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-brand-600 font-semibold hover:text-brand-700 transition-colors"
+                        >
+                          {t('browse', 'تصفح')}
+                        </button>
+                      </p>
+                      <p className="text-[11px] text-neutral-400 mt-2">{t('Supports .xlsx and .xls · Max 10MB', 'يدعم .xlsx و .xls · الحد الأقصى 10 ميجابايت')}</p>
+                    </>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
             </div>
 
             {/* Error */}
             {uploadError && (
-              <div className="mx-3 mb-3 px-3 py-2 rounded-lg bg-error-50 border border-error-100 text-xs text-error-700">
+              <div className="mt-3 px-3 py-2 rounded-lg bg-error-50 border border-error-100 text-xs text-error-700">
                 {uploadError}
               </div>
             )}
-
-            {/* Download template */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-t border-neutral-200 bg-white">
-              <p className="text-xs text-neutral-500">
-                {formData.boqItems.length > 0
-                  ? t('Download current BOQ as pre-filled template', 'تنزيل جدول الكميات الحالي كنموذج مملوء')
-                  : t('Download the template, fill it in Excel, then upload.', 'نزّل النموذج، أكمله في Excel، ثم ارفعه.')}
-              </p>
-              <button
-                onClick={() => downloadBOQExcel(formData.boqItems)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors flex-shrink-0 ms-3"
-              >
-                <DownloadIcon className="w-3.5 h-3.5" />
-                {formData.boqItems.length > 0 ? t('Download pre-filled', 'تنزيل مملوء') : t('Download template', 'تنزيل النموذج')}
-              </button>
-            </div>
           </div>
         )}
 
