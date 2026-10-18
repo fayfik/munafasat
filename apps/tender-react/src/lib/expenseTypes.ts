@@ -1,29 +1,53 @@
-// Expense type shown for each budgeted item in step 1 (replaces the BOQ type column).
-import type { ProjectItem } from '../types/tender';
+import type { ProjectItemType } from '../types/tender';
 
+/**
+ * Expense categories shown against budgeted items (replaces the old Asset/Services
+ * "BOQ type" display). These mirror the finance expense-type taxonomy used when a
+ * budgeted line is booked.
+ */
 export type ExpenseType =
-  | 'intangible-capex' | 'tangible-capex' | 'it-equipment-capex'
-  | 'communication' | 'consumables' | 'it-maintenance' | 'consultation';
+  | 'intangible'
+  | 'tangible'
+  | 'it-equipment'
+  | 'communication'
+  | 'consumables'
+  | 'it-maintenance'
+  | 'consultation';
 
-export const EXPENSE_TYPES: Record<ExpenseType, { en: string; ar: string }> = {
-  'intangible-capex':   { en: 'Intangible assets (CapEx)', ar: 'أصول غير ملموسة (رأسمالية)' },
-  'tangible-capex':     { en: 'Tangible assets (CapEx)',   ar: 'أصول ملموسة (رأسمالية)' },
-  'it-equipment-capex': { en: 'IT Equipment (CapEx)',      ar: 'معدات تقنية (رأسمالية)' },
-  'communication':      { en: 'Communication Exp',         ar: 'مصروفات اتصالات' },
-  'consumables':        { en: 'Consumables',               ar: 'مستهلكات' },
-  'it-maintenance':     { en: 'IT Maintenance',            ar: 'صيانة تقنية' },
-  'consultation':       { en: 'Consultation',              ar: 'استشارات' },
+type Badge = 'ai' | 'assets' | 'info' | 'warning' | 'consumables' | 'success' | 'services';
+
+export const EXPENSE_TYPES: Record<ExpenseType, { en: string; ar: string; badge: Badge }> = {
+  intangible:       { en: 'Intangible assets (CapEx)', ar: 'أصول غير ملموسة (رأسمالي)', badge: 'ai' },
+  tangible:         { en: 'Tangible assets (CapEx)',   ar: 'أصول ملموسة (رأسمالي)',     badge: 'assets' },
+  'it-equipment':   { en: 'IT Equipment (CapEx)',      ar: 'معدات تقنية (رأسمالي)',     badge: 'info' },
+  communication:    { en: 'Communication Exp',         ar: 'مصروفات اتصالات',           badge: 'warning' },
+  consumables:      { en: 'Consumables',               ar: 'مستهلكات',                  badge: 'consumables' },
+  'it-maintenance': { en: 'IT Maintenance',            ar: 'صيانة تقنية',               badge: 'success' },
+  consultation:     { en: 'Consultation',              ar: 'استشارات',                  badge: 'services' },
 };
 
-// Sample budget lines → expense type.
-const BY_ITEM: Record<string, ExpenseType> = {
-  'item-001': 'intangible-capex', 'item-002': 'consultation', 'item-003': 'consultation', 'item-004': 'consultation', 'item-005': 'it-maintenance',
-  'item-010': 'intangible-capex', 'item-011': 'consultation', 'item-012': 'consultation', 'item-013': 'it-maintenance',
-  'item-020': 'intangible-capex', 'item-021': 'consultation', 'item-022': 'it-equipment-capex', 'item-023': 'communication',
-  'item-101': 'intangible-capex', 'item-102': 'consultation', 'item-103': 'consultation', 'item-104': 'consultation',
-  'item-401': 'tangible-capex', 'item-402': 'tangible-capex', 'item-403': 'it-equipment-capex', 'item-404': 'consumables',
-};
+/** Keyword-driven classification of a budgeted item into an expense category. */
+export function expenseTypeOf(item: { name: string; type?: ProjectItemType }): ExpenseType {
+  const n = (item.name || '').toLowerCase();
 
-export function expenseTypeOf(item: ProjectItem): ExpenseType {
-  return BY_ITEM[item.id] ?? (item.type === 'assets' ? 'tangible-capex' : item.type === 'consumables' ? 'consumables' : 'consultation');
+  // Maintenance / support / managed — regardless of the stored item type.
+  if (/\b(maintenance|support|managed|warranty|sla)\b/.test(n)) return 'it-maintenance';
+
+  // Communication / telecom / connectivity.
+  if (/\b(communication|telecom|network|internet|connectivity|bandwidth|voice|sms|line)\b/.test(n)) return 'communication';
+
+  // Services → consulting / implementation / training are booked as consultation.
+  if (item.type === 'services' || /\b(service|services|consult|consulting|implementation|integration|development|design|migration|assessment|training|advisory)\b/.test(n)) {
+    return 'consultation';
+  }
+
+  // Consumables.
+  if (item.type === 'consumables' || /\b(consumable|consumables|supplies|stationery)\b/.test(n)) return 'consumables';
+
+  // Assets → split intangible vs IT equipment vs tangible.
+  if (/\b(license|licence|licenses|software|subscription|subscriptions|certificate|certificates|domain|saas|platform)\b/.test(n)) return 'intangible';
+  if (/\b(server|hosting|infrastructure|hardware|switch|switches|router|storage|device|devices|equipment|computer|laptop|laptops)\b/.test(n)) return 'it-equipment';
+
+  // Default for assets.
+  return 'tangible';
 }

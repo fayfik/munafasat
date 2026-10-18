@@ -4,11 +4,12 @@ import { useTender } from '../context/TenderContext';
 import { useT } from '../context/LanguageContext';
 import { PROJECTS, UNITS_OF_MEASURE } from '../data/mockData';
 import { FormField, SectionCard, AIButton, InfoBanner, Input, Select, Textarea, Badge } from '../components/ui';
-import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon } from '../components/Icons';
+import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, ChevronDownIcon, CheckIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon, DocumentIcon } from '../components/Icons';
 import HoverNote from '../components/HoverNote';
 import BoqAttachments from '../components/BoqAttachments';
 import type { BOQRow, BOQCategory, FileAttachment } from '../types/tender';
 import { BOQ_CATEGORIES, BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
+import { QUALIFICATIONS, NATIONALITIES, nationalityLabel, effectiveQty, generateManpowerDescription } from '../lib/boqManpower';
 import { useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiBoq, type AiBoqRow } from '../lib/aiTender';
@@ -118,27 +119,49 @@ export const AI_BOQ_ROWS_AR = [
 
 const MANDATORY_LIST_URL = 'https://lcgpa.gov.sa/p/ar_SA/MandatoryListNationalProducts';
 
-/** Notice tile shown for the "Material" category — links to the Local Content
- *  authority's mandatory list of national products / listed companies. */
-function MandatoryListTile({ t, isAr, className = '' }: { t: (en: string, ar: string) => string; isAr: boolean; className?: string }) {
+/** Dropdown multi-select for Man Power nationalities. */
+function NationalityMultiSelect({ selected, onToggle, isAr, t }: {
+  selected: string[]; onToggle: (v: string) => void; isAr: boolean; t: (en: string, ar: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function h(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  const label = selected.length > 0
+    ? selected.map((v) => nationalityLabel(v, isAr)).join('، ')
+    : t('Select nationalities…', 'اختر الجنسيات…');
   return (
-    <a href={MANDATORY_LIST_URL} target="_blank" rel="noopener noreferrer"
-      className={`group flex items-start gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3.5 hover:border-warning-400 hover:bg-warning-100/60 transition-colors ${className}`}>
-      <span className="w-9 h-9 rounded-lg bg-warning-100 text-warning-700 flex items-center justify-center flex-shrink-0">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-semibold text-warning-800">{t('Mandatory List — National Products', 'القائمة الإلزامية — المنتجات الوطنية')}</p>
-        <p className="text-[12px] text-warning-700 mt-0.5 leading-relaxed">
-          {t('Material items may fall under the mandatory list of national products and must be purchased from approved listed companies.',
-             'قد تندرج بنود المواد ضمن القائمة الإلزامية للمنتجات الوطنية، ويجب شراؤها من الشركات المدرجة المعتمدة.')}
-        </p>
-        <span className="inline-flex items-center gap-1 mt-2 text-[12px] font-semibold text-warning-800 group-hover:underline">
-          {t('View Listed companies', 'عرض الشركات المدرجة')}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 ${isAr ? 'scale-x-[-1]' : ''}`}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
-        </span>
-      </div>
-    </a>
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className={`w-full flex items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md shadow-sm transition-colors hover:border-neutral-400 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 ${selected.length ? 'text-neutral-900' : 'text-neutral-400'}`}>
+        <span className="flex-1 truncate text-start">{label}</span>
+        {selected.length > 0 && <span className="text-[10px] font-bold text-white bg-brand-600 rounded-full px-1.5 py-0.5 flex-shrink-0">{selected.length}</span>}
+        <ChevronDownIcon className={`w-4 h-4 text-neutral-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto rounded-xl border border-neutral-200 bg-white shadow-lg slide-up">
+          <ul className="py-1">
+            {NATIONALITIES.map((n) => {
+              const on = selected.includes(n.value);
+              return (
+                <li key={n.value}>
+                  <button type="button" onClick={() => onToggle(n.value)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-start hover:bg-neutral-50 transition-colors">
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${on ? 'bg-brand-600 border-brand-600' : 'border-neutral-300'}`}>
+                      {on && <CheckIcon className="w-3 h-3 text-white" />}
+                    </span>
+                    <span className="text-[13px] text-neutral-700">{isAr ? n.ar : n.en}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -148,6 +171,10 @@ const EMPTY_FORM = {
   unitPrice: '' as number | '', deliveryDate: '',
   hasBrandName: false, brandJustification: '', attachments: [] as FileAttachment[],
   mandatoryList: '',
+  // Man Power fields
+  jobTitle: '', staffCount: '' as number | '', minQualification: '',
+  minExperienceYears: '' as number | '', officialWorkingHours: '' as number | '',
+  extraWorkingHours: '' as number | '', nationalityRequired: false, nationalities: [] as string[],
 };
 
 const GROUP_COLORS = ['bg-brand-500', 'bg-ai-500', 'bg-warning-500', 'bg-success-600', 'bg-error-500', 'bg-neutral-400'];
@@ -169,6 +196,7 @@ export default function BillOfQuantities() {
   const [checkingIds, setCheckingIds] = useState<Set<string>>(new Set());
   const [etimadError, setEtimadError] = useState('');
   const [addCat, setAddCat] = useState<BOQCategory | null>(null); // grouped-view: which category the add form targets
+  const [manpowerGenLoading, setManpowerGenLoading] = useState(false);
   const addFormRef = useRef<HTMLDivElement>(null);
   const layout = useBoqLayout();
 
@@ -179,7 +207,7 @@ export default function BillOfQuantities() {
     }
   }, [showAddForm, addCat]);
 
-  // Etimad eMarket is a direct catalogue purchase — it uses a dedicated Product/Service BOQ.
+  // Etimad E-Market is a direct catalogue purchase — it uses a dedicated Product/Service BOQ.
   // (Placed after all hooks above to respect the Rules of Hooks.)
   if (formData.sourceType === 'souq-etimad') return <EsouqBillOfQuantities />;
 
@@ -240,9 +268,8 @@ export default function BillOfQuantities() {
   const projectItems = (selectedProject?.items ?? []).filter((it) => chosenIds.length === 0 || chosenIds.includes(it.id));
 
   const rowTotal = (row: BOQRow) => {
-    const q = typeof row.quantity === 'number' ? row.quantity : 0;
     const p = typeof row.unitPrice === 'number' ? row.unitPrice : 0;
-    return q * p;
+    return effectiveQty(row) * p;
   };
 
   const groups: { key: string; rows: BOQRow[] }[] = [];
@@ -314,6 +341,10 @@ export default function BillOfQuantities() {
       deliveryDate: row.deliveryDate, hasBrandName: !!row.hasBrandName, brandJustification: row.brandJustification ?? '',
       attachments: row.attachments ?? [],
       mandatoryList: row.mandatoryList ?? '',
+      jobTitle: row.jobTitle ?? '', staffCount: row.staffCount ?? '', minQualification: row.minQualification ?? '',
+      minExperienceYears: row.minExperienceYears ?? '', officialWorkingHours: row.officialWorkingHours ?? '',
+      extraWorkingHours: row.extraWorkingHours ?? '', nationalityRequired: !!row.nationalityRequired,
+      nationalities: row.nationalities ?? [],
     });
   }
 
@@ -325,12 +356,13 @@ export default function BillOfQuantities() {
     closeItemForm();
   }
 
-  // Grouped view: open the add form pre-set to a category.
-  function startAddInCategory(cat: BOQCategory) {
-    setEditingId(null);
-    setNewItem({ ...EMPTY_FORM, category: cat });
-    setAddCat(cat);
-    setShowAddForm(true);
+  // Man Power: build the item description from the entered fields (AI-style).
+  function generateManpowerDesc() {
+    setManpowerGenLoading(true);
+    window.setTimeout(() => {
+      setNewItem((p) => ({ ...p, itemDescription: generateManpowerDescription({ ...p, category: 'manpower' }, isAr) }));
+      setManpowerGenLoading(false);
+    }, 650);
   }
 
   function renderItemForm(mode: 'add' | 'edit', lockedCategory?: BOQCategory | null) {
@@ -344,6 +376,19 @@ export default function BillOfQuantities() {
     const itemNameOptions = newItem.projectItem && !baseItemNames.includes(newItem.projectItem)
       ? [...baseItemNames, newItem.projectItem]
       : baseItemNames;
+    // Effective category drives which fields show. Man Power has its own field set;
+    // Material & Equipment show the mandatory-list field.
+    const effCat: BOQCategory | '' = (lockedCategory ?? (newItem.category || '')) as BOQCategory | '';
+    const isMan = effCat === 'manpower';
+    const showMandatory = effCat === 'material' || effCat === 'equipment';
+    const toggleNationality = (v: string) =>
+      setNewItem((p) => ({ ...p, nationalities: p.nationalities.includes(v) ? p.nationalities.filter((n) => n !== v) : [...p.nationalities, v] }));
+    const manInvalid = isMan && (
+      !newItem.jobTitle.trim() || newItem.staffCount === '' || !newItem.minQualification ||
+      newItem.minExperienceYears === '' || (newItem.nationalityRequired && newItem.nationalities.length === 0)
+    );
+    const formInvalid = !newItem.projectItem || !newItem.itemName ||
+      (!isMan && newItem.hasBrandName && !newItem.brandJustification.trim()) || manInvalid;
     return (
           <div className={`${mode === 'edit' ? 'm-3' : 'mt-3'} rounded-xl border border-neutral-200 bg-neutral-50/60 overflow-hidden`}>
             <div className="flex items-start justify-between px-4 py-3 border-b border-neutral-200 bg-white">
@@ -391,8 +436,8 @@ export default function BillOfQuantities() {
                 </FormField>
               </div>
 
-              {/* Mandatory-list field — shown when the item is a Material */}
-              {(lockedCategory ?? newItem.category) === 'material' && (
+              {/* Mandatory-list field — shown for Material & Equipment */}
+              {showMandatory && (
                 <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3.5">
                   <label className="block text-[13px] font-semibold text-warning-800 mb-1.5">{t('Mandatory List', 'القائمة الإلزامية')}</label>
                   <Input
@@ -402,8 +447,8 @@ export default function BillOfQuantities() {
                     placeholder={t('Listed company or product reference…', 'الشركة المدرجة أو مرجع المنتج…')}
                   />
                   <p className="text-[12px] text-warning-700 mt-2 leading-relaxed">
-                    {t('Material items may fall under the mandatory list of national products and must be purchased from approved listed companies.',
-                       'قد تندرج بنود المواد ضمن القائمة الإلزامية للمنتجات الوطنية، ويجب شراؤها من الشركات المدرجة المعتمدة.')}
+                    {t('Material and equipment items may fall under the mandatory list of national products and must be purchased from approved listed companies.',
+                       'قد تندرج بنود المواد والمعدات ضمن القائمة الإلزامية للمنتجات الوطنية، ويجب شراؤها من الشركات المدرجة المعتمدة.')}
                   </p>
                   <a href={MANDATORY_LIST_URL} target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 mt-2 text-[12px] font-semibold text-warning-800 hover:underline">
@@ -419,99 +464,199 @@ export default function BillOfQuantities() {
                   type="text"
                   value={newItem.itemName}
                   onChange={(e) => setNewItem((p) => ({ ...p, itemName: e.target.value }))}
-                  placeholder={t('Item name…', 'اسم البند…')}
+                  placeholder={isMan ? t('e.g. Senior ERP Consultant (role)', 'مثال: مستشار أول (المسمى)') : t('Item name…', 'اسم البند…')}
                 />
               </FormField>
 
-              {/* 3. Description */}
-              <FormField label="Description" labelAr="الوصف">
-                <Textarea
-                  value={newItem.itemDescription}
-                  onChange={(e) => setNewItem((p) => ({ ...p, itemDescription: e.target.value }))}
-                  placeholder={t('Describe this item…', 'صف هذا البند…')}
-                  rows={3}
-                />
-              </FormField>
-
-              {/* 4. Unit / Qty / Unit Price */}
-              <div className="grid grid-cols-3 gap-4">
-                <FormField label="Unit of Measure" labelAr="وحدة القياس">
-                  <Select
-                    value={newItem.unitOfMeasure}
-                    onChange={(e) => setNewItem((p) => ({ ...p, unitOfMeasure: e.target.value }))}
-                  >
-                    {UNITS_OF_MEASURE.map((u) => <option key={u} value={u}>{u}</option>)}
-                  </Select>
-                </FormField>
-                <FormField label="Quantity" labelAr="الكمية">
-                  <Input
-                    type="number" min={0}
-                    value={newItem.quantity}
-                    onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value === '' ? '' : Number(e.target.value) }))}
-                    placeholder="1"
-                  />
-                </FormField>
-                <FormField label="Unit Price (SAR)" labelAr="سعر الوحدة">
-                  <Input
-                    type="number" min={0}
-                    value={newItem.unitPrice}
-                    onChange={(e) => setNewItem((p) => ({ ...p, unitPrice: e.target.value === '' ? '' : Number(e.target.value) }))}
-                    placeholder="0.00"
-                  />
-                </FormField>
-              </div>
-
-              {/* 5. Delivery Date + Has Brand Name */}
-              <div className="grid grid-cols-2 gap-4 items-start">
-                <FormField label="Delivery Date" labelAr="موعد التسليم">
-                  <Input
-                    type="date"
-                    value={newItem.deliveryDate}
-                    onChange={(e) => setNewItem((p) => ({ ...p, deliveryDate: e.target.value }))}
-                  />
-                </FormField>
-                <FormField label="Has Brand Name?" labelAr="هل يوجد علامة تجارية؟">
-                  <div className="flex rounded-lg border border-neutral-300 overflow-hidden mt-0.5" dir="ltr">
-                    <button
-                      type="button"
-                      onClick={() => setNewItem((p) => ({ ...p, hasBrandName: true }))}
-                      className={`flex-1 py-2 text-sm font-medium transition-colors ${newItem.hasBrandName ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
-                    >
-                      {t('Yes', 'نعم')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewItem((p) => ({ ...p, hasBrandName: false, brandJustification: '' }))}
-                      className={`flex-1 py-2 text-sm font-medium border-s border-neutral-300 transition-colors ${!newItem.hasBrandName ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
-                    >
-                      {t('No', 'لا')}
-                    </button>
+              {isMan ? (
+                <>
+                  {/* Man Power fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Job Title" labelAr="المسمى الوظيفي" required>
+                      <Input type="text" value={newItem.jobTitle}
+                        onChange={(e) => setNewItem((p) => ({ ...p, jobTitle: e.target.value }))}
+                        placeholder={t('e.g. ERP Technical Consultant', 'مثال: مستشار تقني')} />
+                    </FormField>
+                    <FormField label="Staff Count" labelAr="عدد الموظفين" required>
+                      <Input type="number" min={1} value={newItem.staffCount}
+                        onChange={(e) => setNewItem((p) => ({ ...p, staffCount: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder="1" />
+                    </FormField>
                   </div>
-                </FormField>
-              </div>
 
-              {/* 6. Brand Justification — when hasBrandName */}
-              {newItem.hasBrandName && (
-                <div className="slide-up">
-                  <FormField label="Brand Justification" labelAr="مبرر العلامة التجارية" required>
+                  {/* Description with AI generate */}
+                  <FormField label="Item Description" labelAr="وصف البند"
+                    action={<AIButton onClick={generateManpowerDesc} loading={manpowerGenLoading} label={t('Generate with AI', 'توليد بالذكاء الاصطناعي')} />}>
+                    <Textarea value={newItem.itemDescription}
+                      onChange={(e) => setNewItem((p) => ({ ...p, itemDescription: e.target.value }))}
+                      placeholder={t('Describe the role, responsibilities and requirements…', 'صف الدور والمسؤوليات والمتطلبات…')}
+                      rows={3} />
+                  </FormField>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Minimum Accepted Qualification" labelAr="الحد الأدنى للمؤهل المقبول" required>
+                      <Select value={newItem.minQualification}
+                        onChange={(e) => setNewItem((p) => ({ ...p, minQualification: e.target.value }))}>
+                        <option value="">{t('Select…', 'اختر…')}</option>
+                        {QUALIFICATIONS.map((q) => <option key={q.value} value={q.value}>{t(q.en, q.ar)}</option>)}
+                      </Select>
+                    </FormField>
+                    <FormField label="Minimum Years of Experience" labelAr="الحد الأدنى لسنوات الخبرة" required>
+                      <Input type="number" min={0} value={newItem.minExperienceYears}
+                        onChange={(e) => setNewItem((p) => ({ ...p, minExperienceYears: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder="0" />
+                    </FormField>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Official Working Hours" labelAr="ساعات العمل الرسمية">
+                      <Input type="number" min={0} value={newItem.officialWorkingHours}
+                        onChange={(e) => setNewItem((p) => ({ ...p, officialWorkingHours: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder={t('e.g. 8', 'مثال: 8')} />
+                    </FormField>
+                    <FormField label="Expected Extra Working Hours" labelAr="ساعات العمل الإضافية المتوقعة">
+                      <Input type="number" min={0} value={newItem.extraWorkingHours}
+                        onChange={(e) => setNewItem((p) => ({ ...p, extraWorkingHours: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder={t('e.g. 2', 'مثال: 2')} />
+                    </FormField>
+                  </div>
+
+                  {/* Nationality — radio; if Yes, multi-select nationalities */}
+                  <div className="grid grid-cols-2 gap-4 items-start">
+                    <FormField label="Nationality required?" labelAr="هل الجنسية مطلوبة؟">
+                      <div className="flex rounded-lg border border-neutral-300 overflow-hidden mt-0.5" dir="ltr">
+                        <button type="button" onClick={() => setNewItem((p) => ({ ...p, nationalityRequired: true }))}
+                          className={`flex-1 py-2 text-sm font-medium transition-colors ${newItem.nationalityRequired ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}>
+                          {t('Yes', 'نعم')}
+                        </button>
+                        <button type="button" onClick={() => setNewItem((p) => ({ ...p, nationalityRequired: false, nationalities: [] }))}
+                          className={`flex-1 py-2 text-sm font-medium border-s border-neutral-300 transition-colors ${!newItem.nationalityRequired ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}>
+                          {t('No', 'لا')}
+                        </button>
+                      </div>
+                    </FormField>
+                    <FormField label="Unit Price (SAR)" labelAr="سعر الوحدة"
+                      hint={t('Rate per staff — total = staff count × rate.', 'التكلفة لكل موظف — الإجمالي = العدد × التكلفة.')}>
+                      <Input type="number" min={0} value={newItem.unitPrice}
+                        onChange={(e) => setNewItem((p) => ({ ...p, unitPrice: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder="0.00" />
+                    </FormField>
+                  </div>
+
+                  {newItem.nationalityRequired && (
+                    <div className="slide-up">
+                      <FormField label="Select Nationality" labelAr="اختر الجنسية" required>
+                        <NationalityMultiSelect selected={newItem.nationalities} onToggle={toggleNationality} isAr={isAr} t={t} />
+                      </FormField>
+                    </div>
+                  )}
+
+                  {/* Delivery + Attachments */}
+                  <div className="grid grid-cols-2 gap-4 items-start">
+                    <FormField label="Delivery Date" labelAr="موعد التسليم">
+                      <Input type="date" value={newItem.deliveryDate}
+                        onChange={(e) => setNewItem((p) => ({ ...p, deliveryDate: e.target.value }))} />
+                    </FormField>
+                  </div>
+
+                  <FormField label="Attachments" labelAr="المرفقات">
+                    <BoqAttachments attachments={newItem.attachments} onChange={(next) => setNewItem((p) => ({ ...p, attachments: next }))} />
+                    <p className="text-[11px] text-neutral-500 mt-1">{t('CVs, certificates, or any supporting document for this role.', 'السير الذاتية أو الشهادات أو أي مستند داعم لهذا الدور.')}</p>
+                  </FormField>
+                </>
+              ) : (
+                <>
+                  {/* 3. Description */}
+                  <FormField label="Description" labelAr="الوصف">
                     <Textarea
-                      value={newItem.brandJustification}
-                      onChange={(e) => setNewItem((p) => ({ ...p, brandJustification: e.target.value }))}
-                      placeholder={t('Explain why a specific brand is required…', 'اشرح سبب الحاجة لعلامة تجارية محددة…')}
+                      value={newItem.itemDescription}
+                      onChange={(e) => setNewItem((p) => ({ ...p, itemDescription: e.target.value }))}
+                      placeholder={t('Describe this item…', 'صف هذا البند…')}
                       rows={3}
                     />
                   </FormField>
-                </div>
-              )}
 
-              {/* Attachments */}
-              <FormField label="Attachments" labelAr="المرفقات">
-                <BoqAttachments
-                  attachments={newItem.attachments}
-                  onChange={(next) => setNewItem((p) => ({ ...p, attachments: next }))}
-                />
-                <p className="text-[11px] text-neutral-500 mt-1">{t('Specs, drawings, quotes or any supporting document for this item.', 'المواصفات أو الرسومات أو عروض الأسعار أو أي مستند داعم لهذا البند.')}</p>
-              </FormField>
+                  {/* 4. Unit / Qty / Unit Price */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField label="Unit of Measure" labelAr="وحدة القياس">
+                      <Select
+                        value={newItem.unitOfMeasure}
+                        onChange={(e) => setNewItem((p) => ({ ...p, unitOfMeasure: e.target.value }))}
+                      >
+                        {UNITS_OF_MEASURE.map((u) => <option key={u} value={u}>{u}</option>)}
+                      </Select>
+                    </FormField>
+                    <FormField label="Quantity" labelAr="الكمية">
+                      <Input
+                        type="number" min={0}
+                        value={newItem.quantity}
+                        onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder="1"
+                      />
+                    </FormField>
+                    <FormField label="Unit Price (SAR)" labelAr="سعر الوحدة">
+                      <Input
+                        type="number" min={0}
+                        value={newItem.unitPrice}
+                        onChange={(e) => setNewItem((p) => ({ ...p, unitPrice: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        placeholder="0.00"
+                      />
+                    </FormField>
+                  </div>
+
+                  {/* 5. Delivery Date + Has Brand Name */}
+                  <div className="grid grid-cols-2 gap-4 items-start">
+                    <FormField label="Delivery Date" labelAr="موعد التسليم">
+                      <Input
+                        type="date"
+                        value={newItem.deliveryDate}
+                        onChange={(e) => setNewItem((p) => ({ ...p, deliveryDate: e.target.value }))}
+                      />
+                    </FormField>
+                    <FormField label="Has Brand Name?" labelAr="هل يوجد علامة تجارية؟">
+                      <div className="flex rounded-lg border border-neutral-300 overflow-hidden mt-0.5" dir="ltr">
+                        <button
+                          type="button"
+                          onClick={() => setNewItem((p) => ({ ...p, hasBrandName: true }))}
+                          className={`flex-1 py-2 text-sm font-medium transition-colors ${newItem.hasBrandName ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
+                        >
+                          {t('Yes', 'نعم')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem((p) => ({ ...p, hasBrandName: false, brandJustification: '' }))}
+                          className={`flex-1 py-2 text-sm font-medium border-s border-neutral-300 transition-colors ${!newItem.hasBrandName ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
+                        >
+                          {t('No', 'لا')}
+                        </button>
+                      </div>
+                    </FormField>
+                  </div>
+
+                  {/* 6. Brand Justification — when hasBrandName */}
+                  {newItem.hasBrandName && (
+                    <div className="slide-up">
+                      <FormField label="Brand Justification" labelAr="مبرر العلامة التجارية" required>
+                        <Textarea
+                          value={newItem.brandJustification}
+                          onChange={(e) => setNewItem((p) => ({ ...p, brandJustification: e.target.value }))}
+                          placeholder={t('Explain why a specific brand is required…', 'اشرح سبب الحاجة لعلامة تجارية محددة…')}
+                          rows={3}
+                        />
+                      </FormField>
+                    </div>
+                  )}
+
+                  {/* Attachments */}
+                  <FormField label="Attachments" labelAr="المرفقات">
+                    <BoqAttachments
+                      attachments={newItem.attachments}
+                      onChange={(next) => setNewItem((p) => ({ ...p, attachments: next }))}
+                    />
+                    <p className="text-[11px] text-neutral-500 mt-1">{t('Specs, drawings, quotes or any supporting document for this item.', 'المواصفات أو الرسومات أو عروض الأسعار أو أي مستند داعم لهذا البند.')}</p>
+                  </FormField>
+                </>
+              )}
 
               {/* Actions */}
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
@@ -523,7 +668,7 @@ export default function BillOfQuantities() {
                 </button>
                 <button
                   onClick={mode === 'edit' ? handleSaveEdit : handleAddItem}
-                  disabled={!newItem.projectItem || !newItem.itemName || (newItem.hasBrandName && !newItem.brandJustification.trim())}
+                  disabled={formInvalid}
                   className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {mode === 'edit' ? t('Save changes', 'حفظ التغييرات') : t('Add to BOQ', 'إضافة إلى الجدول')}
@@ -535,6 +680,13 @@ export default function BillOfQuantities() {
   }
 
 
+  // Empty state: no items yet, and not actively adding or uploading.
+  // In this state we show ONLY the three option cards — every other control is hidden.
+  const isEmptyState = formData.boqItems.length === 0 && !showAddForm && !showUploadZone;
+  // Template flow reached from the empty state (no items yet): show just the two step
+  // cards + a Back link, and hide the toolbar / layout switch so it reads as its own screen.
+  const uploadingEmpty = showUploadZone && formData.boqItems.length === 0 && !showAddForm;
+
   return (
     <div className="space-y-5">
       <SectionCard
@@ -543,6 +695,7 @@ export default function BillOfQuantities() {
         description="Define all items, quantities, and unit prices for this tender."
         descriptionAr="حدد جميع البنود والكميات وأسعار الوحدة لهذه المنافسة."
         action={
+          (isEmptyState || uploadingEmpty) ? undefined : (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowUploadZone((v) => !v)}
@@ -553,9 +706,11 @@ export default function BillOfQuantities() {
             </button>
             <AIButton onClick={handleAISuggest} loading={aiLoading} label={t('AI Suggest BOQ', 'اقتراح جدول الكميات')} />
           </div>
+          )
         }
       >
-        {/* Layout switch: Grid (grouped items + form) or Table (spreadsheet) */}
+        {/* Layout switch: Grid (grouped items + form) or Table (spreadsheet) — hidden in empty / template flow */}
+        {!isEmptyState && !uploadingEmpty && (
         <div className="flex items-center justify-end mb-3">
           <div role="radiogroup" aria-label={t('BOQ view', 'طريقة عرض جدول الكميات')} className="inline-flex rounded-lg border border-neutral-300 bg-neutral-50 p-0.5">
             {([
@@ -571,78 +726,114 @@ export default function BillOfQuantities() {
             ))}
           </div>
         </div>
-
-        {/* Mandatory-list notice — visible in every view when the BOQ has a Material item */}
-        {formData.boqItems.some((r) => (r.category ?? deriveCategory(r.itemName)) === 'material') && (
-          <MandatoryListTile t={t} isAr={isAr} className="mb-3" />
         )}
 
-        {/* Upload zone */}
+        {/* Upload zone — two side-by-side step cards: 1) download template, 2) upload file */}
         {showUploadZone && (
-          <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 overflow-hidden">
-            {/* Drop area */}
-            <div
-              className="border-2 border-dashed border-neutral-300 rounded-xl m-3 p-6 text-center transition-colors hover:border-brand-400 hover:bg-brand-50/30"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                const file = e.dataTransfer.files[0];
-                if (file) handleFileUpload(file);
-              }}
-            >
-              {uploadLoading ? (
-                <div className="flex flex-col items-center gap-2">
-                  <SparklesIcon className="w-7 h-7 text-brand-400 spin-slow" />
-                  <p className="text-sm text-neutral-600">{t('Reading file…', 'جاري قراءة الملف…')}</p>
-                </div>
-              ) : (
-                <>
-                  <UploadIcon className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-neutral-600">{t('Drop your Excel file here, or', 'اسحب ملف Excel هنا، أو')}</p>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-sm text-brand-600 font-semibold hover:text-brand-700 mt-0.5 transition-colors"
-                  >
-                    {t('browse to upload', 'تصفح للرفع')}
-                  </button>
-                  <p className="text-xs text-neutral-500 mt-2">{t('Supports .xlsx and .xls · Max 10MB', 'يدعم .xlsx و .xls · الحد الأقصى 10 ميجابايت')}</p>
-                </>
+          <div className="mb-4 rounded-2xl border border-neutral-200 bg-gradient-to-b from-neutral-50/70 to-white p-5 sm:p-6">
+            {/* Header + back to options */}
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-neutral-900">{t('Build from a template', 'ابدأ من نموذج')}</h3>
+                <p className="mt-0.5 text-[12px] text-neutral-500">{t('Two quick steps — download the sheet, fill it in Excel, then upload it back.', 'خطوتان سريعتان — نزّل الملف، أكمله في Excel، ثم ارفعه مرة أخرى.')}</p>
+              </div>
+              {uploadingEmpty && (
+                <button
+                  type="button"
+                  onClick={() => setShowUploadZone(false)}
+                  className="flex-shrink-0 inline-flex items-center gap-1 text-[12px] font-medium text-neutral-500 hover:text-neutral-700 transition-colors"
+                >
+                  <ChevronRightIcon className="w-3.5 h-3.5 rotate-180" />
+                  {t('Back to options', 'العودة للخيارات')}
+                </button>
               )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFileUpload(file);
-                  e.target.value = '';
-                }}
-              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* STEP 1 · Download the template */}
+              <div className="relative flex flex-col rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-600 text-white text-[12px] font-bold tabular-nums">1</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">{t('Step 1 · Download', 'الخطوة 1 · التنزيل')}</span>
+                </div>
+                <span className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 mb-3">
+                  <DownloadIcon className="w-6 h-6" />
+                </span>
+                <p className="text-sm font-bold text-neutral-900">{t('Download the template', 'نزّل النموذج')}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
+                  {formData.boqItems.length > 0
+                    ? t('Get your current BOQ as a pre-filled Excel file to edit offline.', 'احصل على جدول الكميات الحالي كملف Excel مملوء لتعديله دون اتصال.')
+                    : t('An Excel sheet with the right columns and categories, ready to fill in.', 'ملف Excel بالأعمدة والفئات الصحيحة، جاهز للتعبئة.')}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => downloadBOQExcel(formData.boqItems)}
+                  className="mt-5 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors shadow-sm"
+                >
+                  <DownloadIcon className="w-4 h-4" />
+                  {formData.boqItems.length > 0 ? t('Download pre-filled', 'تنزيل مملوء') : t('Download template', 'تنزيل النموذج')}
+                </button>
+              </div>
+
+              {/* STEP 2 · Upload the completed file */}
+              <div className="relative flex flex-col rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-600 text-white text-[12px] font-bold tabular-nums">2</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">{t('Step 2 · Upload', 'الخطوة 2 · الرفع')}</span>
+                </div>
+                <span className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 mb-3">
+                  <UploadIcon className="w-6 h-6" />
+                </span>
+                <p className="text-sm font-bold text-neutral-900">{t('Upload the completed file', 'ارفع الملف المكتمل')}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
+                  {t('Drag your filled Excel file onto the area below, or browse to select it.', 'اسحب ملف Excel المكتمل إلى المنطقة أدناه، أو تصفح لاختياره.')}
+                </p>
+                <div
+                  className="mt-5 flex flex-col items-center justify-center text-center border-2 border-dashed border-neutral-300 rounded-xl px-4 py-5 transition-colors hover:border-brand-400 hover:bg-brand-50/30 cursor-pointer"
+                  onClick={() => !uploadLoading && fileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    if (file) handleFileUpload(file);
+                  }}
+                >
+                  {uploadLoading ? (
+                    <div className="flex items-center gap-2 py-1">
+                      <SparklesIcon className="w-5 h-5 text-brand-500 spin-slow" />
+                      <p className="text-[13px] text-neutral-600">{t('Reading file…', 'جاري قراءة الملف…')}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <UploadIcon className="w-6 h-6 text-neutral-300 mb-1.5" />
+                      <p className="text-[13px] text-neutral-600">
+                        {t('Drop file here, or ', 'أسقط الملف هنا، أو ')}
+                        <span className="text-brand-600 font-semibold">{t('browse', 'تصفح')}</span>
+                      </p>
+                      <p className="text-[11px] text-neutral-400 mt-1">{t('.xlsx / .xls · Max 10MB', '.xlsx / .xls · الحد الأقصى 10 ميجابايت')}</p>
+                    </>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
             </div>
 
             {/* Error */}
             {uploadError && (
-              <div className="mx-3 mb-3 px-3 py-2 rounded-lg bg-error-50 border border-error-100 text-xs text-error-700">
+              <div className="mt-3 px-3 py-2 rounded-lg bg-error-50 border border-error-100 text-xs text-error-700">
                 {uploadError}
               </div>
             )}
-
-            {/* Download template */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-t border-neutral-200 bg-white">
-              <p className="text-xs text-neutral-500">
-                {formData.boqItems.length > 0
-                  ? t('Download current BOQ as pre-filled template', 'تنزيل جدول الكميات الحالي كنموذج مملوء')
-                  : t('Download the template, fill it in Excel, then upload.', 'نزّل النموذج، أكمله في Excel، ثم ارفعه.')}
-              </p>
-              <button
-                onClick={() => downloadBOQExcel(formData.boqItems)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors flex-shrink-0 ms-3"
-              >
-                <DownloadIcon className="w-3.5 h-3.5" />
-                {formData.boqItems.length > 0 ? t('Download pre-filled', 'تنزيل مملوء') : t('Download template', 'تنزيل النموذج')}
-              </button>
-            </div>
           </div>
         )}
 
@@ -658,24 +849,100 @@ export default function BillOfQuantities() {
 
         <AiNote error={boqAi.error} usedSample={boqAi.usedSample} />
 
-        {/* Empty state — hidden while add form is open */}
-        {layout === 'cards' && groups.length === 0 && !showAddForm && (
-          <div className="rounded-xl border-2 border-dashed border-neutral-200 py-10 text-center">
-            <p className="text-sm text-neutral-500">
-              {t('No items yet. Click "Add BOQ Item" below or use AI Suggest.', 'لا توجد بنود. انقر "إضافة بند" أدناه أو استخدم اقتراح الذكاء الاصطناعي.')}
-            </p>
+        {/* Empty state — three ways to build the BOQ (replaces the whole body) */}
+        {isEmptyState && (
+          <div className="rounded-2xl border border-neutral-200 bg-gradient-to-b from-neutral-50/70 to-white p-6 sm:p-8">
+            {/* Illustration + heading */}
+            <div className="text-center mb-7">
+              <div className="relative mx-auto mb-4 w-16 h-16">
+                <div className="absolute inset-0 rounded-2xl bg-brand-100/70 rotate-6" />
+                <div className="absolute inset-0 rounded-2xl bg-white border border-brand-200 shadow-sm flex items-center justify-center">
+                  <DocumentIcon className="w-8 h-8 text-brand-600" />
+                </div>
+              </div>
+              <h3 className="text-base font-bold text-neutral-900">
+                {t('Start your Bill of Quantities', 'ابدأ جدول الكميات')}
+              </h3>
+              <p className="mt-1.5 text-sm text-neutral-500 max-w-md mx-auto leading-relaxed">
+                {t('Choose how you want to add items — you can switch methods or mix them anytime.', 'اختر طريقة إضافة البنود — يمكنك تبديل الطرق أو الجمع بينها في أي وقت.')}
+              </p>
+            </div>
+
+            {/* Three option tiles */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* 1 · Upload via template */}
+              <button
+                type="button"
+                onClick={() => setShowUploadZone(true)}
+                className="group relative flex flex-col text-start rounded-xl border border-neutral-200 bg-white p-4 hover:border-brand-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 mb-3 group-hover:scale-105 transition-transform">
+                  <UploadIcon className="w-5 h-5" />
+                </span>
+                <p className="text-sm font-bold text-neutral-900">{t('Upload via template', 'الرفع عبر نموذج')}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
+                  {t('Download the Excel template, fill it in, and upload. Fastest for long lists.', 'نزّل نموذج Excel، أكمله، ثم ارفعه. الأسرع للقوائم الطويلة.')}
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600">
+                  {t('Choose a file', 'اختر ملفاً')}
+                  <ChevronRightIcon className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </span>
+              </button>
+
+              {/* 2 · Generate with AI (recommended) */}
+              <button
+                type="button"
+                onClick={handleAISuggest}
+                disabled={aiLoading}
+                className="group relative flex flex-col text-start rounded-xl border border-ai-200 bg-gradient-to-b from-ai-50/80 to-white p-4 hover:border-ai-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-70 disabled:cursor-wait"
+              >
+                <span className="absolute top-3 end-3 text-[9px] font-bold uppercase tracking-wide text-ai-700 bg-white/90 border border-ai-200 rounded-full px-2 py-0.5">
+                  {t('Recommended', 'موصى به')}
+                </span>
+                <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-ai-100 text-ai-600 ring-1 ring-ai-200 mb-3 group-hover:scale-105 transition-transform">
+                  <SparklesIcon className={`w-5 h-5 ${aiLoading ? 'spin-slow' : ''}`} />
+                </span>
+                <p className="text-sm font-bold text-neutral-900">{t('Generate with AI', 'التوليد بالذكاء الاصطناعي')}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
+                  {t('Let AI draft items from your project scope, then review and adjust.', 'دع الذكاء الاصطناعي يصيغ البنود من نطاق مشروعك، ثم راجع وعدّل.')}
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-ai-700">
+                  {aiLoading ? t('Generating…', 'جارٍ التوليد…') : t('Suggest items', 'اقترح البنود')}
+                  {!aiLoading && <ChevronRightIcon className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />}
+                </span>
+              </button>
+
+              {/* 3 · Add manually */}
+              <button
+                type="button"
+                onClick={() => { setBoqLayout('cards'); closeItemForm(); setShowAddForm(true); }}
+                className="group relative flex flex-col text-start rounded-xl border border-neutral-200 bg-white p-4 hover:border-brand-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-neutral-100 text-neutral-700 ring-1 ring-neutral-200 mb-3 group-hover:scale-105 transition-transform">
+                  <PlusIcon className="w-5 h-5" />
+                </span>
+                <p className="text-sm font-bold text-neutral-900">{t('Add manually', 'الإضافة يدوياً')}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
+                  {t('Enter each item yourself with full control over every detail.', 'أدخل كل بند بنفسك مع تحكم كامل في كل التفاصيل.')}
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-neutral-700">
+                  {t('Add first item', 'أضف أول بند')}
+                  <ChevronRightIcon className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </span>
+              </button>
+            </div>
           </div>
         )}
 
         {formData.boqItems.length > 0 && (
           <div className="mb-3 flex items-center gap-3 flex-wrap rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5">
             <div className="flex-1 min-w-[200px]">
-              <p className="text-[12px] font-semibold text-neutral-800">{t('Etimad eMarket availability', 'التوفر في سوق اعتماد')}</p>
+              <p className="text-[12px] font-semibold text-neutral-800">{t('Etimad E-Market availability', 'التوفر في سوق اعتماد')}</p>
               <p className="text-[11px] text-neutral-500">
                 {uncheckedRows.length > 0
                   ? t(`${uncheckedRows.length} of ${namedCount} items not checked yet.`, `${uncheckedRows.length} من ${namedCount} بنود لم يُتحقق منها بعد.`)
                   : t('All items checked.', 'تم التحقق من جميع البنود.')}
-                {etimadAvailableCount > 0 && ' ' + t(`${etimadAvailableCount} available in Etimad eMarket.`, `${etimadAvailableCount} متوفرة في سوق اعتماد.`)}
+                {etimadAvailableCount > 0 && ' ' + t(`${etimadAvailableCount} available in Etimad E-Market.`, `${etimadAvailableCount} متوفرة في سوق اعتماد.`)}
                 {etimadMissingJust > 0 && ' ' + t(`${etimadMissingJust} kept without a justification.`, `${etimadMissingJust} أُبقيت دون مبرر.`)}
               </p>
             </div>
@@ -691,14 +958,14 @@ export default function BillOfQuantities() {
             {etimadError && <p className="basis-full text-[11px] text-error-600">{etimadError}</p>}
             {formData.linkedEtimadRequestId && (
               <p className="basis-full text-[11px] text-success-700">
-                {t('Moved items are in a separate Etimad eMarket draft under My Requests.', 'البنود المنقولة موجودة في مسودة مستقلة لسوق اعتماد ضمن طلباتي.')}
+                {t('Moved items are in a separate Etimad E-Market draft under My Requests.', 'البنود المنقولة موجودة في مسودة مستقلة لسوق اعتماد ضمن طلباتي.')}
               </p>
             )}
           </div>
         )}
 
         {/* B · spreadsheet */}
-        {layout === 'sheet' && (
+        {formData.boqItems.length > 0 && layout === 'sheet' && (
           <BoqSheet
             rows={formData.boqItems}
             setRows={(rows) => updateField('boqItems', rows)}
@@ -885,13 +1152,12 @@ export default function BillOfQuantities() {
         )}
 
         {/* C · grouped by Etimad category */}
-        {layout === 'grouped' && (
+        {formData.boqItems.length > 0 && layout === 'grouped' && (
           <div className="space-y-3">
             {BOQ_CATEGORIES.map((cat) => {
               const m = BOQ_CATEGORY_META[cat];
               const rows = formData.boqItems.filter((r) => (r.category ?? deriveCategory(r.itemName)) === cat);
               const subtotal = rows.reduce((s, r) => s + rowTotal(r), 0);
-              const addingHere = showAddForm && addCat === cat;
               return (
                 <div key={cat} className="rounded-xl border border-neutral-200 overflow-hidden">
                   <div className="flex items-center gap-2.5 px-4 py-3 bg-neutral-50 border-b border-neutral-200">
@@ -942,35 +1208,37 @@ export default function BillOfQuantities() {
                     </div>
                   )}
 
-                  {addingHere ? (
-                    <div ref={addFormRef} className="border-t border-neutral-100">{renderItemForm('add', cat)}</div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => startAddInCategory(cat)}
-                      className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-[12px] font-semibold text-brand-700 hover:bg-brand-50/60 transition-colors border-t border-neutral-100"
-                    >
-                      <PlusIcon className="w-3.5 h-3.5" />
-                      {t(`Add ${m.en} item`, `إضافة بند ${m.ar}`)}
-                    </button>
-                  )}
                 </div>
               );
             })}
+
+            {/* Add item CTA — bottom of table (Grouped) */}
+            {showAddForm ? (
+              <div ref={addFormRef}>{renderItemForm('add')}</div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { closeItemForm(); setShowAddForm(true); }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                {t('Add item', 'إضافة بند')}
+              </button>
+            )}
           </div>
         )}
 
         {/* Add BOQ item — inline form */}
         {layout === 'cards' && showAddForm && <div ref={addFormRef}>{renderItemForm('add')}</div>}
 
-        {/* Add row link */}
-        {layout === 'cards' && !showAddForm && (
+        {/* Add item CTA — bottom of table (Grid) */}
+        {formData.boqItems.length > 0 && layout === 'cards' && !showAddForm && (
           <button
             onClick={() => { closeItemForm(); setShowAddForm(true); }}
             className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm"
           >
             <PlusIcon className="w-3.5 h-3.5" />
-            {t('Add BOQ Item', 'إضافة بند')}
+            {t('Add item', 'إضافة بند')}
           </button>
         )}
 

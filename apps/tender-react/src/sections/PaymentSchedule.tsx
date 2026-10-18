@@ -36,6 +36,17 @@ export default function PaymentSchedule() {
   const payAi = useAiAction();
   const aiLoading = payAi.loading;
 
+  // Drag-to-reorder payment stages.
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  function reorder(from: number, to: number) {
+    if (from === to) return;
+    const next = [...formData.paymentStages];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    updateField('paymentStages', next);
+  }
+
   function handleAISuggest() {
     const apply = (src: AiStage[]) => updateField('paymentStages', src.map((r) => ({
       id: crypto.randomUUID(), stageName: str(r.stageName), itemsDeliverables: str(r.itemsDeliverables),
@@ -106,8 +117,22 @@ export default function PaymentSchedule() {
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {formData.paymentStages.map((row, idx) => (
-                <tr key={row.id} className="bg-white hover:bg-neutral-50/50 group transition-colors">
-                  <td className="px-3 py-2 text-neutral-400 text-center">{idx + 1}</td>
+                <tr key={row.id}
+                  onDragEnter={() => { if (dragIdx !== null) setOverIdx(idx); }}
+                  onDragOver={(e) => { if (dragIdx !== null) e.preventDefault(); }}
+                  onDrop={() => { if (dragIdx !== null) reorder(dragIdx, idx); setDragIdx(null); setOverIdx(null); }}
+                  className={`bg-white hover:bg-neutral-50/50 group transition-colors ${overIdx === idx && dragIdx !== null && dragIdx !== idx ? 'bg-brand-50/70 ring-1 ring-inset ring-brand-300' : ''} ${dragIdx === idx ? 'opacity-50' : ''}`}>
+                  <td className="px-3 py-2 text-neutral-400 text-center">
+                    <span draggable
+                      onDragStart={() => setDragIdx(idx)}
+                      onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
+                      className="inline-flex items-center gap-1 cursor-grab active:cursor-grabbing text-neutral-300 hover:text-neutral-500 select-none"
+                      title={t('Drag to reorder', 'اسحب لإعادة الترتيب')}
+                      aria-label={t('Drag to reorder', 'اسحب لإعادة الترتيب')}>
+                      <svg viewBox="0 0 10 16" className="w-2.5 h-3.5" fill="currentColor"><circle cx="2" cy="3" r="1.3" /><circle cx="8" cy="3" r="1.3" /><circle cx="2" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="2" cy="13" r="1.3" /><circle cx="8" cy="13" r="1.3" /></svg>
+                      {idx + 1}
+                    </span>
+                  </td>
                   <td className="px-2 py-1.5">
                     <input
                       value={row.stageName}

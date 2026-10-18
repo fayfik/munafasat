@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { CheckIcon, ChevronDownIcon } from './Icons';
-import DrawerClose from './DrawerClose';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Three request categories. Each routes the request through a specific set of
@@ -54,8 +53,6 @@ export const DEPARTMENTS: Record<DeptId, { en: string; ar: string; descEn: strin
 };
 
 const REVIEW_ORDER: DeptId[] = ['cyber', 'ea', 'bcm'];
-/** Approvers in every workflow, whatever the project includes. */
-export const MANDATORY_DEPTS: DeptId[] = ['manager', 'finance', 'procurement'];
 
 /** The ordered, de-duplicated approval chain for a set of selected categories. */
 export function workflowStages(categoryIds: string[]): DeptId[] {
@@ -118,17 +115,7 @@ export default function ProjectIncludesSelect({ value, onChange, locked = [] }: 
   const remove = (id: string) => { if (isLocked(id)) return; onChange(value.filter((v) => v !== id)); };
 
   const displayed = [...locked, ...value.filter((v) => !locked.includes(v))];
-  const deptChip = (d: DeptId, mandatory = false) => {
-    const dep = DEPARTMENTS[d];
-    const color = mandatory ? '#517632' : dep.color;
-    return (
-      <span key={d} className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
-        style={{ color, borderColor: `${color}33`, backgroundColor: `${color}0f` }}>
-        <DeptGlyph kind={dep.icon} className="w-3 h-3" />
-        {isAr ? dep.ar : dep.en}
-      </span>
-    );
-  };
+  const deptLine = (c: IncludeCategory) => c.review.map((d) => (isAr ? DEPARTMENTS[d].ar : DEPARTMENTS[d].en)).join(isAr ? ' · ' : ' · ');
 
   return (
     <div ref={ref} className="relative">
@@ -155,39 +142,45 @@ export default function ProjectIncludesSelect({ value, onChange, locked = [] }: 
         </div>
       )}
 
+      {/* Approvers this selection routes through — shown as tags on the right. */}
+      {displayed.length > 0 && (
+        <div className="mt-2.5 flex items-start gap-2 flex-wrap rounded-lg border border-neutral-200 bg-neutral-50/70 px-3 py-2">
+          <span className="text-[11px] font-semibold text-neutral-500 mt-1 whitespace-nowrap">{t('Approvals required', 'الاعتمادات المطلوبة')}:</span>
+          <div className="flex flex-wrap gap-1.5 flex-1 justify-end">
+            {workflowStages(displayed).filter((d) => d !== 'requester').map((d) => {
+              const dep = DEPARTMENTS[d];
+              return (
+                <span key={d} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border"
+                  style={{ backgroundColor: `${dep.color}14`, color: dep.color, borderColor: `${dep.color}33` }}>
+                  {isAr ? dep.ar : dep.en}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {open && (
         <div className="absolute z-20 mt-1 w-full rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up">
-          {/* Mandatory approvers — always part of the workflow */}
-          <div className="px-3 py-2.5 bg-brand-50/60 border-b border-neutral-100">
-            <div className="flex items-center gap-1.5">
-              <LockIcon className="w-3 h-3 text-brand-700" />
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">{t('Mandatory in every workflow', 'إلزامية في كل مسار')}</span>
-            </div>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">{MANDATORY_DEPTS.map((d) => deptChip(d, true))}</div>
-          </div>
-          <div className="py-1 divide-y divide-neutral-100">
+          <div className="py-1">
             {PROJECT_CATEGORIES.map((c) => {
               const sel = has(c.id);
               const lock = isLocked(c.id);
               return (
-                <button key={c.id} type="button" onClick={() => toggle(c.id)} disabled={lock} aria-pressed={sel}
-                  className={`w-full text-start px-3 py-3 transition-colors flex items-start gap-2.5 ${lock ? 'cursor-default' : 'hover:bg-neutral-50'}`}>
-                  <span className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 ${sel ? (lock ? 'bg-neutral-400 border-neutral-400' : 'bg-brand-600 border-brand-600') : 'border-neutral-300'}`}>
+                <button key={c.id} type="button" onClick={() => toggle(c.id)} disabled={lock}
+                  className={`w-full text-start px-3 py-2.5 transition-colors flex items-start gap-2.5 ${lock ? 'cursor-default opacity-90' : 'hover:bg-neutral-50'}`}>
+                  <span className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 ${sel ? 'bg-brand-600 border-brand-600' : 'border-neutral-300'}`}>
                     {sel && <CheckIcon className="w-3 h-3 text-white" />}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5 flex-wrap">
+                    <span className="flex items-center gap-1.5">
                       <span className="text-[13px] font-semibold text-neutral-900">{isAr ? c.ar : c.en}</span>
-                      {lock && (
-                        <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-neutral-500 bg-neutral-100 rounded-full px-1.5 py-0.5">
-                          <LockIcon className="w-2.5 h-2.5" />{t('From your items', 'من بنودك')}
-                        </span>
-                      )}
+                      {lock && <LockIcon className="w-3 h-3 text-neutral-400" />}
                     </span>
                     <span className="block text-[12px] text-neutral-500 leading-snug mt-0.5">{isAr ? c.descAr : c.descEn}</span>
-                    <span className="mt-2 flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] text-neutral-500">{t('Adds review by', 'يضيف مراجعة من')}:</span>
-                      {c.review.map((d) => deptChip(d))}
+                    <span className="mt-1 flex items-center gap-1 flex-wrap">
+                      <span className="text-[10.5px] font-medium text-neutral-400">{t('Approvers', 'جهات الاعتماد')}:</span>
+                      <span className="text-[10.5px] font-medium text-neutral-600">{deptLine(c)}</span>
                     </span>
                   </span>
                 </button>
@@ -196,8 +189,8 @@ export default function ProjectIncludesSelect({ value, onChange, locked = [] }: 
           </div>
           <div className="px-3 py-2 border-t border-neutral-100 bg-neutral-50/60">
             <p className="text-[11px] text-neutral-500 leading-snug">
-              {t('Categories from your items are locked. Each category you add brings its review departments into the approval workflow.',
-                 'الفئات المستمدة من بنودك مقفلة. كل فئة تضيفها تُدخل جهات المراجعة الخاصة بها في مسار الاعتماد.')}
+              {t('Auto-filled categories are locked. Add others manually — each adds its departments to the approval workflow.',
+                 'الفئات المُعبّأة تلقائياً مقفلة. أضف غيرها يدوياً — كل فئة تضيف جهاتها إلى مسار الاعتماد.')}
             </p>
           </div>
         </div>
@@ -225,6 +218,33 @@ function DeptGlyph({ kind, className = '' }: { kind: DeptIconKind; className?: s
   }
 }
 
+/** One sequential node in the approval timeline. */
+function StageRow({ d, isAr, t, connector = false, review = false }: {
+  d: DeptId; isAr: boolean; t: (en: string, ar: string) => string; connector?: boolean; review?: boolean;
+}) {
+  const dep = DEPARTMENTS[d];
+  return (
+    <li className="relative flex gap-3 pb-5 last:pb-0">
+      {connector && <span className="absolute top-9 w-[2px] bg-neutral-200" style={{ insetInlineStart: '17px', bottom: 0 }} />}
+      <span className="relative z-10 w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-4 ring-white"
+            style={{ backgroundColor: `${dep.color}1a`, color: dep.color }}>
+        <DeptGlyph kind={dep.icon} className="w-[18px] h-[18px]" />
+      </span>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-[13.5px] font-semibold text-neutral-900">{isAr ? dep.ar : dep.en}</p>
+          {review && (
+            <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5" style={{ backgroundColor: `${dep.color}14`, color: dep.color }}>
+              {t('Review', 'مراجعة')}
+            </span>
+          )}
+        </div>
+        <p className="text-[12px] text-neutral-500 leading-snug mt-0.5">{isAr ? dep.descAr : dep.descEn}</p>
+      </div>
+    </li>
+  );
+}
+
 export function WorkflowDrawer({ open, onClose, categories, isAr, t }: {
   open: boolean; onClose: () => void; categories: string[];
   isAr: boolean; t: (en: string, ar: string) => string;
@@ -233,66 +253,83 @@ export function WorkflowDrawer({ open, onClose, categories, isAr, t }: {
   const stages = workflowStages(categories);
   const catChips = categories.map((id) => PROJECT_CATEGORIES.find((c) => c.id === id)).filter(Boolean) as IncludeCategory[];
   const reviewIds = reviewDepartments(categories);
+  const reviewSet = new Set<DeptId>(reviewIds);
+  // Sequential approvals before/after the concurrent review block.
+  const preStages = stages.filter((d) => !reviewSet.has(d) && d !== 'procurement');
+  const postStages = stages.filter((d) => d === 'procurement');
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[2px]" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="wf-drawer-title" dir={isAr ? 'rtl' : 'ltr'}>
-      <div className="relative w-full max-w-[400px] h-full bg-white rounded-s-[12px] overflow-hidden shadow-2xl flex flex-col drawer-in" onClick={(e) => e.stopPropagation()}>
-        {/* Header (Figma 135:4009) */}
-        <div className="shrink-0 p-5 bg-white border-b border-[#dae1eb]">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[2px]" onClick={onClose} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
+      <div className="relative w-full max-w-[460px] h-full bg-white shadow-2xl flex flex-col drawer-in" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="shrink-0 px-5 py-4 border-b border-neutral-100 bg-gradient-to-br from-brand-600 to-ai-700 text-white">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] leading-[16.5px] font-semibold uppercase tracking-[0.275px] text-ai-700">{t('Approval workflow', 'مسار الاعتماد')}</p>
-              <h3 id="wf-drawer-title" className="mt-[1.75px] text-[22px] leading-[24px] font-bold text-neutral-900">{t('How this request is approved', 'كيف يُعتمد هذا الطلب')}</h3>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">{t('Approval workflow', 'مسار الاعتماد')}</p>
+              <h3 className="text-[17px] font-bold mt-0.5">{t('How this request is approved', 'كيف يُعتمد هذا الطلب')}</h3>
             </div>
-            <DrawerClose onClose={onClose} label={t('Close', 'إغلاق')} />
+            <button type="button" onClick={onClose} aria-label={t('Close', 'إغلاق')}
+              className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition-colors">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+            </button>
           </div>
           {catChips.length > 0 && (
-            <div className="pt-2 flex items-center gap-1 flex-wrap">
-              <span className="text-[11px] leading-[16.5px] text-black/70">{t('Based on', 'بناءً على')}:</span>
+            <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] text-white/70">{t('Based on', 'بناءً على')}:</span>
               {catChips.map((c) => (
-                <span key={c.id} className="text-[11px] leading-[16.5px] font-semibold text-brand-600 bg-brand-600/15 rounded-full px-[7px] py-[1.75px]">{isAr ? c.ar : c.en}</span>
+                <span key={c.id} className="text-[11px] font-semibold bg-white/15 rounded-full px-2 py-0.5">{isAr ? c.ar : c.en}</span>
               ))}
             </div>
           )}
         </div>
 
         {/* Timeline */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto px-5 py-5">
           <ol className="relative">
-            {stages.map((d, i) => {
-              const dep = DEPARTMENTS[d];
-              const isReview = reviewIds.includes(d);
-              const last = i === stages.length - 1;
-              // Approvers share the brand green (Figma 135:4039); reviewers keep their department colour.
-              const approver = !isReview && d !== 'requester';
-              return (
-                <li key={d} className="relative flex items-start gap-[10.5px] pb-[17.5px] last:pb-0">
-                  {/* connector */}
-                  {!last && <span className="absolute top-[31.5px] bottom-0 w-[2px] bg-neutral-200" style={{ insetInlineStart: '14.75px' }} />}
-                  {/* node */}
-                  <span className="relative z-10 w-[31.5px] h-[31.5px] rounded-full flex items-center justify-center flex-shrink-0 shadow-[0_0_0_4px_white]"
-                        style={approver ? { backgroundColor: 'rgba(22,163,74,0.1)', color: '#517632' } : { backgroundColor: `${dep.color}1a`, color: dep.color }}>
-                    <DeptGlyph kind={dep.icon} className="w-[18px] h-[18px]" />
-                  </span>
-                  <div className="min-w-0 flex-1 pt-[1.75px]">
-                    <div className="flex items-center gap-[7px] flex-wrap">
-                      <p className="text-[13.5px] leading-[20.25px] font-semibold text-neutral-900">{isAr ? dep.ar : dep.en}</p>
-                      {isReview && (
-                        <span className="text-[10px] leading-[15px] font-semibold rounded-full px-[5.25px] py-[1.75px]" style={{ backgroundColor: `${dep.color}14`, color: dep.color }}>
-                          {t('Review', 'مراجعة')}
-                        </span>
-                      )}
-                      {MANDATORY_DEPTS.includes(d) && (
-                        <span className="text-[10px] leading-[15px] font-semibold rounded-full px-[5.25px] py-[1.75px] bg-[rgba(22,163,74,0.1)] text-brand-700">
-                          {t('Mandatory', 'إلزامي')}
-                        </span>
-                      )}
+            {/* Sequential approvals */}
+            {preStages.map((d) => <StageRow key={d} d={d} isAr={isAr} t={t} connector />)}
+
+            {/* Concurrent review block — these reviews run at the same time, in any order */}
+            {reviewIds.length > 0 && (
+              <li className="relative flex gap-3 pb-5">
+                {postStages.length > 0 && <span className="absolute top-9 w-[2px] bg-neutral-200" style={{ insetInlineStart: '17px', bottom: 0 }} />}
+                <span className="relative z-10 w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-4 ring-white bg-neutral-100 text-neutral-500">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+                    <circle cx="6" cy="6" r="2.2" /><circle cx="6" cy="18" r="2.2" /><circle cx="18" cy="12" r="2.2" /><path d="M8 6h5a3 3 0 013 3v.5M8 18h5a3 3 0 003-3v-.5" />
+                  </svg>
+                </span>
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <div className="rounded-xl border border-dashed border-brand-300 bg-brand-50/40 px-3 py-2.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-[11px] font-bold text-brand-700 uppercase tracking-wide">{t('Parallel review', 'مراجعة متوازية')}</p>
+                      <span className="text-[10.5px] text-brand-600">· {t('run at the same time, in any order', 'تُجرى في وقت واحد وبأي ترتيب')}</span>
                     </div>
-                    <p className="pt-[1.75px] text-[12px] leading-[16.5px] text-neutral-500">{isAr ? dep.descAr : dep.descEn}</p>
+                    <div className="mt-2.5 space-y-2.5">
+                      {reviewIds.map((d) => {
+                        const dep = DEPARTMENTS[d];
+                        return (
+                          <div key={d} className="flex items-center gap-2.5">
+                            <span className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${dep.color}1a`, color: dep.color }}>
+                              <DeptGlyph kind={dep.icon} className="w-4 h-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-[12.5px] font-semibold text-neutral-900">{isAr ? dep.ar : dep.en}</p>
+                                <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5" style={{ backgroundColor: `${dep.color}14`, color: dep.color }}>{t('Review', 'مراجعة')}</span>
+                              </div>
+                              <p className="text-[11px] text-neutral-500 leading-snug">{isAr ? dep.descAr : dep.descEn}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </li>
-              );
-            })}
+                </div>
+              </li>
+            )}
+
+            {/* Sequential approvals after the parallel review */}
+            {postStages.map((d) => <StageRow key={d} d={d} isAr={isAr} t={t} />)}
           </ol>
 
           {categories.length === 0 && (
@@ -302,9 +339,9 @@ export function WorkflowDrawer({ open, onClose, categories, isAr, t }: {
           )}
         </div>
 
-        <div className="shrink-0 px-[17.5px] py-[10.5px] border-t border-neutral-100 flex justify-end">
+        <div className="shrink-0 px-5 py-3 border-t border-neutral-100 flex justify-end">
           <button type="button" onClick={onClose}
-            className="px-[14px] py-[7px] rounded-[7px] bg-brand-600 text-white text-[13px] leading-[19.5px] font-semibold hover:bg-brand-700 transition-colors">
+            className="px-4 py-2 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors">
             {t('Got it', 'تمام')}
           </button>
         </div>

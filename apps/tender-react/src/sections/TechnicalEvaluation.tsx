@@ -5,9 +5,11 @@ import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiTechDocs, aiTechReqs, aiEvalCriteria, type AiReq, type AiCriterion } from '../lib/aiTender';
 import { FormField, SectionCard, Textarea, Input, AIButton, PeoplePicker, InfoBanner } from '../components/ui';
 import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon, XIcon } from '../components/Icons';
+import ImportCriteriaDrawer, { type DrawerItem } from '../components/ImportCriteriaDrawer';
+import { SIMILAR_PROJECTS, EVAL_LIBRARY, type LibEvalCriterion } from '../lib/criteriaLibrary';
 
 // Mandatory documents — always required, can't be removed (locked).
-const LOCKED_TECH_DOCS: { en: string; ar: string }[] = [
+export const LOCKED_TECH_DOCS: { en: string; ar: string }[] = [
   { en: 'Vendor Technical Proposal (Arabic & English)', ar: 'العرض الفني للمورد (عربي وإنجليزي)' },
   { en: 'Valid Commercial Registration (CR)', ar: 'سجل تجاري ساري المفعول' },
   { en: 'Cybersecurity Compliance Certificate (NCA ECC-1:2018)', ar: 'شهادة الامتثال للأمن السيبراني (ECC-1:2018)' },
@@ -100,6 +102,28 @@ export default function TechnicalEvaluation() {
   const evalLoading = evalAi.loading;
   const [docInput, setDocInput] = useState('');
   const docInputRef = useRef<HTMLInputElement>(null);
+  const [showEvalImport, setShowEvalImport] = useState(false);
+
+  // Import evaluation criteria from similar past projects.
+  const evalItemsFor = (pid: string): DrawerItem[] => (EVAL_LIBRARY[pid] ?? []).map((c) => ({
+    key: c.id, title: c.description, titleAr: c.descriptionAr, sub: c.howApplied, subAr: c.howAppliedAr,
+    badge: `${c.weight}%`, addedBy: c.addedBy, addedByAr: c.addedByAr, addedOn: c.addedOn,
+  }));
+  const allLibEval: LibEvalCriterion[] = Object.values(EVAL_LIBRARY).flat();
+  const existingEvalKeys = new Set(
+    allLibEval.filter((c) => formData.evaluationCriteria.some((r) => {
+      const d = r.description.trim(); return d === c.description.trim() || d === c.descriptionAr.trim();
+    })).map((c) => c.id),
+  );
+  function importEval(keys: string[]) {
+    const existingDesc = new Set(formData.evaluationCriteria.map((r) => r.description.trim()));
+    const additions = keys
+      .map((k) => allLibEval.find((c) => c.id === k))
+      .filter((c): c is LibEvalCriterion => !!c)
+      .map((c) => ({ id: crypto.randomUUID(), description: isAr ? c.descriptionAr : c.description, howApplied: isAr ? c.howAppliedAr : c.howApplied, weight: c.weight }))
+      .filter((r) => !existingDesc.has(r.description.trim()));
+    if (additions.length) updateField('evaluationCriteria', [...formData.evaluationCriteria, ...additions]);
+  }
 
   function generateDocs() {
     docsAi.run(() => aiTechDocs(formData, isAr),
@@ -297,7 +321,16 @@ export default function TechnicalEvaluation() {
         titleAr="معايير التقييم"
         description="Define weighted evaluation criteria. Total weight must equal 100%."
         descriptionAr="حدد معايير التقييم الموزونة. يجب أن يكون مجموع الأوزان 100%."
-        action={<AIButton onClick={generateEval} loading={evalLoading} label={t('AI Suggest Criteria', 'اقتراح المعايير')} />}
+        action={
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setShowEvalImport(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-200 bg-brand-50 text-brand-700 text-[12px] font-semibold hover:bg-brand-100 transition-colors">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="8" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /><path d="M17 14v6M14 17h6" /></svg>
+              {t('Import from similar projects', 'استيراد من مشاريع مماثلة')}
+            </button>
+            <AIButton onClick={generateEval} loading={evalLoading} label={t('AI Suggest Criteria', 'اقتراح المعايير')} />
+          </div>
+        }
       >
         {evalLoading && (
           <div className="mb-4 rounded-lg border border-ai-200 bg-ai-50 p-4 ai-loading">
@@ -403,6 +436,19 @@ export default function TechnicalEvaluation() {
           </FormField>
         </div>
       </SectionCard>
+
+      <ImportCriteriaDrawer
+        open={showEvalImport}
+        onClose={() => setShowEvalImport(false)}
+        title="Import evaluation criteria"
+        titleAr="استيراد معايير التقييم"
+        projects={SIMILAR_PROJECTS}
+        itemsFor={evalItemsFor}
+        existingKeys={existingEvalKeys}
+        onImport={importEval}
+        isAr={isAr}
+        t={t}
+      />
     </div>
   );
 }

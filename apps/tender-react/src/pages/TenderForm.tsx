@@ -48,7 +48,7 @@ export default function TenderForm({ onBack }: Props) {
     mainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
   }, [currentSection]);
 
-  // Etimad eMarket uses a shorter flow. We filter the visible steps but keep each step's
+  // Etimad E-Market uses a shorter flow. We filter the visible steps but keep each step's
   // ORIGINAL index into SECTIONS, so component lookup and navigation stay stable.
   const ESOUQ_IDS = ['procurement-route', 'project-setup', 'boq', 'attachments', 'review'];
   const isEsouq = routeConfirmed && formData.sourceType === 'souq-etimad';
@@ -71,7 +71,7 @@ export default function TenderForm({ onBack }: Props) {
     return d.toLocaleTimeString(isAr ? 'ar-SA' : 'en-SA', { hour: '2-digit', minute: '2-digit' });
   }
 
-  const sourceLabelEn = formData.sourceType === 'souq-etimad' ? 'Etimad eMarket' : 'Tender';
+  const sourceLabelEn = formData.sourceType === 'souq-etimad' ? 'Etimad E-Market' : 'Tender';
   const sourceLabelAr = formData.sourceType === 'souq-etimad' ? 'سوق اعتماد' : 'منافسة RFP';
   const sourceLabel = isAr ? sourceLabelAr : sourceLabelEn;
 
@@ -263,7 +263,7 @@ export default function TenderForm({ onBack }: Props) {
             </div>
 
             <div className="space-y-5">
-              <CurrentSection />
+              {CurrentSection === ReviewConfirm ? <ReviewConfirm onExit={onBack} /> : <CurrentSection />}
             </div>
 
             {/* Step navigation — hidden on the Procurement Route step, which drives its own flow */}

@@ -4,7 +4,7 @@ import { useT, useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiScope, aiTerms } from '../lib/aiTender';
 import { PROJECTS } from '../data/mockData';
-import { FormField, SectionCard, Textarea, AIButton, InfoBanner, Input, Select } from '../components/ui';
+import { FormField, SectionCard, Textarea, AIButton, Input, Select } from '../components/ui';
 import { SparklesIcon } from '../components/Icons';
 import ProjectIncludesSelect, { deriveIncludesFromItems, reviewDepartments, DEPARTMENTS, WorkflowDrawer } from '../components/ProjectIncludesSelect';
 
@@ -92,6 +92,17 @@ export default function ScopeOfWork() {
   const termsLoading = termsAi.loading;
   const [aiScopeText, setAiScopeText] = useState<string | null>(null);
   const [wfOpen, setWfOpen] = useState(false);
+  const [locLoading, setLocLoading] = useState(false);
+
+  function generateLocation() {
+    setLocLoading(true);
+    window.setTimeout(() => {
+      updateField('executionLocation', isAr
+        ? 'المقر الرئيسي للجهة — الرياض، ومقر المقاول لأعمال التطوير. يجب أن تبقى جميع البيانات والأنظمة مُستضافة داخل المملكة العربية السعودية طوال مدة العقد.'
+        : "The organization's headquarters — Riyadh, with the contractor's premises for off-site development. All data and systems must remain hosted within the Kingdom of Saudi Arabia for the full contract duration.");
+      setLocLoading(false);
+    }, 650);
+  }
 
   const selectedProject = PROJECTS.find((p) => p.id === formData.projectId);
 
@@ -110,8 +121,16 @@ export default function ScopeOfWork() {
   const endDate = calcEndDate(formData.startDate, formData.contractDuration, formData.contractDurationType);
   const yearsCalc = calcYears(formData.startDate, formData.contractDuration, formData.contractDurationType);
 
-  // Auto-derived (locked) categories from the request's items — can't be removed.
-  const lockedIncludes = deriveIncludesFromItems(formData.boqItems.map((b) => b.itemName).filter(Boolean));
+  // Start date can't be in the past — block past dates in the picker and flag any that slip through.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const startInPast = formData.startDate !== '' && formData.startDate < todayStr;
+
+  // Auto-derived (locked) categories from the request's selected budgeted items
+  // (plus any BOQ lines that have been added) — can't be removed.
+  const budgetedNames = (selectedProject?.items ?? [])
+    .filter((it) => (formData.selectedProjectItemIds ?? []).includes(it.id))
+    .map((it) => it.name);
+  const lockedIncludes = deriveIncludesFromItems([...budgetedNames, ...formData.boqItems.map((b) => b.itemName)].filter(Boolean));
   const allIncludes = [...new Set([...lockedIncludes, ...formData.scopeIncludes])];
   const reviewIds = reviewDepartments(allIncludes);
 
@@ -127,7 +146,7 @@ export default function ScopeOfWork() {
       >
         <div className="space-y-4">
           {/* What the project includes — 3 categories; each routes the request to specific departments */}
-          <FormField label="What does this project include?" labelAr="ماذا يتضمن مشروعك؟" required
+          <FormField label="Which department's approval is necessary?" labelAr="ما الإدارات التي يلزم اعتمادها؟" required
             hint={t('Auto-selected from your project and items (locked). Add others manually — each category changes which departments approve the request.', 'مُحدّدة تلقائياً من مشروعك وبنودك (مقفلة). أضف غيرها يدوياً — كل فئة تغيّر الجهات التي تعتمد الطلب.')}>
             <ProjectIncludesSelect value={formData.scopeIncludes} onChange={(v) => updateField('scopeIncludes', v)} locked={lockedIncludes} />
 
@@ -233,7 +252,8 @@ export default function ScopeOfWork() {
         descriptionAr="حدد مكان تنفيذ العمل والجدول الزمني للعقد."
       >
         <div className="space-y-4">
-          <FormField label="Work & Services Execution Location" labelAr="مكان تنفيذ الأعمال والخدمات" required>
+          <FormField label="Work & Services Execution Location" labelAr="مكان تنفيذ الأعمال والخدمات" required
+            action={<AIButton onClick={generateLocation} loading={locLoading} label={t('Generate with AI', 'توليد بالذكاء الاصطناعي')} />}>
             <Textarea
               value={formData.executionLocation}
               onChange={(e) => updateField('executionLocation', e.target.value)}
@@ -247,7 +267,14 @@ export default function ScopeOfWork() {
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Work/Services Start Date" labelAr="تاريخ بدء الأعمال" required>
-              <Input type="date" value={formData.startDate} onChange={(e) => updateField('startDate', e.target.value)} />
+              <Input type="date" min={todayStr} value={formData.startDate} onChange={(e) => updateField('startDate', e.target.value)}
+                className={startInPast ? 'border-error-300 focus:border-error-400 focus:ring-error-400/20' : ''} />
+              {startInPast && (
+                <p className="mt-1 flex items-center gap-1.5 text-[12px] text-error-600">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5 flex-shrink-0"><circle cx="12" cy="12" r="10" /><path d="M12 8v5M12 16h.01" strokeLinecap="round" /></svg>
+                  {t('Start date can’t be in the past — pick today or a future date.', 'لا يمكن أن يكون تاريخ البدء في الماضي — اختر اليوم أو تاريخاً لاحقاً.')}
+                </p>
+              )}
             </FormField>
             <FormField label="Contract Duration" labelAr="مدة العقد" required>
               <div className="flex gap-2">

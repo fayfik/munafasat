@@ -72,6 +72,7 @@ const INITIAL: TenderFormData = {
   scopeOfWork: '',
   scopeTerms: '',
   scopeIncludes: [],
+  extraRegulatoryRecords: [],
   boqItems: [],
   hasBrandName: null,
   brandNameJustification: '',
@@ -143,7 +144,7 @@ interface TenderContextType {
   submitted: { requestNo: string; at: string } | null;
   submit: () => Promise<void>;
   isSubmitting: boolean;
-  /** Move BOQ rows into this tender's linked Etimad eMarket draft (created on first use). */
+  /** Move BOQ rows into this tender's linked Etimad E-Market draft (created on first use). */
   moveBoqRowsToEtimad: (ids: string[]) => Promise<'moved' | 'preview' | 'error'>;
 }
 
@@ -235,7 +236,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
     }));
     setRouteConfirmed(true);
     triggerSave();
-    // Both routes continue into the wizard (eMarket has a shorter, purchase-oriented flow).
+    // Both routes continue into the wizard (E-Market has a shorter, purchase-oriented flow).
     goToSection(1);
   }, [triggerSave, goToSection]);
 
@@ -376,7 +377,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   const boqSubtotal = formData.boqItems.reduce((s, r) => {
     const p = typeof r.unitPrice === 'number' ? r.unitPrice : 0;
     if (isEsouqReq) {
-      // eMarket line total: manual override, else product = price·qty + shipping, else price.
+      // E-Market line total: manual override, else product = price·qty + shipping, else price.
       if (typeof r.lineTotal === 'number') return s + r.lineTotal;
       if (r.purchaseType === 'product') return s + p * ((typeof r.quantity === 'number' ? r.quantity : 0) || 1) + (typeof r.shippingCharges === 'number' ? r.shippingCharges : 0);
       return s + p;
@@ -466,7 +467,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   }, [store]);
 
   // Every section except Attachments (optional) and Review must be complete.
-  // eMarket uses a shorter flow: only Procurement Route → Project Setup → BOQ are required.
+  // E-Market uses a shorter flow: only Procurement Route → Project Setup → BOQ are required.
   const ESOUQ_REQUIRED = ['project-setup', 'boq'];
   const readyToSubmit = SECTIONS.every((sec, idx) => {
     if (sec.id === 'procurement-route') return routeConfirmed;
