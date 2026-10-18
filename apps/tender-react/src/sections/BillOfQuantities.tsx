@@ -704,7 +704,6 @@ export default function BillOfQuantities() {
               <UploadIcon className="w-3.5 h-3.5" />
               {t('Use a Template', 'استخدم نموذجاً')}
             </button>
-            <AIButton onClick={handleAISuggest} loading={aiLoading} label={t('AI Suggest BOQ', 'اقتراح جدول الكميات')} />
           </div>
           )
         }
@@ -868,8 +867,8 @@ export default function BillOfQuantities() {
               </p>
             </div>
 
-            {/* Three option tiles */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Option tiles — v3: no AI-generated BOQ; items come from step 1 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
               {/* 1 · Upload via template */}
               <button
                 type="button"
@@ -886,29 +885,6 @@ export default function BillOfQuantities() {
                 <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600">
                   {t('Choose a file', 'اختر ملفاً')}
                   <ChevronRightIcon className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                </span>
-              </button>
-
-              {/* 2 · Generate with AI (recommended) */}
-              <button
-                type="button"
-                onClick={handleAISuggest}
-                disabled={aiLoading}
-                className="group relative flex flex-col text-start rounded-xl border border-ai-200 bg-gradient-to-b from-ai-50/80 to-white p-4 hover:border-ai-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-70 disabled:cursor-wait"
-              >
-                <span className="absolute top-3 end-3 text-[9px] font-bold uppercase tracking-wide text-ai-700 bg-white/90 border border-ai-200 rounded-full px-2 py-0.5">
-                  {t('Recommended', 'موصى به')}
-                </span>
-                <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-ai-100 text-ai-600 ring-1 ring-ai-200 mb-3 group-hover:scale-105 transition-transform">
-                  <SparklesIcon className={`w-5 h-5 ${aiLoading ? 'spin-slow' : ''}`} />
-                </span>
-                <p className="text-sm font-bold text-neutral-900">{t('Generate with AI', 'التوليد بالذكاء الاصطناعي')}</p>
-                <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
-                  {t('Let AI draft items from your project scope, then review and adjust.', 'دع الذكاء الاصطناعي يصيغ البنود من نطاق مشروعك، ثم راجع وعدّل.')}
-                </p>
-                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-ai-700">
-                  {aiLoading ? t('Generating…', 'جارٍ التوليد…') : t('Suggest items', 'اقترح البنود')}
-                  {!aiLoading && <ChevronRightIcon className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />}
                 </span>
               </button>
 

@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useRequests } from './RequestStore';
 import { PROJECTS } from '../data/mockData';
+import { classifyItem } from '../lib/triage';
+import { etimadItemKey } from '../lib/etimadCheck';
 import type {
   TenderFormData,
   BOQRow,
@@ -14,6 +16,7 @@ import type {
   SectionStatus,
   TenderStatus,
   SourceType,
+  V3Stage,
 } from '../types/tender';
 
 export const SECTIONS = [
@@ -106,7 +109,7 @@ interface TenderContextType {
   qualPctTotal: number;
   /** Step 1 (Procurement Route) determines the channel; later steps unlock once it's confirmed. */
   routeConfirmed: boolean;
-  confirmRoute: (opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[]; justification?: string; justifiedItems?: string[]; choice?: 'tender' | 'emarket' | 'help'; movedToDraft?: { count: number; route: SourceType } }) => void;
+  confirmRoute: (opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[]; justification?: string; justifiedItems?: string[]; choice?: 'tender' | 'emarket' | 'help'; movedToDraft?: { count: number; route: SourceType }; seed?: Partial<TenderFormData>; startedFromRfp?: string }) => void;
   importedFromProject: string | null;
   setImportedFromProject: (name: string | null) => void;
   /** Last RFP imported in Project Setup, with the values it replaced (for Undo). */
@@ -144,6 +147,11 @@ interface TenderContextType {
   submitted: { requestNo: string; at: string } | null;
   submit: () => Promise<void>;
   isSubmitting: boolean;
+  /** v3 hand-off between Requester and Procurement. */
+  v3Stage: V3Stage;
+  requesterReady: boolean;
+  procurementReady: boolean;
+  handOff: (next: V3Stage, by: 'requester' | 'procurement', note?: string) => Promise<void>;
   /** Move BOQ rows into this tender's linked Etimad E-Market draft (created on first use). */
   moveBoqRowsToEtimad: (ids: string[]) => Promise<'moved' | 'preview' | 'error'>;
 }
@@ -158,6 +166,32 @@ interface ProviderProps {
   initialSourceType?: TenderFormData['sourceType'];
   /** Seed values from the Procurement Route flow (e.g. items pre-filled into the BOQ). */
   initialSeed?: Partial<TenderFormData>;
+}
+
+const UOM: Record<string, string> = { manpower: 'Person-month', services: 'Service', equipment: 'Each', material: 'Each' };
+const CAT: Record<string, BOQRow['category']> = { manpower: 'manpower', services: 'service', equipment: 'equipment', material: 'material' };
+/** One BOQ line per item chosen in step 1. */
+function seedBoq(items: { name: string; nameAr?: string; projectItemId?: string }[], sourceType: SourceType, justification?: string): BOQRow[] {
+  const now = new Date().toISOString();
+  return items.map((it) => {
+    const proj = PROJECTS.find((p) => p.items.some((x) => x.id === it.projectItemId));
+    const pi = proj?.items.find((x) => x.id === it.projectItemId);
+    const bt = classifyItem({ id: it.projectItemId ?? it.name, name: it.name, nameAr: it.nameAr, type: pi?.type }).boqType;
+    const base: BOQRow = {
+      id: crypto.randomUUID(), projectItem: it.name, itemName: it.name, itemDescription: '',
+      unitOfMeasure: UOM[bt] ?? 'Each', quantity: '', unitPrice: '', deliveryDate: '',
+    };
+    if (sourceType === 'souq-etimad') {
+      return { ...base, purchaseType: bt === 'services' || bt === 'manpower' ? 'service' : 'product', productId: '', supplier: '', lineTotal: '' };
+    }
+    // The catalogue lookup already ran in step 1 — carry its result onto the line.
+    const onEmarket = classifyItem({ id: it.projectItemId ?? it.name, name: it.name, type: pi?.type }).route === 'souq-etimad';
+    return {
+      ...base, category: CAT[bt],
+      etimadCheck: { status: onEmarket ? 'available' : 'not-available', comment: onEmarket ? 'Listed on Etimad eMarket — kept in this tender in step 1.' : 'Checked in step 1: needs a competitive tender.', checkedAt: now, source: 'demo', itemKey: etimadItemKey(base) },
+      ...(onEmarket ? { etimadKeep: true, etimadJustification: justification ?? '' } : {}),
+    };
+  });
 }
 
 export function TenderProvider({ children, requestId: givenId, initialForm, initialStatus, initialSourceType, initialSeed }: ProviderProps) {
@@ -182,7 +216,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   latest.current = { formData, status };
 
   const persist = useCallback(async (form: TenderFormData, st: TenderStatus, extra?: Record<string, unknown>) => {
-    if (store.mode !== 'live') { setSaveState('unavailable'); return false; }
+    if (store.mode === 'loading') { setSaveState('unavailable'); return false; }
     setSaveState('saving');
     const ok = await store.save(requestId, form, st, extra);
     setSaveState(ok ? 'saved' : 'error');
@@ -218,7 +252,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
 
   // Called from the Procurement Route step once the channel is determined.
   // Seeds the project, cost center, selected items and a starter BOQ for the chosen group.
-  const confirmRoute = useCallback((opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[]; justification?: string; justifiedItems?: string[]; choice?: 'tender' | 'emarket' | 'help'; movedToDraft?: { count: number; route: SourceType } }) => {
+  const confirmRoute = useCallback((opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[]; justification?: string; justifiedItems?: string[]; choice?: 'tender' | 'emarket' | 'help'; movedToDraft?: { count: number; route: SourceType }; seed?: Partial<TenderFormData>; startedFromRfp?: string }) => {
     const proj = PROJECTS.find((p) => p.id === opts.projectId);
     setFormData((prev) => ({
       ...prev,
@@ -231,8 +265,12 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       routeChoice: opts.choice,
       movedToDraft: opts.movedToDraft,
       tenderingPurpose: prev.tenderingPurpose || proj?.purpose || '',
-      // BOQ starts empty — the user builds it manually (Add BOQ Item / AI Suggest / import).
-      boqItems: [],
+      // v3: the BOQ starts from the items chosen in step 1 (or a past request's BOQ), so
+      // nothing is typed twice. Each line keeps the step-1 item as its project item.
+      ...(opts.seed ?? {}),
+      boqItems: opts.seed?.boqItems?.length ? opts.seed.boqItems : seedBoq(opts.items, opts.sourceType, opts.justification),
+      startedFromRfp: opts.startedFromRfp,
+      v3Stage: 'draft',
     }));
     setRouteConfirmed(true);
     triggerSave();
@@ -392,14 +430,15 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   const evalWeightTotal = formData.evaluationCriteria.reduce((s, r) => s + (typeof r.weight === 'number' ? r.weight : 0), 0);
   const qualPctTotal = formData.qualificationCriteria.reduce((s, r) => s + (typeof r.percentage === 'number' ? r.percentage : 0), 0);
 
-  const sectionStatuses: SectionStatus[] = SECTIONS.map((sec, idx): SectionStatus => {
-    if (idx === currentSection) return 'in-progress';
+  // Raw completion per section (no "current step" override) — used for readiness checks.
+  const rawStatuses: SectionStatus[] = SECTIONS.map((sec): SectionStatus => {
     switch (sec.id) {
       case 'procurement-route':
         return routeConfirmed ? 'completed' : 'not-started';
       case 'project-setup':
-        if (formData.costCenterId && formData.projectId) return 'completed';
-        if (formData.costCenterId || formData.projectId) return 'missing';
+        // v3: the project comes from step 1; this part asks for the purpose.
+        if (formData.projectId && formData.tenderingPurpose.trim().length > 0) return 'completed';
+        if (formData.projectId) return 'missing';
         return 'not-started';
       case 'scope-of-work': {
         // Scope now also captures contract duration & location (moved from Deliverables).
@@ -435,6 +474,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
         return 'not-started';
     }
   });
+  const sectionStatuses: SectionStatus[] = rawStatuses.map((st, idx) => (idx === currentSection ? 'in-progress' : st));
 
   const moveBoqRowsToEtimad = useCallback(async (ids: string[]): Promise<'moved' | 'preview' | 'error'> => {
     if (store.mode !== 'live') return 'preview';
@@ -466,6 +506,31 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
     return 'moved';
   }, [store]);
 
+  /* ── v3 hand-off ─────────────────────────────────────────────────────────── */
+  const v3Stage: V3Stage = formData.v3Stage ?? 'draft';
+  const statusOf = (id: string) => rawStatuses[SECTIONS.findIndex((x) => x.id === id)];
+  const requesterReady = routeConfirmed && (formData.sourceType === 'souq-etimad'
+    ? formData.boqItems.length > 0
+    : statusOf('scope-of-work') === 'completed' && statusOf('boq') === 'completed' && formData.tenderingPurpose.trim().length > 0);
+  const procurementReady = statusOf('payment-schedule') === 'completed' && statusOf('technical-evaluation') === 'completed' && statusOf('qualification') === 'completed';
+  const handOff = useCallback(async (next: V3Stage, by: 'requester' | 'procurement', note?: string) => {
+    const d = new Date();
+    const f = latest.current.formData;
+    const requestNo = `TEN-${d.getFullYear()}-${requestId.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+    const nextForm: TenderFormData = {
+      ...f,
+      v3Stage: next,
+      ...(by === 'procurement' ? { procurementNote: note ?? f.procurementNote } : {}),
+      ...(by === 'requester' && next === 'with-procurement' && note ? { requesterChangeRequest: note } : {}),
+      v3History: [...(f.v3History ?? []), { stage: next, at: d.toISOString(), by, note }],
+    };
+    const st: TenderStatus = next === 'in-approval' ? 'submitted' : next === 'draft' ? 'draft' : 'under-review';
+    setFormData(nextForm);
+    setStatus(st);
+    await persist(nextForm, st, { requestNo, submittedAt: d.toISOString() });
+    if (next === 'in-approval' || next === 'with-procurement') setSubmitted({ requestNo, at: d.toISOString() });
+  }, [persist, requestId]);
+
   // Every section except Attachments (optional) and Review must be complete.
   // E-Market uses a shorter flow: only Procurement Route → Project Setup → BOQ are required.
   const ESOUQ_REQUIRED = ['project-setup', 'boq'];
@@ -491,6 +556,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   return (
     <Ctx.Provider value={{
       requestId, status, saveState, saveNow, readyToSubmit, submitted, submit, isSubmitting,
+      v3Stage, requesterReady, procurementReady, handOff,
       moveBoqRowsToEtimad,
       formData, currentSection, isSaving, lastSaved, sectionStatuses,
       boqSubtotal, boqVat, boqTotal, paymentPctTotal, evalWeightTotal, qualPctTotal,

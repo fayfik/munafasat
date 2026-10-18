@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { LanguageProvider } from './context/LanguageContext';
 import { TenderProvider } from './context/TenderContext';
 import { RequestStoreProvider, useRequests } from './context/RequestStore';
+import { RoleProvider } from './context/RoleContext';
 import EmptyPage from './pages/EmptyPage';
+import Inbox from './pages/Inbox';
 import AppShell, { type AppPage } from './components/AppShell';
 import Dashboard from './pages/Dashboard';
 import MyRequests from './pages/MyRequests';
@@ -20,7 +22,9 @@ export default function App() {
   return (
     <LanguageProvider>
       <RequestStoreProvider>
-        <AppRoot />
+        <RoleProvider>
+          <AppRoot />
+        </RoleProvider>
       </RequestStoreProvider>
     </LanguageProvider>
   );
@@ -63,7 +67,8 @@ function AppRoot() {
           onViewRequests={(f) => { setReqFilter(f ?? 'all'); setPage('my-requests'); }}
         />
       )}
-      {(page === 'inbox' || page === 'reports') && <EmptyPage page={page} />}
+      {page === 'inbox' && <Inbox onOpen={openRequest} />}
+      {page === 'reports' && <EmptyPage page={page} />}
       {page === 'my-requests' && (
         <MyRequests key={reqFilter} initialFilter={reqFilter} onNewRequest={() => newRequest()} onOpenRequest={openRequest} />
       )}

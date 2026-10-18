@@ -217,7 +217,6 @@ export default function EsouqBillOfQuantities() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 bg-white text-xs font-medium text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400 transition-colors shadow-sm">
               <UploadIcon className="w-3.5 h-3.5" /> {t('Use a Template', 'استخدم نموذجاً')}
             </button>
-            <AIButton onClick={generateAI} loading={aiLoading} label={t('Generate with AI', 'إنشاء بالذكاء الاصطناعي')} />
           </div>
         }
       >

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useT } from '../context/LanguageContext';
 import { isStale } from '../lib/etimadCheck';
-import { SparklesIcon, CheckCircleIcon, AlertTriangleIcon, InfoIcon } from './Icons';
+import { SearchIcon, CheckCircleIcon, AlertTriangleIcon, InfoIcon } from './Icons';
 import type { BOQRow } from '../types/tender';
 
 interface Props {
@@ -27,7 +27,7 @@ export function EtimadCheckButton({ row, checking, onCheck }: { row: BOQRow; che
         disabled={checking}
         className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-ai-50 text-ai-700 border border-ai-200 hover:bg-ai-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        <SparklesIcon className={`w-3 h-3 ${checking ? 'spin-slow' : ''}`} />
+        <SearchIcon className="w-3 h-3" />
         {checking ? t('Checking Etimad…', 'جاري التحقق من اعتماد…') : stale ? t('Check again', 'تحقق مجدداً') : t('Check Etimad availability', 'التحقق من التوفر في اعتماد')}
       </button>
     </div>
@@ -49,7 +49,7 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
       disabled={checking}
       className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-ai-50 text-ai-700 border border-ai-200 hover:bg-ai-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
     >
-      <SparklesIcon className={`w-3 h-3 ${checking ? 'spin-slow' : ''}`} />
+      <SearchIcon className="w-3 h-3" />
       {checking ? t('Checking Etimad…', 'جاري التحقق من اعتماد…') : label}
     </button>
   );

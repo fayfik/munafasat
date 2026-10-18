@@ -5,12 +5,16 @@ export type ProjectItemType = 'assets' | 'services' | 'consumables';
 export type BOQCategory = 'service' | 'equipment' | 'material' | 'manpower';
 export type SectionStatus = 'completed' | 'in-progress' | 'not-started' | 'missing';
 export type TenderStatus = 'draft' | 'submitted' | 'under-review' | 'approved' | 'returned';
+/** v3 flow: requester drafts → Procurement completes payment & evaluation → requester confirms → approvals. */
+export type V3Stage = 'draft' | 'with-procurement' | 'requester-confirm' | 'in-approval';
 
 export interface ProjectItem {
   id: string;
   name: string;
   nameAr: string;
   type: ProjectItemType;
+  /** Approved budget for this line, SAR. */
+  budget?: number;
 }
 
 export interface BOQRow {
@@ -172,6 +176,19 @@ export interface TenderFormData {
   routeJustification?: string;
   /** How the requester picked the route in step 1. */
   routeChoice?: 'tender' | 'emarket' | 'help';
+  /** v3 hand-off: who holds the request now. */
+  v3Stage?: V3Stage;
+  /** Note from Procurement when sending the RFP back for the requester's confirmation. */
+  procurementNote?: string;
+  /** Requester's change request when sending the RFP back to Procurement. */
+  requesterChangeRequest?: string;
+  /** Template Procurement applied for payment stages / evaluation (by category). */
+  paymentTemplate?: string;
+  evaluationTemplate?: string;
+  /** Past request the requester started from in step 1. */
+  startedFromRfp?: string;
+  /** When each hand-off happened (ISO). */
+  v3History?: { stage: V3Stage; at: string; by: 'requester' | 'procurement'; note?: string }[];
   /** Items moved out of this request into a separate draft (step 1). */
   movedToDraft?: { count: number; route: SourceType };
   /** Names of eMarket-available items kept in the tender with the justification above. */

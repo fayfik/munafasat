@@ -7,6 +7,7 @@ import {
 } from './Icons';
 import { useLanguage, useT } from '../context/LanguageContext';
 import type { FullPage } from '../App';
+import { useRole, PERSONAS } from '../context/RoleContext';
 
 export type AppPage = 'dashboard' | 'my-requests' | 'inbox' | 'reports';
 
@@ -23,11 +24,16 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
 
   // Collapsed by default; the switch beside "Main Menu" expands it.
   const [collapsed, setCollapsed] = useState(true);
-  const { requests: MOCK_TENDERS, userName } = useRequests();
-  const displayName = userName || 'Mohammed H.';
-  const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'MH';
+  const { requests: MOCK_TENDERS } = useRequests();
+  const { role, setRole } = useRole();
+  const persona = PERSONAS[role];
+  const displayName = persona.name;
+  const initials = persona.initials;
 
-  const returnedCount = MOCK_TENDERS.filter((t) => t.status === 'returned').length;
+  // Inbox = requests waiting on the current role in the v3 hand-off.
+  const waitingStage = role === 'procurement' ? 'with-procurement' : 'requester-confirm';
+  const inboxCount = MOCK_TENDERS.filter((r) => (r as { form?: { v3Stage?: string } }).form?.v3Stage === waitingStage).length;
+  const returnedCount = inboxCount;
   const myRequestsCount = MOCK_TENDERS.length;
 
   // 'tender-form' counts as child of 'my-requests' for nav highlight purposes
@@ -36,7 +42,7 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
   const NAV_ITEMS = [
     { page: 'dashboard' as AppPage, label: t('Dashboard', 'الرئيسية'), Icon: NavDashboardIcon },
     { page: 'my-requests' as AppPage, label: t('My Requests', 'طلباتي'), Icon: NavRequestsIcon, badge: myRequestsCount },
-    { page: 'inbox' as AppPage, label: t('Inbox', 'الوارد'), Icon: NavInboxIcon, badge: returnedCount > 0 ? returnedCount : undefined },
+    { page: 'inbox' as AppPage, label: t('Inbox', 'الوارد'), Icon: NavInboxIcon, badge: inboxCount > 0 ? inboxCount : undefined },
     { page: 'reports' as AppPage, label: t('Reports', 'التقارير'), Icon: NavReportsIcon },
   ];
 
@@ -53,6 +59,16 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
         />
 
         <div className="flex items-center gap-2">
+          {/* Prototype: switch between the Requester and Procurement views of the same requests */}
+          <div role="radiogroup" aria-label={t('View as', 'العرض كـ')} className="hidden sm:flex items-center gap-1 rounded-lg border border-white/30 bg-white/10 p-0.5 me-1">
+            <span className="text-[10.5px] text-white/75 px-1.5">{t('View as', 'العرض كـ')}</span>
+            {(['requester', 'procurement'] as const).map((r) => (
+              <button key={r} type="button" role="radio" aria-checked={role === r} onClick={() => setRole(r)}
+                className={`px-2 py-1 rounded-md text-[11.5px] font-semibold transition-colors ${role === r ? 'bg-white text-brand-700' : 'text-white hover:bg-white/15'}`}>
+                {r === 'requester' ? t('Requester', 'مقدم الطلب') : t('Procurement', 'المشتريات')}
+              </button>
+            ))}
+          </div>
           {/* Language toggle */}
           <button
             onClick={() => setLang(isAr ? 'en' : 'ar')}
@@ -82,7 +98,7 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
             <div className="hidden sm:block leading-tight">
               <p className="text-[12px] font-semibold text-white">{displayName}</p>
               <p className="text-[10px] text-white/75">
-                {t('Requester', 'مقدم الطلب')} · IT &amp; Digital
+                {t(persona.titleEn, persona.titleAr)}
               </p>
             </div>
           </div>

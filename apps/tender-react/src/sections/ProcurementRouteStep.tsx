@@ -8,7 +8,9 @@ import routeIllustration from '../assets/procurement-route-illustration.svg';
 import { PROJECTS, ALL_COST_CENTERS } from '../data/mockData';
 import { useRequests } from '../context/RequestStore';
 import { EXPENSE_TYPES, expenseTypeOf } from '../lib/expenseTypes';
-import type { ProjectItem } from '../types/tender';
+import type { ProjectItem, TenderFormData } from '../types/tender';
+import { rfpsForProjectByRoute, buildRfpImport, formatRfpDate, type PastRfp } from '../lib/rfpLibrary';
+import { formatSAR } from '../lib/money';
 import {
   classifyItem, groupItems, forcedRoute, parseItemNames, itemNameLooksReal, EXAMPLE_TEXT, ROUTE_META, BOQ_TYPE_META,
   type ClsItem, type ItemVerdict, type RequestGroup, type RouteKey,
@@ -51,6 +53,8 @@ export default function ProcurementRouteStep() {
   const [tenderAction, setTenderAction] = useState<'move' | 'justify'>('move');
   const [justification, setJustification] = useState('');
   const { addSessionDraft } = useRequests();
+  // v3: start from a past request of this project (fills scope, BOQ and contract terms after the route is set).
+  const [pastRfp, setPastRfp] = useState<PastRfp | null>(null);
 
   const project = PROJECTS.find((p) => p.id === projectId);
   const items: ProjectItem[] = project?.items ?? [];
@@ -97,15 +101,11 @@ export default function ProcurementRouteStep() {
   const toggleAll = () => setItemIds((xs) => xs.length === items.length ? [] : items.map((i) => i.id));
 
   // Free-text intake handlers
+  // Splits the typed or pasted text into one item per line (no AI involved).
   function identify() {
     const src = text.trim();
-    setIdentifying(true);
-    window.setTimeout(() => {
-      const names = parseItemNames(src.length ? src : EXAMPLE_TEXT);
-      if (!src.length) setText(EXAMPLE_TEXT);
-      setFreeItems(names.map((n) => ({ id: uid(), name: n })));
-      setIdentifying(false);
-    }, 1100);
+    if (!src.length) return;
+    setFreeItems(parseItemNames(src).map((n) => ({ id: uid(), name: n })));
   }
   function onAttach(e: ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -177,10 +177,21 @@ export default function ProcurementRouteStep() {
       projectId,
       items: g.items.map((i) => ({ name: i.name, nameAr: i.nameAr, projectItemId: i.projectItemId })),
       choice: 'help',
+      ...(g.route === 'tendering' ? pastSeed(g.items) : {}),
     });
     // Both routes now continue into the wizard (confirmRoute advances to Project Setup).
   }
 
+  // Past request → scope, BOQ, contract terms etc. (tender only; payment and evaluation stay with Procurement).
+  function pastSeed(vs?: ItemVerdict[]): { seed?: Partial<TenderFormData>; startedFromRfp?: string } {
+    if (!pastRfp) return {};
+    // Only the items that stay in this tender take their lines from the past request.
+    const ids = vs ? vs.map((v) => v.projectItemId).filter((x): x is string => !!x) : itemIds;
+    const full = buildRfpImport(pastRfp, { ...formData, projectId, selectedProjectItemIds: ids });
+    const { paymentStages: _p, technicalDocumentsList: _d, technicalRequirements: _r, evaluationCriteria: _e, technicalPassingPercentage: _x, ...seed } = full;
+    void _p; void _d; void _r; void _e; void _x;
+    return { seed, startedFromRfp: pastRfp.code };
+  }
   const toItems = (vs: ItemVerdict[]) => vs.map((i) => ({ name: i.name, nameAr: i.nameAr, projectItemId: i.projectItemId }));
   const itemNames = (vs: ItemVerdict[]) => vs.map((i) => (isAr ? i.nameAr : i.name)).join('، ');
   // Save the flagged items as a separate draft request (shown in My Requests for this session).
@@ -196,16 +207,16 @@ export default function ProcurementRouteStep() {
   function continueTender() {
     if (tenderAction === 'move' && rest.length > 0) {
       moveFlaggedToDraft('souq-etimad');
-      confirmRoute({ sourceType: 'tendering', projectId, items: toItems(rest), choice: 'tender', movedToDraft: flagged.length ? { count: flagged.length, route: 'souq-etimad' } : undefined });
+      confirmRoute({ sourceType: 'tendering', projectId, items: toItems(rest), choice: 'tender', ...pastSeed(rest), movedToDraft: flagged.length ? { count: flagged.length, route: 'souq-etimad' } : undefined });
     } else {
-      confirmRoute({ sourceType: 'tendering', projectId, items: toItems([...rest, ...flagged]), choice: 'tender',
+      confirmRoute({ sourceType: 'tendering', projectId, items: toItems([...rest, ...flagged]), choice: 'tender', ...pastSeed([...rest, ...flagged]),
         justification: flagged.length ? justification.trim() : undefined, justifiedItems: flagged.map((f) => f.name) });
     }
   }
   function continueEmarket() {
     if (rest.length === 0) {
       // Nothing is on eMarket — this becomes a tender request instead.
-      confirmRoute({ sourceType: 'tendering', projectId, items: toItems(flagged), choice: 'emarket' });
+      confirmRoute({ sourceType: 'tendering', projectId, items: toItems(flagged), choice: 'emarket', ...pastSeed(flagged) });
       return;
     }
     if (flagged.length) moveFlaggedToDraft('tendering');
@@ -228,7 +239,7 @@ export default function ProcurementRouteStep() {
           descriptionAr="اختر مشروعك والبنود التي تحتاجها. سنوجّه كل بند إلى المسار الصحيح — السوق الإلكتروني (اعتماد) أو منافسة."
           action={
             <button type="button" onClick={() => setShowInfo(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-ai-200 bg-ai-50 text-ai-700 text-[12px] font-semibold hover:bg-ai-100 transition-colors">
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-neutral-300 bg-white text-neutral-700 text-[12px] font-semibold hover:bg-neutral-50 transition-colors">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" strokeLinecap="round" /></svg>
               {t('Know more', 'اعرف المزيد')}
             </button>
@@ -259,6 +270,7 @@ export default function ProcurementRouteStep() {
                         <th className="text-start px-3 py-2.5 text-xs font-medium text-neutral-500">{t('Item', 'البند')}</th>
                         <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Arabic Name', 'الاسم بالعربية')}</th>
                         <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Expense type', 'نوع المصروف')}</th>
+                        <th className="text-end px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Budget (SAR)', 'الميزانية (ريال)')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-100">
@@ -271,12 +283,49 @@ export default function ProcurementRouteStep() {
                             <td className="px-3 py-3 text-neutral-700 font-medium">{item.name}</td>
                             <td className="px-4 py-3 text-neutral-500 text-xs" dir="rtl">{item.nameAr}</td>
                             <td className="px-4 py-3 text-[12px] text-neutral-700 whitespace-nowrap">{isAr ? et.ar : et.en}</td>
+                            <td className="px-4 py-3 text-[12.5px] text-neutral-800 text-end tabular-nums whitespace-nowrap" dir="ltr">{item.budget ? formatSAR(item.budget) : '—'}</td>
                           </tr>
                         );
                       })}
                     </tbody>
+                    <tfoot>
+                      <tr className="bg-neutral-50 border-t border-neutral-200">
+                        <td colSpan={4} className="px-4 py-2.5 text-[12px] font-medium text-neutral-600">{t('Budget for the selected items', 'ميزانية البنود المحددة')}</td>
+                        <td className="px-4 py-2.5 text-[13px] font-semibold text-neutral-900 text-end tabular-nums whitespace-nowrap" dir="ltr">{formatSAR(selected.reduce((sum, i) => sum + (i.budget ?? 0), 0))}</td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
+
+                {/* Start from a past request of this project */}
+                {(() => {
+                  const past = rfpsForProjectByRoute(project.id, 'tendering').slice(0, 3);
+                  if (past.length === 0) return null;
+                  return (
+                    <div className="mt-3 rounded-xl border border-neutral-200 bg-white px-4 py-3">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div>
+                          <p className="text-[13px] font-semibold text-neutral-800">{t('Start from a past request', 'ابدأ من طلب سابق')} <span className="text-[11px] font-medium text-neutral-500">{t('(optional)', '(اختياري)')}</span></p>
+                          <p className="text-[12px] text-neutral-500 mt-0.5">{t('Reuse the scope, BOQ and contract terms of an earlier request in this project. You can edit everything.', 'أعد استخدام النطاق وجدول الكميات وشروط العقد من طلب سابق في هذا المشروع. يمكنك تعديل كل شيء.')}</p>
+                        </div>
+                        {pastRfp && <button type="button" onClick={() => setPastRfp(null)} className="text-[12px] font-semibold text-link hover:underline">{t('Start blank instead', 'البدء من الصفر')}</button>}
+                      </div>
+                      <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {past.map((r) => {
+                          const on = pastRfp?.id === r.id;
+                          return (
+                            <button key={r.id} type="button" aria-pressed={on} onClick={() => setPastRfp(on ? null : r)}
+                              className={`text-start rounded-lg border px-3 py-2 transition-colors ${on ? 'border-brand-600 bg-brand-50 ring-1 ring-brand-600' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                              <p className="text-[12.5px] font-semibold text-neutral-900 leading-snug">{isAr ? r.titleAr : r.title}</p>
+                              <p className="text-[11px] text-neutral-500 mt-0.5"><span dir="ltr">{r.code}</span> · {formatRfpDate(r.created, isAr)} · <span dir="ltr">{r.value}</span></p>
+                              {on && <p className="text-[11px] font-semibold text-brand-700 mt-1">✓ {t('Will be used', 'سيتم استخدامه')}</p>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -307,7 +356,7 @@ export default function ProcurementRouteStep() {
 
             {/* Item intake — wording depends on the chosen route */}
             {selected.length > 0 && mode && (
-            <div className="rounded-xl border border-ai-200 bg-ai-50/40 px-5 py-4">
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-[14px] font-semibold text-neutral-900">
                   {mode === 'tender' ? t('Anything else for this tender?', 'هل هناك بنود أخرى لهذه المنافسة؟') : t('Tell us what you’re looking for', 'أخبرنا بما تبحث عنه')}
@@ -336,15 +385,15 @@ export default function ProcurementRouteStep() {
                 <input ref={fileRef} type="file" className="hidden" onChange={onAttach}
                   accept=".txt,.csv,.xlsx,.xls,.doc,.docx,.pdf" />
                 <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={identifying}>{t('Attach file', 'إرفاق ملف')}</Button>
-                <Button variant="ai" size="sm" onClick={identify} loading={identifying} disabled={identifying}>
-                  {t('Identify items with AI', 'تحديد البنود بالذكاء الاصطناعي')}
+                <Button variant="secondary" size="sm" onClick={identify} disabled={identifying || !text.trim()}>
+                  {t('Make a list', 'تحويل إلى قائمة')}
                 </Button>
                 {attachment && <span className="text-[12px] text-neutral-500 truncate">{attachment}</span>}
               </div>
 
               {freeItems.length > 0 && (
                 <div className="mt-3 space-y-1.5">
-                  <p className="text-[12px] font-medium text-neutral-600">{t(`AI identified ${freeValid.length} item${freeValid.length > 1 ? 's' : ''} — review and edit:`, `حدد الذكاء الاصطناعي ${freeValid.length} بند — راجع وعدّل:`)}</p>
+                  <p className="text-[12px] font-medium text-neutral-600">{t(`${freeValid.length} item${freeValid.length > 1 ? 's' : ''} — review and edit:`, `${freeValid.length} بند — راجع وعدّل:`)}</p>
                   {freeItems.map((f) => {
                     const bt = f.name.trim() ? BOQ_TYPE_META[classifyItem({ id: f.id, name: f.name.trim() }).boqType] : null;
                     return (
@@ -651,7 +700,7 @@ const MODE_OPTIONS: { key: RouteMode; en: string; ar: string; descEn: string; de
   { key: 'emarket', en: 'Etimad eMarket', ar: 'السوق الإلكتروني', descEn: 'Buy listed items directly from the Etimad catalogue.', descAr: 'شراء البنود المدرجة مباشرة من كتالوج اعتماد.',
     iconBg: 'bg-success-50 text-success-600',
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M4 5h2l2.2 10.2a1.5 1.5 0 001.5 1.2h7.1a1.5 1.5 0 001.5-1.1L21 8H7" /><circle cx="10" cy="20" r="1.2" /><circle cx="18" cy="20" r="1.2" /></svg> },
-  { key: 'help', en: 'Help me decide', ar: 'ساعدني في الاختيار', descEn: 'Not sure? We’ll check your items and suggest the route.', descAr: 'لست متأكداً؟ سنفحص بنودك ونقترح المسار.',
+  { key: 'help', en: 'Help me decide', ar: 'ساعدني في الاختيار', descEn: 'Not sure? We’ll look your items up in the Etimad catalogue and show the route each one takes.', descAr: 'لست متأكداً؟ سنبحث عن بنودك في كتالوج اعتماد ونعرض المسار المناسب لكل بند.',
     iconBg: 'bg-ai-50 text-ai-600',
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.1-1.5 2.2M12 17h.01" /></svg> },
 ];

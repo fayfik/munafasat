@@ -44,17 +44,17 @@ export const PROJECTS: Project[] = [
     regulatoryRecords:
       'Commercial Registration, Computer Systems Technical License (CST), National Cybersecurity Authority (NCA) Compliance Certificate, ZATCA E-invoicing Compliance',
     items: [
-      { id: 'item-001', name: 'ERP Software Licenses', nameAr: 'تراخيص برامج نظام تخطيط الموارد', type: 'assets' },
+      { id: 'item-001', budget: 1900000, name: 'ERP Software Licenses', nameAr: 'تراخيص برامج نظام تخطيط الموارد', type: 'assets' },
       {
-        id: 'item-002',
+        id: 'item-002', budget: 4100000,
         name: 'Implementation & Configuration Services',
         nameAr: 'خدمات التنفيذ والتهيئة',
         type: 'services',
       },
-      { id: 'item-003', name: 'Data Migration Services', nameAr: 'خدمات ترحيل البيانات', type: 'services' },
-      { id: 'item-004', name: 'End-User Training Program', nameAr: 'برنامج تدريب المستخدمين', type: 'services' },
+      { id: 'item-003', budget: 450000, name: 'Data Migration Services', nameAr: 'خدمات ترحيل البيانات', type: 'services' },
+      { id: 'item-004', budget: 150000, name: 'End-User Training Program', nameAr: 'برنامج تدريب المستخدمين', type: 'services' },
       {
-        id: 'item-005',
+        id: 'item-005', budget: 1000000,
         name: 'Annual Technical Support & Maintenance',
         nameAr: 'الدعم الفني والصيانة السنوية',
         type: 'consumables',
@@ -76,15 +76,15 @@ export const PROJECTS: Project[] = [
     regulatoryRecords:
       'Cloud Service Provider License (NCA), Data Residency Compliance Certificate, ISO 27001',
     items: [
-      { id: 'item-010', name: 'Cloud Platform Subscription', nameAr: 'اشتراك المنصة السحابية', type: 'assets' },
-      { id: 'item-011', name: 'Migration Consulting Services', nameAr: 'خدمات استشارات الترحيل', type: 'services' },
+      { id: 'item-010', budget: 540000, name: 'Cloud Platform Subscription', nameAr: 'اشتراك المنصة السحابية', type: 'assets' },
+      { id: 'item-011', budget: 380000, name: 'Migration Consulting Services', nameAr: 'خدمات استشارات الترحيل', type: 'services' },
       {
-        id: 'item-012',
+        id: 'item-012', budget: 210000,
         name: 'Security Assessment & Hardening',
         nameAr: 'تقييم الأمن والتقوية',
         type: 'services',
       },
-      { id: 'item-013', name: 'Managed Cloud Services', nameAr: 'الخدمات السحابية المُدارة', type: 'consumables' },
+      { id: 'item-013', budget: 670000, name: 'Managed Cloud Services', nameAr: 'الخدمات السحابية المُدارة', type: 'consumables' },
     ],
   },
   {
@@ -103,25 +103,25 @@ export const PROJECTS: Project[] = [
       'Government Digital Services Framework Compliance, Absher Integration License, Nafath Authentication License',
     items: [
       {
-        id: 'item-020',
+        id: 'item-020', budget: 1450000,
         name: 'Portal Design & Development',
         nameAr: 'تصميم وتطوير البوابة الإلكترونية',
         type: 'services',
       },
       {
-        id: 'item-021',
+        id: 'item-021', budget: 620000,
         name: 'Systems Integration Services',
         nameAr: 'خدمات تكامل الأنظمة',
         type: 'services',
       },
       {
-        id: 'item-022',
+        id: 'item-022', budget: 780000,
         name: 'Server & Hosting Infrastructure',
         nameAr: 'بنية الخوادم والاستضافة',
         type: 'assets',
       },
       {
-        id: 'item-023',
+        id: 'item-023', budget: 95000,
         name: 'SSL Certificates & Domain Licenses',
         nameAr: 'شهادات SSL ورخص النطاق',
         type: 'consumables',
@@ -139,10 +139,10 @@ export const PROJECTS: Project[] = [
     includes: 'Platform subscriptions, process automation services, integration with the ERP, and staff training.',
     regulatoryRecords: 'Commercial Registration, NCA Compliance Certificate, ZATCA E-invoicing Compliance',
     items: [
-      { id: 'item-101', name: 'Automation Platform Subscriptions', nameAr: 'اشتراكات منصة الأتمتة', type: 'assets' },
-      { id: 'item-102', name: 'Process Automation Services', nameAr: 'خدمات أتمتة العمليات', type: 'services' },
-      { id: 'item-103', name: 'ERP Integration Services', nameAr: 'خدمات التكامل مع نظام تخطيط الموارد', type: 'services' },
-      { id: 'item-104', name: 'Finance Staff Training', nameAr: 'تدريب موظفي المالية', type: 'services' },
+      { id: 'item-101', budget: 310000, name: 'Automation Platform Subscriptions', nameAr: 'اشتراكات منصة الأتمتة', type: 'assets' },
+      { id: 'item-102', budget: 240000, name: 'Process Automation Services', nameAr: 'خدمات أتمتة العمليات', type: 'services' },
+      { id: 'item-103', budget: 180000, name: 'ERP Integration Services', nameAr: 'خدمات التكامل مع نظام تخطيط الموارد', type: 'services' },
+      { id: 'item-104', budget: 60000, name: 'Finance Staff Training', nameAr: 'تدريب موظفي المالية', type: 'services' },
     ],
   },
   {
@@ -156,10 +156,10 @@ export const PROJECTS: Project[] = [
     includes: 'Design and fit-out works, office furniture, audio-visual equipment, and consumable supplies.',
     regulatoryRecords: 'Commercial Registration, Saudi Contractors Authority Classification, Civil Defense Approval',
     items: [
-      { id: 'item-401', name: 'Design & Fit-out Works', nameAr: 'أعمال التصميم والتجهيز', type: 'services' },
-      { id: 'item-402', name: 'Office Furniture', nameAr: 'الأثاث المكتبي', type: 'assets' },
-      { id: 'item-403', name: 'Audio-Visual Equipment', nameAr: 'المعدات السمعية والبصرية', type: 'assets' },
-      { id: 'item-404', name: 'Office Consumables', nameAr: 'المستلزمات المكتبية', type: 'consumables' },
+      { id: 'item-401', budget: 1100000, name: 'Design & Fit-out Works', nameAr: 'أعمال التصميم والتجهيز', type: 'services' },
+      { id: 'item-402', budget: 420000, name: 'Office Furniture', nameAr: 'الأثاث المكتبي', type: 'assets' },
+      { id: 'item-403', budget: 260000, name: 'Audio-Visual Equipment', nameAr: 'المعدات السمعية والبصرية', type: 'assets' },
+      { id: 'item-404', budget: 45000, name: 'Office Consumables', nameAr: 'المستلزمات المكتبية', type: 'consumables' },
     ],
   },
 ];

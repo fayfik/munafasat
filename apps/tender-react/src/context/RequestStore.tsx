@@ -74,7 +74,17 @@ export function RequestStoreProvider({ children }: { children: ReactNode }) {
 
   const save = useCallback<StoreCtx['save']>(async (id, form, status, extra = {}) => {
     const db = await getDb();
-    if (!db) return false;
+    if (!db) {
+      // No shared database (e.g. GitHub Pages): keep the request for this browser session,
+      // so it can be handed between the Requester and Procurement views.
+      const now = new Date().toISOString();
+      setSessionDrafts((xs) => {
+        const prev = xs.find((r) => r.id === id);
+        const row: SavedRequest = { ...(prev ?? {}), ...summarize(form), id, status, form, createdAt: prev?.createdAt ?? now, updatedAt: now, requestNo: prev?.requestNo ?? '', ...extra } as SavedRequest;
+        return [row, ...xs.filter((r) => r.id !== id)];
+      });
+      return true;
+    }
     const now = new Date().toISOString();
     const existing = requests.find((r) => r.id === id);
     const body = {

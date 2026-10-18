@@ -18,54 +18,107 @@ import PaymentSchedule from '../sections/PaymentSchedule';
 import TechnicalEvaluation from '../sections/TechnicalEvaluation';
 import QualificationCriteria from '../sections/QualificationCriteria';
 import Attachments from '../sections/Attachments';
-import ReviewConfirm from '../sections/ReviewConfirm';
+import StageReview, { LiveBudgetCheck, type ReviewMode } from '../sections/StageReview';
+import { useRole } from '../context/RoleContext';
 
-const SECTION_COMPONENTS = [
-  ProcurementRouteStep,
-  ProjectSetup,
-  ScopeOfWork,
-  BillOfQuantities,
-  PaymentSchedule,
-  TechnicalEvaluation,
-  QualificationCriteria,
-  Attachments,
-  ReviewConfirm,
+const SECTION_COMPONENTS: Record<string, () => React.ReactElement | null> = {
+  'procurement-route': ProcurementRouteStep,
+  'project-setup': ProjectSetup,
+  'scope-of-work': ScopeOfWork,
+  'boq': BillOfQuantities,
+  'payment-schedule': PaymentSchedule,
+  'technical-evaluation': TechnicalEvaluation,
+  'qualification': QualificationCriteria,
+  'attachments': Attachments,
+};
+
+/* ── v3 steps: each step groups one or more form sections ─────────────────── */
+interface StepDef { key: string; en: string; ar: string; descEn: string; descAr: string; sections: string[]; review?: ReviewMode; owner: 'requester' | 'procurement' }
+const REQ_TENDER: StepDef[] = [
+  { key: 'need', en: 'Need & route', ar: 'الاحتياج والمسار', descEn: 'Project, budgeted items and how they are bought', descAr: 'المشروع والبنود المعتمدة وطريقة شرائها', sections: ['procurement-route'], owner: 'requester' },
+  { key: 'requirements', en: 'Requirements', ar: 'المتطلبات', descEn: 'Purpose, scope, BOQ, duration and location', descAr: 'الغرض والنطاق وجدول الكميات والمدة والموقع', sections: ['project-setup', 'scope-of-work', 'boq'], owner: 'requester' },
+  { key: 'submit', en: 'Review & send', ar: 'المراجعة والإرسال', descEn: 'Budget check, attachments, send to Procurement', descAr: 'فحص الميزانية والمرفقات والإرسال للمشتريات', sections: ['attachments', 'review'], review: 'req-submit', owner: 'requester' },
 ];
+const EMARKET: StepDef[] = [
+  REQ_TENDER[0],
+  { key: 'basket', en: 'Basket', ar: 'السلة', descEn: 'Purpose, catalogue items and attachments', descAr: 'الغرض وبنود الكتالوج والمرفقات', sections: ['project-setup', 'boq', 'attachments'], owner: 'requester' },
+  { key: 'submit', en: 'Review & submit', ar: 'المراجعة والإرسال', descEn: 'Budget check and approval', descAr: 'فحص الميزانية والاعتماد', sections: ['review'], review: 'emarket-submit', owner: 'requester' },
+];
+const PROC: StepDef[] = [
+  { key: 'request', en: 'The request', ar: 'الطلب', descEn: 'What the requester asked for', descAr: 'ما طلبه مقدم الطلب', sections: ['review'], review: 'proc-request', owner: 'procurement' },
+  { key: 'payment', en: 'Payment', ar: 'الدفعات', descEn: 'Payment stages from a template', descAr: 'مراحل الدفع من نموذج', sections: ['payment-schedule'], owner: 'procurement' },
+  { key: 'evaluation', en: 'Evaluation', ar: 'التقييم', descEn: 'Technical and qualification criteria', descAr: 'المعايير الفنية ومعايير التأهيل', sections: ['technical-evaluation', 'qualification'], owner: 'procurement' },
+  { key: 'send', en: 'Send for confirmation', ar: 'الإرسال للتأكيد', descEn: 'Check and send back to the requester', descAr: 'المراجعة والإعادة لمقدم الطلب', sections: ['review'], review: 'proc-send', owner: 'procurement' },
+];
+const CONFIRM: StepDef[] = [
+  { key: 'confirm', en: 'Confirm RFP', ar: 'تأكيد الكراسة', descEn: 'Check Procurement’s additions and confirm', descAr: 'راجع إضافات المشتريات وأكّد', sections: ['review'], review: 'req-confirm', owner: 'requester' },
+];
+const STATUS: StepDef[] = [
+  { key: 'status', en: 'Request status', ar: 'حالة الطلب', descEn: 'Where the request is now', descAr: 'أين الطلب الآن', sections: ['review'], review: 'status', owner: 'requester' },
+];
+const sIdx = (id: string) => SECTIONS.findIndex((x) => x.id === id);
 
 interface Props {
   onBack: () => void;
 }
 
 export default function TenderForm({ onBack }: Props) {
-  const { currentSection, goToSection, sectionStatuses, isSaving, lastSaved, formData, saveState, saveNow, submit, readyToSubmit, isSubmitting, submitted, status, routeConfirmed } = useTender();
+  const { currentSection, goToSection, sectionStatuses, isSaving, lastSaved, formData, saveState, saveNow, submitted, status, routeConfirmed, v3Stage } = useTender();
+  const { role } = useRole();
   const { isAr } = useLanguage();
   const t = useT();
 
   const mainRef = useRef<HTMLElement>(null);
   const [railCollapsed, setRailCollapsed] = useState(false);
 
+  const isEsouq = routeConfirmed && formData.sourceType === 'souq-etimad';
+  // Which steps this person sees depends on where the request is and who they are.
+  const steps: StepDef[] =
+    v3Stage === 'draft' ? (role === 'requester' ? (isEsouq ? EMARKET : REQ_TENDER) : STATUS)
+    : v3Stage === 'with-procurement' ? (role === 'procurement' ? PROC : STATUS)
+    : v3Stage === 'requester-confirm' ? (role === 'requester' ? CONFIRM : STATUS)
+    : STATUS;
+  const stepsSig = steps.map((x) => x.key).join('|');
+
+  const [stepKey, setStepKey] = useState<string>(steps[0].key);
+  // Keep the active step in sync when a section is opened from elsewhere (e.g. an Edit link),
+  // and when the step list changes (stage hand-off or role switch).
+  useEffect(() => {
+    const cur = steps.find((x) => x.key === stepKey);
+    const curId = SECTIONS[currentSection]?.id;
+    if (!cur) { setStepKey(steps[0].key); return; }
+    if (curId && !cur.sections.includes(curId)) {
+      const owner = steps.find((x) => x.sections.includes(curId));
+      if (owner) setStepKey(owner.key);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSection, stepsSig]);
+
+  const activePos = Math.max(0, steps.findIndex((x) => x.key === stepKey));
+  const step = steps[activePos];
+
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
-  }, [currentSection]);
+  }, [stepKey, currentSection]);
 
-  // Etimad E-Market uses a shorter flow. We filter the visible steps but keep each step's
-  // ORIGINAL index into SECTIONS, so component lookup and navigation stay stable.
-  const ESOUQ_IDS = ['procurement-route', 'project-setup', 'boq', 'attachments', 'review'];
-  const isEsouq = routeConfirmed && formData.sourceType === 'souq-etimad';
-  const visibleSteps = SECTIONS.map((sec, i) => ({ sec, i })).filter(({ sec }) => !isEsouq || ESOUQ_IDS.includes(sec.id));
-  const visibleIdxs = visibleSteps.map((v) => v.i);
-  const posInVisible = Math.max(0, visibleIdxs.indexOf(currentSection));
+  function openStep(pos: number) {
+    const target = steps[pos];
+    if (!target) return;
+    setStepKey(target.key);
+    const first = target.sections[0];
+    if (first !== 'review') goToSection(sIdx(first));
+    else goToSection(sIdx('review'));
+  }
 
-  const CurrentSection = SECTION_COMPONENTS[currentSection];
-  const isLastSection = posInVisible === visibleIdxs.length - 1;
-  const isFirstSection = posInVisible <= 0;
-  const nextOrig = visibleIdxs[posInVisible + 1] ?? currentSection;
-  const prevOrig = visibleIdxs[posInVisible - 1] ?? currentSection;
+  const stepDone = (x: StepDef) => x.sections.filter((id) => id !== 'review' && id !== 'attachments').every((id) => sectionStatuses[sIdx(id)] === 'completed')
+    && x.sections.some((id) => id !== 'review' && id !== 'attachments');
+  const visibleSteps = (v3Stage === 'draft' && role === 'requester' && !routeConfirmed) ? steps.slice(0, 1) : steps;
+  const completedCount = steps.filter(stepDone).length;
+  const completionPct = Math.round((completedCount / steps.length) * 100);
+  const isFirstSection = activePos === 0;
+  const isLastSection = activePos === steps.length - 1;
 
   const selectedProject = PROJECTS.find((p) => p.id === formData.projectId);
-  const completedCount = visibleIdxs.filter((i) => sectionStatuses[i] === 'completed').length;
-  const completionPct = Math.round((completedCount / visibleSteps.length) * 100);
-  const missingCount = visibleIdxs.filter((i) => sectionStatuses[i] === 'missing').length;
 
   function formatSaved(d: Date) {
     return d.toLocaleTimeString(isAr ? 'ar-SA' : 'en-SA', { hour: '2-digit', minute: '2-digit' });
@@ -80,8 +133,11 @@ export default function TenderForm({ onBack }: Props) {
     ? (selectedProject?.nameAr ?? newLabel)
     : (selectedProject?.name ?? newLabel);
 
-  const currentSec = SECTIONS[currentSection];
-  const sectionTitle = (isEsouq && currentSec.id === 'project-setup') ? t('Purchase details', 'تفاصيل الشراء') : (isAr ? currentSec.titleAr : currentSec.title);
+  const sectionTitle = isAr ? step.ar : step.en;
+  const stageLabel: Record<string, [string, string]> = {
+    'draft': ['Draft', 'مسودة'], 'with-procurement': ['With Procurement', 'لدى المشتريات'],
+    'requester-confirm': ['Awaiting confirmation', 'بانتظار التأكيد'], 'in-approval': ['In approval', 'قيد الاعتماد'],
+  };
 
   return (
     /* TenderForm fills the AppShell <main> which is overflow-hidden flex flex-col */
@@ -113,8 +169,8 @@ export default function TenderForm({ onBack }: Props) {
             >
               {headerTitle}
             </span>
-            <Badge variant={status === 'draft' ? 'draft' : status === 'returned' ? 'rejected' : status === 'approved' ? 'approved' : 'submitted'}>
-              {status === 'draft' ? t('Draft', 'مسودة') : status === 'submitted' ? t('Submitted', 'مُقدَّم') : status === 'under-review' ? t('Under Review', 'قيد المراجعة') : status === 'approved' ? t('Approved', 'معتمد') : t('Returned', 'مرتجع')}
+            <Badge variant={v3Stage === 'draft' ? 'draft' : v3Stage === 'in-approval' ? 'submitted' : 'info'}>
+              {t(stageLabel[v3Stage][0], stageLabel[v3Stage][1])}
             </Badge>
             <Badge variant={formData.sourceType === 'souq-etimad' ? 'default' : 'info'}>
               {sourceLabel}
@@ -159,7 +215,7 @@ export default function TenderForm({ onBack }: Props) {
                 <span className="text-[13px] leading-none">{railCollapsed ? '»' : '«'}</span>
               </button>
             </div>
-            {!railCollapsed && (
+            {!railCollapsed && steps.length > 1 && (
               <>
                 <div className="mt-2 flex items-center gap-2">
                   <div className="flex-1 h-[6px] bg-[#F0F2F5] rounded-full overflow-hidden">
@@ -167,7 +223,7 @@ export default function TenderForm({ onBack }: Props) {
                   </div>
                   <span className="text-[11px] font-bold text-step-done">{completionPct}%</span>
                 </div>
-                <p className="mt-1 text-[10px] text-[#9AA3AF]">{t(`${completedCount} of ${visibleSteps.length} sections complete`, `${completedCount} من ${visibleSteps.length} أقسام مكتملة`)}</p>
+                <p className="mt-1 text-[10px] text-[#9AA3AF]">{t(`${completedCount} of ${steps.length} steps complete`, `${completedCount} من ${steps.length} خطوات مكتملة`)}</p>
               </>
             )}
           </div>
@@ -176,19 +232,18 @@ export default function TenderForm({ onBack }: Props) {
               Before the route is confirmed, only Step 1 is shown, followed by a single
               subtle "Awaiting procurement route confirmation" pending node. */}
           <nav className={`flex flex-col pt-3 flex-1 ${railCollapsed ? 'items-center px-0' : 'px-3'}`}>
-            {(routeConfirmed ? visibleSteps : visibleSteps.slice(0, 1)).map(({ sec, i: orig }, pos) => {
-              const status = sectionStatuses[orig];
-              const isCurrent = orig === currentSection;
-              const done = status === 'completed';
-              const isLast = routeConfirmed && pos === visibleSteps.length - 1;
-              const title = (isEsouq && sec.id === 'project-setup') ? t('Purchase details', 'تفاصيل الشراء') : (isAr ? sec.titleAr : sec.title);
-              const desc = isAr ? sec.descAr : sec.desc;
+            {visibleSteps.map((x, pos) => {
+              const isCurrent = pos === activePos;
+              const done = stepDone(x) && !isCurrent;
+              const isLast = pos === visibleSteps.length - 1 && (routeConfirmed || v3Stage !== 'draft');
+              const title = isAr ? x.ar : x.en;
+              const desc = isAr ? x.descAr : x.descEn;
               const cstate = done ? 'done' : isCurrent ? 'current' : 'pending';
               return (
                 <button
-                  key={sec.id}
+                  key={x.key}
                   type="button"
-                  onClick={() => goToSection(orig)}
+                  onClick={() => openStep(pos)}
                   aria-current={isCurrent ? 'step' : undefined}
                   title={railCollapsed ? `${title} — ${desc}` : undefined}
                   className={`group w-full flex gap-2.5 text-start ${railCollapsed ? 'justify-center' : ''} cursor-pointer`}
@@ -210,7 +265,7 @@ export default function TenderForm({ onBack }: Props) {
             })}
 
             {/* Pending placeholder — stands in for the hidden steps until the route is confirmed */}
-            {!routeConfirmed && (
+            {!routeConfirmed && v3Stage === 'draft' && (
               <div className={`w-full flex gap-2.5 ${railCollapsed ? 'justify-center' : ''}`}
                    title={railCollapsed ? t('Awaiting procurement route confirmation', 'بانتظار تأكيد مسار الشراء') : undefined}>
                 <div className="relative flex flex-col items-center w-[22px] shrink-0">
@@ -235,14 +290,8 @@ export default function TenderForm({ onBack }: Props) {
             )}
           </nav>
 
-          {missingCount > 0 && !railCollapsed && (
-            <div className="mx-3 mb-3 p-3 bg-warning-50 rounded-lg border border-warning-200">
-              <p className="text-[11px] font-semibold text-warning-800">
-                {isAr ? `${missingCount} ${missingCount === 1 ? 'قسم' : 'أقسام'} غير مكتملة` : `${missingCount} section${missingCount > 1 ? 's' : ''} incomplete`}
-              </p>
-              <p className="text-[10px] text-warning-700 mt-0.5">{t('Required fields are missing.', 'حقول مطلوبة مفقودة.')}</p>
-            </div>
-          )}
+
+          {!railCollapsed && <Journey stage={v3Stage} emarket={formData.sourceType === 'souq-etimad'} />}
 
           {!railCollapsed && (
             <img src={stepperWatermark} alt="" aria-hidden="true" width={240} height={96} className="mt-auto block shrink-0 pointer-events-none select-none rtl:-scale-x-100" />
@@ -255,7 +304,8 @@ export default function TenderForm({ onBack }: Props) {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
             <div className="mb-7">
               <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-widest mb-2">
-                {t(`Step ${posInVisible + 1} of ${visibleSteps.length}`, `خطوة ${posInVisible + 1} من ${visibleSteps.length}`)}
+                {steps.length > 1 ? t(`Step ${activePos + 1} of ${steps.length}`, `خطوة ${activePos + 1} من ${steps.length}`) : t(role === 'procurement' ? 'Procurement view' : 'Requester view', role === 'procurement' ? 'عرض المشتريات' : 'عرض مقدم الطلب')}
+                {step.owner === 'procurement' && <span className="ms-2 normal-case tracking-normal font-medium text-neutral-400">· {t('completed by Procurement', 'تكملها المشتريات')}</span>}
               </p>
               <h2 className="text-title-md font-semibold text-neutral-900 leading-tight">
                 {sectionTitle}
@@ -263,30 +313,29 @@ export default function TenderForm({ onBack }: Props) {
             </div>
 
             <div className="space-y-5">
-              {CurrentSection === ReviewConfirm ? <ReviewConfirm onExit={onBack} /> : <CurrentSection />}
+              {step.sections.includes('boq') && routeConfirmed && <LiveBudgetCheck />}
+              {step.sections.map((id) => {
+                if (id === 'review') return <StageReview key={`${step.key}-review`} mode={step.review ?? 'status'} />;
+                const Comp = SECTION_COMPONENTS[id];
+                return Comp ? <Comp key={id} /> : null;
+              })}
             </div>
 
             {/* Step navigation — hidden on the Procurement Route step, which drives its own flow */}
-            {!isFirstSection && (
+            {step.key !== 'need' && steps.length > 1 && (
             <div className="flex items-center justify-between gap-3 flex-wrap mt-8 pt-6 border-t border-neutral-200">
-              <Button variant="ghost" onClick={() => goToSection(prevOrig)} disabled={isFirstSection}>
+              <Button variant="ghost" onClick={() => openStep(activePos - 1)} disabled={isFirstSection}>
                 <ArrowLeftIcon className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
                 {t('Back', 'رجوع')}
               </Button>
               <div className="flex items-center gap-3">
                 {!submitted && <Button variant="secondary" size="md" onClick={() => saveNow()} loading={isSaving}>{t('Save Draft', 'حفظ كمسودة')}</Button>}
                 {!isLastSection ? (
-                  <Button variant="primary" size="md" onClick={() => goToSection(nextOrig)}>
+                  <Button variant="primary" size="md" onClick={() => openStep(activePos + 1)}>
                     {t('Continue', 'متابعة')}
                     <svg className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
-                  </Button>
-                ) : !submitted ? (
-                  <Button variant="primary" size="md" onClick={() => submit()} disabled={!readyToSubmit} loading={isSubmitting}
-                    title={readyToSubmit ? undefined : t('Complete all required sections first', 'أكمل جميع الأقسام المطلوبة أولاً')}>
-                    <CheckIcon className="w-4 h-4" />
-                    {status === 'draft' ? t('Submit Request', 'تقديم الطلب') : t('Resubmit Request', 'إعادة تقديم الطلب')}
                   </Button>
                 ) : null}
               </div>
@@ -334,4 +383,26 @@ function getSidebarStatusColor(s: SectionStatus) {
   if (s === 'in-progress') return 'text-step-done';
   if (s === 'missing') return 'text-warning-600';
   return 'text-[#9AA3AF]';
+}
+
+/** Where the request is in the Requester ↔ Procurement hand-off. */
+function Journey({ stage, emarket }: { stage: string; emarket: boolean }) {
+  const t = useT();
+  const phases = emarket
+    ? [['draft', 'Requester prepares', 'مقدم الطلب يُعد'], ['in-approval', 'Approvals', 'الاعتمادات']]
+    : [['draft', 'Requester prepares', 'مقدم الطلب يُعد'], ['with-procurement', 'Procurement completes', 'المشتريات تُكمل'], ['requester-confirm', 'Requester confirms', 'مقدم الطلب يؤكد'], ['in-approval', 'Approvals', 'الاعتمادات']];
+  const cur = Math.max(0, phases.findIndex(([k]) => k === stage));
+  return (
+    <div className="mx-3 mb-3 rounded-lg border border-[#E3E8F0] bg-[#F8F9FB] px-3 py-2.5">
+      <p className="text-[10px] font-semibold text-[#9AA3AF] uppercase tracking-[1px] mb-1.5">{t('Hand-off', 'التسليم')}</p>
+      <ol className="space-y-1">
+        {phases.map(([k, en, ar], i) => (
+          <li key={k} className="flex items-center gap-2 text-[11.5px]">
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${i < cur ? 'bg-step-done' : i === cur ? 'bg-step-done ring-4 ring-[#E3F1E6]' : 'bg-[#D5DAE1]'}`} />
+            <span className={i === cur ? 'font-semibold text-[#2B3647]' : i < cur ? 'text-neutral-600' : 'text-neutral-400'}>{t(en, ar)}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
 }

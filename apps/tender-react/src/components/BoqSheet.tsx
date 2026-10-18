@@ -270,7 +270,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
             {rows.length === 0 && (
               <tr>
                 <td colSpan={colCount} className="px-4 py-8 text-center text-sm text-neutral-500 border-b border-neutral-200">
-                  {t('No items yet. Add an item, paste rows from Excel, or use AI Suggest.', 'لا توجد بنود. أضف بنداً أو الصق من Excel أو استخدم اقتراح الذكاء الاصطناعي.')}
+                  {t('No items yet. Add an item or paste rows from Excel.', 'لا توجد بنود. أضف بنداً أو الصق من Excel أو استخدم اقتراح الذكاء الاصطناعي.')}
                 </td>
               </tr>
             )}

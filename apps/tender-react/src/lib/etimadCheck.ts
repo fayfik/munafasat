@@ -12,8 +12,10 @@ import { askJson } from './claudeRuntime';
 import { PROJECTS } from '../data/mockData';
 import type { BOQRow, EtimadAvailability, EtimadCheck, TenderFormData } from '../types/tender';
 
+// v3: keyed on what the item IS (name), so entering quantities and prices doesn't ask
+// for a fresh catalogue lookup — the route was already settled in step 1.
 export function etimadItemKey(r: BOQRow): string {
-  return [r.itemName.trim(), r.itemDescription.trim(), r.unitOfMeasure, r.quantity, r.unitPrice].join('|');
+  return r.itemName.trim().toLowerCase();
 }
 
 export function isStale(r: BOQRow): boolean {
