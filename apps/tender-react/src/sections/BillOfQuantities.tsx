@@ -181,7 +181,7 @@ const EMPTY_FORM = {
 const GROUP_COLORS = ['bg-brand-500', 'bg-ai-500', 'bg-warning-500', 'bg-success-600', 'bg-error-500', 'bg-neutral-400'];
 
 export default function BillOfQuantities() {
-  const { formData, updateField, removeBoqRow, updateBoqRow, moveBoqRowsToEtimad, boqSubtotal, boqVat, boqTotal } = useTender();
+  const { formData, updateField, removeBoqRow, updateBoqRow, moveBoqRowsToEtimad, returnBoqItemFromEtimad, boqSubtotal, boqVat, boqTotal } = useTender();
   const t = useT();
   const { isAr } = useLanguage();
   const boqAi = useAiAction();
@@ -231,6 +231,20 @@ export default function BillOfQuantities() {
     await moveBoqRowsToEtimad([mc.row.id]);
     setBucketReceiving(true);
     setTimeout(() => setBucketReceiving(false), 600);
+  }
+
+  // Open the linked Etimad E-Market draft request in a new tab, seeded with the moved items.
+  function viewDraftRequest() {
+    const seed = {
+      sourceType: 'souq-etimad' as const,
+      costCenterId: formData.costCenterId,
+      projectId: formData.projectId,
+      tenderingPurpose: formData.tenderingPurpose,
+      scopeIncludes: formData.scopeIncludes,
+      boqItems: movedItems.map((r) => ({ ...r, etimadKeep: false, etimadJustification: '', etimadCheck: undefined })),
+    };
+    try { window.localStorage.setItem('munafasat:etimad-draft', JSON.stringify(seed)); } catch { /* ignore */ }
+    try { window.open(`${window.location.pathname}?open=etimad-draft`, '_blank', 'noopener'); } catch { /* ignore */ }
   }
 
   // Bring the add form into view when it opens (it can render below a long list).
@@ -1379,17 +1393,26 @@ export default function BillOfQuantities() {
                     const price = typeof r.unitPrice === 'number' ? r.unitPrice : 0;
                     const total = qty * price;
                     return (
-                      <div key={r.id} className="flex items-center gap-3 px-3.5 py-3 bg-white">
-                        <span className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
-                          <DocumentIcon className="w-4 h-4" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-medium text-neutral-900 truncate">{itemLabel(r.itemName) || t('Unnamed item', 'بند بلا اسم')}</p>
-                          <p className="text-[11px] text-neutral-500 tabular-nums">
-                            {qty > 0 ? `${qty} ${r.unitOfMeasure || ''}` : '—'}{price > 0 ? <span dir="ltr"> · SAR {formatSAR(price)}</span> : null}
-                          </p>
+                      <div key={r.id} className="px-3.5 py-3 bg-white">
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
+                            <DocumentIcon className="w-4 h-4" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-medium text-neutral-900 truncate">{itemLabel(r.itemName) || t('Unnamed item', 'بند بلا اسم')}</p>
+                            <p className="text-[11px] text-neutral-500 tabular-nums">
+                              {qty > 0 ? `${qty} ${r.unitOfMeasure || ''}` : '—'}{price > 0 ? <span dir="ltr"> · SAR {formatSAR(price)}</span> : null}
+                            </p>
+                          </div>
+                          {total > 0 && <span className="text-[12.5px] font-bold text-neutral-800 tabular-nums flex-shrink-0" dir="ltr">SAR {formatSAR(total)}</span>}
                         </div>
-                        {total > 0 && <span className="text-[12.5px] font-bold text-neutral-800 tabular-nums flex-shrink-0" dir="ltr">SAR {formatSAR(total)}</span>}
+                        <div className="mt-2 ps-11">
+                          <button type="button" onClick={() => returnBoqItemFromEtimad(r.id)}
+                            className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-brand-700 hover:text-brand-800 transition-colors">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 5 5v1" /></svg>
+                            {t('Put back to this request', 'إعادته إلى هذا الطلب')}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -1397,7 +1420,12 @@ export default function BillOfQuantities() {
               )}
               <p className="text-[11px] text-neutral-400">{t('Moving items here keeps this tender focused on items that genuinely need a competitive tender.', 'نقل البنود إلى هنا يُبقي هذه المنافسة مركّزة على البنود التي تحتاج فعلاً إلى منافسة.')}</p>
             </div>
-            <div className="shrink-0 px-5 py-3 border-t border-neutral-100 flex justify-end">
+            <div className="shrink-0 px-5 py-3 border-t border-neutral-100 flex items-center justify-between gap-2">
+              <button type="button" onClick={viewDraftRequest} disabled={movedItems.length === 0}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-brand-300 bg-white text-[13px] font-semibold text-brand-700 hover:bg-brand-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
+                {t('View draft request', 'عرض مسودة الطلب')}
+              </button>
               <button type="button" onClick={() => setBucketOpen(false)} className="px-4 py-2 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors">{t('Got it', 'تمام')}</button>
             </div>
           </div>

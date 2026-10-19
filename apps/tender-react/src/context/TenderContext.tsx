@@ -146,6 +146,8 @@ interface TenderContextType {
   isSubmitting: boolean;
   /** Move BOQ rows into this tender's linked Etimad E-Market draft (created on first use). */
   moveBoqRowsToEtimad: (ids: string[]) => Promise<'moved' | 'preview' | 'error'>;
+  /** Return a previously-moved item from the Etimad E-Market draft back to this tender's BOQ. */
+  returnBoqItemFromEtimad: (id: string) => void;
 }
 
 const Ctx = createContext<TenderContextType | null>(null);
@@ -469,6 +471,23 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
     return 'moved';
   }, [store]);
 
+  const returnBoqItemFromEtimad = useCallback((id: string) => {
+    setFormData((prev) => {
+      const moved = prev.etimadMovedItems ?? [];
+      const row = moved.find((r) => r.id === id);
+      if (!row) return prev;
+      const rest = moved.filter((r) => r.id !== id);
+      // Returned items re-enter the tender ready to be re-checked against Etimad.
+      const restored = { ...row, etimadKeep: false, etimadJustification: '', etimadCheck: undefined };
+      return {
+        ...prev,
+        boqItems: [...prev.boqItems, restored],
+        etimadMovedItems: rest,
+        linkedEtimadRequestId: rest.length === 0 ? undefined : prev.linkedEtimadRequestId,
+      };
+    });
+  }, []);
+
   // Every section except Attachments (optional) and Review must be complete.
   // E-Market uses a shorter flow: only Procurement Route → Project Setup → BOQ are required.
   const ESOUQ_REQUIRED = ['project-setup', 'boq'];
@@ -495,6 +514,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
     <Ctx.Provider value={{
       requestId, status, saveState, saveNow, readyToSubmit, submitted, submit, isSubmitting,
       moveBoqRowsToEtimad,
+      returnBoqItemFromEtimad,
       formData, currentSection, isSaving, lastSaved, sectionStatuses,
       boqSubtotal, boqVat, boqTotal, paymentPctTotal, evalWeightTotal, qualPctTotal,
       routeConfirmed, confirmRoute,

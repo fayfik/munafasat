@@ -7,6 +7,7 @@ import { PROJECTS } from '../data/mockData';
 import { FormField, SectionCard, Textarea, AIButton, Input, Select } from '../components/ui';
 import { SparklesIcon } from '../components/Icons';
 import ProjectIncludesSelect, { deriveIncludesFromItems, workflowStages, DEPARTMENTS, WorkflowDrawer } from '../components/ProjectIncludesSelect';
+import DatePicker from '../components/DatePicker';
 
 function calcEndDate(start: string, duration: string, type: string): string {
   if (!start || !duration) return '';
@@ -266,8 +267,8 @@ export default function ScopeOfWork() {
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Work/Services Start Date" labelAr="تاريخ بدء الأعمال" required>
-              <Input type="date" min={todayStr} value={formData.startDate} onChange={(e) => updateField('startDate', e.target.value)}
-                className={startInPast ? 'border-error-300 focus:border-error-400 focus:ring-error-400/20' : ''} />
+              <DatePicker value={formData.startDate} min={todayStr} onChange={(v) => updateField('startDate', v)}
+                ariaLabel={t('Work/Services start date', 'تاريخ بدء الأعمال')} placeholder={t('Select start date', 'اختر تاريخ البدء')} />
               {startInPast && (
                 <p className="mt-1 flex items-center gap-1.5 text-[12px] text-error-600">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5 flex-shrink-0"><circle cx="12" cy="12" r="10" /><path d="M12 8v5M12 16h.01" strokeLinecap="round" /></svg>
