@@ -244,7 +244,7 @@ export function WorkflowDrawer({ open, onClose, categories, isAr, t }: {
     <div className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[2px]" onClick={onClose} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
       <div className="relative w-full max-w-[460px] h-full bg-white shadow-2xl flex flex-col drawer-in" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="shrink-0 px-5 py-4 border-b border-neutral-100 bg-gradient-to-br from-brand-600 to-ai-700 text-white">
+        <div className="shrink-0 px-5 py-4 border-b border-neutral-100 bg-gradient-to-br from-brand-600 to-brand-800 text-white">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">{t('Approval workflow', 'مسار الاعتماد')}</p>
