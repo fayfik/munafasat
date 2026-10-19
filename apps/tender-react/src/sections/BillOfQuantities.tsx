@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { useTender } from '../context/TenderContext';
 import { useT } from '../context/LanguageContext';
 import { PROJECTS, UNITS_OF_MEASURE } from '../data/mockData';
 import { FormField, SectionCard, AIButton, InfoBanner, Input, Select, Textarea, Badge } from '../components/ui';
-import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, ChevronDownIcon, CheckIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon, DocumentIcon } from '../components/Icons';
+import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, ChevronDownIcon, CheckIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon, DocumentIcon, CheckCircleIcon } from '../components/Icons';
 import HoverNote from '../components/HoverNote';
 import BoqAttachments from '../components/BoqAttachments';
 import type { BOQRow, BOQCategory, FileAttachment } from '../types/tender';
@@ -180,7 +181,7 @@ const EMPTY_FORM = {
 const GROUP_COLORS = ['bg-brand-500', 'bg-ai-500', 'bg-warning-500', 'bg-success-600', 'bg-error-500', 'bg-neutral-400'];
 
 export default function BillOfQuantities() {
-  const { formData, updateField, removeBoqRow, updateBoqRow, moveBoqRowsToEtimad, boqSubtotal, boqVat, boqTotal } = useTender();
+  const { formData, updateField, removeBoqRow, updateBoqRow, moveBoqRowsToEtimad, returnBoqItemFromEtimad, boqSubtotal, boqVat, boqTotal } = useTender();
   const t = useT();
   const { isAr } = useLanguage();
   const boqAi = useAiAction();
@@ -199,6 +200,52 @@ export default function BillOfQuantities() {
   const [manpowerGenLoading, setManpowerGenLoading] = useState(false);
   const addFormRef = useRef<HTMLDivElement>(null);
   const layout = useBoqLayout();
+
+  // ── Move-to-Etimad flow: confirm modal → fly-to-bucket animation → floating bucket + drawer ──
+  const movedItems = formData.etimadMovedItems ?? [];
+  const [moveConfirm, setMoveConfirm] = useState<{ row: BOQRow; origin: DOMRect | null } | null>(null);
+  const [flying, setFlying] = useState<{ origin: DOMRect; target: DOMRect; label: string } | null>(null);
+  const [bucketMounted, setBucketMounted] = useState(false);
+  const [bucketReceiving, setBucketReceiving] = useState(false);
+  const [bucketOpen, setBucketOpen] = useState(false);
+  const bucketRef = useRef<HTMLDivElement>(null);
+  const showBucket = movedItems.length > 0 || bucketMounted;
+
+  function requestMove(row: BOQRow, origin: DOMRect | null) {
+    setMoveConfirm({ row, origin });
+  }
+
+  async function confirmMove() {
+    const mc = moveConfirm;
+    if (!mc) return;
+    setMoveConfirm(null);
+    // Ensure the bucket is on screen first (its first appearance slides in) so the item has a target.
+    setBucketMounted(true);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
+    const target = bucketRef.current?.getBoundingClientRect() ?? null;
+    if (mc.origin && target) {
+      setFlying({ origin: mc.origin, target, label: itemLabel(mc.row.itemName) || t('item', 'بند') });
+      await new Promise((r) => setTimeout(r, 820));
+      setFlying(null);
+    }
+    await moveBoqRowsToEtimad([mc.row.id]);
+    setBucketReceiving(true);
+    setTimeout(() => setBucketReceiving(false), 600);
+  }
+
+  // Open the linked Etimad E-Market draft request in a new tab, seeded with the moved items.
+  function viewDraftRequest() {
+    const seed = {
+      sourceType: 'souq-etimad' as const,
+      costCenterId: formData.costCenterId,
+      projectId: formData.projectId,
+      tenderingPurpose: formData.tenderingPurpose,
+      scopeIncludes: formData.scopeIncludes,
+      boqItems: movedItems.map((r) => ({ ...r, etimadKeep: false, etimadJustification: '', etimadCheck: undefined })),
+    };
+    try { window.localStorage.setItem('munafasat:etimad-draft', JSON.stringify(seed)); } catch { /* ignore */ }
+    try { window.open(`${window.location.pathname}?open=etimad-draft`, '_blank', 'noopener'); } catch { /* ignore */ }
+  }
 
   // Bring the add form into view when it opens (it can render below a long list).
   useEffect(() => {
@@ -972,7 +1019,7 @@ export default function BillOfQuantities() {
             projectItemOptions={projectItems.length > 0 ? projectItems.map((it) => it.name) : [...new Set(AI_BOQ_ROWS.map((r) => r.projectItem))]}
             checkingIds={checkingIds}
             onCheck={(row) => runEtimadCheck([row])}
-            onMove={(row) => moveBoqRowsToEtimad([row.id])}
+            onMove={(row, origin) => requestMove(row, origin)}
             onUpdate={updateBoqRow}
             onRemove={removeBoqRow}
           />
@@ -1133,7 +1180,7 @@ export default function BillOfQuantities() {
                                   row={row}
                                   checking={checkingIds.has(row.id)}
                                   onCheck={() => runEtimadCheck([row])}
-                                  onMove={() => moveBoqRowsToEtimad([row.id])}
+                                  onMove={(origin) => requestMove(row, origin)}
                                   onUpdate={(patch) => updateBoqRow(row.id, patch)}
                                 />
                               </div>
@@ -1199,7 +1246,7 @@ export default function BillOfQuantities() {
                             {((row.attachments?.length ?? 0) > 0 || (row.etimadCheck && !isStale(row))) && (
                               <div className="px-4 pt-0 pb-3 space-y-2">
                                 {(row.attachments?.length ?? 0) > 0 && <BoqAttachments readOnly attachments={row.attachments ?? []} onChange={() => {}} />}
-                                {row.etimadCheck && !isStale(row) && <EtimadPanel hideUnchecked row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} onMove={() => moveBoqRowsToEtimad([row.id])} onUpdate={(patch) => updateBoqRow(row.id, patch)} />}
+                                {row.etimadCheck && !isStale(row) && <EtimadPanel hideUnchecked row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} onMove={(origin) => requestMove(row, origin)} onUpdate={(patch) => updateBoqRow(row.id, patch)} />}
                               </div>
                             )}
                           </div>
@@ -1260,6 +1307,153 @@ export default function BillOfQuantities() {
           </div>
         )}
       </SectionCard>
+
+      {/* Confirmation modal before moving a BOQ item out to an Etimad E-Market request */}
+      {moveConfirm && createPortal(
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/45 backdrop-blur-[2px] backdrop-in"
+          onClick={() => setMoveConfirm(null)} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden pop-in" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 bg-gradient-to-br from-brand-600 to-brand-800 text-white flex items-start gap-3">
+              <span className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M4 5h2l2.2 10.2a1.5 1.5 0 001.5 1.2h7.1a1.5 1.5 0 001.5-1.1L21 8H7" /><circle cx="10" cy="20" r="1.3" /><circle cx="18" cy="20" r="1.3" /></svg>
+              </span>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">{t('Etimad E-Market', 'سوق اعتماد')}</p>
+                <h3 className="text-[16px] font-bold mt-0.5">{t('Move this item to an E-Market request?', 'نقل هذا البند إلى طلب سوق اعتماد؟')}</h3>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-[13px] text-neutral-700 leading-relaxed">
+                {isAr ? (<><strong>{itemLabel(moveConfirm.row.itemName) || 'هذا البند'}</strong>{' سيُزال من طلب المنافسة هذا ويُضاف إلى طلب مستقل في سوق اعتماد. '}{movedItems.length === 0 ? 'سيتم إنشاء مسودة طلب جديدة في سوق اعتماد وحفظها.' : 'سيُضاف إلى مسودة طلب سوق اعتماد الحالية.'}</>)
+                       : (<><strong>{itemLabel(moveConfirm.row.itemName) || 'This item'}</strong>{' will be removed from this tender request and added to a separate Etimad E-Market request. '}{movedItems.length === 0 ? 'A new E-Market draft request will be created and saved.' : 'It will be added to your existing E-Market draft request.'}</>)}
+              </p>
+              <p className="mt-2 text-[12px] text-neutral-500">{t('You can review or modify that request anytime from the E-Market bucket.', 'يمكنك مراجعة هذا الطلب أو تعديله في أي وقت من سلة سوق اعتماد.')}</p>
+            </div>
+            <div className="px-5 py-3 border-t border-neutral-100 flex justify-end gap-2">
+              <button type="button" onClick={() => setMoveConfirm(null)} className="px-4 py-2 rounded-lg border border-neutral-300 bg-white text-[13px] font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors">{t('Cancel', 'إلغاء')}</button>
+              <button type="button" onClick={confirmMove} className="px-4 py-2 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors shadow-sm">{t('Yes, move it', 'نعم، انقله')}</button>
+            </div>
+          </div>
+        </div>, document.body)}
+
+      {/* Flying document — animates from the item's row into the bucket */}
+      {flying && <FlyingDoc origin={flying.origin} target={flying.target} />}
+
+      {/* Floating Etimad E-Market request bucket */}
+      {showBucket && createPortal(
+        <div ref={bucketRef} className="fixed z-40 bottom-6 start-6">
+          <button type="button" onClick={() => setBucketOpen(true)}
+            className="group relative flex items-center gap-2.5 ps-2.5 pe-4 py-2.5 rounded-2xl bg-white border border-brand-200 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all bucket-slide-in"
+            aria-label={t('Open Etimad E-Market request', 'فتح طلب سوق اعتماد')}>
+            <span className={`relative w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 text-white flex items-center justify-center flex-shrink-0 ${bucketReceiving ? 'bucket-receive' : ''}`}>
+              {bucketReceiving && <span className="absolute inset-0 rounded-xl bg-brand-400/40 bucket-ring" />}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M4 5h2l2.2 10.2a1.5 1.5 0 001.5 1.2h7.1a1.5 1.5 0 001.5-1.1L21 8H7" /><circle cx="10" cy="20" r="1.3" /><circle cx="18" cy="20" r="1.3" /></svg>
+              <span className="absolute -top-1.5 -end-1.5 min-w-[20px] h-5 px-1 rounded-full bg-error-500 text-white text-[11px] font-bold flex items-center justify-center ring-2 ring-white tabular-nums">{movedItems.length}</span>
+            </span>
+            <span className="text-start">
+              <span className="block text-[12.5px] font-bold text-neutral-900 leading-tight">{t('Etimad E-Market', 'سوق اعتماد')}</span>
+              <span className="block text-[11px] text-neutral-500">{t(`${movedItems.length} item${movedItems.length === 1 ? '' : 's'} · draft`, `${movedItems.length} بند · مسودة`)}</span>
+            </span>
+          </button>
+        </div>, document.body)}
+
+      {/* Bucket drawer — items moved to the Etimad E-Market draft request */}
+      {bucketOpen && createPortal(
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[2px] backdrop-in" onClick={() => setBucketOpen(false)} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
+          <div className="relative w-full max-w-[440px] h-full bg-white shadow-2xl flex flex-col drawer-in" onClick={(e) => e.stopPropagation()}>
+            <div className="shrink-0 px-5 py-4 bg-gradient-to-br from-brand-600 to-brand-800 text-white">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M4 5h2l2.2 10.2a1.5 1.5 0 001.5 1.2h7.1a1.5 1.5 0 001.5-1.1L21 8H7" /><circle cx="10" cy="20" r="1.3" /><circle cx="18" cy="20" r="1.3" /></svg>
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">{t('Etimad E-Market request', 'طلب سوق اعتماد')}</p>
+                    <h3 className="text-[16px] font-bold mt-0.5">{t(`${movedItems.length} item${movedItems.length === 1 ? '' : 's'} moved here`, `${movedItems.length} بند مُنقَل هنا`)}</h3>
+                  </div>
+                </div>
+                <button type="button" onClick={() => setBucketOpen(false)} aria-label={t('Close', 'إغلاق')} className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition-colors">
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+              <div className="flex items-start gap-2.5 rounded-xl border border-success-100 bg-success-50 px-3.5 py-3">
+                <CheckCircleIcon className="w-4 h-4 text-success-600 mt-0.5 flex-shrink-0" />
+                <p className="text-[12.5px] text-success-800 leading-relaxed">
+                  {t('This is saved as a draft Etimad E-Market request. You can open and modify it anytime from My Requests.', 'هذا محفوظ كمسودة طلب في سوق اعتماد. يمكنك فتحه وتعديله في أي وقت من "طلباتي".')}
+                </p>
+              </div>
+              {movedItems.length === 0 ? (
+                <p className="text-[13px] text-neutral-400 italic">{t('No items moved yet.', 'لم تُنقل أي بنود بعد.')}</p>
+              ) : (
+                <div className="rounded-xl border border-neutral-200 divide-y divide-neutral-100 overflow-hidden">
+                  {movedItems.map((r) => {
+                    const qty = typeof r.quantity === 'number' ? r.quantity : 0;
+                    const price = typeof r.unitPrice === 'number' ? r.unitPrice : 0;
+                    const total = qty * price;
+                    return (
+                      <div key={r.id} className="px-3.5 py-3 bg-white">
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
+                            <DocumentIcon className="w-4 h-4" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-medium text-neutral-900 truncate">{itemLabel(r.itemName) || t('Unnamed item', 'بند بلا اسم')}</p>
+                            <p className="text-[11px] text-neutral-500 tabular-nums">
+                              {qty > 0 ? `${qty} ${r.unitOfMeasure || ''}` : '—'}{price > 0 ? <span dir="ltr"> · SAR {formatSAR(price)}</span> : null}
+                            </p>
+                          </div>
+                          {total > 0 && <span className="text-[12.5px] font-bold text-neutral-800 tabular-nums flex-shrink-0" dir="ltr">SAR {formatSAR(total)}</span>}
+                        </div>
+                        <div className="mt-2 ps-11">
+                          <button type="button" onClick={() => returnBoqItemFromEtimad(r.id)}
+                            className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-brand-700 hover:text-brand-800 transition-colors">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 5 5v1" /></svg>
+                            {t('Put back to this request', 'إعادته إلى هذا الطلب')}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-[11px] text-neutral-400">{t('Moving items here keeps this tender focused on items that genuinely need a competitive tender.', 'نقل البنود إلى هنا يُبقي هذه المنافسة مركّزة على البنود التي تحتاج فعلاً إلى منافسة.')}</p>
+            </div>
+            <div className="shrink-0 px-5 py-3 border-t border-neutral-100 flex items-center justify-between gap-2">
+              <button type="button" onClick={viewDraftRequest} disabled={movedItems.length === 0}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-brand-300 bg-white text-[13px] font-semibold text-brand-700 hover:bg-brand-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
+                {t('View draft request', 'عرض مسودة الطلب')}
+              </button>
+              <button type="button" onClick={() => setBucketOpen(false)} className="px-4 py-2 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors">{t('Got it', 'تمام')}</button>
+            </div>
+          </div>
+        </div>, document.body)}
     </div>
   );
+}
+
+/** A document icon that animates from a BOQ row into the Etimad bucket. */
+function FlyingDoc({ origin, target }: { origin: DOMRect; target: DOMRect }) {
+  const [go, setGo] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setGo(true)));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const ox = origin.left + origin.width / 2;
+  const oy = origin.top + origin.height / 2;
+  const dx = (target.left + target.width / 2) - ox;
+  const dy = (target.top + target.height / 2) - oy;
+  return createPortal(
+    <div style={{
+      position: 'fixed', left: ox - 26, top: oy - 26, zIndex: 70, pointerEvents: 'none',
+      transform: go ? `translate(${dx}px, ${dy}px) scale(0.28) rotate(-14deg)` : 'translate(0, 0) scale(1) rotate(0deg)',
+      opacity: go ? 0.05 : 1,
+      transition: 'transform 0.8s cubic-bezier(0.5, -0.25, 0.35, 1), opacity 0.8s ease-in 0.25s',
+    }}>
+      <div className="w-[52px] h-[52px] rounded-2xl bg-white shadow-2xl border border-brand-200 flex items-center justify-center">
+        <DocumentIcon className="w-7 h-7 text-brand-600" />
+      </div>
+    </div>, document.body);
 }

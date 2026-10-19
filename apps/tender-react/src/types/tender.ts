@@ -202,6 +202,8 @@ export interface TenderFormData {
   attachments: FileAttachment[];
   /** Etimad E-Market draft that receives BOQ items moved out of this tender. */
   linkedEtimadRequestId?: string;
+  /** BOQ items that were moved out of this tender into the linked Etimad E-Market draft. */
+  etimadMovedItems?: BOQRow[];
 }
 
 export interface TenderDraft {

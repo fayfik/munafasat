@@ -117,7 +117,7 @@ interface Props {
   projectItemOptions: string[];
   checkingIds: Set<string>;
   onCheck: (row: BOQRow) => void;
-  onMove: (row: BOQRow) => Promise<'moved' | 'preview' | 'error'>;
+  onMove: (row: BOQRow, origin: DOMRect | null) => void;
   onUpdate: (id: string, patch: Partial<BOQRow>) => void;
   onRemove: (id: string) => void;
 }
@@ -418,7 +418,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                     <td colSpan={colCount - 1} className="border-b border-neutral-200 bg-neutral-50/60 p-0">
                       <div className="sticky w-[min(640px,calc(100vw-120px))] p-2.5" style={{ insetInlineStart: 40 }}>
                         <p className="text-[11px] font-semibold text-neutral-500 mb-1.5 truncate">{t('Etimad E-Market check for', 'نتيجة سوق اعتماد لـ')} “{row.itemName || t('row', 'صف') + ' ' + (r + 1)}”</p>
-                        <EtimadPanel row={row} checking={checkingIds.has(row.id)} onCheck={() => onCheck(row)} onMove={() => onMove(row)} onUpdate={(patch) => onUpdate(row.id, patch)} />
+                        <EtimadPanel row={row} checking={checkingIds.has(row.id)} onCheck={() => onCheck(row)} onMove={(origin) => onMove(row, origin)} onUpdate={(patch) => onUpdate(row.id, patch)} />
                       </div>
                     </td>
                   </tr>

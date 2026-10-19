@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LanguageProvider } from './context/LanguageContext';
 import { TenderProvider } from './context/TenderContext';
 import { RequestStoreProvider, useRequests } from './context/RequestStore';
@@ -31,7 +31,21 @@ function AppRoot() {
   const [target, setTarget] = useState<OpenTarget>({ kind: 'new' });
   const [formKey, setFormKey] = useState(0);
   const [reqFilter, setReqFilter] = useState<import('./types/tender').TenderStatus | 'all'>('all');
+  // A linked Etimad E-Market draft opened in a new tab ("View draft request") — seeded via localStorage.
+  const [externalForm, setExternalForm] = useState<TenderFormData | null>(null);
   const store = useRequests();
+
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(window.location.search).get('open') !== 'etimad-draft') return;
+      const raw = window.localStorage.getItem('munafasat:etimad-draft');
+      if (!raw) return;
+      const form = JSON.parse(raw) as TenderFormData;
+      setExternalForm(form);
+      setFormKey((k) => k + 1);
+      setPage('tender-form');
+    } catch { /* ignore */ }
+  }, []);
 
   function open(t: OpenTarget) {
     setTarget(t);
@@ -71,8 +85,8 @@ function AppRoot() {
         <TenderProvider
           key={formKey}
           requestId={saved?.id}
-          initialForm={saved?.form}
-          initialStatus={saved?.status}
+          initialForm={externalForm ?? saved?.form}
+          initialStatus={externalForm ? 'draft' : saved?.status}
           initialSourceType={target.kind === 'new' ? target.sourceType : undefined}
           initialSeed={target.kind === 'new' ? target.seed : undefined}
         >
