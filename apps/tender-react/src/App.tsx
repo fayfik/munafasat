@@ -76,7 +76,7 @@ function AppRoot() {
           initialSourceType={target.kind === 'new' ? target.sourceType : undefined}
           initialSeed={target.kind === 'new' ? target.seed : undefined}
         >
-          <TenderForm onBack={() => setPage('my-requests')} />
+          <TenderForm onBack={() => setPage('my-requests')} onOpenRequest={openRequest} />
         </TenderProvider>
       )}
     </AppShell>

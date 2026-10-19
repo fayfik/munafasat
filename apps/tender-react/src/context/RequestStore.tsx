@@ -21,7 +21,7 @@ interface StoreCtx {
   save: (id: string, form: TenderFormData, status: TenderStatus, extra?: Partial<SavedRequest>) => Promise<boolean>;
   get: (id: string) => SavedRequest | undefined;
   /** Adds a draft request for this browser session only (e.g. items moved out of a request in step 1). */
-  addSessionDraft: (draft: Omit<TenderDraft, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => void;
+  addSessionDraft: (draft: Omit<TenderDraft, 'id' | 'createdAt' | 'updatedAt' | 'status'>, form?: TenderFormData) => string;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -99,9 +99,12 @@ export function RequestStoreProvider({ children }: { children: ReactNode }) {
 
   const allRequests = sessionDrafts.length ? [...sessionDrafts, ...requests] : requests;
   const get = useCallback((id: string) => allRequests.find((r) => r.id === id), [allRequests]);
-  const addSessionDraft = useCallback<StoreCtx['addSessionDraft']>((draft) => {
+  const addSessionDraft = useCallback<StoreCtx['addSessionDraft']>((draft, form) => {
     const now = new Date().toISOString();
-    setSessionDrafts((xs) => [{ ...draft, id: `draft-${Date.now().toString(36)}`, status: 'draft', createdAt: now, updatedAt: now }, ...xs]);
+    const id = `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    // With a form attached, the draft opens with its project and items already filled in.
+    setSessionDrafts((xs) => [{ ...draft, id, status: 'draft', createdAt: now, updatedAt: now, ...(form ? { form } : {}) }, ...xs]);
+    return id;
   }, []);
 
   return (

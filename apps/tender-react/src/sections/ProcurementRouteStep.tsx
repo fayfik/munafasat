@@ -8,7 +8,7 @@ import routeIllustration from '../assets/procurement-route-illustration.svg';
 import { PROJECTS, ALL_COST_CENTERS } from '../data/mockData';
 import { useRequests } from '../context/RequestStore';
 import { EXPENSE_TYPES, expenseTypeOf } from '../lib/expenseTypes';
-import type { ProjectItem } from '../types/tender';
+import type { ProjectItem, SourceType, TenderFormData } from '../types/tender';
 import {
   classifyItem, groupItems, forcedRoute, parseItemNames, itemNameLooksReal, EXAMPLE_TEXT, ROUTE_META, BOQ_TYPE_META,
   type ClsItem, type ItemVerdict, type RequestGroup, type RouteKey,
@@ -25,7 +25,7 @@ const EMARKET_URL = 'https://portal.etimad.sa/';
 export default function ProcurementRouteStep() {
   const { isAr } = useLanguage();
   const t = useT();
-  const { confirmRoute, routeConfirmed, formData } = useTender();
+  const { confirmRoute, routeConfirmed, formData, updateField } = useTender();
 
   const [phase, setPhase] = useState<Phase>('select');
   const [projectId, setProjectId] = useState('');
@@ -187,25 +187,44 @@ export default function ProcurementRouteStep() {
       items: g.items.map((i) => ({ name: i.name, nameAr: i.nameAr, projectItemId: i.projectItemId })),
       choice: 'help',
     });
+    // The other route's items become a linked draft, so they aren't lost.
+    linkDrafts(groups.filter((x) => x.key !== g.key).map((x) => moveToDraft(x.route, x.items)));
     // Both routes now continue into the wizard (confirmRoute advances to Project Setup).
   }
 
   const toItems = (vs: ItemVerdict[]) => vs.map((i) => ({ name: i.name, nameAr: i.nameAr, projectItemId: i.projectItemId }));
   const itemNames = (vs: ItemVerdict[]) => vs.map((i) => (isAr ? i.nameAr : i.name)).join('، ');
   // Save the flagged items as a separate draft request (shown in My Requests for this session).
-  function moveFlaggedToDraft(route: RouteKey) {
+  // The draft carries its project and items, so "Continue this draft" opens it ready to fill in.
+  function moveToDraft(route: RouteKey, vs: ItemVerdict[] = flagged): { id: string; route: SourceType; items: string[] } {
     const cc = ALL_COST_CENTERS.find((c) => c.id === project?.costCenterId);
-    addSessionDraft({
-      title: `${project?.name ?? 'Request'} — ${ROUTE_META[route].en} (${flagged.length} moved item${flagged.length > 1 ? 's' : ''})`,
-      type: ROUTE_META[route].sourceType,
+    const sourceType = ROUTE_META[route].sourceType;
+    const form = {
+      sourceType, projectId, costCenterId: project?.costCenterId ?? '',
+      selectedProjectItemIds: vs.map((v) => v.projectItemId).filter((x): x is string => !!x),
+      tenderingPurpose: project?.purpose ?? '',
+      boqItems: vs.map((v) => ({
+        id: crypto.randomUUID(), projectItem: v.name, itemName: v.name, itemDescription: '', unitOfMeasure: 'Each',
+        quantity: '' as const, unitPrice: '' as const, deliveryDate: '',
+        ...(sourceType === 'souq-etimad'
+          ? { purchaseType: (v.boqType === 'services' || v.boqType === 'manpower' ? 'service' : 'product') as 'service' | 'product', productId: '', supplier: '', lineTotal: '' as const }
+          : {}),
+      })),
+    } as unknown as TenderFormData;
+    const id = addSessionDraft({
+      title: `${project?.name ?? 'Request'} — ${ROUTE_META[route].en} (${vs.length} item${vs.length > 1 ? 's' : ''})`,
+      type: sourceType,
       department: cc?.name ?? '—',
       budget: '—',
-    });
+    }, form);
+    return { id, route: sourceType, items: vs.map((v) => v.name) };
   }
+  const linkDrafts = (ds: { id: string; route: SourceType; items: string[] }[]) => { if (ds.length) updateField('linkedDrafts', ds); };
   function continueTender() {
     if (tenderAction === 'move' && rest.length > 0) {
-      moveFlaggedToDraft('souq-etimad');
+      const d = moveToDraft('souq-etimad');
       confirmRoute({ sourceType: 'tendering', projectId, items: toItems(rest), choice: 'tender', movedToDraft: flagged.length ? { count: flagged.length, route: 'souq-etimad' } : undefined });
+      linkDrafts([d]);
     } else {
       confirmRoute({ sourceType: 'tendering', projectId, items: toItems([...rest, ...flagged]), choice: 'tender',
         justification: flagged.length ? justification.trim() : undefined, justifiedItems: flagged.map((f) => f.name) });
@@ -217,8 +236,9 @@ export default function ProcurementRouteStep() {
       confirmRoute({ sourceType: 'tendering', projectId, items: toItems(flagged), choice: 'emarket' });
       return;
     }
-    if (flagged.length) moveFlaggedToDraft('tendering');
+    const d = flagged.length ? moveToDraft('tendering') : null;
     confirmRoute({ sourceType: 'souq-etimad', projectId, items: toItems(rest), choice: 'emarket', movedToDraft: flagged.length ? { count: flagged.length, route: 'tendering' } : undefined });
+    if (d) linkDrafts([d]);
   }
 
   const chosen = groups.find((g) => g.key === chosenKey) ?? groups[0];

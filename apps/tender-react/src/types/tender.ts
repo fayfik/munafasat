@@ -176,6 +176,8 @@ export interface TenderFormData {
   routeChoice?: 'tender' | 'emarket' | 'help';
   /** Items moved out of this request into a separate draft (step 1). */
   movedToDraft?: { count: number; route: SourceType };
+  /** Separate draft requests created from this one in step 1 (items that follow the other route). */
+  linkedDrafts?: { id: string; route: SourceType; items: string[] }[];
   /** Names of eMarket-available items kept in the tender with the justification above. */
   justifiedEmarketItems?: string[];
   tenderingPurpose: string;

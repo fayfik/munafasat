@@ -26,7 +26,7 @@ function formatSAR0(n: number) {
 const CAT_COLOR: Record<string, string> = { service: '#2563eb', equipment: '#7c3aed', material: '#ea580c', manpower: '#0d9488' };
 const SERIES = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#14b8a6'];
 
-export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
+export default function ReviewConfirm({ onExit, onOpenRequest }: { onExit?: () => void; onOpenRequest?: (id: string) => void }) {
   const { formData, updateField, sectionStatuses, goToSection, boqSubtotal, boqVat, boqTotal, paymentPctTotal, evalWeightTotal, qualPctTotal, importedFromProject, readyToSubmit, submitted, status } = useTender();
   const { isAr } = useLanguage();
   const t = useT();
@@ -89,7 +89,7 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
 
   if (submitted) {
     return <SubmittedScreen requestNo={submitted.requestNo} at={submitted.at} projectName={projectName} deptName={deptName}
-      subtotal={boqSubtotal} grandTotal={boqTotal} stages={formData.paymentStages.length} userName={userName} isAr={isAr} t={t} onExit={onExit}
+      subtotal={boqSubtotal} grandTotal={boqTotal} stages={formData.paymentStages.length} userName={userName} isAr={isAr} t={t} onExit={onExit} onOpenRequest={onOpenRequest}
       formData={formData} selectedProject={selectedProject} />;
   }
 
@@ -103,6 +103,10 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
             <p className="text-[12px] text-ai-700 mt-0.5">{t(`Imported as a starting point for "${importedFromProject}". Review before submitting.`, `تم الاستيراد كنقطة بداية لـ "${importedFromProject}". راجع قبل التقديم.`)}</p>
           </div>
         </div>
+      )}
+
+      {(formData.linkedDrafts?.length ?? 0) > 0 && (
+        <LinkedDraftsCard drafts={formData.linkedDrafts!} t={t} variant="notice" />
       )}
 
       {/* ── Request overview hero ─────────────────────────────────── */}
@@ -495,9 +499,9 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
 }
 
 /* ── Submitted success screen ──────────────────────────────────── */
-function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grandTotal, stages, userName, isAr, t, onExit, formData, selectedProject }: {
+function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grandTotal, stages, userName, isAr, t, onExit, onOpenRequest, formData, selectedProject }: {
   requestNo: string; at: string; projectName: string; deptName: string; subtotal: number; grandTotal: number; stages: number;
-  userName: string; isAr: boolean; t: (en: string, ar: string) => string; onExit?: () => void;
+  userName: string; isAr: boolean; t: (en: string, ar: string) => string; onExit?: () => void; onOpenRequest?: (id: string) => void;
   formData: ReturnType<typeof useTender>['formData']; selectedProject: typeof PROJECTS[number] | undefined;
 }) {
   const [copied, setCopied] = useState(false);
@@ -611,6 +615,12 @@ function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grand
           ))}
         </ol>
       </div>
+
+      {(formData.linkedDrafts?.length ?? 0) > 0 && (
+        <div className="success-copy mt-4" style={{ animationDelay: '0.95s' }}>
+          <LinkedDraftsCard drafts={formData.linkedDrafts!} t={t} onOpen={(id) => onOpenRequest?.(id)} variant="success" />
+        </div>
+      )}
 
       {/* CTAs */}
       <div className="success-copy mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ animationDelay: '1s' }}>
@@ -796,3 +806,65 @@ function EyeGlyph() { return <svg viewBox="0 0 24 24" fill="none" stroke="curren
 function PeopleGlyph() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5" /><path d="M16 5.5a3 3 0 010 5.8M21 20c0-2.6-1.6-4.2-4-4.8" /></svg>; }
 function ExternalGlyph() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><path d="M15 3h6v6M10 14 21 3" /></svg>; }
 function ShareGlyph() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 10.6l6.8-4.2M8.6 13.4l6.8 4.2" /></svg>; }
+
+type LinkedDraft = NonNullable<ReturnType<typeof useTender>['formData']['linkedDrafts']>[number];
+
+/** Drafts split off this request at the Procurement Route check (items on a different route). */
+function LinkedDraftsCard({ drafts, t, onOpen, variant }: {
+  drafts: LinkedDraft[]; t: (en: string, ar: string) => string; onOpen?: (id: string) => void; variant: 'notice' | 'success';
+}) {
+  const routeLabel = (r: LinkedDraft['route']) => r === 'souq-etimad' ? t('Etimad eMarket', 'سوق اعتماد') : t('Competitive Tender', 'منافسة');
+  const total = drafts.reduce((n, d) => n + d.items.length, 0);
+  if (variant === 'notice') {
+    return (
+      <div className="flex items-start gap-3 rounded-xl border border-warning-200 bg-warning-50 px-5 py-4" data-testid="linked-drafts-notice">
+        <AlertTriangleIcon className="w-4 h-4 text-warning-600 flex-shrink-0 mt-0.5" />
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-warning-800">
+            {drafts.length === 1
+              ? t(`${total} item${total === 1 ? ' was' : 's were'} moved to a separate ${routeLabel(drafts[0].route)} draft`, `تم نقل ${total} بند إلى مسودة ${routeLabel(drafts[0].route)} منفصلة`)
+              : t(`${total} items were moved to ${drafts.length} separate drafts`, `تم نقل ${total} بند إلى ${drafts.length} مسودات منفصلة`)}
+          </p>
+          <p className="text-[12px] text-warning-800 mt-0.5">
+            {t(`${drafts.flatMap((d) => d.items).slice(0, 3).join(', ')}${total > 3 ? '…' : ''} ${total === 1 ? 'is' : 'are'} not part of this submission. ${total === 1 ? 'It stays' : 'They stay'} as a draft in My Requests until you complete and submit ${total === 1 ? 'it' : 'them'}.`,
+               `${total} بند ليست ضمن هذا الطلب، وتبقى كمسودة في طلباتي حتى تكملها وتقدمها.`)}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden text-start" data-testid="linked-drafts-card">
+      <div className="px-5 pt-4 pb-1 flex items-center justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">{t('Also created from this request', 'أُنشئ أيضاً من هذا الطلب')}</p>
+        <span className="text-[11px] text-neutral-400">{t(`${drafts.length} draft${drafts.length === 1 ? '' : 's'}`, `${drafts.length} مسودة`)}</span>
+      </div>
+      <ul className="px-5 pb-4 pt-2 space-y-3">
+        {drafts.map((d) => (
+          <li key={d.id} className="rounded-xl border border-neutral-200 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant={d.route === 'souq-etimad' ? 'info' : 'assets'}>{routeLabel(d.route)}</Badge>
+                  <span className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-500 bg-neutral-100 rounded-full px-2 py-0.5">{t('Draft', 'مسودة')}</span>
+                </div>
+                <p className="text-[13.5px] font-semibold text-neutral-900 mt-2">
+                  {t(`${d.items.length} item${d.items.length === 1 ? '' : 's'} moved here at the route check`, `${d.items.length} بند نُقلت عند فحص المسار`)}
+                </p>
+                <p className="text-[12px] text-neutral-500 mt-0.5 truncate" title={d.items.join(', ')}>{d.items.join(' · ')}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-[11.5px] text-neutral-400">{t('Not submitted yet — it needs its own details.', 'لم تُقدَّم بعد — تحتاج إلى تفاصيلها الخاصة.')}</p>
+              {onOpen && (
+                <Button size="sm" variant="primary" onClick={() => onOpen(d.id)}>
+                  {d.route === 'souq-etimad' ? t('Continue the eMarket draft', 'متابعة مسودة السوق') : t('Continue the tender draft', 'متابعة مسودة المنافسة')}
+                </Button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

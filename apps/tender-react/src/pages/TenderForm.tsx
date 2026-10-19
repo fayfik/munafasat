@@ -34,9 +34,10 @@ const SECTION_COMPONENTS = [
 
 interface Props {
   onBack: () => void;
+  onOpenRequest?: (id: string) => void;
 }
 
-export default function TenderForm({ onBack }: Props) {
+export default function TenderForm({ onBack, onOpenRequest }: Props) {
   const { currentSection, goToSection, sectionStatuses, isSaving, lastSaved, formData, saveState, saveNow, submit, readyToSubmit, isSubmitting, submitted, status, routeConfirmed } = useTender();
   const { isAr } = useLanguage();
   const t = useT();
@@ -263,7 +264,7 @@ export default function TenderForm({ onBack }: Props) {
             </div>
 
             <div className="space-y-5">
-              {CurrentSection === ReviewConfirm ? <ReviewConfirm onExit={onBack} /> : <CurrentSection />}
+              {CurrentSection === ReviewConfirm ? <ReviewConfirm onExit={onBack} onOpenRequest={onOpenRequest} /> : <CurrentSection />}
             </div>
 
             {/* Step navigation — hidden on the Procurement Route step, which drives its own flow */}
