@@ -579,29 +579,28 @@ function AiSuggestions({ onNewRequest, isAr, t }: {
   onNewRequest: (s?: 'tendering' | 'souq-etimad') => void; isAr: boolean; t: (en: string, ar: string) => string;
 }) {
   return (
-    <div className="rise-in bg-ai-50 border border-ai-200 rounded-xl p-5" style={{ animationDelay: '320ms' }}>
+    <div className="rise-in bg-white border border-neutral-200 rounded-xl p-5" style={{ animationDelay: '320ms' }}>
       <div className="flex items-center gap-2 mb-3">
-        <SparklesIcon className="w-4 h-4 text-ai-600" />
-        <h2 className="text-[14px] font-semibold text-ai-900">{t('AI Assistant Suggestions', 'اقتراحات المساعد الذكي')}</h2>
+        <h2 className="text-[14px] font-semibold text-neutral-900">{t('Shortcuts', 'اختصارات')}</h2>
       </div>
       <div className="space-y-3">
-        <div className="bg-white/70 rounded-lg px-3.5 py-3 border border-ai-100">
+        <div className="bg-neutral-50 rounded-lg px-3.5 py-3 border border-neutral-200">
           <div className="flex items-start gap-2.5">
-            <WandIcon className="w-4 h-4 text-ai-600 flex-shrink-0 mt-0.5" />
+            <WandIcon className="w-4 h-4 text-neutral-500 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-[12px] text-ai-900 leading-snug">{t('Based on your past activity, you can create this RFP 40% faster using AI.', 'بناءً على نشاطك السابق، يمكنك إنشاء هذه المنافسة أسرع بنسبة 40٪ باستخدام الذكاء الاصطناعي.')}</p>
-              <button onClick={() => onNewRequest('tendering')} className="text-[11px] font-semibold text-ai-700 hover:text-ai-900 mt-1.5 flex items-center gap-1">
-                {t('Try AI Draft', 'جرّب المسودة الذكية')} <ChevronRightIcon className={`w-3 h-3 ${isAr ? 'rotate-180' : ''}`} />
+              <p className="text-[12px] text-neutral-800 leading-snug">{t('Start from a past request to reuse its scope, BOQ and terms.', 'ابدأ من طلب سابق لإعادة استخدام نطاقه وجدول كمياته وشروطه.')}</p>
+              <button onClick={() => onNewRequest('tendering')} className="text-[11px] font-semibold text-ai-700 hover:text-neutral-800 mt-1.5 flex items-center gap-1">
+                {t('Start a request', 'ابدأ طلباً')} <ChevronRightIcon className={`w-3 h-3 ${isAr ? 'rotate-180' : ''}`} />
               </button>
             </div>
           </div>
         </div>
-        <div className="bg-white/70 rounded-lg px-3.5 py-3 border border-ai-100">
+        <div className="bg-neutral-50 rounded-lg px-3.5 py-3 border border-neutral-200">
           <div className="flex items-start gap-2.5">
-            <DocumentIcon className="w-4 h-4 text-ai-600 flex-shrink-0 mt-0.5" />
+            <DocumentIcon className="w-4 h-4 text-neutral-500 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-[12px] text-ai-900 leading-snug">{t('3 similar RFPs found. Reuse details to save time.', 'تم العثور على 3 منافسات مشابهة. أعد استخدام التفاصيل لتوفير الوقت.')}</p>
-              <button onClick={() => onNewRequest('tendering')} className="text-[11px] font-semibold text-ai-700 hover:text-ai-900 mt-1.5 flex items-center gap-1">
+              <p className="text-[12px] text-neutral-800 leading-snug">{t('3 similar RFPs found. Reuse details to save time.', 'تم العثور على 3 منافسات مشابهة. أعد استخدام التفاصيل لتوفير الوقت.')}</p>
+              <button onClick={() => onNewRequest('tendering')} className="text-[11px] font-semibold text-ai-700 hover:text-neutral-800 mt-1.5 flex items-center gap-1">
                 {t('Reuse details', 'إعادة استخدام التفاصيل')} <ChevronRightIcon className={`w-3 h-3 ${isAr ? 'rotate-180' : ''}`} />
               </button>
             </div>

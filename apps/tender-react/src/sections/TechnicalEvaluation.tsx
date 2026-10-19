@@ -3,6 +3,8 @@ import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiTechDocs, aiTechReqs, aiEvalCriteria, type AiReq, type AiCriterion } from '../lib/aiTender';
+import TemplateMenu from '../components/TemplateMenu';
+import { EVAL_TEMPLATES } from '../lib/templates';
 import { FormField, SectionCard, Textarea, Input, AIButton, PeoplePicker, InfoBanner } from '../components/ui';
 import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon, XIcon } from '../components/Icons';
 import ImportCriteriaDrawer, { type DrawerItem } from '../components/ImportCriteriaDrawer';
@@ -125,10 +127,11 @@ export default function TechnicalEvaluation() {
     if (additions.length) updateField('evaluationCriteria', [...formData.evaluationCriteria, ...additions]);
   }
 
+  // Manual mode: standard lists, added by hand.
   function generateDocs() {
-    docsAi.run(() => aiTechDocs(formData, isAr),
-      (r) => updateField('technicalDocumentsList', arr<unknown>(r).map(str).filter(Boolean).filter((d) => !LOCKED_DOC_STRINGS.includes(d))),
-      () => updateField('technicalDocumentsList', (isAr ? AI_TECH_DOCS_AR : AI_TECH_DOCS).filter((d) => !LOCKED_DOC_STRINGS.includes(d))));
+    const list = formData.technicalDocumentsList as string[];
+    const std = (isAr ? AI_TECH_DOCS_AR : AI_TECH_DOCS).filter((d) => !LOCKED_DOC_STRINGS.includes(d) && !list.includes(d));
+    updateField('technicalDocumentsList', [...list, ...std]);
   }
 
   function addDoc(label: string) {
@@ -148,7 +151,7 @@ export default function TechnicalEvaluation() {
     const apply = (src: AiReq[]) => updateField('technicalRequirements', src.map((r) => ({
       id: crypto.randomUUID(), requirement: str(r.requirement), description: str(r.description),
     })));
-    reqAi.run(() => aiTechReqs(formData, isAr), (r) => apply(arr<AiReq>(r)), () => apply(isAr ? AI_TECH_REQUIREMENTS_AR : AI_TECH_REQUIREMENTS));
+    apply(isAr ? AI_TECH_REQUIREMENTS_AR : AI_TECH_REQUIREMENTS);
   }
 
   function generateEval() {
@@ -177,7 +180,7 @@ export default function TechnicalEvaluation() {
         <p className="mt-2 text-xs text-neutral-500">
           {formData.technicalCommitteeMembers.length > 0
             ? `${formData.technicalCommitteeMembers.length} ${t('member(s) selected', 'عضو/أعضاء مختارون')}`
-            : t('Recommended reviewers appear first in the list.', 'يظهر المراجعون المقترحون أولاً في القائمة.')}
+            : t('Frequent reviewers appear first in the list.', 'يظهر المراجعون المتكررون أولاً في القائمة.')}
         </p>
       </SectionCard>
 
@@ -187,7 +190,7 @@ export default function TechnicalEvaluation() {
         titleAr="قائمة الوثائق الفنية"
         description="List all technical documents vendors must submit with their proposals."
         descriptionAr="اذكر جميع الوثائق الفنية التي يجب على الموردين تقديمها مع عروضهم."
-        action={<AIButton onClick={generateDocs} loading={docsLoading} label={t('AI Suggest', 'اقتراح بالذكاء الاصطناعي')} />}
+        action={<button type="button" onClick={generateDocs} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 bg-white text-xs font-semibold text-neutral-700 hover:bg-neutral-50 shadow-sm">{t('Add standard list', 'إضافة القائمة القياسية')}</button>}
       >
         {docsLoading ? (
           <div className="rounded-md border border-ai-200 bg-ai-50 p-4 ai-loading">
@@ -253,7 +256,7 @@ export default function TechnicalEvaluation() {
         titleAr="المتطلبات الفنية"
         description="Define specific technical requirements vendors must meet."
         descriptionAr="حدد المتطلبات الفنية المحددة التي يجب على الموردين استيفاؤها."
-        action={<AIButton onClick={generateReqs} loading={reqLoading} label={t('AI Suggest Requirements', 'اقتراح المتطلبات')} />}
+        action={<button type="button" onClick={generateReqs} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 bg-white text-xs font-semibold text-neutral-700 hover:bg-neutral-50 shadow-sm">{t('Add standard list', 'إضافة القائمة القياسية')}</button>}
       >
         {reqLoading && (
           <div className="mb-4 rounded-lg border border-ai-200 bg-ai-50 p-4 ai-loading">
@@ -304,7 +307,7 @@ export default function TechnicalEvaluation() {
               ))}
               {formData.technicalRequirements.length === 0 && (
                 <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-neutral-400">
-                  {t('No requirements defined. Add manually or use AI Suggest.', 'لم تُحدَّد متطلبات. أضف يدوياً أو استخدم اقتراح الذكاء الاصطناعي.')}
+                  {t('No requirements yet. Add the standard list or add them manually.', 'لم تُحدَّد متطلبات. أضف يدوياً أو استخدم اقتراح الذكاء الاصطناعي.')}
                 </td></tr>
               )}
             </tbody>
@@ -328,7 +331,12 @@ export default function TechnicalEvaluation() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="8" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /><path d="M17 14v6M14 17h6" /></svg>
               {t('Import from similar projects', 'استيراد من مشاريع مماثلة')}
             </button>
-            <AIButton onClick={generateEval} loading={evalLoading} label={t('AI Suggest Criteria', 'اقتراح المعايير')} />
+            <TemplateMenu options={EVAL_TEMPLATES} onPick={(id) => {
+              const tpl = EVAL_TEMPLATES.find((x) => x.id === id);
+              if (!tpl) return;
+              updateField('evaluationCriteria', tpl.criteria.map((c) => ({ id: crypto.randomUUID(), ...c })));
+              updateField('technicalPassingPercentage', tpl.passing);
+            }} suggestedId={formData.scopeIncludes.includes('consultancy') && !formData.scopeIncludes.includes('technology') ? 'consultancy' : 'technology'} />
           </div>
         }
       >

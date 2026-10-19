@@ -14,17 +14,11 @@ export function useAiAction() {
   const [usedSample, setUsedSample] = useState(false);
 
   const run = useCallback(async <T,>(call: () => Promise<T | null>, apply: (r: T) => void, fallback: () => void) => {
-    setLoading(true);
+    // Manual (no-AI) build: never call AI — insert the standard text / template straight away.
+    void call; void apply; void isAr; void aiErrorMessage;
     setError('');
-    try {
-      const r = await call();
-      if (r === null || r === undefined) { fallback(); setUsedSample(true); }
-      else { apply(r); setUsedSample(false); }
-    } catch (e) {
-      setError(aiErrorMessage(e, isAr));
-    } finally {
-      setLoading(false);
-    }
+    fallback();
+    setUsedSample(false);
   }, [isAr]);
 
   return { loading, error, usedSample, run };

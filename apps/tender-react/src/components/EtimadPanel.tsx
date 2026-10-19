@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useT } from '../context/LanguageContext';
-import { isStale } from '../lib/etimadCheck';
-import { SparklesIcon, CheckCircleIcon, AlertTriangleIcon, InfoIcon } from './Icons';
+import { isStale, isPendingProcurement } from '../lib/etimadCheck';
+import { CheckCircleIcon, AlertTriangleIcon, InfoIcon } from './Icons';
 import type { BOQRow } from '../types/tender';
 
 interface Props {
@@ -18,6 +18,7 @@ interface Props {
 export function EtimadCheckButton({ row, checking, onCheck }: { row: BOQRow; checking: boolean; onCheck: () => void }) {
   const t = useT();
   const stale = isStale(row);
+  if (isPendingProcurement(row)) return <div className="flex justify-end"><PendingChip /></div>;
   return (
     <div className="flex items-center justify-end gap-2 flex-wrap">
       {stale && <span className="text-[11px] text-warning-700">{t('Item changed since the last check.', 'تغيّر البند منذ آخر تحقق.')}</span>}
@@ -25,12 +26,21 @@ export function EtimadCheckButton({ row, checking, onCheck }: { row: BOQRow; che
         type="button"
         onClick={onCheck}
         disabled={checking}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-ai-50 text-ai-700 border border-ai-200 hover:bg-ai-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        <SparklesIcon className={`w-3 h-3 ${checking ? 'spin-slow' : ''}`} />
-        {checking ? t('Checking Etimad…', 'جاري التحقق من اعتماد…') : stale ? t('Check again', 'تحقق مجدداً') : t('Check Etimad availability', 'التحقق من التوفر في اعتماد')}
+        {stale ? t('Ask Procurement again', 'اطلب من المشتريات مجدداً') : t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد')}
       </button>
     </div>
+  );
+}
+
+function PendingChip() {
+  const t = useT();
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-warning-50 text-warning-700 border border-warning-100">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3 h-3"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+      {t('With Procurement for an Etimad check', 'لدى المشتريات للفحص في اعتماد')}
+    </span>
   );
 }
 
@@ -47,14 +57,15 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
       type="button"
       onClick={onCheck}
       disabled={checking}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-ai-50 text-ai-700 border border-ai-200 hover:bg-ai-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
     >
-      <SparklesIcon className={`w-3 h-3 ${checking ? 'spin-slow' : ''}`} />
-      {checking ? t('Checking Etimad…', 'جاري التحقق من اعتماد…') : label}
+      {label}
     </button>
   );
 
-  const sourceNote = check?.source === 'demo' ? (
+  const sourceNote = check?.source === 'procurement' ? (
+    <span className="text-[10px] text-neutral-400">{t('Checked on Etimad by the Procurement team (simulated for the prototype)', 'تحقق منه فريق المشتريات في اعتماد (محاكاة للنموذج الأولي)')}</span>
+  ) : check?.source === 'demo' ? (
     <span className="text-[10px] text-neutral-400">{t('Demo result from sample rules, not a live Etimad lookup', 'نتيجة تجريبية من قواعد نموذجية، وليست بحثاً مباشراً في اعتماد')}</span>
   ) : check?.source === 'estimate' ? (
     <span className="text-[10px] text-neutral-400">{t('AI estimate, not a live Etimad lookup', 'تقدير بالذكاء الاصطناعي، وليس بحثاً مباشراً في اعتماد')}</span>
@@ -62,9 +73,10 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
 
   if (!check || stale) {
     if (hideUnchecked) return null;
+    if (isPendingProcurement(row)) return <PendingChip />;
     return (
       <div className="flex items-center gap-2 flex-wrap">
-        {checkButton(t('Check Etimad availability', 'التحقق من التوفر في اعتماد'))}
+        {checkButton(stale ? t('Ask Procurement again', 'اطلب من المشتريات مجدداً') : t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد'))}
         {stale && <span className="text-[11px] text-warning-700">{t('Item changed since the last check.', 'تغيّر البند منذ آخر تحقق.')}</span>}
       </div>
     );
@@ -85,7 +97,7 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
         <div className="flex items-center gap-1.5 flex-wrap">
           <CheckCircleIcon className="w-3.5 h-3.5 text-success-600" />
           <span className="text-[12px] font-semibold text-success-700">{t('Not in Etimad E-Market. Proceed with tendering.', 'غير متوفر في سوق اعتماد. تابع بالمنافسة.')}</span>
-          <span className="ms-auto">{checkButton(t('Check again', 'تحقق مجدداً'))}</span>
+          <span className="ms-auto">{checkButton(t('Ask Procurement again', 'اطلب من المشتريات مجدداً'))}</span>
         </div>
         {check.comment && <p className="text-[11px] text-success-700 mt-1">{check.comment}</p>}
         <div className="mt-1">{sourceNote}</div>
@@ -99,7 +111,7 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
         <div className="flex items-center gap-1.5 flex-wrap">
           <InfoIcon className="w-3.5 h-3.5 text-neutral-500" />
           <span className="text-[12px] font-semibold text-neutral-700">{t('Unclear. Confirm on Etimad before proceeding.', 'غير واضح. تأكد من اعتماد قبل المتابعة.')}</span>
-          <span className="ms-auto">{checkButton(t('Check again', 'تحقق مجدداً'))}</span>
+          <span className="ms-auto">{checkButton(t('Ask Procurement again', 'اطلب من المشتريات مجدداً'))}</span>
         </div>
         {check.comment && <p className="text-[11px] text-neutral-600 mt-1">{check.comment}</p>}
         <div className="mt-1">{sourceNote}</div>
@@ -113,7 +125,7 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
       <div className="flex items-center gap-1.5 flex-wrap">
         <AlertTriangleIcon className="w-3.5 h-3.5 text-warning-600" />
         <span className="text-[12px] font-semibold text-warning-700">{t('Available in Etimad E-Market', 'متوفر في سوق اعتماد')}</span>
-        <span className="ms-auto">{checkButton(t('Check again', 'تحقق مجدداً'))}</span>
+        <span className="ms-auto">{checkButton(t('Ask Procurement again', 'اطلب من المشتريات مجدداً'))}</span>
       </div>
       {check.comment && <p className="text-[11px] text-warning-700">{check.comment}</p>}
 

@@ -226,7 +226,7 @@ export default function ProjectSetup() {
           <SectionCard
             title={isEsouq ? 'Purpose of purchase' : 'Purpose of Tendering'}
             titleAr={isEsouq ? 'الغرض من الشراء' : 'الغرض من المنافسة'}
-            action={<AIButton onClick={handleAIGeneratePurpose} loading={purposeAiLoading} label={t('Generate Purpose', 'توليد الغرض')} />}
+            action={<AIButton onClick={handleAIGeneratePurpose} loading={purposeAiLoading} label={t('Insert standard purpose', 'إدراج غرض قياسي')} />}
           >
             <Textarea
               rows={3}

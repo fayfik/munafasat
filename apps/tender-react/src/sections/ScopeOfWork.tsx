@@ -142,7 +142,7 @@ export default function ScopeOfWork() {
         titleAr="نطاق عمل المشروع"
         description="Describe the full scope of work, deliverable expectations, and technical requirements."
         descriptionAr="اصف نطاق العمل الكامل وتوقعات المخرجات والمتطلبات الفنية."
-        action={<AIButton onClick={generateScope} loading={scopeLoading} label={t('Generate Scope', 'توليد النطاق')} />}
+        action={<AIButton onClick={generateScope} loading={scopeLoading} label={t('Insert standard scope', 'إدراج نطاق قياسي')} />}
       >
         <div className="space-y-4">
           {/* What the project includes — 3 categories; each routes the request to specific departments */}
@@ -201,10 +201,7 @@ export default function ScopeOfWork() {
               <div className="flex items-center justify-between mt-1">
                 <p className="text-xs text-neutral-400">{formData.scopeOfWork.length} {t('characters', 'حرف')}</p>
                 {formData.scopeOfWork === aiScopeText && (
-                  <span className="text-xs text-ai-600 flex items-center gap-1">
-                    <SparklesIcon className="w-3 h-3" />
-                    {t('AI generated — review before submitting', 'مُولَّد بالذكاء الاصطناعي — راجع قبل التقديم')}
-                  </span>
+                  <span className="text-xs text-neutral-500">{t('Standard text — edit it to fit this request', 'نص قياسي — عدّله ليناسب هذا الطلب')}</span>
                 )}
               </div>
             )}
@@ -219,7 +216,7 @@ export default function ScopeOfWork() {
         titleAr="الشروط الخاصة بحسب النطاق"
         description="Add any specific terms and conditions applicable to this scope of work."
         descriptionAr="أضف أي شروط وأحكام خاصة تنطبق على نطاق العمل هذا."
-        action={<AIButton onClick={generateTerms} loading={termsLoading} label={t('Generate Terms', 'توليد الشروط')} />}
+        action={<AIButton onClick={generateTerms} loading={termsLoading} label={t('Insert standard terms', 'إدراج شروط قياسية')} />}
       >
         <FormField label="Scope-Specific Terms & Conditions" labelAr="الشروط الخاصة بحسب النطاق" optional>
           {termsLoading ? (
@@ -253,7 +250,7 @@ export default function ScopeOfWork() {
       >
         <div className="space-y-4">
           <FormField label="Work & Services Execution Location" labelAr="مكان تنفيذ الأعمال والخدمات" required
-            action={<AIButton onClick={generateLocation} loading={locLoading} label={t('Generate with AI', 'توليد بالذكاء الاصطناعي')} />}>
+            action={<AIButton onClick={generateLocation} loading={locLoading} label={t('Insert standard text', 'إدراج نص قياسي')} />}>
             <Textarea
               value={formData.executionLocation}
               onChange={(e) => updateField('executionLocation', e.target.value)}

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useTender } from '../context/TenderContext';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { SectionCard, PeoplePicker, InfoBanner, AIButton } from '../components/ui';
+import TemplateMenu from '../components/TemplateMenu';
+import { QUAL_TEMPLATES } from '../lib/templates';
 import { SparklesIcon, AlertTriangleIcon, CheckCircleIcon } from '../components/Icons';
 import { useAiAction, AiNote, num, str } from '../lib/useAiAction';
 import { aiQualification, type AiQual } from '../lib/aiTender';
@@ -131,7 +133,10 @@ export default function QualificationCriteria() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="8" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /><path d="M17 14v6M14 17h6" /></svg>
               {t('Import from similar projects', 'استيراد من مشاريع مماثلة')}
             </button>
-            <AIButton onClick={handleAISuggest} loading={aiLoading} label={t('AI Suggest Values', 'اقتراح القيم')} />
+            <TemplateMenu options={QUAL_TEMPLATES} onPick={(id) => {
+              const tpl = QUAL_TEMPLATES.find((x) => x.id === id);
+              if (tpl) updateField('qualificationCriteria', JSON.parse(JSON.stringify(tpl.criteria)));
+            }} suggestedId="standard" />
           </div>
         }
       >

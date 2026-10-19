@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { UNITS_OF_MEASURE } from '../data/mockData';
-import { isStale, needsJustification } from '../lib/etimadCheck';
+import { isStale, needsJustification, isPendingProcurement } from '../lib/etimadCheck';
 import EtimadPanel from './EtimadPanel';
 import { PlusIcon, TrashIcon, SparklesIcon, ChevronDownIcon, ChevronRightIcon } from './Icons';
 import type { BOQRow, BOQCategory } from '../types/tender';
@@ -270,7 +270,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
             {rows.length === 0 && (
               <tr>
                 <td colSpan={colCount} className="px-4 py-8 text-center text-sm text-neutral-500 border-b border-neutral-200">
-                  {t('No items yet. Add an item, paste rows from Excel, or use AI Suggest.', 'لا توجد بنود. أضف بنداً أو الصق من Excel أو استخدم اقتراح الذكاء الاصطناعي.')}
+                  {t('No items yet. Add an item, paste rows from Excel, or copy from a past request.', 'لا توجد بنود. أضف بنداً أو الصق من Excel أو استخدم اقتراح الذكاء الاصطناعي.')}
                 </td>
               </tr>
             )}
@@ -535,11 +535,14 @@ function EtimadChip({ row, checking, open, onCheck, onToggle }: { row: BOQRow; c
     return <span className={`${base} bg-ai-50 text-ai-700 border-ai-200`}><SparklesIcon className="w-3 h-3 spin-slow" />{t('Checking…', 'جاري التحقق…')}</span>;
   }
   const check = row.etimadCheck;
+  if (isPendingProcurement(row)) {
+    return <span className={`${base} bg-warning-50 text-warning-700 border-warning-100`} title={t('With Procurement for an Etimad check', 'لدى المشتريات للفحص في اعتماد')}>{t('With Procurement', 'لدى المشتريات')}</span>;
+  }
   if (!check || isStale(row)) {
     return (
-      <button type="button" onClick={onCheck} disabled={!row.itemName.trim()} title={!row.itemName.trim() ? t('Add an item name first.', 'أضف اسم البند أولاً.') : undefined}
-        className={`${base} bg-white text-ai-700 border-ai-200 hover:bg-ai-50 disabled:opacity-40 disabled:cursor-not-allowed`}>
-        <SparklesIcon className="w-3 h-3" />{check ? t('Changed · recheck', 'تغيّر · أعد التحقق') : t('Check', 'تحقق')}
+      <button type="button" onClick={onCheck} disabled={!row.itemName.trim()} title={!row.itemName.trim() ? t('Add an item name first.', 'أضف اسم البند أولاً.') : t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد')}
+        className={`${base} bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed`}>
+        {check ? t('Changed · ask again', 'تغيّر · اطلب مجدداً') : t('Ask Procurement', 'اطلب من المشتريات')}
       </button>
     );
   }

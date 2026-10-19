@@ -89,7 +89,7 @@ interface AIButtonProps {
 
 export function AIButton({ onClick, loading, label, className = '' }: AIButtonProps) {
   const t = useT();
-  const defaultLabel = t('Generate with AI', 'توليد بالذكاء الاصطناعي');
+  const defaultLabel = t('Insert standard text', 'إدراج نص قياسي');
   const displayLabel = label ?? defaultLabel;
 
   return (
@@ -97,10 +97,10 @@ export function AIButton({ onClick, loading, label, className = '' }: AIButtonPr
       type="button"
       onClick={onClick}
       disabled={loading}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-ai-50 text-ai-700 border border-ai-200 hover:bg-ai-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
     >
-      <SparklesIcon className={`w-3.5 h-3.5 ${loading ? 'spin-slow' : ''}`} />
-      {loading ? t('Generating…', 'جاري التوليد…') : displayLabel}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z" /><path d="M14 3v6h6M8 13h8M8 17h5" /></svg>
+      {displayLabel}
     </button>
   );
 }
@@ -448,8 +448,8 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
             {/* Recommended members */}
             {recRows.length > 0 && (
               <div>
-                <p className="px-4 pt-2.5 pb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-ai-700 bg-ai-50/60 flex items-center gap-1.5">
-                  <SparklesIcon className="w-3 h-3" /> {t('Recommended members', 'أعضاء مقترحون')}
+                <p className="px-4 pt-2.5 pb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-brand-700 bg-brand-50/60 flex items-center gap-1.5">
+                  {t('Frequent reviewers', 'مراجعون متكررون')}
                 </p>
                 <ul className="py-1">
                   {recRows.map((m) => (
@@ -462,7 +462,7 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
                           <p className="text-neutral-500 text-[11px] truncate">{dispRole(m)} · {m.department}</p>
                         </div>
                         <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-ai-700 bg-ai-100/70 rounded-full px-2 py-0.5 flex-shrink-0 whitespace-nowrap">
-                          <SparklesIcon className="w-2.5 h-2.5" /> {t(`${m.reviewed} RFP${m.reviewed > 1 ? 's' : ''} reviewed`, `راجع ${m.reviewed} طلب`)}
+                          {t(`${m.reviewed} RFP${m.reviewed > 1 ? 's' : ''} reviewed`, `راجع ${m.reviewed} طلب`)}
                         </span>
                       </button>
                     </li>

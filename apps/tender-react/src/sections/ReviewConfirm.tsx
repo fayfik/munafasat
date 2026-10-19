@@ -66,8 +66,25 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
     summaryAi.run(
       () => aiExecutiveSummary(formData, isAr, { subtotal: boqSubtotal, vat: boqVat, total: boqTotal }),
       (text) => { setAiSummaryText(text); setAiSummaryVisible(true); },
-      () => { setAiSummaryText(null); setAiSummaryVisible(true); },
+      () => { setAiSummaryText(buildSummary()); setAiSummaryVisible(true); },
     );
+  }
+
+  // Manual mode: the summary is put together from what the form already holds (no AI).
+  function buildSummary(): string {
+    const isEm = formData.sourceType === 'souq-etimad';
+    const proj = (isAr ? selectedProject?.nameAr : selectedProject?.name) ?? '—';
+    const cc = selectedCC ? (isAr ? selectedCC.nameAr : selectedCC.name) : '—';
+    const lines = [
+      t(`This ${isEm ? 'purchase' : 'tender'} request covers ${proj} for ${cc}.`, `يغطي هذا الطلب ${proj} لصالح ${cc}.`),
+      t(`It has ${formData.boqItems.length} BOQ line${formData.boqItems.length === 1 ? '' : 's'} with an estimated total of SAR ${formatSAR(boqTotal)} including 15% VAT.`, `يتضمن ${formData.boqItems.length} بنداً بإجمالي تقديري ${formatSAR(boqTotal)} ريال شاملاً الضريبة.`),
+    ];
+    if (!isEm) {
+      if (formData.contractDuration) lines.push(t(`The contract runs ${formData.contractDuration} ${formData.contractDurationType}${formData.startDate ? ` from ${formData.startDate}` : ''}${formData.executionLocation ? `, at ${formData.executionLocation}` : ''}.`, `مدة العقد ${formData.contractDuration} ${formData.contractDurationType}.`));
+      if (formData.paymentStages.length) lines.push(t(`Payment is split into ${formData.paymentStages.length} stages.`, `تُقسم الدفعات إلى ${formData.paymentStages.length} مراحل.`));
+      if (formData.evaluationCriteria.length) lines.push(t(`Bids are scored on ${formData.evaluationCriteria.length} technical criteria, with a passing score of ${formData.technicalPassingPercentage || '—'}%.`, `تُقيَّم العروض وفق ${formData.evaluationCriteria.length} معايير فنية بحد نجاح ${formData.technicalPassingPercentage || '—'}%.`));
+    }
+    return lines.join(' ');
   }
 
   if (submitted) {
@@ -152,25 +169,22 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
 
       {/* AI summary */}
       {!aiSummaryVisible ? (
-        <div className="flex items-center justify-between bg-ai-50 rounded-xl border border-ai-200 px-5 py-4 flex-wrap gap-3">
+        <div className="flex items-center justify-between bg-white rounded-xl border border-neutral-200 px-5 py-4 flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <SparklesIcon className="w-5 h-5 text-ai-600" />
             <div>
-              <p className="text-sm font-medium text-ai-800">{t('AI Executive Summary', 'الملخص التنفيذي بالذكاء الاصطناعي')}</p>
-              <p className="text-xs text-ai-600">{t('Generate a narrative summary of this request.', 'أنشئ ملخصاً سردياً لهذا الطلب.')}</p>
+              <p className="text-sm font-medium text-neutral-800">{t('Executive summary', 'الملخص التنفيذي')}</p>
+              <p className="text-xs text-neutral-500">{t('A short summary put together from the details in this request.', 'ملخص قصير من تفاصيل هذا الطلب.')}</p>
             </div>
           </div>
-          <Button variant="ai" size="sm" onClick={generateAISummary} loading={aiSummaryLoading}>
-            {!aiSummaryLoading && <SparklesIcon className="w-3.5 h-3.5" />}
-            {aiSummaryLoading ? t('Generating…', 'جاري التوليد…') : t('Generate Summary', 'توليد الملخص')}
+          <Button variant="secondary" size="sm" onClick={generateAISummary}>
+            {t('Build summary', 'إنشاء الملخص')}
           </Button>
         </div>
       ) : (
-        <SectionCard className="border-ai-200">
+        <SectionCard>
           <div className="flex items-center gap-2 mb-3">
-            <SparklesIcon className="w-4 h-4 text-ai-600" />
-            <span className="text-sm font-semibold text-ai-800">{t('AI Executive Summary', 'الملخص التنفيذي بالذكاء الاصطناعي')}</span>
-            <Button variant="ghost" size="sm" className="ms-auto" onClick={generateAISummary} loading={aiSummaryLoading}><SparklesIcon className="w-3.5 h-3.5" />{t('Regenerate', 'إعادة التوليد')}</Button>
+            <span className="text-sm font-semibold text-neutral-800">{t('Executive summary', 'الملخص التنفيذي')}</span>
+            <Button variant="ghost" size="sm" className="ms-auto" onClick={generateAISummary}>{t('Rebuild', 'إعادة الإنشاء')}</Button>
           </div>
           {aiSummaryText && <div className="text-sm text-neutral-700 leading-relaxed whitespace-pre-line">{aiSummaryText}</div>}
           <AiNote error={summaryAi.error} usedSample={summaryAi.usedSample} />

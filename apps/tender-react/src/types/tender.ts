@@ -28,6 +28,8 @@ export interface BOQRow {
   brandJustification?: string;
   /** Result of the last "Check Etimad availability" run for this row. */
   etimadCheck?: EtimadCheck;
+  /** Manual mode: when this line was sent to Procurement for an Etimad check (cleared when they reply). */
+  etimadRequestedAt?: string;
   /** User kept an Etimad-available item in the tender. */
   etimadKeep?: boolean;
   etimadJustification?: string;
@@ -70,7 +72,7 @@ export interface EtimadCheck {
   comment: string;
   checkedAt: string;
   /** 'estimate' until a live Etimad integration exists. */
-  source: 'demo' | 'estimate' | 'etimad';
+  source: 'demo' | 'estimate' | 'etimad' | 'procurement';
   /** Name + description + unit + price the check was run against; a mismatch means the item changed since. */
   itemKey: string;
 }

@@ -12,8 +12,22 @@ import { askJson } from './claudeRuntime';
 import { PROJECTS } from '../data/mockData';
 import type { BOQRow, EtimadAvailability, EtimadCheck, TenderFormData } from '../types/tender';
 
+// Manual mode: keyed on what the item is, so quantities and prices don't need a new check.
 export function etimadItemKey(r: BOQRow): string {
-  return [r.itemName.trim(), r.itemDescription.trim(), r.unitOfMeasure, r.quantity, r.unitPrice].join('|');
+  return [r.itemName.trim(), r.itemDescription.trim()].join('|');
+}
+
+/** Sent to Procurement and still waiting for their answer. */
+export function isPendingProcurement(r: BOQRow): boolean {
+  return !!r.etimadRequestedAt && (!r.etimadCheck || isStale(r));
+}
+
+/** Prototype only: Procurement's answer for the lines they were asked to check (sample rules stand in for their Etimad search). */
+export function simulatedProcurementReply(rows: BOQRow[], isAr: boolean): Record<string, EtimadCheck> {
+  const now = new Date().toISOString();
+  const out: Record<string, EtimadCheck> = {};
+  rows.forEach((r) => { out[r.id] = { ...demoVerdict(r, isAr), checkedAt: now, source: 'procurement', itemKey: etimadItemKey(r) }; });
+  return out;
 }
 
 export function isStale(r: BOQRow): boolean {

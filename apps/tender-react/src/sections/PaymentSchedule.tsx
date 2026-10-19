@@ -4,6 +4,8 @@ import { useT, useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiStages, type AiStage } from '../lib/aiTender';
 import { SectionCard, AIButton, InfoBanner } from '../components/ui';
+import TemplateMenu from '../components/TemplateMenu';
+import { PAYMENT_TEMPLATES } from '../lib/templates';
 import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon } from '../components/Icons';
 
 function formatSAR(n: number) {
@@ -47,12 +49,13 @@ export default function PaymentSchedule() {
     updateField('paymentStages', next);
   }
 
-  function handleAISuggest() {
-    const apply = (src: AiStage[]) => updateField('paymentStages', src.map((r) => ({
-      id: crypto.randomUUID(), stageName: str(r.stageName), itemsDeliverables: str(r.itemsDeliverables),
-      startDate: str(r.startDate), duration: str(r.duration), percentage: num(r.percentage),
-    })));
-    payAi.run(() => aiStages(formData, isAr), (r) => apply(arr<AiStage>(r)), () => apply(isAr ? AI_STAGES_AR : AI_STAGES));
+  // Manual mode: pick a standard template, then edit the stages by hand.
+  const suggestedTpl = formData.scopeIncludes.includes('consultancy') && !formData.scopeIncludes.includes('technology') ? 'consultancy'
+    : /software|system|erp|cloud|platform|portal|implement/i.test(formData.boqItems.map((b) => b.itemName).join(' ')) || formData.scopeIncludes.includes('technology') ? 'technology' : 'general';
+  function applyTemplate(id: string) {
+    const tpl = PAYMENT_TEMPLATES.find((x) => x.id === id);
+    if (!tpl) return;
+    updateField('paymentStages', tpl.stages.map((r) => ({ id: crypto.randomUUID(), startDate: '', ...r })));
   }
 
   const stageAmount = (pct: number | '') => {
@@ -71,7 +74,7 @@ export default function PaymentSchedule() {
         titleAr="جدول الدفعات"
         description="Define payment stages tied to project milestones. Total must equal 100%."
         descriptionAr="حدد مراحل الدفع المرتبطة بمعالم المشروع. يجب أن يكون الإجمالي 100%."
-        action={<AIButton onClick={handleAISuggest} loading={aiLoading} label={t('AI Suggest Stages', 'اقتراح المراحل')} />}
+        action={<TemplateMenu options={PAYMENT_TEMPLATES} onPick={applyTemplate} suggestedId={suggestedTpl} />}
       >
         {aiLoading && (
           <div className="mb-4 rounded-lg border border-ai-200 bg-ai-50 p-4 ai-loading">
@@ -193,7 +196,7 @@ export default function PaymentSchedule() {
               {formData.paymentStages.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-sm text-neutral-400">
-                    {t('No payment stages defined. Add manually or use AI Suggest.', 'لم تُحدَّد مراحل دفع. أضف يدوياً أو استخدم اقتراح الذكاء الاصطناعي.')}
+                    {t('No payment stages yet. Use a template or add stages manually.', 'لم تُحدَّد مراحل دفع. أضف يدوياً أو استخدم اقتراح الذكاء الاصطناعي.')}
                   </td>
                 </tr>
               )}

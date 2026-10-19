@@ -181,13 +181,10 @@ export default function EsouqBillOfQuantities() {
     return id;
   }
 
+  // Manual mode: copy the basket of a past eMarket purchase in this project, then edit it.
   function generateAI() {
-    setAiLoading(true);
-    window.setTimeout(() => {
-      updateField('boqItems', (isAr ? AI_ESOUQ_ROWS_AR : AI_ESOUQ_ROWS).map((r) => ({ id: crypto.randomUUID(), ...r })));
-      setExpanded(new Set(['product', 'service', 'vehicle-leasing']));
-      setAiLoading(false);
-    }, 1100);
+    updateField('boqItems', (isAr ? AI_ESOUQ_ROWS_AR : AI_ESOUQ_ROWS).map((r) => ({ id: crypto.randomUUID(), ...r })));
+    setExpanded(new Set(['product', 'service', 'vehicle-leasing']));
   }
 
   async function onUpload(file: File) {
@@ -217,7 +214,10 @@ export default function EsouqBillOfQuantities() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 bg-white text-xs font-medium text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400 transition-colors shadow-sm">
               <UploadIcon className="w-3.5 h-3.5" /> {t('Use a Template', 'استخدم نموذجاً')}
             </button>
-            <AIButton onClick={generateAI} loading={aiLoading} label={t('Generate with AI', 'إنشاء بالذكاء الاصطناعي')} />
+            <button type="button" onClick={generateAI}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 bg-white text-xs font-medium text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400 transition-colors shadow-sm">
+              {t('Copy from a past purchase', 'نسخ من عملية شراء سابقة')}
+            </button>
           </div>
         }
       >

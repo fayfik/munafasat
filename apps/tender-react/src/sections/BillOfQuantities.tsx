@@ -14,11 +14,13 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiBoq, type AiBoqRow } from '../lib/aiTender';
 import { saveFile, aiErrorMessage } from '../lib/claudeRuntime';
-import { checkEtimadAvailability, isStale, needsJustification } from '../lib/etimadCheck';
+import { isStale, needsJustification, isPendingProcurement, simulatedProcurementReply } from '../lib/etimadCheck';
 import EtimadPanel from '../components/EtimadPanel';
 import BoqSheet from '../components/BoqSheet';
 import { useBoqLayout, setBoqLayout } from '../lib/boqLayout';
 import EsouqBillOfQuantities from './EsouqBillOfQuantities';
+import BrowseRfpsDialog from '../components/BrowseRfpsDialog';
+import { buildRfpImport, type PastRfp } from '../lib/rfpLibrary';
 
 const BOQ_COLUMNS = [
   'Project Item',
@@ -211,29 +213,21 @@ export default function BillOfQuantities() {
   // (Placed after all hooks above to respect the Rules of Hooks.)
   if (formData.sourceType === 'souq-etimad') return <EsouqBillOfQuantities />;
 
-  async function runEtimadCheck(rows: BOQRow[]) {
-    if (rows.length === 0) return;
-    const ids = rows.map((r) => r.id);
-    setCheckingIds((prev) => new Set([...prev, ...ids]));
+  // Manual mode: lines are sent to Procurement, who check them on Etimad and reply.
+  function runEtimadCheck(rows: BOQRow[]) {
+    const now = new Date().toISOString();
+    rows.forEach((r) => updateBoqRow(r.id, { etimadRequestedAt: now }));
     setEtimadError('');
-    try {
-      const results = await checkEtimadAvailability(rows, formData, isAr);
-      if (results === null) {
-        setEtimadError(t('The Etimad check uses AI, which is not available in this view. Open the page in Claude and allow AI to use it.', 'يعتمد التحقق من اعتماد على الذكاء الاصطناعي، وهو غير متاح في هذا العرض. افتح الصفحة في Claude واسمح باستخدامه.'));
-      } else {
-        Object.entries(results).forEach(([id, check]) => updateBoqRow(id, { etimadCheck: check }));
-        if (Object.keys(results).length < rows.length) {
-          setEtimadError(t('Some items could not be checked. Try them again.', 'تعذّر التحقق من بعض البنود. حاول مجدداً.'));
-        }
-      }
-    } catch (e) {
-      setEtimadError(aiErrorMessage(e, isAr));
-    } finally {
-      setCheckingIds((prev) => { const n = new Set(prev); ids.forEach((i) => n.delete(i)); return n; });
-    }
+  }
+  // Prototype only: Procurement's answer for every line waiting on them.
+  function simulateProcurementReply() {
+    const waiting = formData.boqItems.filter(isPendingProcurement);
+    const results = simulatedProcurementReply(waiting, isAr);
+    Object.entries(results).forEach(([id, check]) => updateBoqRow(id, { etimadCheck: check, etimadRequestedAt: undefined }));
   }
 
-  const uncheckedRows = formData.boqItems.filter((r) => r.itemName.trim() && (!r.etimadCheck || isStale(r)));
+  const uncheckedRows = formData.boqItems.filter((r) => r.itemName.trim() && (!r.etimadCheck || isStale(r)) && !isPendingProcurement(r));
+  const pendingRows = formData.boqItems.filter(isPendingProcurement);
   const etimadAvailableCount = formData.boqItems.filter((r) => r.etimadCheck?.status === 'available' && !isStale(r)).length;
   const namedCount = formData.boqItems.filter((r) => r.itemName.trim()).length;
   const etimadMissingJust = formData.boqItems.filter(needsJustification).length;
@@ -296,19 +290,14 @@ export default function BillOfQuantities() {
     });
   }
 
-  function handleAISuggest() {
-    const applyRows = (src: AiBoqRow[]) => {
-      const rows: BOQRow[] = src.filter((r) => r && r.itemName).map((r) => ({
-        id: crypto.randomUUID(), hasBrandName: false, brandJustification: '',
-        projectItem: str(r.projectItem), category: deriveCategory(str(r.itemName)),
-        itemName: str(r.itemName), itemDescription: str(r.itemDescription),
-        unitOfMeasure: UNITS_OF_MEASURE.includes(str(r.unitOfMeasure)) ? str(r.unitOfMeasure) : 'Each',
-        quantity: num(r.quantity), unitPrice: num(r.unitPrice), deliveryDate: str(r.deliveryDate),
-      }));
-      updateField('boqItems', rows);
-      setExpandedGroups(new Set(rows.map((r) => r.projectItem)));
-    };
-    boqAi.run(() => aiBoq(formData, isAr), (r) => applyRows(arr<AiBoqRow>(r)), () => applyRows(isAr ? AI_BOQ_ROWS_AR : AI_BOQ_ROWS));
+  // Manual mode: copy the BOQ lines of a past request in this project, then edit them.
+  const [showPastDialog, setShowPastDialog] = useState(false);
+  function handleAISuggest() { setShowPastDialog(true); }
+  function copyFromPast(rfp: PastRfp) {
+    const rows = (buildRfpImport(rfp, formData).boqItems ?? []).map((r) => ({ ...r, category: r.category ?? deriveCategory(r.itemName) }));
+    updateField('boqItems', rows);
+    setExpandedGroups(new Set(rows.map((r) => r.projectItem)));
+    setShowPastDialog(false);
   }
 
   function handleAddItem() {
@@ -486,7 +475,7 @@ export default function BillOfQuantities() {
 
                   {/* Description with AI generate */}
                   <FormField label="Item Description" labelAr="وصف البند"
-                    action={<AIButton onClick={generateManpowerDesc} loading={manpowerGenLoading} label={t('Generate with AI', 'توليد بالذكاء الاصطناعي')} />}>
+                    action={<AIButton onClick={generateManpowerDesc} loading={manpowerGenLoading} label={t('Build from the fields above', 'إنشاء من الحقول أعلاه')} />}>
                     <Textarea value={newItem.itemDescription}
                       onChange={(e) => setNewItem((p) => ({ ...p, itemDescription: e.target.value }))}
                       placeholder={t('Describe the role, responsibilities and requirements…', 'صف الدور والمسؤوليات والمتطلبات…')}
@@ -704,7 +693,9 @@ export default function BillOfQuantities() {
               <UploadIcon className="w-3.5 h-3.5" />
               {t('Use a Template', 'استخدم نموذجاً')}
             </button>
-            <AIButton onClick={handleAISuggest} loading={aiLoading} label={t('AI Suggest BOQ', 'اقتراح جدول الكميات')} />
+            <button type="button" onClick={handleAISuggest} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 bg-white text-xs font-medium text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400 transition-colors shadow-sm">
+              <DocumentIcon className="w-3.5 h-3.5" />{t('Copy from a past request', 'نسخ من طلب سابق')}
+            </button>
           </div>
           )
         }
@@ -889,26 +880,22 @@ export default function BillOfQuantities() {
                 </span>
               </button>
 
-              {/* 2 · Generate with AI (recommended) */}
+              {/* 2 · Copy from a past request */}
               <button
                 type="button"
                 onClick={handleAISuggest}
-                disabled={aiLoading}
-                className="group relative flex flex-col text-start rounded-xl border border-ai-200 bg-gradient-to-b from-ai-50/80 to-white p-4 hover:border-ai-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-70 disabled:cursor-wait"
+                className="group relative flex flex-col text-start rounded-xl border border-neutral-200 bg-white p-4 hover:border-brand-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
               >
-                <span className="absolute top-3 end-3 text-[9px] font-bold uppercase tracking-wide text-ai-700 bg-white/90 border border-ai-200 rounded-full px-2 py-0.5">
-                  {t('Recommended', 'موصى به')}
+                <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 mb-3 group-hover:scale-105 transition-transform">
+                  <DocumentIcon className="w-5 h-5" />
                 </span>
-                <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-ai-100 text-ai-600 ring-1 ring-ai-200 mb-3 group-hover:scale-105 transition-transform">
-                  <SparklesIcon className={`w-5 h-5 ${aiLoading ? 'spin-slow' : ''}`} />
-                </span>
-                <p className="text-sm font-bold text-neutral-900">{t('Generate with AI', 'التوليد بالذكاء الاصطناعي')}</p>
+                <p className="text-sm font-bold text-neutral-900">{t('Copy from a past request', 'نسخ من طلب سابق')}</p>
                 <p className="mt-1 text-[12px] leading-relaxed text-neutral-500 flex-1">
-                  {t('Let AI draft items from your project scope, then review and adjust.', 'دع الذكاء الاصطناعي يصيغ البنود من نطاق مشروعك، ثم راجع وعدّل.')}
+                  {t('Start from the BOQ of an earlier request in this project, then adjust quantities and prices.', 'ابدأ من جدول كميات طلب سابق في هذا المشروع، ثم عدّل الكميات والأسعار.')}
                 </p>
-                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-ai-700">
-                  {aiLoading ? t('Generating…', 'جارٍ التوليد…') : t('Suggest items', 'اقترح البنود')}
-                  {!aiLoading && <ChevronRightIcon className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />}
+                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600">
+                  {t('Choose a request', 'اختر طلباً')}
+                  <ChevronRightIcon className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </span>
               </button>
 
@@ -937,11 +924,12 @@ export default function BillOfQuantities() {
         {formData.boqItems.length > 0 && (
           <div className="mb-3 flex items-center gap-3 flex-wrap rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5">
             <div className="flex-1 min-w-[200px]">
-              <p className="text-[12px] font-semibold text-neutral-800">{t('Etimad E-Market availability', 'التوفر في سوق اعتماد')}</p>
+              <p className="text-[12px] font-semibold text-neutral-800">{t('Etimad E-Market availability — checked by Procurement', 'التوفر في سوق اعتماد — تتحقق منه المشتريات')}</p>
               <p className="text-[11px] text-neutral-500">
                 {uncheckedRows.length > 0
-                  ? t(`${uncheckedRows.length} of ${namedCount} items not checked yet.`, `${uncheckedRows.length} من ${namedCount} بنود لم يُتحقق منها بعد.`)
-                  : t('All items checked.', 'تم التحقق من جميع البنود.')}
+                  ? t(`${uncheckedRows.length} of ${namedCount} items not sent to Procurement yet.`, `${uncheckedRows.length} من ${namedCount} بنود لم تُرسل إلى المشتريات بعد.`)
+                  : pendingRows.length > 0 ? '' : t('All items checked by Procurement.', 'تحققت المشتريات من جميع البنود.')}
+                {pendingRows.length > 0 && ' ' + t(`${pendingRows.length} with Procurement for an Etimad check.`, `${pendingRows.length} لدى المشتريات للفحص في اعتماد.`)}
                 {etimadAvailableCount > 0 && ' ' + t(`${etimadAvailableCount} available in Etimad E-Market.`, `${etimadAvailableCount} متوفرة في سوق اعتماد.`)}
                 {etimadMissingJust > 0 && ' ' + t(`${etimadMissingJust} kept without a justification.`, `${etimadMissingJust} أُبقيت دون مبرر.`)}
               </p>
@@ -949,12 +937,16 @@ export default function BillOfQuantities() {
             <button
               type="button"
               onClick={() => runEtimadCheck(uncheckedRows)}
-              disabled={uncheckedRows.length === 0 || checkingIds.size > 0}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-ai-50 text-ai-700 border border-ai-200 hover:bg-ai-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={uncheckedRows.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <SparklesIcon className={`w-3.5 h-3.5 ${checkingIds.size > 0 ? 'spin-slow' : ''}`} />
-              {checkingIds.size > 0 ? t('Checking Etimad…', 'جاري التحقق من اعتماد…') : t('Check all in Etimad', 'التحقق من الكل في اعتماد')}
+              {uncheckedRows.length > 0 ? t(`Send ${uncheckedRows.length} to Procurement`, `إرسال ${uncheckedRows.length} إلى المشتريات`) : t('Send to Procurement', 'إرسال إلى المشتريات')}
             </button>
+            {pendingRows.length > 0 && (
+              <button type="button" onClick={simulateProcurementReply} className="basis-full text-start text-[11px] font-semibold text-link hover:underline">
+                {t('Prototype: simulate Procurement’s response', 'نموذج أولي: محاكاة رد المشتريات')} →
+              </button>
+            )}
             {etimadError && <p className="basis-full text-[11px] text-error-600">{etimadError}</p>}
             {formData.linkedEtimadRequestId && (
               <p className="basis-full text-[11px] text-success-700">
@@ -1094,16 +1086,21 @@ export default function BillOfQuantities() {
 
                               {/* Etimad check (subtle) / Edit / Delete */}
                               <div className="flex justify-end gap-0.5">
-                                {showCheckTop && (
+                                {isPendingProcurement(row) && (
+                                  <span className="w-7 h-7 rounded-lg flex items-center justify-center text-warning-600" title={t('With Procurement for an Etimad check', 'لدى المشتريات للفحص في اعتماد')}>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+                                  </span>
+                                )}
+                                {showCheckTop && !isPendingProcurement(row) && (
                                   <button
                                     type="button"
                                     onClick={() => runEtimadCheck([row])}
                                     disabled={checkingIds.has(row.id)}
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-ai-600 hover:bg-ai-50 transition-colors disabled:opacity-50"
-                                    title={isStale(row) ? t('Item changed — re-check Etimad', 'تغيّر البند — أعد التحقق من اعتماد') : t('Check Etimad availability', 'التحقق من التوفر في اعتماد')}
-                                    aria-label={t('Check Etimad availability', 'التحقق من التوفر في اعتماد')}
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors disabled:opacity-50"
+                                    title={isStale(row) ? t('Item changed — ask Procurement again', 'تغيّر البند — اطلب من المشتريات مجدداً') : t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد')}
+                                    aria-label={t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد')}
                                   >
-                                    <SparklesIcon className={`w-3.5 h-3.5 ${checkingIds.has(row.id) ? 'spin-slow' : ''}`} />
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
                                   </button>
                                 )}
                                 <button
@@ -1184,12 +1181,17 @@ export default function BillOfQuantities() {
                               <div className="text-end text-sm text-neutral-700 tabular-nums" dir="ltr">{unitPrice > 0 ? `SAR ${formatSAR(unitPrice)}` : '—'}</div>
                               <div className="text-end text-sm font-bold text-neutral-900 tabular-nums" dir="ltr">{total > 0 ? `SAR ${formatSAR(total)}` : '—'}</div>
                               <div className="flex justify-end gap-0.5">
-                                {showCheckTop && (
+                                {isPendingProcurement(row) && (
+                                  <span className="w-7 h-7 rounded-lg flex items-center justify-center text-warning-600" title={t('With Procurement for an Etimad check', 'لدى المشتريات للفحص في اعتماد')}>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+                                  </span>
+                                )}
+                                {showCheckTop && !isPendingProcurement(row) && (
                                   <button type="button" onClick={() => runEtimadCheck([row])} disabled={checkingIds.has(row.id)}
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-ai-600 hover:bg-ai-50 transition-colors disabled:opacity-50"
-                                    title={isStale(row) ? t('Item changed — re-check Etimad', 'تغيّر البند — أعد التحقق من اعتماد') : t('Check Etimad availability', 'التحقق من التوفر في اعتماد')}
-                                    aria-label={t('Check Etimad availability', 'التحقق من التوفر في اعتماد')}>
-                                    <SparklesIcon className={`w-3.5 h-3.5 ${checkingIds.has(row.id) ? 'spin-slow' : ''}`} />
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors disabled:opacity-50"
+                                    title={isStale(row) ? t('Item changed — ask Procurement again', 'تغيّر البند — اطلب من المشتريات مجدداً') : t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد')}
+                                    aria-label={t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد')}>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
                                   </button>
                                 )}
                                 <button type="button" onClick={() => startEdit(row)} className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors" title={t('Edit item', 'تعديل البند')}><PencilIcon className="w-3.5 h-3.5" /></button>
@@ -1260,6 +1262,7 @@ export default function BillOfQuantities() {
           </div>
         )}
       </SectionCard>
+      {showPastDialog && <BrowseRfpsDialog projectId={formData.projectId} onClose={() => setShowPastDialog(false)} onImport={copyFromPast} />}
     </div>
   );
 }
