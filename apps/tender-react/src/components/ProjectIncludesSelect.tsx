@@ -142,24 +142,6 @@ export default function ProjectIncludesSelect({ value, onChange, locked = [] }: 
         </div>
       )}
 
-      {/* Approvers this selection routes through — shown as tags on the right. */}
-      {displayed.length > 0 && (
-        <div className="mt-2.5 flex items-start gap-2 flex-wrap rounded-lg border border-neutral-200 bg-neutral-50/70 px-3 py-2">
-          <span className="text-[11px] font-semibold text-neutral-500 mt-1 whitespace-nowrap">{t('Approvals required', 'الاعتمادات المطلوبة')}:</span>
-          <div className="flex flex-wrap gap-1.5 flex-1 justify-end">
-            {workflowStages(displayed).filter((d) => d !== 'requester').map((d) => {
-              const dep = DEPARTMENTS[d];
-              return (
-                <span key={d} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border"
-                  style={{ backgroundColor: `${dep.color}14`, color: dep.color, borderColor: `${dep.color}33` }}>
-                  {isAr ? dep.ar : dep.en}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {open && (
         <div className="absolute z-20 mt-1 w-full rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up">
           <div className="py-1">

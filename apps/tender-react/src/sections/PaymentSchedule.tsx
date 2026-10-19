@@ -108,7 +108,6 @@ export default function PaymentSchedule() {
                 <th className="text-start px-3 py-2.5 text-neutral-500 font-medium w-8">#</th>
                 <th className="text-start px-3 py-2.5 text-neutral-500 font-medium min-w-[160px]">{t('Stage Name', 'اسم المرحلة')}</th>
                 <th className="text-start px-3 py-2.5 text-neutral-500 font-medium min-w-[180px]">{t('Items / Deliverables', 'البنود / المخرجات')}</th>
-                <th className="text-start px-3 py-2.5 text-neutral-500 font-medium w-32">{t('Start Date', 'تاريخ البدء')}</th>
                 <th className="text-start px-3 py-2.5 text-neutral-500 font-medium w-24">{t('Duration', 'المدة')}</th>
                 <th className="text-end px-3 py-2.5 text-neutral-500 font-medium w-20">%</th>
                 <th className="text-end px-3 py-2.5 text-neutral-500 font-medium w-36">{t('Amount (SAR)', 'المبلغ (ر.س)')}</th>
@@ -151,14 +150,6 @@ export default function PaymentSchedule() {
                   </td>
                   <td className="px-2 py-1.5">
                     <input
-                      type="date"
-                      value={row.startDate}
-                      onChange={(e) => updatePaymentRow(row.id, { startDate: e.target.value })}
-                      className="w-full text-xs border border-transparent rounded px-1.5 py-1 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-700"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <input
                       value={row.duration}
                       onChange={(e) => updatePaymentRow(row.id, { duration: e.target.value })}
                       className="w-full text-xs border border-transparent rounded px-1.5 py-1 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-700 placeholder-neutral-300"
@@ -192,14 +183,14 @@ export default function PaymentSchedule() {
               ))}
               {formData.paymentStages.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-neutral-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-neutral-400">
                     {t('No payment stages defined. Add manually or use AI Suggest.', 'لم تُحدَّد مراحل دفع. أضف يدوياً أو استخدم اقتراح الذكاء الاصطناعي.')}
                   </td>
                 </tr>
               )}
               {formData.paymentStages.length > 0 && (
                 <tr className="bg-neutral-50 border-t-2 border-neutral-200">
-                  <td colSpan={5} className="px-3 py-2.5 text-end text-xs font-semibold text-neutral-600">{t('Total', 'الإجمالي')}</td>
+                  <td colSpan={4} className="px-3 py-2.5 text-end text-xs font-semibold text-neutral-600">{t('Total', 'الإجمالي')}</td>
                   <td className={`px-3 py-2.5 text-end text-xs font-bold tabular-nums ${pctOk ? 'text-success-700' : pctOver ? 'text-error-600' : 'text-warning-600'}`}>
                     {paymentPctTotal}%
                   </td>
