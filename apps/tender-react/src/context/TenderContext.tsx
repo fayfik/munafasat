@@ -433,31 +433,38 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   });
 
   const moveBoqRowsToEtimad = useCallback(async (ids: string[]): Promise<'moved' | 'preview' | 'error'> => {
-    if (store.mode !== 'live') return 'preview';
     const f = latest.current.formData;
     const rows = f.boqItems.filter((r) => ids.includes(r.id));
     if (rows.length === 0) return 'moved';
     const draftId = f.linkedEtimadRequestId ?? crypto.randomUUID();
-    const existing = store.get(draftId);
-    const base: TenderFormData = existing?.form ?? {
-      ...INITIAL,
-      sourceType: 'souq-etimad',
-      costCenterId: f.costCenterId,
-      projectId: f.projectId,
-      tenderingPurpose: f.tenderingPurpose,
-    };
     const moved = rows.map((r) => ({ ...r, etimadKeep: false, etimadJustification: '' }));
-    const nextForm: TenderFormData = {
-      ...base,
-      boqItems: [...base.boqItems.filter((x) => !ids.includes(x.id)), ...moved],
-    };
-    const ok = await store.save(draftId, nextForm, existing?.status ?? 'draft');
-    if (!ok) return 'error';
-    dirty.current = true;
+
+    // Persist a separate Etimad E-Market draft request when saving is on. The in-app
+    // state below (the bucket + moved list) is updated in every mode so the flow works
+    // the same in preview and live.
+    if (store.mode === 'live') {
+      const existing = store.get(draftId);
+      const base: TenderFormData = existing?.form ?? {
+        ...INITIAL,
+        sourceType: 'souq-etimad',
+        costCenterId: f.costCenterId,
+        projectId: f.projectId,
+        tenderingPurpose: f.tenderingPurpose,
+      };
+      const nextForm: TenderFormData = {
+        ...base,
+        boqItems: [...base.boqItems.filter((x) => !ids.includes(x.id)), ...moved],
+      };
+      const ok = await store.save(draftId, nextForm, existing?.status ?? 'draft');
+      if (!ok) return 'error';
+      dirty.current = true;
+    }
+
     setFormData((prev) => ({
       ...prev,
       linkedEtimadRequestId: draftId,
       boqItems: prev.boqItems.filter((r) => !ids.includes(r.id)),
+      etimadMovedItems: [...(prev.etimadMovedItems ?? []), ...moved],
     }));
     return 'moved';
   }, [store]);
