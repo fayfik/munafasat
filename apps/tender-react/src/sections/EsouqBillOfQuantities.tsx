@@ -126,10 +126,18 @@ export default function EsouqBillOfQuantities() {
   const [showUpload, setShowUpload] = useState(false);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if ((showForm || editingId) && formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [showForm, editingId]);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDoc = (e: MouseEvent) => { if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [moreOpen]);
 
   const rows = formData.boqItems;
   const subtotal = rows.reduce((s, r) => s + rowTotal(r), 0);
@@ -227,7 +235,7 @@ export default function EsouqBillOfQuantities() {
         </InfoBanner>
 
         {/* View toggle */}
-        <div className="flex items-center justify-end mb-3">
+        <div className="flex items-center justify-end gap-2 mb-3">
           <div role="radiogroup" className="inline-flex rounded-lg border border-neutral-300 bg-neutral-50 p-0.5">
             {([['grouped', t('Grouped', 'مُجمّع'), <ListIcon key="i" className="w-3.5 h-3.5" />],
                ['table', t('Table', 'جدول'), <TableIcon key="i" className="w-3.5 h-3.5" />]] as const).map(([v, label, icon]) => (
@@ -236,6 +244,38 @@ export default function EsouqBillOfQuantities() {
                 {icon}{label}
               </button>
             ))}
+          </div>
+
+          {/* More actions */}
+          <div className="relative" ref={moreRef}>
+            <button type="button" onClick={() => setMoreOpen((o) => !o)} aria-label={t('More actions', 'إجراءات أخرى')}
+              className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${moreOpen ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-neutral-300 bg-white text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700'}`}>
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" /></svg>
+            </button>
+            {moreOpen && (
+              <div className="absolute end-0 z-30 mt-1 w-56 rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up py-1">
+                {view === 'grouped' && (
+                  <>
+                    <button type="button" onClick={() => { setExpanded(new Set(['product', 'service', 'vehicle-leasing'])); setMoreOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-neutral-700 hover:bg-neutral-50 transition-colors text-start">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-neutral-400"><path d="M7 14l5 5 5-5M7 10l5-5 5 5" /></svg>
+                      {t('Expand all', 'توسيع الكل')}
+                    </button>
+                    <button type="button" onClick={() => { setExpanded(new Set()); setMoreOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-neutral-700 hover:bg-neutral-50 transition-colors text-start">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-neutral-400"><path d="M7 9l5-5 5 5M7 15l5 5 5-5" /></svg>
+                      {t('Collapse all', 'طي الكل')}
+                    </button>
+                    <div className="my-1 border-t border-neutral-100" />
+                  </>
+                )}
+                <button type="button" onClick={() => { downloadTemplate(rows); setMoreOpen(false); }}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-neutral-700 hover:bg-neutral-50 transition-colors text-start">
+                  <DownloadIcon className="w-4 h-4 text-neutral-400" />
+                  {t('Download as Excel', 'تنزيل كملف Excel')}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
