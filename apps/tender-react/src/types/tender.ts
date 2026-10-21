@@ -90,6 +90,9 @@ export interface PaymentStageRow {
   startDate: string;
   duration: string;
   percentage: number | '';
+  /** Exact amount the user typed (SAR). When set it is shown verbatim; percentage is
+   *  computed from it. Cleared when the user edits the percentage so the amount re-derives. */
+  amount?: number;
 }
 
 export interface Person {

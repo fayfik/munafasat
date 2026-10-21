@@ -39,6 +39,10 @@ export default function PaymentSchedule() {
   // Drag-to-reorder payment stages.
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
+  // Raw text the user is typing into an Amount cell, keyed by row id. While a cell
+  // is focused we echo exactly what was typed (so keystrokes aren't clobbered by the
+  // percentage round-trip); on blur we drop the draft and show the derived amount.
+  const [amountDraft, setAmountDraft] = useState<Record<string, string>>({});
   function reorder(from: number, to: number) {
     if (from === to) return;
     const next = [...formData.paymentStages];
@@ -59,8 +63,12 @@ export default function PaymentSchedule() {
     const p = typeof pct === 'number' ? pct : 0;
     return (p / 100) * boqSubtotal;
   };
+  // What a row's Amount cell resolves to: the user's exact typed amount if set,
+  // otherwise the amount derived from its percentage and the BOQ total.
+  const effectiveAmount = (r: typeof formData.paymentStages[number]) =>
+    typeof r.amount === 'number' ? r.amount : stageAmount(r.percentage);
 
-  const totalAmount = formData.paymentStages.reduce((s, r) => s + stageAmount(r.percentage), 0);
+  const totalAmount = formData.paymentStages.reduce((s, r) => s + effectiveAmount(r), 0);
   const pctOk   = paymentPctTotal === 100;
   const pctOver = paymentPctTotal > 100;
 
@@ -152,7 +160,7 @@ export default function PaymentSchedule() {
                       <input
                         type="number" min={0} max={100} step={0.01}
                         value={row.percentage}
-                        onChange={(e) => updatePaymentRow(row.id, { percentage: e.target.value === '' ? '' : Number(e.target.value) })}
+                        onChange={(e) => updatePaymentRow(row.id, { percentage: e.target.value === '' ? '' : Number(e.target.value), amount: undefined })}
                         className="w-full text-xs text-end border border-transparent rounded px-1.5 py-1 pe-5 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-700 tabular-nums"
                         placeholder="0"
                       />
@@ -163,14 +171,22 @@ export default function PaymentSchedule() {
                     <div className="relative">
                       <input
                         type="number" min={0}
-                        value={row.percentage === '' ? '' : Math.round(stageAmount(row.percentage))}
+                        value={amountDraft[row.id] !== undefined
+                          ? amountDraft[row.id]
+                          : (typeof row.amount === 'number' ? String(row.amount)
+                             : row.percentage === '' ? '' : String(Math.round(stageAmount(row.percentage))))}
+                        disabled={boqSubtotal === 0}
                         onChange={(e) => {
-                          if (e.target.value === '') { updatePaymentRow(row.id, { percentage: '' }); return; }
-                          const amt = Number(e.target.value);
+                          const raw = e.target.value;
+                          setAmountDraft((d) => ({ ...d, [row.id]: raw }));
+                          if (raw === '') { updatePaymentRow(row.id, { percentage: '', amount: undefined }); return; }
+                          const amt = Number(raw);
+                          if (!Number.isFinite(amt)) return;
                           const pct = boqSubtotal > 0 ? Math.round((amt / boqSubtotal) * 10000) / 100 : 0;
-                          updatePaymentRow(row.id, { percentage: pct });
+                          updatePaymentRow(row.id, { percentage: pct, amount: amt });
                         }}
-                        className="w-full text-xs text-end border border-transparent rounded px-1.5 py-1 ps-9 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-800 font-medium tabular-nums"
+                        onBlur={() => setAmountDraft((d) => { const next = { ...d }; delete next[row.id]; return next; })}
+                        className="w-full text-xs text-end border border-transparent rounded px-1.5 py-1 ps-9 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-800 font-medium tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
                         placeholder="0"
                       />
                       <span className="absolute start-1.5 top-1/2 -translate-y-1/2 text-neutral-400 text-[10px] pointer-events-none">SAR</span>
