@@ -20,6 +20,8 @@ interface StoreCtx {
   canWrite: boolean;
   save: (id: string, form: TenderFormData, status: TenderStatus, extra?: Partial<SavedRequest>) => Promise<boolean>;
   get: (id: string) => SavedRequest | undefined;
+  /** Adds a draft request for this browser session only (e.g. items moved out of a request in step 1). */
+  addSessionDraft: (draft: Omit<TenderDraft, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => void;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -43,6 +45,7 @@ export function RequestStoreProvider({ children }: { children: ReactNode }) {
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
   const [canWrite, setCanWrite] = useState(true);
+  const [sessionDrafts, setSessionDrafts] = useState<SavedRequest[]>([]);
 
   useEffect(() => {
     let unsub: (() => void) | undefined;
@@ -94,10 +97,15 @@ export function RequestStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [requests, userId]);
 
-  const get = useCallback((id: string) => requests.find((r) => r.id === id), [requests]);
+  const allRequests = sessionDrafts.length ? [...sessionDrafts, ...requests] : requests;
+  const get = useCallback((id: string) => allRequests.find((r) => r.id === id), [allRequests]);
+  const addSessionDraft = useCallback<StoreCtx['addSessionDraft']>((draft) => {
+    const now = new Date().toISOString();
+    setSessionDrafts((xs) => [{ ...draft, id: `draft-${Date.now().toString(36)}`, status: 'draft', createdAt: now, updatedAt: now }, ...xs]);
+  }, []);
 
   return (
-    <Ctx.Provider value={{ mode, requests, userName, canWrite, save, get }}>
+    <Ctx.Provider value={{ mode, requests: allRequests, userName, canWrite, save, get, addSessionDraft }}>
       {children}
     </Ctx.Provider>
   );

@@ -168,6 +168,14 @@ export interface TenderFormData {
   projectId: string;
   /** Project items chosen for this tender (ids from the project's item list). */
   selectedProjectItemIds?: string[];
+  /** Why eMarket-available items were kept in a tender (step 1). */
+  routeJustification?: string;
+  /** How the requester picked the route in step 1. */
+  routeChoice?: 'tender' | 'emarket' | 'help';
+  /** Items moved out of this request into a separate draft (step 1). */
+  movedToDraft?: { count: number; route: SourceType };
+  /** Names of eMarket-available items kept in the tender with the justification above. */
+  justifiedEmarketItems?: string[];
   tenderingPurpose: string;
   scopeOfWork: string;
   scopeTerms: string;

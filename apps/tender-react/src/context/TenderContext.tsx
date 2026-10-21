@@ -19,7 +19,7 @@ import type {
 export const SECTIONS = [
   { id: 'procurement-route', title: 'Procurement Route', titleAr: 'مسار الشراء', desc: 'Project, items and how they can be procured', descAr: 'المشروع والبنود وطريقة شرائها' },
   { id: 'project-setup', title: 'Project Setup', titleAr: 'إعداد المشروع', desc: 'Project, cost center and item details', descAr: 'تفاصيل المشروع ومركز التكلفة والبنود' },
-  { id: 'scope-of-work', title: 'Scope of Work', titleAr: 'نطاق العمل', desc: 'Scope, terms, records and contract duration', descAr: 'النطاق والشروط والسجلات ومدة العقد' },
+  { id: 'scope-of-work', title: 'Scope of Work', titleAr: 'نطاق العمل', desc: 'Scope, terms and contract duration', descAr: 'النطاق والشروط ومدة العقد' },
   { id: 'boq', title: 'Bill of Quantities', titleAr: 'جدول الكميات', desc: 'Items, quantities and specifications', descAr: 'البنود والكميات والمواصفات' },
   { id: 'payment-schedule', title: 'Payment Schedule', titleAr: 'جدول الدفعات', desc: 'Payment stages and schedule', descAr: 'مراحل الدفع والجدول الزمني' },
   { id: 'technical-evaluation', title: 'Technical Evaluation', titleAr: 'التقييم الفني', desc: 'Scoring and evaluation methodology', descAr: 'منهجية التقييم والدرجات' },
@@ -106,7 +106,7 @@ interface TenderContextType {
   qualPctTotal: number;
   /** Step 1 (Procurement Route) determines the channel; later steps unlock once it's confirmed. */
   routeConfirmed: boolean;
-  confirmRoute: (opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[] }) => void;
+  confirmRoute: (opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[]; justification?: string; justifiedItems?: string[]; choice?: 'tender' | 'emarket' | 'help'; movedToDraft?: { count: number; route: SourceType } }) => void;
   importedFromProject: string | null;
   setImportedFromProject: (name: string | null) => void;
   /** Last RFP imported in Project Setup, with the values it replaced (for Undo). */
@@ -220,7 +220,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
 
   // Called from the Procurement Route step once the channel is determined.
   // Seeds the project, cost center, selected items and a starter BOQ for the chosen group.
-  const confirmRoute = useCallback((opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[] }) => {
+  const confirmRoute = useCallback((opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[]; justification?: string; justifiedItems?: string[]; choice?: 'tender' | 'emarket' | 'help'; movedToDraft?: { count: number; route: SourceType } }) => {
     const proj = PROJECTS.find((p) => p.id === opts.projectId);
     setFormData((prev) => ({
       ...prev,
@@ -228,6 +228,10 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       projectId: opts.projectId,
       costCenterId: proj?.costCenterId ?? prev.costCenterId,
       selectedProjectItemIds: opts.items.map((i) => i.projectItemId).filter((x): x is string => !!x),
+      routeJustification: opts.justification || undefined,
+      justifiedEmarketItems: opts.justifiedItems?.length ? opts.justifiedItems : undefined,
+      routeChoice: opts.choice,
+      movedToDraft: opts.movedToDraft,
       tenderingPurpose: prev.tenderingPurpose || proj?.purpose || '',
       // BOQ starts empty — the user builds it manually (Add BOQ Item / AI Suggest / import).
       boqItems: [],

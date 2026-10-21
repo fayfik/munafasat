@@ -278,14 +278,18 @@ export default function ScopeOfWork() {
             </FormField>
             <FormField label="Contract Duration" labelAr="مدة العقد" required>
               <div className="flex gap-2">
-                <Select value={formData.contractDurationType}
-                  onChange={(e) => updateField('contractDurationType', e.target.value as 'days' | 'months' | 'years')} className="w-28">
-                  <option value="days">{t('Days', 'أيام')}</option>
-                  <option value="months">{t('Months', 'أشهر')}</option>
-                  <option value="years">{t('Years', 'سنوات')}</option>
-                </Select>
-                <Input type="number" min={1} value={formData.contractDuration}
-                  onChange={(e) => updateField('contractDuration', e.target.value)} placeholder={t('e.g. 18', 'مثال: 18')} className="flex-1" />
+                <div className="w-32 flex-shrink-0">
+                  <Select value={formData.contractDurationType} aria-label={t('Duration unit', 'وحدة المدة')}
+                    onChange={(e) => updateField('contractDurationType', e.target.value as 'days' | 'months' | 'years')}>
+                    <option value="days">{t('Days', 'أيام')}</option>
+                    <option value="months">{t('Months', 'أشهر')}</option>
+                    <option value="years">{t('Years', 'سنوات')}</option>
+                  </Select>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <Input type="number" min={1} value={formData.contractDuration} aria-label={t('Number of units', 'العدد')}
+                    onChange={(e) => updateField('contractDuration', e.target.value)} placeholder={t('e.g. 18', 'مثال: 18')} />
+                </div>
               </div>
             </FormField>
           </div>
