@@ -59,18 +59,53 @@ export default function PaymentSchedule() {
     payAi.run(() => aiStages(formData, isAr), (r) => apply(arr<AiStage>(r)), () => apply(isAr ? AI_STAGES_AR : AI_STAGES));
   }
 
-  const stageAmount = (pct: number | '') => {
-    const p = typeof pct === 'number' ? pct : 0;
-    return (p / 100) * boqSubtotal;
-  };
+  // The value percentages and amounts convert against: the BOQ total when present,
+  // otherwise the sum of the amounts entered here — so the schedule still works before a
+  // BOQ exists (the amounts you type define the total, and percentages derive from them).
+  const enteredAmountsTotal = formData.paymentStages.reduce((s, r) => s + (typeof r.amount === 'number' ? r.amount : 0), 0);
+  const baseTotal = boqSubtotal > 0 ? boqSubtotal : enteredAmountsTotal;
+
+  const stageAmount = (pct: number | '') => ((typeof pct === 'number' ? pct : 0) / 100) * baseTotal;
   // What a row's Amount cell resolves to: the user's exact typed amount if set,
-  // otherwise the amount derived from its percentage and the BOQ total.
+  // otherwise the amount derived from its percentage and the base total.
   const effectiveAmount = (r: typeof formData.paymentStages[number]) =>
     typeof r.amount === 'number' ? r.amount : stageAmount(r.percentage);
 
   const totalAmount = formData.paymentStages.reduce((s, r) => s + effectiveAmount(r), 0);
   const pctOk   = paymentPctTotal === 100;
   const pctOver = paymentPctTotal > 100;
+
+  // Re-derive every amount-bearing row's percentage from the amounts pot. Used when there is
+  // no BOQ total: the typed amounts define the split, so percentages stay consistent and sum to 100%.
+  function repartitionFromAmounts(stages: typeof formData.paymentStages) {
+    const sum = stages.reduce((s, r) => s + (typeof r.amount === 'number' ? r.amount : 0), 0);
+    return stages.map((r) =>
+      typeof r.amount === 'number'
+        ? { ...r, percentage: sum > 0 ? Math.round((r.amount / sum) * 10000) / 100 : ('' as number | '') }
+        : r);
+  }
+
+  // Enter a percentage → amount re-derives from the base total (clear any manual amount override).
+  function handlePctChange(id: string, raw: string) {
+    updatePaymentRow(id, { percentage: raw === '' ? '' : Number(raw), amount: undefined });
+  }
+  // Enter an amount → keep it verbatim and compute the percentage. With a BOQ total the percentage
+  // is amount ÷ BOQ total; without one, the amounts define the pot and all rows repartition.
+  function handleAmountChange(id: string, raw: string) {
+    setAmountDraft((d) => ({ ...d, [id]: raw }));
+    if (raw !== '' && !Number.isFinite(Number(raw))) return;
+    const amt = raw === '' ? undefined : Number(raw);
+    if (boqSubtotal > 0) {
+      updatePaymentRow(id, {
+        amount: amt,
+        percentage: amt === undefined ? '' : Math.round((amt / boqSubtotal) * 10000) / 100,
+      });
+    } else {
+      const next = formData.paymentStages.map((r) =>
+        r.id === id ? { ...r, amount: amt, ...(amt === undefined ? { percentage: '' as number | '' } : {}) } : r);
+      updateField('paymentStages', repartitionFromAmounts(next));
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -160,7 +195,7 @@ export default function PaymentSchedule() {
                       <input
                         type="number" min={0} max={100} step={0.01}
                         value={row.percentage}
-                        onChange={(e) => updatePaymentRow(row.id, { percentage: e.target.value === '' ? '' : Number(e.target.value), amount: undefined })}
+                        onChange={(e) => handlePctChange(row.id, e.target.value)}
                         className="w-full text-xs text-end border border-transparent rounded px-1.5 py-1 pe-5 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-700 tabular-nums"
                         placeholder="0"
                       />
@@ -175,18 +210,9 @@ export default function PaymentSchedule() {
                           ? amountDraft[row.id]
                           : (typeof row.amount === 'number' ? String(row.amount)
                              : row.percentage === '' ? '' : String(Math.round(stageAmount(row.percentage))))}
-                        disabled={boqSubtotal === 0}
-                        onChange={(e) => {
-                          const raw = e.target.value;
-                          setAmountDraft((d) => ({ ...d, [row.id]: raw }));
-                          if (raw === '') { updatePaymentRow(row.id, { percentage: '', amount: undefined }); return; }
-                          const amt = Number(raw);
-                          if (!Number.isFinite(amt)) return;
-                          const pct = boqSubtotal > 0 ? Math.round((amt / boqSubtotal) * 10000) / 100 : 0;
-                          updatePaymentRow(row.id, { percentage: pct, amount: amt });
-                        }}
+                        onChange={(e) => handleAmountChange(row.id, e.target.value)}
                         onBlur={() => setAmountDraft((d) => { const next = { ...d }; delete next[row.id]; return next; })}
-                        className="w-full text-xs text-end border border-transparent rounded px-1.5 py-1 ps-9 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-800 font-medium tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full text-xs text-end border border-transparent rounded px-1.5 py-1 ps-9 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-800 font-medium tabular-nums"
                         placeholder="0"
                       />
                       <span className="absolute start-1.5 top-1/2 -translate-y-1/2 text-neutral-400 text-[10px] pointer-events-none">SAR</span>
@@ -234,10 +260,10 @@ export default function PaymentSchedule() {
         </button>
 
         {boqSubtotal === 0 && (
-          <InfoBanner variant="warning" className="mt-4">
+          <InfoBanner variant="info" className="mt-4">
             {t(
-              'Payment amounts will be calculated automatically once BOQ prices are entered. Please complete the Bill of Quantities first.',
-              'سيتم احتساب مبالغ الدفع تلقائياً بمجرد إدخال أسعار جدول الكميات. يرجى إكمال جدول الكميات أولاً.'
+              'No Bill of Quantities total yet. You can still enter amounts here — they define the total and the percentages are calculated from them. Once BOQ prices are added, entering a percentage will also compute its amount automatically.',
+              'لا يوجد إجمالي لجدول الكميات بعد. يمكنك إدخال المبالغ هنا — فهي تحدد الإجمالي وتُحتسب النسب منها. وبمجرد إدخال أسعار جدول الكميات، سيؤدي إدخال النسبة إلى احتساب مبلغها تلقائياً.'
             )}
           </InfoBanner>
         )}
