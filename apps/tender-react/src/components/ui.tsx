@@ -186,7 +186,7 @@ export function Select({ className = '', error, children, value, onChange, disab
   }
 
   return (
-    <div ref={containerRef} className="w-full">
+    <div ref={containerRef} className="relative w-full">
       <button
         type="button"
         disabled={disabled}
@@ -202,7 +202,7 @@ export function Select({ className = '', error, children, value, onChange, disab
       </button>
 
       {open && options.length > 0 && (
-        <div className="mt-1 w-full bg-white border border-neutral-200 rounded-xl shadow-sm slide-up">
+        <div className="absolute left-0 right-0 z-30 mt-1 w-full bg-white border border-neutral-200 rounded-xl shadow-lg slide-up max-h-[16rem] overflow-y-auto">
           <ul className="py-1">
             {options.map((opt, i) => {
               const isSelected = opt.value === String(value ?? '');
@@ -376,9 +376,11 @@ interface PeoplePickerProps {
   onChange: (people: Person[]) => void;
   placeholder?: string;
   label?: string;
+  /** Single-select: only one person can be chosen (shown with a radio indicator). */
+  single?: boolean;
 }
 
-export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePickerProps) {
+export function PeoplePicker({ value, onChange, placeholder, label, single = false }: PeoplePickerProps) {
   const { isAr } = useLanguage();
   const t = useT();
   const defaultPlaceholder = t('Search and add members…', 'ابحث وأضف أعضاء…');
@@ -409,10 +411,13 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
   }, []);
 
   const add = (person: Person) => {
-    onChange([...value, person]);
+    onChange(single ? [person] : [...value, person]);
     setQuery('');
     setOpen(false);
   };
+  const Radio = () => (
+    <span className="w-4 h-4 rounded-full border-2 border-neutral-300 flex-shrink-0 self-center" aria-hidden />
+  );
 
   const remove = (id: string) => {
     onChange(value.filter((p) => p.id !== id));
@@ -421,7 +426,7 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
   return (
     <div>
       {label && <label className="block text-label-lg font-medium text-neutral-800 mb-1.5">{label}</label>}
-      <div ref={containerRef}>
+      <div ref={containerRef} className="relative">
         <div className="flex flex-wrap gap-2 min-h-[42px] rounded-lg border border-neutral-300 bg-white px-3 py-2 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition-all">
           {value.map((p) => (
             <span key={p.id} className="inline-flex items-center gap-1.5 bg-neutral-100 border border-neutral-200 rounded-full ps-1 pe-2 py-0.5 text-[12px] text-neutral-700">
@@ -438,13 +443,13 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
               value={query}
               onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
               onFocus={() => setOpen(true)}
-              placeholder={value.length === 0 ? resolvedPlaceholder : t('Add more…', 'أضف المزيد…')}
+              placeholder={value.length === 0 ? resolvedPlaceholder : (single ? t('Change member…', 'تغيير العضو…') : t('Add more…', 'أضف المزيد…'))}
               className={`${isAr ? 'pr-5' : 'pl-5'} bg-transparent border-none outline-none text-body-md text-neutral-700 placeholder-neutral-400 w-full`}
             />
           </div>
         </div>
         {open && hasResults && (
-          <div className="mt-1 w-full bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden slide-up max-h-[20rem] overflow-y-auto">
+          <div className="absolute left-0 right-0 z-30 mt-1 w-full bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden slide-up max-h-[20rem] overflow-y-auto">
             {/* Recommended members */}
             {recRows.length > 0 && (
               <div>
@@ -456,6 +461,7 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
                     <li key={m.id}>
                       <button type="button" onClick={() => add(m)}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-body-md hover:bg-neutral-50 transition-colors">
+                        {single && <Radio />}
                         <Avatar person={m} className="w-8 h-8 rounded-full flex-shrink-0 ring-1 ring-black/5" textClass="text-[12px]" />
                         <div className="text-start flex-1 min-w-0">
                           <p className="font-medium text-neutral-900 truncate">{dispName(m)}</p>
@@ -483,6 +489,7 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
                     <li key={p.id}>
                       <button type="button" onClick={() => add(p)}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-body-md hover:bg-neutral-50 transition-colors">
+                        {single && <Radio />}
                         <Avatar person={p} className="w-8 h-8 rounded-full flex-shrink-0" textClass="text-[12px]" />
                         <div className="text-start flex-1 min-w-0">
                           <p className="font-medium text-neutral-900 truncate">{dispName(p)}</p>
@@ -497,7 +504,7 @@ export function PeoplePicker({ value, onChange, placeholder, label }: PeoplePick
           </div>
         )}
         {open && !hasResults && query && (
-          <div className="mt-1 w-full bg-white border border-neutral-200 rounded-xl shadow-sm px-4 py-3 text-body-md text-neutral-500 slide-up">
+          <div className="absolute left-0 right-0 z-30 mt-1 w-full bg-white border border-neutral-200 rounded-xl shadow-lg px-4 py-3 text-body-md text-neutral-500 slide-up">
             {t('No matching people found.', 'لا توجد نتائج مطابقة.')}
           </div>
         )}

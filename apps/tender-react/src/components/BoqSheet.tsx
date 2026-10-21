@@ -41,7 +41,7 @@ interface Col {
 // All columns, in on-screen order. Category-specific ones carry `cats`.
 const ALL_COLS: Col[] = [
   { key: 'itemName', en: 'Item name', ar: 'اسم البند', w: 184, kind: 'text', header: ['item name', 'item'] },
-  { key: 'projectItem', en: 'Project item', ar: 'بند المشروع', w: 160, kind: 'projectItem', header: ['project item', 'project item classification'] },
+  { key: 'projectItem', en: 'Budgeted item', ar: 'البند المعتمد', w: 160, kind: 'projectItem', header: ['budgeted item', 'project item', 'project item classification'] },
   { key: 'category', en: 'Category', ar: 'التصنيف', w: 128, kind: 'category', header: ['category', 'التصنيف'] },
   { key: 'jobTitle', en: 'Job title', ar: 'المسمى الوظيفي', w: 160, kind: 'text', cats: ['manpower'], field: 'jobTitle', header: ['job title'] },
   { key: 'unitOfMeasure', en: 'Unit', ar: 'الوحدة', w: 88, kind: 'unit', cats: ['service', 'equipment', 'material'], field: 'unitOfMeasure', header: ['unit of measure', 'unit', 'uom'] },
@@ -282,7 +282,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
               return [
                 <tr key={row.id} className="group/row">
                   {/* # */}
-                  <td className="sticky start-0 z-20 bg-neutral-50 border-b border-e border-neutral-200 text-center text-[11px] tabular-nums text-neutral-500" title={missing ? t('Item name and project item are required.', 'اسم البند وبند المشروع مطلوبان.') : undefined}>
+                  <td className="sticky start-0 z-20 bg-neutral-50 border-b border-e border-neutral-200 text-center text-[11px] tabular-nums text-neutral-500" title={missing ? t('Item name and budgeted item are required.', 'اسم البند والبند المعتمد مطلوبان.') : undefined}>
                     <span className="inline-flex items-center gap-1">
                       {(missing || brandMissing) && row.itemName + row.projectItem !== '' && <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />}
                       {r + 1}

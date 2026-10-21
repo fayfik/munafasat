@@ -69,8 +69,8 @@ export default function PaymentSchedule() {
       <SectionCard
         title="Payment Schedule"
         titleAr="جدول الدفعات"
-        description="Define payment stages tied to project milestones. Total must equal 100%."
-        descriptionAr="حدد مراحل الدفع المرتبطة بمعالم المشروع. يجب أن يكون الإجمالي 100%."
+        description="Define payment stages tied to project milestones. Enter a percentage or an amount — the other is computed from the BOQ total. Total must equal 100%."
+        descriptionAr="حدد مراحل الدفع المرتبطة بمعالم المشروع. أدخل النسبة أو المبلغ — ويُحسب الآخر تلقائياً من إجمالي جدول الكميات. يجب أن يكون الإجمالي 100%."
         action={<AIButton onClick={handleAISuggest} loading={aiLoading} label={t('AI Suggest Stages', 'اقتراح المراحل')} />}
       >
         {aiLoading && (
@@ -108,9 +108,8 @@ export default function PaymentSchedule() {
                 <th className="text-start px-3 py-2.5 text-neutral-500 font-medium w-8">#</th>
                 <th className="text-start px-3 py-2.5 text-neutral-500 font-medium min-w-[160px]">{t('Stage Name', 'اسم المرحلة')}</th>
                 <th className="text-start px-3 py-2.5 text-neutral-500 font-medium min-w-[180px]">{t('Items / Deliverables', 'البنود / المخرجات')}</th>
-                <th className="text-start px-3 py-2.5 text-neutral-500 font-medium w-24">{t('Duration', 'المدة')}</th>
-                <th className="text-end px-3 py-2.5 text-neutral-500 font-medium w-20">%</th>
-                <th className="text-end px-3 py-2.5 text-neutral-500 font-medium w-36">{t('Amount (SAR)', 'المبلغ (ر.س)')}</th>
+                <th className="text-end px-3 py-2.5 text-neutral-500 font-medium w-32">{t('Payment Percentage', 'نسبة الدفع')}</th>
+                <th className="text-end px-3 py-2.5 text-neutral-500 font-medium w-40">{t('Amount (SAR)', 'المبلغ (ر.س)')}</th>
                 <th className="w-8 px-2" />
               </tr>
             </thead>
@@ -149,27 +148,33 @@ export default function PaymentSchedule() {
                     />
                   </td>
                   <td className="px-2 py-1.5">
-                    <input
-                      value={row.duration}
-                      onChange={(e) => updatePaymentRow(row.id, { duration: e.target.value })}
-                      className="w-full text-xs border border-transparent rounded px-1.5 py-1 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-700 placeholder-neutral-300"
-                      placeholder={t('30 days', '30 يوم')}
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
                     <div className="relative">
                       <input
-                        type="number" min={0} max={100}
+                        type="number" min={0} max={100} step={0.01}
                         value={row.percentage}
                         onChange={(e) => updatePaymentRow(row.id, { percentage: e.target.value === '' ? '' : Number(e.target.value) })}
-                        className="w-full text-xs text-end border border-transparent rounded px-1.5 py-1 pe-4 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-700"
+                        className="w-full text-xs text-end border border-transparent rounded px-1.5 py-1 pe-5 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-700 tabular-nums"
                         placeholder="0"
                       />
                       <span className="absolute end-1.5 top-1/2 -translate-y-1/2 text-neutral-400 text-[10px] pointer-events-none">%</span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-end font-medium text-neutral-700 tabular-nums" dir="ltr">
-                    {typeof row.percentage === 'number' && row.percentage > 0 ? `SAR ${formatSAR(stageAmount(row.percentage))}` : '—'}
+                  <td className="px-2 py-1.5">
+                    <div className="relative">
+                      <input
+                        type="number" min={0}
+                        value={row.percentage === '' ? '' : Math.round(stageAmount(row.percentage))}
+                        onChange={(e) => {
+                          if (e.target.value === '') { updatePaymentRow(row.id, { percentage: '' }); return; }
+                          const amt = Number(e.target.value);
+                          const pct = boqSubtotal > 0 ? Math.round((amt / boqSubtotal) * 10000) / 100 : 0;
+                          updatePaymentRow(row.id, { percentage: pct });
+                        }}
+                        className="w-full text-xs text-end border border-transparent rounded px-1.5 py-1 ps-9 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-800 font-medium tabular-nums"
+                        placeholder="0"
+                      />
+                      <span className="absolute start-1.5 top-1/2 -translate-y-1/2 text-neutral-400 text-[10px] pointer-events-none">SAR</span>
+                    </div>
                   </td>
                   <td className="px-2 py-1.5">
                     <button
@@ -183,14 +188,14 @@ export default function PaymentSchedule() {
               ))}
               {formData.paymentStages.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-neutral-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-neutral-400">
                     {t('No payment stages defined. Add manually or use AI Suggest.', 'لم تُحدَّد مراحل دفع. أضف يدوياً أو استخدم اقتراح الذكاء الاصطناعي.')}
                   </td>
                 </tr>
               )}
               {formData.paymentStages.length > 0 && (
                 <tr className="bg-neutral-50 border-t-2 border-neutral-200">
-                  <td colSpan={4} className="px-3 py-2.5 text-end text-xs font-semibold text-neutral-600">{t('Total', 'الإجمالي')}</td>
+                  <td colSpan={3} className="px-3 py-2.5 text-end text-xs font-semibold text-neutral-600">{t('Total', 'الإجمالي')}</td>
                   <td className={`px-3 py-2.5 text-end text-xs font-bold tabular-nums ${pctOk ? 'text-success-700' : pctOver ? 'text-error-600' : 'text-warning-600'}`}>
                     {paymentPctTotal}%
                   </td>

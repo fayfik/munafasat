@@ -20,7 +20,6 @@ const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : `f_${Math.random()
 type Phase = 'select' | 'checking' | 'result' | 'review' | 'landing';
 /** How the requester wants to procure: they know the route, or want help deciding. */
 type RouteMode = 'tender' | 'emarket' | 'help';
-const EMARKET_URL = 'https://portal.etimad.sa/';
 
 export default function ProcurementRouteStep() {
   const { isAr } = useLanguage();
@@ -212,12 +211,23 @@ export default function ProcurementRouteStep() {
     confirmRoute({ sourceType: 'souq-etimad', projectId, items: toItems(rest), choice: 'emarket', movedToDraft: flagged.length ? { count: flagged.length, route: 'tendering' } : undefined });
   }
 
+  // Tendering / Etimad E-Market chosen directly — skip the check and go straight into the wizard.
+  function continueDirect(route: 'tender' | 'emarket') {
+    const items = selected.map((i) => ({ name: i.name, nameAr: i.nameAr, projectItemId: i.id }));
+    confirmRoute({
+      sourceType: route === 'tender' ? 'tendering' : 'souq-etimad',
+      projectId,
+      items,
+      choice: route,
+    });
+  }
+
   const chosen = groups.find((g) => g.key === chosenKey) ?? groups[0];
 
   return (
     <div className="max-w-[820px]">
       {showInfo && <RouteInfoModal onClose={() => setShowInfo(false)} isAr={isAr} t={t} />}
-      <SubSteps phase={phase} t={t} />
+      {mode === 'help' && phase !== 'landing' && <SubSteps phase={phase} t={t} />}
 
       {/* SELECT */}
       {phase === 'select' && (
@@ -305,28 +315,18 @@ export default function ProcurementRouteStep() {
               </div>
             )}
 
-            {/* Item intake — wording depends on the chosen route */}
-            {selected.length > 0 && mode && (
-            <div className="rounded-xl border border-ai-200 bg-ai-50/40 px-5 py-4">
+            {/* Item intake — only when the requester wants help deciding the route */}
+            {selected.length > 0 && mode === 'help' && (
+            <div className="rounded-xl border border-ai-200 bg-ai-50/40 px-5 py-4 slide-up">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-[14px] font-semibold text-neutral-900">
-                  {mode === 'tender' ? t('Anything else for this tender?', 'هل هناك بنود أخرى لهذه المنافسة؟') : t('Tell us what you’re looking for', 'أخبرنا بما تبحث عنه')}
+                  {t('Tell us what you’re looking for', 'أخبرنا بما تبحث عنه')}
                 </p>
-                <span className="text-[11px] font-medium text-neutral-500 bg-white border border-neutral-200 rounded-full px-2 py-0.5">{t('Optional', 'اختياري')}</span>
+                <span className="text-[11px] font-semibold text-ai-700 bg-ai-100 rounded-full px-2 py-0.5">{t('Required', 'مطلوب')}</span>
               </div>
               <p className="text-[13px] text-neutral-600 mt-1 leading-relaxed">
-                {mode === 'tender'
-                  ? t('Add any other items — type them, paste a list or attach a file. We’ll check whether any of your items are available on Etimad eMarket.', 'أضف أي بنود أخرى — اكتبها أو الصق قائمة أو أرفق ملفاً. سنتحقق مما إذا كان أي من بنودك متاحاً في السوق الإلكتروني (اعتماد).')
-                  : mode === 'emarket'
-                  ? t('List what you want to buy — type it, paste a list or attach a file. We’ll check it’s available on Etimad eMarket.', 'اذكر ما تريد شراءه — اكتبه أو الصق قائمة أو أرفق ملفاً. سنتحقق من توفره في السوق الإلكتروني (اعتماد).')
-                  : t('List what you need — type it, paste a list or attach a file. We’ll check each item and suggest the right route.', 'اذكر ما تحتاجه — اكتبه أو الصق قائمة أو أرفق ملفاً. سنفحص كل بند ونقترح المسار المناسب.')}
+                {t('List what you need — type it, paste a list or attach a file. We’ll check each item against Etimad and suggest the right route.', 'اذكر ما تحتاجه — اكتبه أو الصق قائمة أو أرفق ملفاً. سنفحص كل بند في اعتماد ونقترح المسار المناسب.')}
               </p>
-              {mode === 'emarket' && (
-                <div className="mt-2.5 flex items-center justify-between gap-3 rounded-lg border border-success-100 bg-white px-3 py-2">
-                  <p className="text-[12px] text-neutral-600">{t('Tip: check the Etimad eMarket catalogue for the items you plan to buy.', 'نصيحة: راجع كتالوج السوق الإلكتروني (اعتماد) للبنود التي تخطط لشرائها.')}</p>
-                  <a href={EMARKET_URL} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold text-link hover:underline whitespace-nowrap">{t('Browse Etimad eMarket', 'تصفح السوق الإلكتروني')} ↗</a>
-                </div>
-              )}
               <div className="mt-3">
                 <Textarea rows={4} value={text} onChange={(e) => { setText(e.target.value); if (intakeError) setIntakeError(''); }}
                   placeholder={t('e.g.\n20 contractor engineers\nOffice cleaning services\nNetwork switches x4', 'مثال:\n20 مهندس مقاول\nخدمات نظافة المكاتب\nمحولات شبكة ×4')} />
@@ -372,10 +372,22 @@ export default function ProcurementRouteStep() {
                 </div>
               )}
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[13px] text-neutral-500">{!mode ? (selected.length > 0 ? t('Choose how you want to procure to continue', 'اختر طريقة الشراء للمتابعة') : t('Select a project and items to continue', 'اختر مشروعاً وبنوداً للمتابعة')) : clsInput.length > 0 ? t(`${clsInput.length} item${clsInput.length > 1 ? 's' : ''} to check`, `${clsInput.length} بند للفحص`) : t('Ready to check', 'جاهز للفحص')}</span>
-                <Button variant="primary" size="lg" onClick={runCheck} disabled={!mode || (text.trim().length === 0 && freeValid.length === 0 && selected.length === 0)}>
-                  {mode === 'tender' ? t('Check items & continue', 'فحص البنود والمتابعة') : mode === 'emarket' ? t('Check eMarket availability', 'فحص التوفر في السوق الإلكتروني') : t('Check procurement route', 'فحص مسار الشراء')} →
-                </Button>
+                <span className="text-[13px] text-neutral-500">
+                  {!mode
+                    ? (selected.length > 0 ? t('Choose how you want to procure to continue', 'اختر طريقة الشراء للمتابعة') : t('Select a project and items to continue', 'اختر مشروعاً وبنوداً للمتابعة'))
+                    : mode === 'help'
+                    ? (clsInput.length > 0 ? t(`${clsInput.length} item${clsInput.length > 1 ? 's' : ''} to check`, `${clsInput.length} بند للفحص`) : t('List what you need to continue', 'اذكر ما تحتاجه للمتابعة'))
+                    : t(`${selected.length} budgeted item${selected.length > 1 ? 's' : ''} selected`, `${selected.length} بند معتمد محدد`)}
+                </span>
+                {mode === 'help' ? (
+                  <Button variant="primary" size="lg" onClick={runCheck} disabled={text.trim().length === 0 && freeValid.length === 0 && selected.length === 0}>
+                    {t('Check procurement route', 'فحص مسار الشراء')} →
+                  </Button>
+                ) : (
+                  <Button variant="primary" size="lg" onClick={() => continueDirect(mode as 'tender' | 'emarket')} disabled={!mode || selected.length === 0}>
+                    {mode === 'emarket' ? t('Continue with Etimad E-Market', 'المتابعة بالسوق الإلكتروني') : mode === 'tender' ? t('Continue with tender', 'المتابعة بالمنافسة') : t('Continue', 'متابعة')} →
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -627,14 +639,13 @@ function RouteInfoModal({ onClose, isAr, t }: { onClose: () => void; isAr: boole
 }
 
 function SubSteps({ phase, t }: { phase: Phase; t: (en: string, ar: string) => string }) {
-  const steps = [{ en: 'Select', ar: 'الاختيار' }, { en: 'Check', ar: 'الفحص' }, { en: 'Result', ar: 'النتيجة' }];
-  const order: Phase[] = ['select', 'checking', 'result', 'landing'];
-  const cur = phase === 'review' ? 2 : Math.min(order.indexOf(phase), 2);
+  const steps = [{ en: 'Describe items', ar: 'وصف البنود' }, { en: 'Check & choose route', ar: 'الفحص واختيار المسار' }];
+  const cur = phase === 'select' ? 0 : 1;
   return (
     <div className="flex items-center gap-2 mb-5">
       {steps.map((s, i) => (
         <div key={s.en} className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${i === cur ? 'bg-brand-600 text-white' : i < cur ? 'bg-brand-50 text-brand-700' : 'bg-neutral-100 text-neutral-500'}`}>
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${i === cur ? 'bg-brand-600 text-white' : i < cur ? 'bg-brand-50 text-brand-700' : 'bg-neutral-100 text-neutral-500'}`}>
             <span className="w-4 h-4 rounded-full bg-white/25 flex items-center justify-center text-[10px]">{i + 1}</span>{t(s.en, s.ar)}
           </div>
           {i < steps.length - 1 && <div className={`w-6 h-px ${i < cur ? 'bg-brand-300' : 'bg-neutral-200'}`} />}
@@ -648,7 +659,7 @@ const MODE_OPTIONS: { key: RouteMode; en: string; ar: string; descEn: string; de
   { key: 'tender', en: 'Tendering', ar: 'منافسة', descEn: 'Suppliers bid on Etimad against your scope and BOQ.', descAr: 'يتقدم المورّدون بعروضهم في اعتماد وفق نطاق العمل وجدول الكميات.',
     iconBg: 'bg-warning-50 text-warning-600',
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M14 4l6 6M12 6l6 6M9.5 8.5l6 6M4 20l7-7M3 21h8" /></svg> },
-  { key: 'emarket', en: 'Etimad eMarket', ar: 'السوق الإلكتروني', descEn: 'Buy listed items directly from the Etimad catalogue.', descAr: 'شراء البنود المدرجة مباشرة من كتالوج اعتماد.',
+  { key: 'emarket', en: 'Etimad E-Market', ar: 'السوق الإلكتروني', descEn: 'Buy listed items directly from the Etimad catalogue.', descAr: 'شراء البنود المدرجة مباشرة من كتالوج اعتماد.',
     iconBg: 'bg-success-50 text-success-600',
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M4 5h2l2.2 10.2a1.5 1.5 0 001.5 1.2h7.1a1.5 1.5 0 001.5-1.1L21 8H7" /><circle cx="10" cy="20" r="1.2" /><circle cx="18" cy="20" r="1.2" /></svg> },
   { key: 'help', en: 'Help me decide', ar: 'ساعدني في الاختيار', descEn: 'Not sure? We’ll check your items and suggest the route.', descAr: 'لست متأكداً؟ سنفحص بنودك ونقترح المسار.',

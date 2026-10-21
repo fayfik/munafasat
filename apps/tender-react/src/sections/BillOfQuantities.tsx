@@ -22,7 +22,7 @@ import { useBoqLayout, setBoqLayout } from '../lib/boqLayout';
 import EsouqBillOfQuantities from './EsouqBillOfQuantities';
 
 const BOQ_COLUMNS = [
-  'Project Item',
+  'Budgeted Item',
   'Item Name',
   'Description',
   'Unit of Measure',
@@ -36,7 +36,7 @@ const BOQ_COLUMNS = [
 function downloadBOQExcel(rows: BOQRow[]) {
   const data = rows.length > 0
     ? rows.map((r) => ({
-        'Project Item': r.projectItem,
+        'Budgeted Item': r.projectItem,
         'Item Name': r.itemName,
         'Description': r.itemDescription,
         'Unit of Measure': r.unitOfMeasure,
@@ -73,7 +73,7 @@ function parseBOQExcel(file: File): Promise<Omit<BOQRow, 'id'>[]> {
         const parsed: Omit<BOQRow, 'id'>[] = rows
           .filter((r) => r['Item Name'] && String(r['Item Name']).trim())
           .map((r) => ({
-            projectItem: String(r['Project Item'] ?? ''),
+            projectItem: String(r['Budgeted Item'] ?? r['Project Item'] ?? ''),
             itemName: String(r['Item Name'] ?? ''),
             itemDescription: String(r['Description'] ?? ''),
             unitOfMeasure: String(r['Unit of Measure'] ?? 'Each'),
@@ -200,6 +200,16 @@ export default function BillOfQuantities() {
   const [manpowerGenLoading, setManpowerGenLoading] = useState(false);
   const addFormRef = useRef<HTMLDivElement>(null);
   const layout = useBoqLayout();
+
+  // BOQ actions menu (expand/collapse/download/delete-all) next to the view switch.
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function h(e: MouseEvent) { if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false); }
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
 
   // ── Move-to-Etimad flow: confirm modal → fly-to-bucket animation → floating bucket + drawer ──
   const movedItems = formData.etimadMovedItems ?? [];
@@ -456,12 +466,12 @@ export default function BillOfQuantities() {
             <div className="px-5 py-5 space-y-4">
               {/* 1. Project Item Classification + Etimad Category — top */}
               <div className="grid grid-cols-2 gap-4">
-                <FormField label="Project Item Classification" labelAr="تصنيف بند المشروع" required>
+                <FormField label="Budgeted Item" labelAr="البند المعتمد" required>
                   <Select
                     value={newItem.projectItem}
                     onChange={(e) => setNewItem((p) => ({ ...p, projectItem: e.target.value }))}
                   >
-                    <option value="">{t('Select project item…', 'اختر بند المشروع…')}</option>
+                    <option value="">{t('Select budgeted item…', 'اختر البند المعتمد…')}</option>
                     {itemNameOptions.map((v) => <option key={v} value={v}>{v}</option>)}
                   </Select>
                 </FormField>
@@ -758,7 +768,7 @@ export default function BillOfQuantities() {
       >
         {/* Layout switch: Grid (grouped items + form) or Table (spreadsheet) — hidden in empty / template flow */}
         {!isEmptyState && !uploadingEmpty && (
-        <div className="flex items-center justify-end mb-3">
+        <div className="flex items-center justify-end gap-2 mb-3">
           <div role="radiogroup" aria-label={t('BOQ view', 'طريقة عرض جدول الكميات')} className="inline-flex rounded-lg border border-neutral-300 bg-neutral-50 p-0.5">
             {([
               ['cards', t('Grid', 'شبكة'), <GridIcon key="i" className="w-3.5 h-3.5" />],
@@ -771,6 +781,43 @@ export default function BillOfQuantities() {
                 {label}
               </button>
             ))}
+          </div>
+
+          {/* More actions */}
+          <div className="relative" ref={moreRef}>
+            <button type="button" onClick={() => setMoreOpen((o) => !o)} aria-label={t('More actions', 'إجراءات أخرى')}
+              className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${moreOpen ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-neutral-300 bg-white text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700'}`}>
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" /></svg>
+            </button>
+            {moreOpen && (
+              <div className="absolute end-0 z-30 mt-1 w-56 rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up py-1">
+                {(layout === 'cards' || layout === 'grouped') && (
+                  <>
+                    <button type="button" onClick={() => { setExpandedGroups(new Set(groups.map((g) => g.key))); setMoreOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-neutral-700 hover:bg-neutral-50 transition-colors text-start">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-neutral-400"><path d="M7 14l5 5 5-5M7 10l5-5 5 5" /></svg>
+                      {t('Expand all', 'توسيع الكل')}
+                    </button>
+                    <button type="button" onClick={() => { setExpandedGroups(new Set()); setMoreOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-neutral-700 hover:bg-neutral-50 transition-colors text-start">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-neutral-400"><path d="M7 9l5-5 5 5M7 15l5 5 5-5" /></svg>
+                      {t('Collapse all', 'طي الكل')}
+                    </button>
+                    <div className="my-1 border-t border-neutral-100" />
+                  </>
+                )}
+                <button type="button" onClick={() => { downloadBOQExcel(formData.boqItems); setMoreOpen(false); }}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-neutral-700 hover:bg-neutral-50 transition-colors text-start">
+                  <DownloadIcon className="w-4 h-4 text-neutral-400" />
+                  {t('Download as Excel', 'تنزيل كملف Excel')}
+                </button>
+                <button type="button" onClick={() => { setMoreOpen(false); setConfirmDeleteAll(true); }}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-error-600 hover:bg-error-50 transition-colors text-start">
+                  <TrashIcon className="w-4 h-4" />
+                  {t('Delete all', 'حذف الكل')}
+                </button>
+              </div>
+            )}
           </div>
         </div>
         )}
@@ -1307,6 +1354,34 @@ export default function BillOfQuantities() {
           </div>
         )}
       </SectionCard>
+
+      {/* Delete-all confirmation */}
+      {confirmDeleteAll && createPortal(
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/45 backdrop-blur-[2px] backdrop-in"
+          onClick={() => setConfirmDeleteAll(false)} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden pop-in" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 bg-gradient-to-br from-error-500 to-error-600 text-white flex items-start gap-3">
+              <span className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+                <TrashIcon className="w-5 h-5" />
+              </span>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">{t('Bill of Quantities', 'جدول الكميات')}</p>
+                <h3 className="text-[16px] font-bold mt-0.5">{t('Delete all items?', 'حذف جميع البنود؟')}</h3>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-[13px] text-neutral-700 leading-relaxed">
+                {t(`Are you sure you want to delete all Bill of Quantities? This removes all ${formData.boqItems.length} item${formData.boqItems.length === 1 ? '' : 's'} and can't be undone.`,
+                   `هل أنت متأكد من حذف جميع بنود جدول الكميات؟ سيؤدي ذلك إلى إزالة جميع البنود (${formData.boqItems.length}) ولا يمكن التراجع عن ذلك.`)}
+              </p>
+            </div>
+            <div className="px-5 py-3 border-t border-neutral-100 flex justify-end gap-2">
+              <button type="button" onClick={() => setConfirmDeleteAll(false)} className="px-4 py-2 rounded-lg border border-neutral-300 bg-white text-[13px] font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors">{t('Cancel', 'إلغاء')}</button>
+              <button type="button" onClick={() => { updateField('boqItems', []); setExpandedGroups(new Set()); setShowAddForm(false); setConfirmDeleteAll(false); }}
+                className="px-4 py-2 rounded-lg bg-error-600 text-white text-[13px] font-semibold hover:bg-error-700 transition-colors shadow-sm">{t('Yes, delete all', 'نعم، احذف الكل')}</button>
+            </div>
+          </div>
+        </div>, document.body)}
 
       {/* Confirmation modal before moving a BOQ item out to an Etimad E-Market request */}
       {moveConfirm && createPortal(

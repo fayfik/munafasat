@@ -52,11 +52,8 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
     </button>
   );
 
-  const sourceNote = check?.source === 'demo' ? (
-    <span className="text-[10px] text-neutral-400">{t('Demo result from sample rules, not a live Etimad lookup', 'نتيجة تجريبية من قواعد نموذجية، وليست بحثاً مباشراً في اعتماد')}</span>
-  ) : check?.source === 'estimate' ? (
-    <span className="text-[10px] text-neutral-400">{t('AI estimate, not a live Etimad lookup', 'تقدير بالذكاء الاصطناعي، وليس بحثاً مباشراً في اعتماد')}</span>
-  ) : null;
+  // Demo/estimate disclaimers intentionally not shown.
+  const sourceNote = null;
 
   if (!check || stale) {
     if (hideUnchecked) return null;

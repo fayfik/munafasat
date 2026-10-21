@@ -165,19 +165,20 @@ export default function TechnicalEvaluation() {
     <div className="space-y-5">
       {/* Committee Members */}
       <SectionCard
-        title="Technical Evaluation Committee"
-        titleAr="لجنة التقييم الفني"
-        description="Select the committee members responsible for evaluating technical proposals."
-        descriptionAr="اختر أعضاء اللجنة المسؤولين عن تقييم العروض الفنية."
+        title="Technical Evaluation Member"
+        titleAr="عضو التقييم الفني"
+        description="Select the single member responsible for evaluating technical proposals."
+        descriptionAr="اختر العضو المسؤول عن تقييم العروض الفنية (عضو واحد فقط)."
       >
         <PeoplePicker
+          single
           value={formData.technicalCommitteeMembers}
           onChange={setTechnicalCommitteeMembers}
         />
         <p className="mt-2 text-xs text-neutral-500">
           {formData.technicalCommitteeMembers.length > 0
-            ? `${formData.technicalCommitteeMembers.length} ${t('member(s) selected', 'عضو/أعضاء مختارون')}`
-            : t('Recommended reviewers appear first in the list.', 'يظهر المراجعون المقترحون أولاً في القائمة.')}
+            ? t('1 member selected. Choose another to replace them.', 'تم اختيار عضو واحد. اختر غيره للاستبدال.')
+            : t('Only one member can be selected. Recommended reviewers appear first.', 'يمكن اختيار عضو واحد فقط. يظهر المراجعون المقترحون أولاً.')}
         </p>
       </SectionCard>
 
