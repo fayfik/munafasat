@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useRequests } from '../context/RequestStore';
+import { useInbox } from '../inbox/store';
 import logoUrl from '../imports/Color_Full_color__Size_Large__Type_Full_logo.png';
 import {
   BellIcon, PanelLeftIcon,
@@ -29,6 +30,7 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
 
   const returnedCount = MOCK_TENDERS.filter((t) => t.status === 'returned').length;
   const myRequestsCount = MOCK_TENDERS.length;
+  const inboxCount = useInbox().countsByView['needs-action'];
 
   // 'tender-form' counts as child of 'my-requests' for nav highlight purposes
   const activePage: AppPage = currentPage === 'tender-form' || currentPage === 'procure-intake' ? 'my-requests' : currentPage;
@@ -36,7 +38,7 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
   const NAV_ITEMS = [
     { page: 'dashboard' as AppPage, label: t('Dashboard', 'الرئيسية'), Icon: NavDashboardIcon },
     { page: 'my-requests' as AppPage, label: t('My Requests', 'طلباتي'), Icon: NavRequestsIcon, badge: myRequestsCount },
-    { page: 'inbox' as AppPage, label: t('Inbox', 'الوارد'), Icon: NavInboxIcon, badge: returnedCount > 0 ? returnedCount : undefined },
+    { page: 'inbox' as AppPage, label: t('Inbox', 'الوارد'), Icon: NavInboxIcon, badge: inboxCount > 0 ? inboxCount : undefined },
     { page: 'reports' as AppPage, label: t('Reports', 'التقارير'), Icon: NavReportsIcon },
   ];
 
