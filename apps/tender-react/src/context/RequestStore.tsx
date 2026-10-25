@@ -1,7 +1,7 @@
 // Saved tender requests, shared across the team through the artifact's
 // database. Falls back to the original sample list when the database is
 // not available (e.g. the page is opened outside claude.ai).
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode, useRef } from 'react';
 import { getDb, getUser } from '../lib/claudeRuntime';
 import { MOCK_TENDERS, ALL_COST_CENTERS, PROJECTS } from '../data/mockData';
 import type { TenderDraft, TenderFormData, TenderStatus } from '../types/tender';
@@ -98,12 +98,16 @@ export function RequestStoreProvider({ children }: { children: ReactNode }) {
   }, [requests, userId]);
 
   const allRequests = sessionDrafts.length ? [...sessionDrafts, ...requests] : requests;
-  const get = useCallback((id: string) => allRequests.find((r) => r.id === id), [allRequests]);
+  // Drafts added in this same event aren't in state yet; the ref lets get() see them at once.
+  const justAdded = useRef<SavedRequest[]>([]);
+  const get = useCallback((id: string) => allRequests.find((r) => r.id === id) ?? justAdded.current.find((r) => r.id === id), [allRequests]);
   const addSessionDraft = useCallback<StoreCtx['addSessionDraft']>((draft, form) => {
     const now = new Date().toISOString();
     const id = `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     // With a form attached, the draft opens with its project and items already filled in.
-    setSessionDrafts((xs) => [{ ...draft, id, status: 'draft', createdAt: now, updatedAt: now, ...(form ? { form } : {}) }, ...xs]);
+    const rec = { ...draft, id, status: 'draft', createdAt: now, updatedAt: now, ...(form ? { form } : {}) } as SavedRequest;
+    justAdded.current = [rec, ...justAdded.current];
+    setSessionDrafts((xs) => [rec, ...xs]);
     return id;
   }, []);
 

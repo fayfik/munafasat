@@ -41,6 +41,29 @@ export default function ReviewConfirm({ onExit, onOpenRequest }: { onExit?: () =
   const extraCCs = (formData.additionalCostCenterIds ?? []).map((id) => ALL_COST_CENTERS.find((c) => c.id === id)).filter(Boolean) as typeof ALL_COST_CENTERS;
 
   const isEsouq = formData.sourceType === 'souq-etimad';
+  // Drafts split off this request: from the route check (linkedDrafts) and from the
+  // BOQ "Move to Etimad eMarket" bucket (etimadMovedItems).
+  const store = useRequests();
+  const [bucketDraftId, setBucketDraftId] = useState<string | null>(null);
+  const moved = formData.etimadMovedItems ?? [];
+  const allLinked: LinkedDraft[] = [
+    ...(formData.linkedDrafts ?? []),
+    ...(moved.length ? [{ id: BUCKET_ID, route: 'souq-etimad' as const, items: moved.map((r) => r.itemName || t('Unnamed item', 'بند بلا اسم')) }] : []),
+  ];
+  const openLinked = (id: string) => {
+    if (id !== BUCKET_ID) return onOpenRequest?.(id);
+    // The bucket draft is only saved when saving is on; otherwise create it for this session now.
+    let target = formData.linkedEtimadRequestId && store.get(formData.linkedEtimadRequestId) ? formData.linkedEtimadRequestId : bucketDraftId;
+    if (!target) {
+      const items = moved.map((r) => ({ ...r, etimadKeep: false, etimadJustification: '', etimadCheck: undefined }));
+      target = store.addSessionDraft(
+        { title: `${selectedProject?.name ?? 'Request'} — Etimad eMarket (${moved.length} item${moved.length > 1 ? 's' : ''})`, type: 'souq-etimad', department: selectedCC?.name ?? '—', budget: '—' },
+        { ...formData, sourceType: 'souq-etimad', boqItems: items, etimadMovedItems: [], linkedDrafts: [], linkedEtimadRequestId: undefined },
+      );
+      setBucketDraftId(target);
+    }
+    onOpenRequest?.(target);
+  };
   const ESOUQ_IDS = ['procurement-route', 'project-setup', 'boq', 'attachments', 'review'];
   // Attachments is optional — it does not count toward completion / the 100% total.
   const reqIdxs = SECTIONS.map((_, i) => i).filter((i) => SECTIONS[i].id !== 'review' && SECTIONS[i].id !== 'attachments' && (!isEsouq || ESOUQ_IDS.includes(SECTIONS[i].id)));
@@ -89,7 +112,7 @@ export default function ReviewConfirm({ onExit, onOpenRequest }: { onExit?: () =
 
   if (submitted) {
     return <SubmittedScreen requestNo={submitted.requestNo} at={submitted.at} projectName={projectName} deptName={deptName}
-      subtotal={boqSubtotal} grandTotal={boqTotal} stages={formData.paymentStages.length} userName={userName} isAr={isAr} t={t} onExit={onExit} onOpenRequest={onOpenRequest}
+      subtotal={boqSubtotal} grandTotal={boqTotal} stages={formData.paymentStages.length} userName={userName} isAr={isAr} t={t} onExit={onExit} onOpenRequest={openLinked} linkedDrafts={allLinked}
       formData={formData} selectedProject={selectedProject} />;
   }
 
@@ -105,8 +128,8 @@ export default function ReviewConfirm({ onExit, onOpenRequest }: { onExit?: () =
         </div>
       )}
 
-      {(formData.linkedDrafts?.length ?? 0) > 0 && (
-        <LinkedDraftsCard drafts={formData.linkedDrafts!} t={t} variant="notice" />
+      {allLinked.length > 0 && (
+        <LinkedDraftsCard drafts={allLinked} t={t} variant="notice" />
       )}
 
       {/* ── Request overview hero ─────────────────────────────────── */}
@@ -499,9 +522,9 @@ export default function ReviewConfirm({ onExit, onOpenRequest }: { onExit?: () =
 }
 
 /* ── Submitted success screen ──────────────────────────────────── */
-function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grandTotal, stages, userName, isAr, t, onExit, onOpenRequest, formData, selectedProject }: {
+function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grandTotal, stages, userName, isAr, t, onExit, onOpenRequest, linkedDrafts, formData, selectedProject }: {
   requestNo: string; at: string; projectName: string; deptName: string; subtotal: number; grandTotal: number; stages: number;
-  userName: string; isAr: boolean; t: (en: string, ar: string) => string; onExit?: () => void; onOpenRequest?: (id: string) => void;
+  userName: string; isAr: boolean; t: (en: string, ar: string) => string; onExit?: () => void; onOpenRequest?: (id: string) => void; linkedDrafts: LinkedDraft[];
   formData: ReturnType<typeof useTender>['formData']; selectedProject: typeof PROJECTS[number] | undefined;
 }) {
   const [copied, setCopied] = useState(false);
@@ -616,9 +639,9 @@ function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grand
         </ol>
       </div>
 
-      {(formData.linkedDrafts?.length ?? 0) > 0 && (
+      {linkedDrafts.length > 0 && (
         <div className="success-copy mt-4" style={{ animationDelay: '0.95s' }}>
-          <LinkedDraftsCard drafts={formData.linkedDrafts!} t={t} onOpen={(id) => onOpenRequest?.(id)} variant="success" />
+          <LinkedDraftsCard drafts={linkedDrafts} t={t} onOpen={(id) => onOpenRequest?.(id)} variant="success" />
         </div>
       )}
 
@@ -807,6 +830,7 @@ function PeopleGlyph() { return <svg viewBox="0 0 24 24" fill="none" stroke="cur
 function ExternalGlyph() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><path d="M15 3h6v6M10 14 21 3" /></svg>; }
 function ShareGlyph() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 10.6l6.8-4.2M8.6 13.4l6.8 4.2" /></svg>; }
 
+const BUCKET_ID = '__etimad-bucket';
 type LinkedDraft = NonNullable<ReturnType<typeof useTender>['formData']['linkedDrafts']>[number];
 
 /** Drafts split off this request at the Procurement Route check (items on a different route). */
@@ -849,7 +873,9 @@ function LinkedDraftsCard({ drafts, t, onOpen, variant }: {
                   <span className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-500 bg-neutral-100 rounded-full px-2 py-0.5">{t('Draft', 'مسودة')}</span>
                 </div>
                 <p className="text-[13.5px] font-semibold text-neutral-900 mt-2">
-                  {t(`${d.items.length} item${d.items.length === 1 ? '' : 's'} moved here at the route check`, `${d.items.length} بند نُقلت عند فحص المسار`)}
+                  {d.id === BUCKET_ID
+                    ? t(`${d.items.length} item${d.items.length === 1 ? '' : 's'} moved from the Bill of Quantities`, `${d.items.length} بند نُقلت من جدول الكميات`)
+                    : t(`${d.items.length} item${d.items.length === 1 ? '' : 's'} moved here at the route check`, `${d.items.length} بند نُقلت عند فحص المسار`)}
                 </p>
                 <p className="text-[12px] text-neutral-500 mt-0.5 truncate" title={d.items.join(', ')}>{d.items.join(' · ')}</p>
               </div>

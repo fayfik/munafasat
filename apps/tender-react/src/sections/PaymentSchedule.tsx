@@ -41,6 +41,10 @@ export default function PaymentSchedule() {
   // Drag-to-reorder payment stages.
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
+  // Raw text the user is typing into an Amount cell, keyed by row id. While a cell
+  // is focused we echo exactly what was typed (so keystrokes aren't clobbered by the
+  // percentage round-trip); on blur we drop the draft and show the derived amount.
+  const [amountDraft, setAmountDraft] = useState<Record<string, string>>({});
   function reorder(from: number, to: number) {
     if (from === to) return;
     const next = [...formData.paymentStages];
@@ -58,22 +62,61 @@ export default function PaymentSchedule() {
     updateField('paymentStages', tpl.stages.map((r) => ({ id: crypto.randomUUID(), startDate: '', ...r })));
   }
 
-  const stageAmount = (pct: number | '') => {
-    const p = typeof pct === 'number' ? pct : 0;
-    return (p / 100) * boqSubtotal;
-  };
+  // The value percentages and amounts convert against: the BOQ total when present,
+  // otherwise the sum of the amounts entered here — so the schedule still works before a
+  // BOQ exists (the amounts you type define the total, and percentages derive from them).
+  const enteredAmountsTotal = formData.paymentStages.reduce((s, r) => s + (typeof r.amount === 'number' ? r.amount : 0), 0);
+  const baseTotal = boqSubtotal > 0 ? boqSubtotal : enteredAmountsTotal;
 
-  const totalAmount = formData.paymentStages.reduce((s, r) => s + stageAmount(r.percentage), 0);
+  const stageAmount = (pct: number | '') => ((typeof pct === 'number' ? pct : 0) / 100) * baseTotal;
+  // What a row's Amount cell resolves to: the user's exact typed amount if set,
+  // otherwise the amount derived from its percentage and the base total.
+  const effectiveAmount = (r: typeof formData.paymentStages[number]) =>
+    typeof r.amount === 'number' ? r.amount : stageAmount(r.percentage);
+
+  const totalAmount = formData.paymentStages.reduce((s, r) => s + effectiveAmount(r), 0);
   const pctOk   = paymentPctTotal === 100;
   const pctOver = paymentPctTotal > 100;
+
+  // Re-derive every amount-bearing row's percentage from the amounts pot. Used when there is
+  // no BOQ total: the typed amounts define the split, so percentages stay consistent and sum to 100%.
+  function repartitionFromAmounts(stages: typeof formData.paymentStages) {
+    const sum = stages.reduce((s, r) => s + (typeof r.amount === 'number' ? r.amount : 0), 0);
+    return stages.map((r) =>
+      typeof r.amount === 'number'
+        ? { ...r, percentage: sum > 0 ? Math.round((r.amount / sum) * 10000) / 100 : ('' as number | '') }
+        : r);
+  }
+
+  // Enter a percentage → amount re-derives from the base total (clear any manual amount override).
+  function handlePctChange(id: string, raw: string) {
+    updatePaymentRow(id, { percentage: raw === '' ? '' : Number(raw), amount: undefined });
+  }
+  // Enter an amount → keep it verbatim and compute the percentage. With a BOQ total the percentage
+  // is amount ÷ BOQ total; without one, the amounts define the pot and all rows repartition.
+  function handleAmountChange(id: string, raw: string) {
+    setAmountDraft((d) => ({ ...d, [id]: raw }));
+    if (raw !== '' && !Number.isFinite(Number(raw))) return;
+    const amt = raw === '' ? undefined : Number(raw);
+    if (boqSubtotal > 0) {
+      updatePaymentRow(id, {
+        amount: amt,
+        percentage: amt === undefined ? '' : Math.round((amt / boqSubtotal) * 10000) / 100,
+      });
+    } else {
+      const next = formData.paymentStages.map((r) =>
+        r.id === id ? { ...r, amount: amt, ...(amt === undefined ? { percentage: '' as number | '' } : {}) } : r);
+      updateField('paymentStages', repartitionFromAmounts(next));
+    }
+  }
 
   return (
     <div className="space-y-5">
       <SectionCard
         title="Payment Schedule"
         titleAr="جدول الدفعات"
-        description="Define payment stages tied to project milestones. Total must equal 100%."
-        descriptionAr="حدد مراحل الدفع المرتبطة بمعالم المشروع. يجب أن يكون الإجمالي 100%."
+        description="Define payment stages tied to project milestones. Enter a percentage or an amount — the other is computed from the BOQ total. Total must equal 100%."
+        descriptionAr="حدد مراحل الدفع المرتبطة بمعالم المشروع. أدخل النسبة أو المبلغ — ويُحسب الآخر تلقائياً من إجمالي جدول الكميات. يجب أن يكون الإجمالي 100%."
         action={<TemplateMenu options={PAYMENT_TEMPLATES} onPick={applyTemplate} suggestedId={suggestedTpl} />}
       >
         {aiLoading && (
@@ -111,10 +154,8 @@ export default function PaymentSchedule() {
                 <th className="text-start px-3 py-2.5 text-neutral-500 font-medium w-8">#</th>
                 <th className="text-start px-3 py-2.5 text-neutral-500 font-medium min-w-[160px]">{t('Stage Name', 'اسم المرحلة')}</th>
                 <th className="text-start px-3 py-2.5 text-neutral-500 font-medium min-w-[180px]">{t('Items / Deliverables', 'البنود / المخرجات')}</th>
-                <th className="text-start px-3 py-2.5 text-neutral-500 font-medium w-32">{t('Start Date', 'تاريخ البدء')}</th>
-                <th className="text-start px-3 py-2.5 text-neutral-500 font-medium w-24">{t('Duration', 'المدة')}</th>
-                <th className="text-end px-3 py-2.5 text-neutral-500 font-medium w-20">%</th>
-                <th className="text-end px-3 py-2.5 text-neutral-500 font-medium w-36">{t('Amount (SAR)', 'المبلغ (ر.س)')}</th>
+                <th className="text-end px-3 py-2.5 text-neutral-500 font-medium w-32">{t('Payment Percentage', 'نسبة الدفع')}</th>
+                <th className="text-end px-3 py-2.5 text-neutral-500 font-medium w-40">{t('Amount (SAR)', 'المبلغ (ر.س)')}</th>
                 <th className="w-8 px-2" />
               </tr>
             </thead>
@@ -153,35 +194,32 @@ export default function PaymentSchedule() {
                     />
                   </td>
                   <td className="px-2 py-1.5">
-                    <input
-                      type="date"
-                      value={row.startDate}
-                      onChange={(e) => updatePaymentRow(row.id, { startDate: e.target.value })}
-                      className="w-full text-xs border border-transparent rounded px-1.5 py-1 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-700"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <input
-                      value={row.duration}
-                      onChange={(e) => updatePaymentRow(row.id, { duration: e.target.value })}
-                      className="w-full text-xs border border-transparent rounded px-1.5 py-1 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-700 placeholder-neutral-300"
-                      placeholder={t('30 days', '30 يوم')}
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
                     <div className="relative">
                       <input
-                        type="number" min={0} max={100}
+                        type="number" min={0} max={100} step={0.01}
                         value={row.percentage}
-                        onChange={(e) => updatePaymentRow(row.id, { percentage: e.target.value === '' ? '' : Number(e.target.value) })}
-                        className="w-full text-xs text-end border border-transparent rounded px-1.5 py-1 pe-4 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-700"
+                        onChange={(e) => handlePctChange(row.id, e.target.value)}
+                        className="w-full text-xs text-end border border-transparent rounded px-1.5 py-1 pe-5 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-700 tabular-nums"
                         placeholder="0"
                       />
                       <span className="absolute end-1.5 top-1/2 -translate-y-1/2 text-neutral-400 text-[10px] pointer-events-none">%</span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-end font-medium text-neutral-700 tabular-nums" dir="ltr">
-                    {typeof row.percentage === 'number' && row.percentage > 0 ? `SAR ${formatSAR(stageAmount(row.percentage))}` : '—'}
+                  <td className="px-2 py-1.5">
+                    <div className="relative">
+                      <input
+                        type="number" min={0}
+                        value={amountDraft[row.id] !== undefined
+                          ? amountDraft[row.id]
+                          : (typeof row.amount === 'number' ? String(row.amount)
+                             : row.percentage === '' ? '' : String(Math.round(stageAmount(row.percentage))))}
+                        onChange={(e) => handleAmountChange(row.id, e.target.value)}
+                        onBlur={() => setAmountDraft((d) => { const next = { ...d }; delete next[row.id]; return next; })}
+                        className="w-full text-xs text-end border border-transparent rounded px-1.5 py-1 ps-9 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-800 font-medium tabular-nums"
+                        placeholder="0"
+                      />
+                      <span className="absolute start-1.5 top-1/2 -translate-y-1/2 text-neutral-400 text-[10px] pointer-events-none">SAR</span>
+                    </div>
                   </td>
                   <td className="px-2 py-1.5">
                     <button
@@ -195,14 +233,14 @@ export default function PaymentSchedule() {
               ))}
               {formData.paymentStages.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-neutral-400">
-                    {t('No payment stages yet. Use a template or add stages manually.', 'لم تُحدَّد مراحل دفع. أضف يدوياً أو استخدم اقتراح الذكاء الاصطناعي.')}
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-neutral-400">
+                    {t('No payment stages yet. Use a template or add stages manually.', 'لم تُحدَّد مراحل دفع. استخدم قالباً أو أضف المراحل يدوياً.')}
                   </td>
                 </tr>
               )}
               {formData.paymentStages.length > 0 && (
                 <tr className="bg-neutral-50 border-t-2 border-neutral-200">
-                  <td colSpan={5} className="px-3 py-2.5 text-end text-xs font-semibold text-neutral-600">{t('Total', 'الإجمالي')}</td>
+                  <td colSpan={3} className="px-3 py-2.5 text-end text-xs font-semibold text-neutral-600">{t('Total', 'الإجمالي')}</td>
                   <td className={`px-3 py-2.5 text-end text-xs font-bold tabular-nums ${pctOk ? 'text-success-700' : pctOver ? 'text-error-600' : 'text-warning-600'}`}>
                     {paymentPctTotal}%
                   </td>
@@ -225,10 +263,10 @@ export default function PaymentSchedule() {
         </button>
 
         {boqSubtotal === 0 && (
-          <InfoBanner variant="warning" className="mt-4">
+          <InfoBanner variant="info" className="mt-4">
             {t(
-              'Payment amounts will be calculated automatically once BOQ prices are entered. Please complete the Bill of Quantities first.',
-              'سيتم احتساب مبالغ الدفع تلقائياً بمجرد إدخال أسعار جدول الكميات. يرجى إكمال جدول الكميات أولاً.'
+              'No Bill of Quantities total yet. You can still enter amounts here — they define the total and the percentages are calculated from them. Once BOQ prices are added, entering a percentage will also compute its amount automatically.',
+              'لا يوجد إجمالي لجدول الكميات بعد. يمكنك إدخال المبالغ هنا — فهي تحدد الإجمالي وتُحتسب النسب منها. وبمجرد إدخال أسعار جدول الكميات، سيؤدي إدخال النسبة إلى احتساب مبلغها تلقائياً.'
             )}
           </InfoBanner>
         )}

@@ -8,7 +8,7 @@ interface Props {
   row: BOQRow;
   checking: boolean;
   onCheck: () => void;
-  onMove: () => Promise<'moved' | 'preview' | 'error'>;
+  onMove: (origin: DOMRect) => void;
   onUpdate: (patch: Partial<BOQRow>) => void;
   /** Render nothing until the row has a current check (the caller shows EtimadCheckButton elsewhere). */
   hideUnchecked?: boolean;
@@ -47,8 +47,6 @@ function PendingChip() {
 /** "Check Etimad availability" control and verdict for one BOQ item. */
 export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, hideUnchecked }: Props) {
   const t = useT();
-  const [moving, setMoving] = useState(false);
-  const [moveMsg, setMoveMsg] = useState('');
   const check = row.etimadCheck;
   const stale = isStale(row);
 
@@ -63,12 +61,9 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
     </button>
   );
 
+  // Only the Procurement status line is kept (demo/estimate disclaimers hidden, as upstream).
   const sourceNote = check?.source === 'procurement' ? (
     <span className="text-[10px] text-neutral-400">{t('Checked on Etimad by the Procurement team (simulated for the prototype)', 'تحقق منه فريق المشتريات في اعتماد (محاكاة للنموذج الأولي)')}</span>
-  ) : check?.source === 'demo' ? (
-    <span className="text-[10px] text-neutral-400">{t('Demo result from sample rules, not a live Etimad lookup', 'نتيجة تجريبية من قواعد نموذجية، وليست بحثاً مباشراً في اعتماد')}</span>
-  ) : check?.source === 'estimate' ? (
-    <span className="text-[10px] text-neutral-400">{t('AI estimate, not a live Etimad lookup', 'تقدير بالذكاء الاصطناعي، وليس بحثاً مباشراً في اعتماد')}</span>
   ) : null;
 
   if (!check || stale) {
@@ -80,15 +75,6 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
         {stale && <span className="text-[11px] text-warning-700">{t('Item changed since the last check.', 'تغيّر البند منذ آخر تحقق.')}</span>}
       </div>
     );
-  }
-
-  async function move() {
-    setMoving(true);
-    setMoveMsg('');
-    const r = await onMove();
-    setMoving(false);
-    if (r === 'preview') setMoveMsg(t('Moving items needs saving, which is off in preview mode. Open the page in Claude to use it.', 'نقل البنود يتطلب الحفظ، وهو غير متاح في وضع المعاينة. افتح الصفحة في Claude لاستخدامه.'));
-    if (r === 'error') setMoveMsg(t('Could not create the Etimad E-Market draft. Check that you can edit this page, then try again.', 'تعذّر إنشاء مسودة سوق اعتماد. تأكد من صلاحية التعديل ثم حاول مجدداً.'));
   }
 
   if (check.status === 'not-available') {
@@ -132,16 +118,15 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
       {!row.etimadKeep ? (
         <>
           <p className="text-[11px] text-warning-700">
-            {t('We suggest buying this item through a separate Etimad E-Market request instead of this tender.', 'نقترح شراء هذا البند عبر طلب مستقل في سوق اعتماد بدلاً من هذه المنافسة.')}
+            {t('Procurement recommends buying this item through a separate Etimad E-Market request instead of this tender.', 'توصي المشتريات بشراء هذا البند عبر طلب مستقل في سوق اعتماد بدلاً من هذه المنافسة.')}
           </p>
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
-              onClick={move}
-              disabled={moving}
-              className="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold hover:bg-brand-700 disabled:opacity-60 transition-colors"
+              onClick={(e) => onMove(e.currentTarget.getBoundingClientRect())}
+              className="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold hover:bg-brand-700 transition-colors"
             >
-              {moving ? t('Moving…', 'جاري النقل…') : t('Move to Etimad E-Market request', 'نقل إلى طلب سوق اعتماد')}
+              {t('Move to Etimad E-Market request', 'نقل إلى طلب سوق اعتماد')}
             </button>
             <button
               type="button"
@@ -151,7 +136,6 @@ export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, 
               {t('Keep in this tender', 'الإبقاء في هذه المنافسة')}
             </button>
           </div>
-          {moveMsg && <p className="text-[11px] text-error-600">{moveMsg}</p>}
         </>
       ) : (
         <JustificationBox

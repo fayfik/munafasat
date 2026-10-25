@@ -373,9 +373,35 @@ select {
   animation: success-copy-in 0.4s ease-out 0.6s forwards;
 }
 
+/* Etimad E-Market bucket — floating container that receives moved BOQ items. */
+@keyframes bucket-slide-in {
+  0%   { opacity: 0; transform: translateX(-140%) scale(0.9); }
+  60%  { opacity: 1; transform: translateX(6%) scale(1.04); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+.bucket-slide-in { animation: bucket-slide-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+:dir(rtl) .bucket-slide-in { animation-name: bucket-slide-in-rtl; }
+@keyframes bucket-slide-in-rtl {
+  0%   { opacity: 0; transform: translateX(140%) scale(0.9); }
+  60%  { opacity: 1; transform: translateX(-6%) scale(1.04); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes bucket-receive {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.2); }
+  55%  { transform: scale(0.93); }
+  100% { transform: scale(1); }
+}
+.bucket-receive { animation: bucket-receive 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes bucket-ring {
+  0%   { opacity: 0.55; transform: scale(0.75); }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+.bucket-ring { animation: bucket-ring 0.6s ease-out forwards; }
+
 @media (prefers-reduced-motion: reduce) {
   .rise-in, .donut-center, .success-ring, .success-pulse, .success-copy,
-  .pop-in, .backdrop-in, .drill-in { animation: none; opacity: 1; transform: none; }
+  .pop-in, .backdrop-in, .drill-in, .bucket-slide-in, .bucket-receive { animation: none; opacity: 1; transform: none; }
   .donut-seg { transition: none; }
   .check-draw { stroke-dashoffset: 0; animation: none; }
 }

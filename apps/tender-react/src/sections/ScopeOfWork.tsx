@@ -6,7 +6,8 @@ import { aiScope, aiTerms } from '../lib/aiTender';
 import { PROJECTS } from '../data/mockData';
 import { FormField, SectionCard, Textarea, AIButton, Input, Select } from '../components/ui';
 import { SparklesIcon } from '../components/Icons';
-import ProjectIncludesSelect, { deriveIncludesFromItems, reviewDepartments, DEPARTMENTS, WorkflowDrawer } from '../components/ProjectIncludesSelect';
+import ProjectIncludesSelect, { deriveIncludesFromItems, workflowStages, DEPARTMENTS, WorkflowDrawer } from '../components/ProjectIncludesSelect';
+import DatePicker from '../components/DatePicker';
 
 function calcEndDate(start: string, duration: string, type: string): string {
   if (!start || !duration) return '';
@@ -132,7 +133,7 @@ export default function ScopeOfWork() {
     .map((it) => it.name);
   const lockedIncludes = deriveIncludesFromItems([...budgetedNames, ...formData.boqItems.map((b) => b.itemName)].filter(Boolean));
   const allIncludes = [...new Set([...lockedIncludes, ...formData.scopeIncludes])];
-  const reviewIds = reviewDepartments(allIncludes);
+  const approvalDepts = workflowStages(allIncludes).filter((d) => d !== 'requester');
 
   return (
     <div className="space-y-5">
@@ -147,24 +148,23 @@ export default function ScopeOfWork() {
         <div className="space-y-4">
           {/* What the project includes — 3 categories; each routes the request to specific departments */}
           <FormField label="Which department's approval is necessary?" labelAr="ما الإدارات التي يلزم اعتمادها؟" required
-            hint={t('Auto-selected from your project and items (locked). Add others manually — each category changes which departments approve the request.', 'مُحدّدة تلقائياً من مشروعك وبنودك (مقفلة). أضف غيرها يدوياً — كل فئة تغيّر الجهات التي تعتمد الطلب.')}>
+            hint={t('Auto-selected from your project and items (locked). Add others manually — each category routes the request through specific departments and changes who must approve it.', 'مُحدّدة تلقائياً من مشروعك وبنودك (مقفلة). أضف غيرها يدوياً — كل فئة توجّه الطلب عبر جهات محددة وتغيّر من يجب أن يعتمده.')}>
             <ProjectIncludesSelect value={formData.scopeIncludes} onChange={(v) => updateField('scopeIncludes', v)} locked={lockedIncludes} />
 
-            <div className="mt-2 flex items-start justify-between gap-3 flex-wrap">
-              <div className="flex items-start gap-2 rounded-lg border border-ai-100 bg-ai-50/60 px-3 py-2 flex-1 min-w-[260px]">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-ai-600 mt-0.5 flex-shrink-0">
-                  <circle cx="6" cy="6" r="2.2" /><circle cx="6" cy="18" r="2.2" /><circle cx="18" cy="12" r="2.2" /><path d="M8 6h5a3 3 0 013 3v.5M8 18h5a3 3 0 003-3v-.5" />
-                </svg>
-                <p className="text-[12px] text-ai-800 leading-relaxed">
-                  {t('Changing what the project includes changes the approval workflow — each category routes the request through specific departments.',
-                     'تغيير ما يتضمنه المشروع يغيّر مسار الاعتماد — كل فئة توجّه الطلب عبر جهات محددة.')}
-                  {reviewIds.length > 0 && (
-                    <> {' '}{t('Current reviewers', 'المراجعون الحاليون')}: <span className="font-semibold">{reviewIds.map((d) => isAr ? DEPARTMENTS[d].ar : DEPARTMENTS[d].en).join(' · ')}</span>.</>
-                  )}
-                </p>
+            {/* Approvals required + View workflow — one row, subtle chips so the CTA reads clearly */}
+            <div className="mt-2.5 flex items-center justify-between gap-3 flex-wrap rounded-lg border border-neutral-200 bg-neutral-50/60 px-3 py-2">
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                <span className="text-[11px] font-semibold text-neutral-500 whitespace-nowrap">{t('Approvals required', 'الاعتمادات المطلوبة')}:</span>
+                {approvalDepts.length > 0 ? approvalDepts.map((d) => (
+                  <span key={d} className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-white text-neutral-600 border border-neutral-200">
+                    {isAr ? DEPARTMENTS[d].ar : DEPARTMENTS[d].en}
+                  </span>
+                )) : (
+                  <span className="text-[11px] text-neutral-400">{t('Select a category to see approvers', 'اختر فئة لعرض جهات الاعتماد')}</span>
+                )}
               </div>
               <button type="button" onClick={() => setWfOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-200 bg-brand-50 text-brand-700 text-[12px] font-semibold hover:bg-brand-100 transition-colors flex-shrink-0">
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-[12px] font-semibold hover:bg-brand-700 transition-colors flex-shrink-0 shadow-sm">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
                   <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /><path d="M7 12h3M14 12h3" />
                 </svg>
@@ -264,8 +264,8 @@ export default function ScopeOfWork() {
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Work/Services Start Date" labelAr="تاريخ بدء الأعمال" required>
-              <Input type="date" min={todayStr} value={formData.startDate} onChange={(e) => updateField('startDate', e.target.value)}
-                className={startInPast ? 'border-error-300 focus:border-error-400 focus:ring-error-400/20' : ''} />
+              <DatePicker value={formData.startDate} min={todayStr} onChange={(v) => updateField('startDate', v)}
+                ariaLabel={t('Work/Services start date', 'تاريخ بدء الأعمال')} placeholder={t('Select start date', 'اختر تاريخ البدء')} />
               {startInPast && (
                 <p className="mt-1 flex items-center gap-1.5 text-[12px] text-error-600">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5 flex-shrink-0"><circle cx="12" cy="12" r="10" /><path d="M12 8v5M12 16h.01" strokeLinecap="round" /></svg>

@@ -6,7 +6,7 @@ import { aiTechDocs, aiTechReqs, aiEvalCriteria, type AiReq, type AiCriterion } 
 import TemplateMenu from '../components/TemplateMenu';
 import { EVAL_TEMPLATES } from '../lib/templates';
 import { FormField, SectionCard, Textarea, Input, AIButton, PeoplePicker, InfoBanner } from '../components/ui';
-import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon, XIcon } from '../components/Icons';
+import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon, XIcon, DocumentIcon } from '../components/Icons';
 import ImportCriteriaDrawer, { type DrawerItem } from '../components/ImportCriteriaDrawer';
 import { SIMILAR_PROJECTS, EVAL_LIBRARY, type LibEvalCriterion } from '../lib/criteriaLibrary';
 
@@ -168,19 +168,20 @@ export default function TechnicalEvaluation() {
     <div className="space-y-5">
       {/* Committee Members */}
       <SectionCard
-        title="Technical Evaluation Committee"
-        titleAr="لجنة التقييم الفني"
-        description="Select the committee members responsible for evaluating technical proposals."
-        descriptionAr="اختر أعضاء اللجنة المسؤولين عن تقييم العروض الفنية."
+        title="Technical Evaluation Member"
+        titleAr="عضو التقييم الفني"
+        description="Select the single member responsible for evaluating technical proposals."
+        descriptionAr="اختر العضو المسؤول عن تقييم العروض الفنية (عضو واحد فقط)."
       >
         <PeoplePicker
+          single
           value={formData.technicalCommitteeMembers}
           onChange={setTechnicalCommitteeMembers}
         />
         <p className="mt-2 text-xs text-neutral-500">
           {formData.technicalCommitteeMembers.length > 0
-            ? `${formData.technicalCommitteeMembers.length} ${t('member(s) selected', 'عضو/أعضاء مختارون')}`
-            : t('Frequent reviewers appear first in the list.', 'يظهر المراجعون المتكررون أولاً في القائمة.')}
+            ? t('1 member selected. Choose another to replace them.', 'تم اختيار عضو واحد. اختر غيره للاستبدال.')
+            : t('Only one member can be selected. Frequent reviewers appear first.', 'يمكن اختيار عضو واحد فقط. يظهر المراجعون المتكررون أولاً.')}
         </p>
       </SectionCard>
 
@@ -201,31 +202,38 @@ export default function TechnicalEvaluation() {
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Chips — locked mandatory docs first, then user-added */}
-            <div className="flex flex-wrap gap-2">
+            <p className="text-[12px] text-neutral-500">{t('Vendors must submit all of the documents listed below with their proposals. Mandatory documents are locked; add any additional ones you need.', 'يجب على الموردين تقديم جميع الوثائق المدرجة أدناه مع عروضهم. الوثائق الإلزامية مقفلة؛ أضف ما تحتاجه من وثائق أخرى.')}</p>
+            {/* Required documents — a clear list (not selectable chips) */}
+            <div className="rounded-xl border border-neutral-200 divide-y divide-neutral-100 overflow-hidden">
               {LOCKED_TECH_DOCS.map((d, i) => (
-                <span key={`lock-${i}`} className="inline-flex items-center gap-1.5 ps-2.5 pe-3 py-1.5 rounded-full text-[12px] font-medium bg-neutral-100 text-neutral-600 border border-neutral-200">
-                  <LockGlyph className="w-3 h-3 text-neutral-400 flex-shrink-0" />
-                  {isAr ? d.ar : d.en}
-                </span>
+                <div key={`lock-${i}`} className="flex items-center gap-3 px-3.5 py-2.5 bg-neutral-50/40">
+                  <span className="w-7 h-7 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
+                    <DocumentIcon className="w-4 h-4" />
+                  </span>
+                  <span className="flex-1 min-w-0 text-[13px] text-neutral-800">{isAr ? d.ar : d.en}</span>
+                  <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-neutral-500 bg-neutral-100 border border-neutral-200 rounded-full px-2 py-0.5 flex-shrink-0">
+                    <LockGlyph className="w-2.5 h-2.5 text-neutral-400" />
+                    {t('Mandatory', 'إلزامي')}
+                  </span>
+                </div>
               ))}
               {(formData.technicalDocumentsList as string[]).map((doc, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center gap-1.5 ps-3 pe-2 py-1.5 rounded-full text-[12px] font-medium bg-white text-neutral-700 border border-neutral-200 group"
-                >
-                  {doc}
+                <div key={i} className="flex items-center gap-3 px-3.5 py-2.5 bg-white group">
+                  <span className="w-7 h-7 rounded-lg bg-neutral-100 text-neutral-500 flex items-center justify-center flex-shrink-0">
+                    <DocumentIcon className="w-4 h-4" />
+                  </span>
+                  <span className="flex-1 min-w-0 text-[13px] text-neutral-800">{doc}</span>
                   <button
                     type="button"
                     onClick={() => removeDoc(i)}
-                    className="text-neutral-400 hover:text-error-500 transition-colors flex-shrink-0"
+                    className="text-neutral-300 hover:text-error-500 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                    aria-label={t('Remove document', 'إزالة الوثيقة')}
                   >
-                    <XIcon className="w-3 h-3" />
+                    <TrashIcon className="w-3.5 h-3.5" />
                   </button>
-                </span>
+                </div>
               ))}
             </div>
-            <p className="text-[11px] text-neutral-500">{t('Mandatory documents are locked. Add any additional documents below.', 'الوثائق الإلزامية مقفلة. أضف أي وثائق إضافية أدناه.')}</p>
             {/* Add input */}
             <div className="flex gap-2">
               <input
@@ -420,28 +428,34 @@ export default function TechnicalEvaluation() {
         </button>
 
         <div className="mt-5 pt-5 border-t border-neutral-100">
-          <FormField
-            label="Technical Passing Percentage"
-            labelAr="نسبة الاجتياز الفني"
-            required
-            hint={t(
-              'Minimum score (out of 100%) a vendor must achieve to pass the technical evaluation stage.',
-              'الحد الأدنى للدرجة (من 100%) التي يجب على المورد تحقيقها للنجاح في مرحلة التقييم الفني.'
-            )}
-          >
-            <div className="flex items-center gap-2 max-w-[180px]">
+          {/* Passing percentage — title & description on the left, the field on the right, one row */}
+          <div className="flex items-center justify-between gap-4 flex-wrap rounded-xl border border-brand-200 bg-brand-50/40 px-4 py-3.5">
+            <div className="min-w-0 flex-1">
+              <label htmlFor="technical-passing-pct" className="text-[13.5px] font-bold text-neutral-900">
+                {t('Technical Passing Percentage', 'نسبة الاجتياز الفني')} <span className="text-error-600">*</span>
+              </label>
+              <p className="text-[12px] text-neutral-500 mt-0.5 leading-relaxed">
+                {t(
+                  'Minimum score (out of 100%) a vendor must achieve to pass the technical evaluation stage.',
+                  'الحد الأدنى للدرجة (من 100%) التي يجب على المورد تحقيقها للنجاح في مرحلة التقييم الفني.'
+                )}
+              </p>
+            </div>
+            <div className="relative w-28 flex-shrink-0">
               <Input
+                id="technical-passing-pct"
                 type="number" min={0} max={100}
                 value={formData.technicalPassingPercentage}
                 onChange={(e) => updateField('technicalPassingPercentage', e.target.value)}
-                placeholder={t('e.g. 70', 'مثال: 70')}
+                placeholder="70"
+                className="text-end pe-7 text-base font-bold"
               />
-              <span className="text-sm text-neutral-500 font-medium">%</span>
+              <span className="absolute end-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm font-medium pointer-events-none">%</span>
             </div>
-            {Number(formData.technicalPassingPercentage) > 100 && (
-              <p className="text-xs text-error-600 mt-1">{t('Cannot exceed 100%', 'لا يمكن أن يتجاوز 100%')}</p>
-            )}
-          </FormField>
+          </div>
+          {Number(formData.technicalPassingPercentage) > 100 && (
+            <p className="text-xs text-error-600 mt-1.5">{t('Cannot exceed 100%', 'لا يمكن أن يتجاوز 100%')}</p>
+          )}
         </div>
       </SectionCard>
 

@@ -108,10 +108,10 @@ export default function QualificationCriteria() {
     <div className="space-y-5">
       {/* Committee */}
       <SectionCard
-        title="Qualification Committee"
-        titleAr="لجنة التأهيل"
-        description="Select the committee members responsible for reviewing qualification criteria."
-        descriptionAr="اختر أعضاء اللجنة المسؤولين عن مراجعة معايير التأهيل."
+        title="Qualification Member"
+        titleAr="عضو التأهيل"
+        description="Select the members responsible for reviewing qualification criteria."
+        descriptionAr="اختر الأعضاء المسؤولين عن مراجعة معايير التأهيل."
       >
         <PeoplePicker
           value={formData.qualificationCommitteeMembers}
