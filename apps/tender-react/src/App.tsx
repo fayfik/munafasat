@@ -3,6 +3,8 @@ import { LanguageProvider } from './context/LanguageContext';
 import { TenderProvider } from './context/TenderContext';
 import { RequestStoreProvider, useRequests } from './context/RequestStore';
 import EmptyPage from './pages/EmptyPage';
+import { InboxProvider } from './inbox/store';
+import InboxPage from './inbox/InboxPage';
 import AppShell, { type AppPage } from './components/AppShell';
 import Dashboard from './pages/Dashboard';
 import MyRequests from './pages/MyRequests';
@@ -65,6 +67,7 @@ function AppRoot() {
   const saved = target.kind === 'existing' ? store.get(target.id) : undefined;
 
   return (
+    <InboxProvider>
     <AppShell
       currentPage={page}
       onNavigate={(p) => setPage(p)}
@@ -77,7 +80,8 @@ function AppRoot() {
           onViewRequests={(f) => { setReqFilter(f ?? 'all'); setPage('my-requests'); }}
         />
       )}
-      {(page === 'inbox' || page === 'reports') && <EmptyPage page={page} />}
+      {page === 'inbox' && <InboxPage />}
+      {page === 'reports' && <EmptyPage page="reports" />}
       {page === 'my-requests' && (
         <MyRequests key={reqFilter} initialFilter={reqFilter} onNewRequest={() => newRequest()} onOpenRequest={openRequest} />
       )}
@@ -94,5 +98,6 @@ function AppRoot() {
         </TenderProvider>
       )}
     </AppShell>
+    </InboxProvider>
   );
 }
