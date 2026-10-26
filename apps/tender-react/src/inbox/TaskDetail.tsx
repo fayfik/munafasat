@@ -7,6 +7,7 @@ import { ArrowLeftIcon, ChevronRightIcon, ClockIcon, AlertTriangleIcon, CheckCir
 import type { Task, TaskAction, Person } from './types';
 import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
 import { TaskBody } from './renderers';
+import { useRequests } from '../context/RequestStore';
 import { TypeChip, StateChip, PriorityTag, ENTITY_META, tb } from './meta';
 
 type T = (en: string, ar: string) => string;
@@ -59,6 +60,16 @@ function actionsFor(task: Task): ActionDef[] {
       { id: 'submit', label: ['Resubmit', 'إعادة التقديم'], variant: 'primary', confirm: true },
       { id: 'save-draft', label: ['Save Draft', 'حفظ مسودة'], variant: 'secondary' },
     ];
+    case 'etimad-review': {
+      const flagged = (task.etimadItems ?? []).some((i) => i.verdict === 'on-etimad');
+      return flagged ? [
+        { id: 'move-emarket', label: ['Move flagged items to an eMarket draft', 'نقل البنود المحددة إلى مسودة السوق'], variant: 'primary', confirm: true, gated: true },
+        { id: 'return', label: ['Return to requester', 'إعادة إلى مقدم الطلب'], variant: 'secondary', needsNote: true, gated: true },
+      ] : [
+        { id: 'complete', label: ['Confirm all answers', 'تأكيد جميع الإجابات'], variant: 'primary', confirm: true, gated: true },
+        { id: 'return', label: ['Return to requester', 'إعادة إلى مقدم الطلب'], variant: 'secondary', needsNote: true },
+      ];
+    }
     case 'document-submission': return [
       { id: 'submit', label: ['Submit Documents', 'تقديم المستندات'], variant: 'primary', confirm: true, gated: true },
       { id: 'save-draft', label: ['Save Draft', 'حفظ مسودة'], variant: 'secondary' },
@@ -70,7 +81,26 @@ function actionsFor(task: Task): ActionDef[] {
 export default function TaskDetail({ task, onBack }: { task: Task; onBack: () => void }) {
   const { isAr } = useLanguage();
   const t = useT();
-  const { decide, addComment, blocked: isBlockedFn, tasks } = useInbox();
+  const { decide, addComment, blocked: isBlockedFn, tasks, finishEtimadReview } = useInbox();
+  const { addSessionDraft } = useRequests();
+  // Etimad review outcomes (accept / return / move flagged items to an eMarket draft).
+  function finishEtimad(id: TaskAction, n?: string) {
+    if (id === 'move-emarket') {
+      const flagged = (task.etimadItems ?? []).filter((i) => i.verdict === 'on-etimad');
+      const src = task.sourceRequest;
+      if (src && flagged.length) {
+        addSessionDraft({ title: `${src.title} — Etimad eMarket (${flagged.length} item${flagged.length > 1 ? 's' : ''})`, type: 'souq-etimad', department: tb(task.department, false), budget: '—' }, {
+          ...({} as Record<string, unknown>),
+          sourceType: 'souq-etimad', projectId: src.projectId, costCenterId: src.costCenterId, tenderingPurpose: src.purpose,
+          selectedProjectItemIds: [], scopeIncludes: [],
+          boqItems: flagged.map((f) => ({ id: crypto.randomUUID(), projectItem: '', itemName: f.name, itemDescription: '', unitOfMeasure: f.unit || 'Each',
+            quantity: f.qty, unitPrice: f.unitPrice, deliveryDate: '', purchaseType: 'product', productId: '', supplier: '',
+            lineTotal: f.qty !== '' && f.unitPrice !== '' ? Number(f.qty) * Number(f.unitPrice) : '' })),
+        } as never);
+      }
+      finishEtimadReview(task.id, 'move', n);
+    } else finishEtimadReview(task.id, id === 'complete' ? 'accept' : 'return', n);
+  }
   const [pending, setPending] = useState<ActionDef | null>(null);
   const [note, setNote] = useState('');
   const [comment, setComment] = useState('');
@@ -83,11 +113,13 @@ export default function TaskDetail({ task, onBack }: { task: Task; onBack: () =>
 
   function run(a: ActionDef) {
     if (a.needsNote || a.confirm) { setPending(a); setNote(''); return; }
+    if (task.type === 'etimad-review') { finishEtimad(a.id); return; }
     decide(task.id, a.id as Parameters<typeof decide>[1]);
   }
   function confirmPending() {
     if (!pending) return;
     if (pending.needsNote && !note.trim()) return;
+    if (task.type === 'etimad-review') { finishEtimad(pending.id, note.trim() || undefined); setPending(null); setNote(''); return; }
     decide(task.id, pending.id as Parameters<typeof decide>[1], note.trim() || undefined);
     setPending(null); setNote('');
   }

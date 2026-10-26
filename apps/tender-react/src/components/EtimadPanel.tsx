@@ -1,10 +1,10 @@
 import { useT } from '../context/LanguageContext';
-import { isOnEtimad, requesterAnswer } from '../lib/etimadCheck';
+import { isOnEtimad, requesterAnswer, etimadAnswerOf } from '../lib/etimadCheck';
 import type { BOQRow } from '../types/tender';
 import JustificationField from './JustificationField';
 
 // Manual mode: the requester answers "Is this item available on Etimad E-Market?"
-// with a Yes/No switch. Yes keeps the item in the tender and asks for a justification
+// with an explicit Yes/No (nothing selected by default). Yes keeps the item in the tender and asks for a justification
 // (or lets them move it to a separate Etimad E-Market request instead).
 
 interface Props {
@@ -19,7 +19,36 @@ interface Props {
   justificationOnly?: boolean;
 }
 
-/** The Yes / No switch itself. */
+/** Explicit Yes / No answer (radio group as a segmented pill). Nothing is selected until the user picks. */
+export function EtimadAnswer({ value, onChange, size = 'md', id, ariaLabel, showRequired = true }: {
+  value: 'yes' | 'no' | null; onChange: (v: 'yes' | 'no') => void; size?: 'sm' | 'md'; id?: string; ariaLabel?: string; showRequired?: boolean;
+}) {
+  const t = useT();
+  const sm = size === 'sm';
+  const opt = (v: 'yes' | 'no', label: string) => (
+    <button key={v} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)}
+      className={`${sm ? 'px-3 py-1 text-[11.5px]' : 'px-4 py-1.5 text-[12.5px]'} font-semibold transition-colors ${v === 'no' ? 'border-s border-neutral-300' : ''} ${
+        value === v ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}>
+      {label}
+    </button>
+  );
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span id={id} role="radiogroup" aria-label={ariaLabel ?? t('Available on Etimad E-Market', 'متوفر في سوق اعتماد')}
+        className={`inline-flex rounded-lg border overflow-hidden ${value ? 'border-neutral-300' : 'border-warning-400'}`} dir="ltr">
+        {opt('yes', t('Yes', 'نعم'))}
+        {opt('no', t('No', 'لا'))}
+      </span>
+      {!value && showRequired && (
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-warning-700">
+          <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />{t('Answer required', 'الإجابة مطلوبة')}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** A plain on/off switch (used where a default of "No" is safe, e.g. Has Brand Name). */
 export function EtimadSwitch({ value, onChange, size = 'md', id, ariaLabel }: { value: boolean; onChange: (v: boolean) => void; size?: 'sm' | 'md'; id?: string; ariaLabel?: string }) {
   const t = useT();
   const sm = size === 'sm';
@@ -79,7 +108,7 @@ export default function EtimadPanel({ row, onMove, onUpdate, justificationOnly }
     <div className="space-y-2">
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-[11.5px] text-neutral-600">{t(ETIMAD_QUESTION.en, ETIMAD_QUESTION.ar)}</span>
-        <EtimadSwitch size="sm" value={on} onChange={(v) => onUpdate(requesterAnswer(row, v, just))} />
+        <EtimadAnswer size="sm" value={etimadAnswerOf(row)} onChange={(v) => onUpdate(requesterAnswer(row, v === 'yes', just))} />
       </div>
       {justification}
     </div>

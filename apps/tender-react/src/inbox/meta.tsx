@@ -13,6 +13,7 @@ export const TYPE_META: Record<TaskType, { en: string; ar: string; variant: Badg
   validation:             { en: 'Validation',             ar: 'تحقق',            variant: 'warning' },
   clarification:          { en: 'Clarification',          ar: 'توضيح',           variant: 'error' },
   'document-submission':  { en: 'Document Submission',    ar: 'تقديم مستندات',   variant: 'default' },
+  'etimad-review':        { en: 'Etimad Review',          ar: 'مراجعة اعتماد',   variant: 'warning' },
 };
 
 export const STATE_META: Record<TaskState, { en: string; ar: string; variant: BadgeVariant }> = {

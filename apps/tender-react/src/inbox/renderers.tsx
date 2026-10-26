@@ -4,7 +4,7 @@
 import { useLanguage, useT } from '../context/LanguageContext';
 import { Input, Textarea, Select, InfoBanner, Button } from '../components/ui';
 import { CheckCircleIcon, AlertTriangleIcon, InfoIcon, DocumentIcon, UploadIcon, ExclamationCircleIcon } from '../components/Icons';
-import type { Task, ChecklistItem } from './types';
+import type { Task, ChecklistItem, EtimadReviewItem } from './types';
 import { useInbox, fmtSAR } from './store';
 import { tb } from './meta';
 
@@ -40,6 +40,78 @@ function ApprovalBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
       )}
       {task.requireReasonOnReject && (
         <InfoBanner variant="info">{t('A reason is required when you reject or return this request.', 'يلزم إدخال سبب عند رفض هذا الطلب أو إعادته.')}</InfoBanner>
+      )}
+    </div>
+  );
+}
+
+// ── Etimad E-Market review (Procurement checks the requester's Yes/No answers) ──
+function EtimadReviewBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
+  const { setEtimadItem } = useInbox();
+  const items = task.etimadItems ?? [];
+  const readOnly = task.state === 'completed' || task.state === 'waiting';
+  const yes = items.filter((i) => i.answer === 'yes').length;
+  const flagged = items.filter((i) => i.verdict === 'on-etimad').length;
+  return (
+    <div className="space-y-4">
+      <InfoBanner variant="info">
+        {t(`Check each line on Etimad E-Market and confirm the requester's answer. ${yes} of ${items.length} were marked as available on Etimad and kept in the tender with a justification.`,
+           `تحقق من كل بند في سوق اعتماد وأكّد إجابة مقدم الطلب. ${yes} من ${items.length} حُددت كمتوفرة في اعتماد وأُبقيت في المنافسة بمبرر.`)}
+      </InfoBanner>
+      <Section title={t('BOQ lines and Etimad answers', 'بنود الجدول وإجابات اعتماد')}>
+        <div className="rounded-xl border border-neutral-200 divide-y divide-neutral-100 overflow-hidden" data-testid="etimad-review-items">
+          {items.map((it) => <EtimadReviewRow key={it.id} it={it} readOnly={readOnly} isAr={isAr} t={t} onChange={(p) => setEtimadItem(task.id, it.id, p)} />)}
+        </div>
+      </Section>
+      {flagged > 0 && !readOnly && (
+        <InfoBanner variant="warning">
+          {t(`${flagged} line${flagged === 1 ? ' is' : 's are'} actually on Etimad. Return the request to the requester, or move ${flagged === 1 ? 'it' : 'them'} to an Etimad E-Market draft.`,
+             `${flagged} بند متوفر فعلاً في اعتماد. أعد الطلب إلى مقدمه، أو انقل البنود إلى مسودة سوق اعتماد.`)}
+        </InfoBanner>
+      )}
+    </div>
+  );
+}
+
+function EtimadReviewRow({ it, readOnly, isAr, t, onChange }: { it: EtimadReviewItem; readOnly: boolean; isAr: boolean; t: T; onChange: (p: Partial<EtimadReviewItem>) => void }) {
+  void isAr;
+  const qtyText = it.qty !== '' ? `${it.qty} ${it.unit}` : '—';
+  const priceText = it.unitPrice !== '' ? fmtSAR(Number(it.unitPrice)) : '—';
+  const verdictBtn = (v: 'confirmed' | 'on-etimad', label: string) => (
+    <button type="button" role="radio" aria-checked={it.verdict === v} disabled={readOnly} onClick={() => onChange({ verdict: v, ...(v === 'confirmed' ? { note: '' } : {}) })}
+      className={`px-3 py-1 text-[11.5px] font-semibold transition-colors ${v === 'on-etimad' ? 'border-s border-neutral-300' : ''} ${
+        it.verdict === v ? (v === 'confirmed' ? 'bg-success-600 text-white' : 'bg-warning-500 text-white') : 'bg-white text-neutral-600 hover:bg-neutral-50'} disabled:cursor-default`}>
+      {label}
+    </button>
+  );
+  return (
+    <div className={`px-3.5 py-3 ${it.verdict === 'on-etimad' ? 'bg-warning-50/50' : 'bg-white'}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-neutral-900">{it.name}</p>
+          <p className="text-[11.5px] text-neutral-500 tabular-nums whitespace-nowrap" dir="ltr">{qtyText} · {priceText}</p>
+        </div>
+        <span className={`flex-shrink-0 text-[11px] font-semibold rounded-full px-2 py-0.5 border whitespace-nowrap ${it.answer === 'yes' ? 'bg-warning-50 text-warning-700 border-warning-100' : 'bg-neutral-50 text-neutral-600 border-neutral-200'}`}>
+          {it.answer === 'yes' ? t('Requester: on Etimad — kept in tender', 'مقدم الطلب: متوفر في اعتماد — أُبقي') : t('Requester: not on Etimad', 'مقدم الطلب: غير متوفر في اعتماد')}
+        </span>
+      </div>
+      <div className="mt-2 flex items-center gap-2 flex-wrap">
+        <span className="text-[11.5px] text-neutral-500">{t('Your check:', 'فحصك:')}</span>
+        <span role="radiogroup" aria-label={t(`Your check for ${it.name}`, `فحصك لـ ${it.name}`)} className="inline-flex rounded-lg border border-neutral-300 overflow-hidden" dir="ltr">
+          {verdictBtn('confirmed', t('Answer correct', 'الإجابة صحيحة'))}
+          {verdictBtn('on-etimad', t('Actually on Etimad', 'متوفر فعلاً في اعتماد'))}
+        </span>
+      </div>
+      {it.answer === 'yes' && it.justification && (
+        <p className="mt-1.5 text-[12px] text-neutral-700 truncate" title={it.justification}><span className="font-semibold text-neutral-500">{t('Justification:', 'المبرر:')}</span> {it.justification}</p>
+      )}
+      {it.verdict === 'on-etimad' && (
+        <div className="mt-2">
+          <input value={it.note ?? ''} disabled={readOnly} onChange={(e) => onChange({ note: e.target.value })}
+            placeholder={t('Where is it listed on Etimad? (required)', 'أين يُدرج في اعتماد؟ (مطلوب)')}
+            aria-label={t(`Note for ${it.name}`, `ملاحظة لـ ${it.name}`)}
+            className="w-full rounded-lg border border-warning-400 bg-white px-3 py-1.5 text-[12.5px] focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
+        </div>
       )}
     </div>
   );
@@ -417,6 +489,7 @@ export function TaskBody({ task }: { task: Task }) {
     case 'validation': return <ValidationBody task={task} isAr={isAr} t={t} />;
     case 'clarification': return <ClarificationBody task={task} isAr={isAr} t={t} />;
     case 'document-submission': return <DocumentBody task={task} isAr={isAr} t={t} />;
+    case 'etimad-review': return <EtimadReviewBody task={task} isAr={isAr} t={t} />;
     default: return null;
   }
 }

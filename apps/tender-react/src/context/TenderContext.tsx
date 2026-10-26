@@ -1,3 +1,4 @@
+import { etimadAnswerOf, needsJustification } from '../lib/etimadCheck';
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useRequests } from './RequestStore';
 import { PROJECTS } from '../data/mockData';
@@ -413,7 +414,9 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       }
       case 'boq':
         // Brand name is decided per BOQ row; a branded row needs a justification.
-        if (formData.boqItems.length > 0 && formData.boqItems.every((r) => !r.hasBrandName || (r.brandJustification ?? '').trim())) return 'completed';
+        // Manual mode: every line also needs an explicit Etimad Yes/No (and a justification for Yes).
+        if (formData.boqItems.length > 0 && formData.boqItems.every((r) => (!r.hasBrandName || (r.brandJustification ?? '').trim())
+          && (formData.sourceType === 'souq-etimad' || (etimadAnswerOf(r) && !needsJustification(r))))) return 'completed';
         if (formData.boqItems.length > 0) return 'missing';
         return 'not-started';
       case 'payment-schedule':

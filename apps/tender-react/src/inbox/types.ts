@@ -12,7 +12,8 @@ export type TaskType =
   | 'commercial-evaluation'
   | 'validation'
   | 'clarification'
-  | 'document-submission';
+  | 'document-submission'
+  | 'etimad-review';
 
 /** Task lifecycle state. Not every task passes through every state. */
 export type TaskState =
@@ -54,7 +55,8 @@ export type TaskAction =
   | 'comment'
   | 'save-draft'
   | 'submit'
-  | 'complete';
+  | 'complete'
+  | 'move-emarket';
 
 // ── Task-type payloads ───────────────────────────────────────────────────────
 
@@ -118,6 +120,19 @@ export interface RequiredDoc {
   uploaded?: string | null;     // file name (mock)
 }
 
+/** One BOQ line in a Procurement "Etimad E-Market review" task. */
+export interface EtimadReviewItem {
+  id: string;
+  name: string;
+  qty: number | '';
+  unit: string;
+  unitPrice: number | '';
+  answer: 'yes' | 'no';          // the requester's answer
+  justification?: string;        // required when answer is 'yes'
+  verdict?: 'confirmed' | 'on-etimad' | null; // Procurement's check
+  note?: string;                 // why it's actually on Etimad
+}
+
 export interface ActivityEntry {
   id: string;
   kind: 'comment' | 'system' | 'decision';
@@ -177,6 +192,9 @@ export interface Task {
   returnIssues?: Bilingual[];
   originalValues?: { label: Bilingual; value: string }[];
   requiredDocs?: RequiredDoc[];
+  etimadItems?: EtimadReviewItem[];
+  /** The request being reviewed (used to create an eMarket draft from flagged items). */
+  sourceRequest?: { projectId: string; costCenterId: string; purpose: string; requestNo: string; title: string };
 
   activity: ActivityEntry[];
 }

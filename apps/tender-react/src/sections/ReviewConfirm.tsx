@@ -569,6 +569,10 @@ function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grand
   }
 
   const steps = [
+    ...(formData.sourceType === 'tendering' && formData.boqItems.length > 0
+      ? [{ icon: <AlertTriangleIcon className="w-4 h-4" />, tone: 'bg-warning-50 text-warning-600', en: 'Etimad E-Market check by Procurement', ar: 'فحص سوق اعتماد من المشتريات',
+          metaEn: 'They confirm each Yes/No answer — items found on Etimad come back to you or move to an eMarket draft', metaAr: 'يؤكدون كل إجابة — البنود المتوفرة في اعتماد تعود إليك أو تُنقل إلى مسودة السوق' }]
+      : []),
     { icon: <ClockIcon className="w-4 h-4" />, tone: 'bg-blue-50 text-blue-600', en: 'Procurement Committee Review', ar: 'مراجعة لجنة المشتريات', metaEn: '2–5 business days', metaAr: '2–5 أيام عمل' },
     { icon: <CheckCircleIcon className="w-4 h-4" />, tone: 'bg-brand-50 text-brand-600', en: 'Budget & Policy Approval', ar: 'اعتماد الميزانية والسياسات', metaEn: '3–7 business days', metaAr: '3–7 أيام عمل' },
     { icon: <EyeGlyph />, tone: 'bg-warning-50 text-warning-600', en: 'RFP Published to Vendor Portal', ar: 'نشر الطلب في بوابة الموردين', metaEn: 'Upon approval', metaAr: 'عند الاعتماد' },

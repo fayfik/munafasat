@@ -36,6 +36,15 @@ export function isStale(r: BOQRow): boolean {
   return !!r.etimadCheck && r.etimadCheck.itemKey !== etimadItemKey(r);
 }
 
+/** Manual mode: the requester's explicit answer — null until they pick Yes or No. */
+export function etimadAnswerOf(r: BOQRow): 'yes' | 'no' | null {
+  if (!r.etimadCheck || isStale(r)) return null;
+  return r.etimadCheck.status === 'available' ? 'yes' : r.etimadCheck.status === 'not-available' ? 'no' : null;
+}
+/** Imported lines come in unanswered, so the requester looks at each one. */
+export function clearEtimadAnswer<T extends Partial<BOQRow>>(r: T): T {
+  return { ...r, etimadCheck: undefined, etimadKeep: undefined, etimadJustification: undefined, etimadRequestedAt: undefined };
+}
 /** Manual mode: the requester says whether the item is on Etimad E-Market (Yes keeps it here with a justification). */
 export function isOnEtimad(r: BOQRow): boolean {
   return r.etimadCheck?.status === 'available' && !isStale(r);

@@ -15,10 +15,10 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiBoq, type AiBoqRow } from '../lib/aiTender';
 import { saveFile, aiErrorMessage } from '../lib/claudeRuntime';
-import { isStale, needsJustification, isOnEtimad, requesterAnswer } from '../lib/etimadCheck';
+import { isStale, needsJustification, isOnEtimad, requesterAnswer, etimadAnswerOf, clearEtimadAnswer } from '../lib/etimadCheck';
 import JustificationField from '../components/JustificationField';
 import { useAddOrReplace } from '../components/AddOrReplace';
-import EtimadPanel, { EtimadSwitch, ETIMAD_QUESTION, ETIMAD_JUST_LABEL, ETIMAD_JUST_PLACEHOLDER } from '../components/EtimadPanel';
+import EtimadPanel, { EtimadSwitch, EtimadAnswer, ETIMAD_QUESTION, ETIMAD_JUST_LABEL, ETIMAD_JUST_PLACEHOLDER } from '../components/EtimadPanel';
 import BoqSheet from '../components/BoqSheet';
 import { useBoqLayout, setBoqLayout } from '../lib/boqLayout';
 import EsouqBillOfQuantities from './EsouqBillOfQuantities';
@@ -181,7 +181,7 @@ const EMPTY_FORM = {
   minExperienceYears: '' as number | '', officialWorkingHours: '' as number | '',
   extraWorkingHours: '' as number | '', nationalityRequired: false, nationalities: [] as string[],
   // Manual mode: the requester's own answer to "Is it on Etimad E-Market?"
-  onEtimad: false, etimadJust: '',
+  etimadAnswer: '' as '' | 'yes' | 'no', etimadJust: '',
 };
 
 const GROUP_COLORS = ['bg-brand-500', 'bg-ai-500', 'bg-warning-500', 'bg-success-600', 'bg-error-500', 'bg-neutral-400'];
@@ -278,6 +278,7 @@ export default function BillOfQuantities() {
   // Manual mode: no automatic Etimad check — the requester answers Yes/No per item.
   function runEtimadCheck(_rows: BOQRow[]) { /* not used in manual mode */ }
   const etimadAvailableCount = formData.boqItems.filter(isOnEtimad).length;
+  const etimadUnanswered = formData.boqItems.filter((r) => !etimadAnswerOf(r)).length;
   const etimadMissingJust = formData.boqItems.filter(needsJustification).length;
   void isStale; void etimadError;
 
@@ -294,7 +295,7 @@ export default function BillOfQuantities() {
         setUploadError(t('No valid rows found. Check the template columns.', 'لم يتم العثور على بنود صالحة. تحقق من أعمدة النموذج.'));
         return;
       }
-      const rows: BOQRow[] = parsed.map((r) => ({ id: crypto.randomUUID(), category: deriveCategory(r.itemName), ...r }));
+      const rows: BOQRow[] = parsed.map((r) => clearEtimadAnswer({ id: crypto.randomUUID(), category: deriveCategory(r.itemName), ...r }));
       setShowUploadZone(false);
       addOrReplace.run(rows.length, t('Import from template', 'استيراد من النموذج'), (m) => {
         updateField('boqItems', m === 'add' ? [...formData.boqItems, ...rows] : rows);
@@ -319,8 +320,13 @@ export default function BillOfQuantities() {
 
   // Fields still to be filled on a line (e.g. lines pre-filled from the route check).
   const missingOf = (r: BOQRow): string[] => {
-    if ((r.category ?? deriveCategory(r.itemName)) === 'manpower') return [!r.projectItem && t('Budgeted item', 'البند المعتمد')].filter(Boolean) as string[];
+    const etimad = [
+      !etimadAnswerOf(r) && t('Etimad E-Market answer', 'إجابة سوق اعتماد'),
+      needsJustification(r) && t('Etimad justification', 'مبرر سوق اعتماد'),
+    ];
+    if ((r.category ?? deriveCategory(r.itemName)) === 'manpower') return [!r.projectItem && t('Budgeted item', 'البند المعتمد'), ...etimad].filter(Boolean) as string[];
     return [
+      ...etimad,
       !r.projectItem && t('Budgeted item', 'البند المعتمد'),
       r.quantity === '' && t('Quantity', 'الكمية'),
       r.unitPrice === '' && t('Unit price', 'سعر الوحدة'),
@@ -329,7 +335,9 @@ export default function BillOfQuantities() {
   };
   const incompleteCount = formData.boqItems.filter((r) => missingOf(r).length > 0).length;
   const missingLine = (r: BOQRow) => {
-    const m = missingOf(r);
+    // The Etimad question has its own "Answer required" cue right below, so it isn't repeated here.
+    const etimadLabels = [t('Etimad E-Market answer', 'إجابة سوق اعتماد'), t('Etimad justification', 'مبرر سوق اعتماد')];
+    const m = missingOf(r).filter((x) => !etimadLabels.includes(x));
     if (!m.length) return null;
     return (
       <div className="flex items-center gap-2 flex-wrap rounded-md border border-warning-200 bg-warning-50 px-3 py-1.5" data-testid="missing-line">
@@ -369,7 +377,7 @@ export default function BillOfQuantities() {
   const [showPastDialog, setShowPastDialog] = useState(false);
   function handleAISuggest() { setShowPastDialog(true); }
   function copyFromPast(rfp: PastRfp) {
-    const rows = (buildRfpImport(rfp, formData).boqItems ?? []).map((r) => ({ ...r, id: crypto.randomUUID(), category: r.category ?? deriveCategory(r.itemName) }));
+    const rows = (buildRfpImport(rfp, formData).boqItems ?? []).map((r) => clearEtimadAnswer({ ...r, id: crypto.randomUUID(), category: r.category ?? deriveCategory(r.itemName) }));
     setShowPastDialog(false);
     addOrReplace.run(rows.length, t(`Copy from ${rfp.code}`, `نسخ من ${rfp.code}`), (m) => {
       updateField('boqItems', m === 'add' ? [...formData.boqItems, ...rows] : rows);
@@ -381,9 +389,9 @@ export default function BillOfQuantities() {
     if (!newItem.projectItem || !newItem.itemName) return;
     const id = crypto.randomUUID();
     const category = newItem.category || deriveCategory(newItem.itemName);
-    const { onEtimad, etimadJust, ...fields } = newItem;
+    const { etimadAnswer, etimadJust, ...fields } = newItem;
     const row: BOQRow = { id, ...fields, category };
-    updateField('boqItems', [...formData.boqItems, { ...row, ...requesterAnswer(row, onEtimad, etimadJust.trim()) }]);
+    updateField('boqItems', [...formData.boqItems, { ...row, ...(etimadAnswer ? requesterAnswer(row, etimadAnswer === 'yes', etimadJust.trim()) : {}) }]);
     setExpandedGroups((prev) => new Set([...prev, newItem.projectItem]));
     setNewItem({ ...EMPTY_FORM });
     setShowAddForm(false);
@@ -413,17 +421,17 @@ export default function BillOfQuantities() {
       minExperienceYears: row.minExperienceYears ?? '', officialWorkingHours: row.officialWorkingHours ?? '',
       extraWorkingHours: row.extraWorkingHours ?? '', nationalityRequired: !!row.nationalityRequired,
       nationalities: row.nationalities ?? [],
-      onEtimad: isOnEtimad(row), etimadJust: row.etimadJustification ?? '',
+      etimadAnswer: etimadAnswerOf(row) ?? '', etimadJust: row.etimadJustification ?? '',
     });
   }
 
   function handleSaveEdit() {
     if (!editingId || !newItem.projectItem || !newItem.itemName) return;
     const category = newItem.category || deriveCategory(newItem.itemName);
-    const { onEtimad, etimadJust, ...fields } = newItem;
+    const { etimadAnswer, etimadJust, ...fields } = newItem;
     const prev = formData.boqItems.find((r) => r.id === editingId);
     const merged = { ...(prev as BOQRow), ...fields, category } as BOQRow;
-    updateBoqRow(editingId, { ...fields, category, brandJustification: newItem.hasBrandName ? newItem.brandJustification : '', ...requesterAnswer(merged, onEtimad, etimadJust.trim()) });
+    updateBoqRow(editingId, { ...fields, category, brandJustification: newItem.hasBrandName ? newItem.brandJustification : '', ...(etimadAnswer ? requesterAnswer(merged, etimadAnswer === 'yes', etimadJust.trim()) : {}) });
     setExpandedGroups((prev) => new Set([...prev, newItem.projectItem]));
     closeItemForm();
   }
@@ -463,7 +471,7 @@ export default function BillOfQuantities() {
     );
     const formInvalid = !newItem.projectItem || !newItem.itemName ||
       (!isMan && newItem.hasBrandName && !newItem.brandJustification.trim()) || manInvalid ||
-      (newItem.onEtimad && !newItem.etimadJust.trim());
+      !newItem.etimadAnswer || (newItem.etimadAnswer === 'yes' && !newItem.etimadJust.trim());
     return (
           <div className={`${mode === 'edit' ? 'm-3' : 'mt-3'} rounded-xl border border-neutral-200 bg-neutral-50/60 overflow-hidden`}>
             <div className="flex items-start justify-between px-4 py-3 border-b border-neutral-200 bg-white">
@@ -731,9 +739,9 @@ export default function BillOfQuantities() {
                     <p className="text-[13px] font-medium text-neutral-800">{t(ETIMAD_QUESTION.en, ETIMAD_QUESTION.ar)}</p>
                     <p className="text-[11.5px] text-neutral-500 mt-0.5">{t('Standard catalogue items (licences, laptops, furniture, supplies…) are usually bought on Etimad E-Market, not through a tender.', 'البنود القياسية (التراخيص، الحواسيب، الأثاث، المستلزمات…) تُشترى عادةً من سوق اعتماد وليس عبر منافسة.')}</p>
                   </div>
-                  <EtimadSwitch id={`etimad-switch-${mode}`} value={newItem.onEtimad} onChange={(v) => setNewItem((p) => ({ ...p, onEtimad: v, etimadJust: v ? p.etimadJust : '' }))} />
+                  <EtimadAnswer id={`etimad-answer-${mode}`} value={newItem.etimadAnswer || null} onChange={(v) => setNewItem((p) => ({ ...p, etimadAnswer: v, etimadJust: v === 'yes' ? p.etimadJust : '' }))} />
                 </div>
-                {newItem.onEtimad && (
+                {newItem.etimadAnswer === 'yes' && (
                   <div className="slide-up">
                     <JustificationField
                       id={`etimad-just-${mode}`}
@@ -1063,7 +1071,8 @@ export default function BillOfQuantities() {
             <div className="flex-1 min-w-[200px]">
               <p className="text-[12px] font-semibold text-neutral-800">{t('Etimad E-Market availability', 'التوفر في سوق اعتماد')}</p>
               <p className="text-[11px] text-neutral-500">
-                {t('For each item, switch on “Available on Etimad E-Market” if it’s listed there, and give a reason to keep it in this tender.', 'لكل بند، فعّل «متوفر في سوق اعتماد» إن كان مدرجاً هناك، واذكر سبب إبقائه في هذه المنافسة.')}
+                {t('Answer Yes or No for every item. If an item is listed on Etimad E-Market, give a reason to keep it in this tender — Procurement checks every answer.', 'أجب بنعم أو لا لكل بند. إن كان البند مدرجاً في سوق اعتماد، اذكر سبب إبقائه في هذه المنافسة — تتحقق المشتريات من كل إجابة.')}
+                {etimadUnanswered > 0 && ' ' + t(`${etimadUnanswered} not answered yet.`, `${etimadUnanswered} لم تُجب بعد.`)}
                 {etimadAvailableCount > 0 && ' ' + t(`${etimadAvailableCount} marked as available on Etimad.`, `${etimadAvailableCount} محددة كمتوفرة في اعتماد.`)}
                 {etimadMissingJust > 0 && ' ' + t(`${etimadMissingJust} still need${etimadMissingJust === 1 ? 's' : ''} a justification.`, `${etimadMissingJust} ما زالت تحتاج مبرراً.`)}
               </p>

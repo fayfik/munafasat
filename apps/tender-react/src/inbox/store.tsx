@@ -5,7 +5,7 @@
 
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 import { SEED_TASKS, ME } from './data';
-import type { Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry } from './types';
+import type { Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry, EtimadReviewItem } from './types';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
 export const fmtSAR = (n: number) =>
@@ -72,6 +72,12 @@ export function completionStatus(task: Task): Completion {
       total++;
       if (d.uploaded) done++; else missing.push(d.label);
     }
+  } else if (task.type === 'etimad-review' && task.etimadItems) {
+    for (const it of task.etimadItems) {
+      total++;
+      if (it.verdict === 'confirmed' || (it.verdict === 'on-etimad' && (it.note ?? '').trim())) done++;
+      else missing.push({ en: it.name, ar: it.name });
+    }
   } else if (task.type === 'validation' && task.validationChecks) {
     for (const v of task.validationChecks) {
       total++;
@@ -112,6 +118,10 @@ interface InboxCtx {
   setCriterion: (id: string, critId: string, patch: Partial<EvalCriterion>) => void;
   uploadDoc: (id: string, docId: string, fileName: string) => void;
   resolveCheck: (id: string, checkId: string) => void;
+  addTask: (task: Task) => void;
+  setEtimadItem: (id: string, itemId: string, patch: Partial<EtimadReviewItem>) => void;
+  /** Procurement's outcome on an Etimad review: accept all, return to the requester, or move flagged items out. */
+  finishEtimadReview: (id: string, outcome: 'accept' | 'return' | 'move', note?: string) => void;
 }
 
 const Ctx = createContext<InboxCtx | null>(null);
@@ -173,6 +183,37 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     });
   }, [patch]);
 
+  const addTask = useCallback((task: Task) => {
+    setTasks((xs) => (xs.some((t) => t.id === task.id) ? xs : [task, ...xs]));
+  }, []);
+
+  const setEtimadItem = useCallback((id: string, itemId: string, p: Partial<EtimadReviewItem>) => {
+    patch(id, (t) => ({
+      ...t,
+      state: t.state === 'available' ? 'in-progress' : t.state,
+      etimadItems: t.etimadItems?.map((it) => (it.id === itemId ? { ...it, ...p } : it)),
+    }));
+  }, [patch]);
+
+  const finishEtimadReview = useCallback<InboxCtx['finishEtimadReview']>((id, outcome, note) => {
+    const label: Record<typeof outcome, Bilingual> = {
+      accept: { en: 'Etimad answers confirmed', ar: 'تم تأكيد إجابات اعتماد' },
+      return: { en: 'Returned to requester — Etimad answers to correct', ar: 'أُعيد إلى مقدم الطلب — إجابات اعتماد تحتاج تصحيحاً' },
+      move: { en: 'Flagged items moved to an Etimad E-Market draft', ar: 'نُقلت البنود المحددة إلى مسودة سوق اعتماد' },
+    };
+    patch(id, (t) => {
+      const now = new Date().toISOString();
+      const entry: ActivityEntry = { id: uid(), at: now, kind: 'decision', actor: ME, decision: label[outcome], text: note?.trim() || undefined };
+      if (outcome === 'return') {
+        // Back with the requester: it leaves my queue and waits for their correction.
+        return { ...t, state: 'waiting', mineAction: false, initiatedByMe: true, decision: label[outcome], activity: [...t.activity, entry],
+          stageEn: 'Returned to requester', stageAr: 'أُعيد إلى مقدم الطلب' };
+      }
+      return { ...t, state: 'completed', decision: label[outcome], completedAt: now, activity: [...t.activity, entry],
+        stageEn: 'Etimad review complete', stageAr: 'اكتملت مراجعة اعتماد' };
+    });
+  }, [patch]);
+
   const decide = useCallback<InboxCtx['decide']>((id, action, note) => {
     setTasks((xs) => {
       let completedDepId: string | null = null;
@@ -223,8 +264,9 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       getTask: (id) => tasks.find((t) => t.id === id),
       blocked: (t) => isBlocked(t, tasks),
       addComment, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
+      addTask, setEtimadItem, finishEtimadReview,
     };
-  }, [tasks, addComment, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck]);
+  }, [tasks, addComment, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, addTask, setEtimadItem, finishEtimadReview]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

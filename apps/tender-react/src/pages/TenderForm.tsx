@@ -6,6 +6,9 @@ import {
   ArrowLeftIcon, CheckCircleIcon, ExclamationCircleIcon, CheckIcon, ClockIcon,
 } from '../components/Icons';
 import { PROJECTS } from '../data/mockData';
+import { useInbox } from '../inbox/store';
+import { useRequests } from '../context/RequestStore';
+import { buildEtimadReviewTask } from '../lib/etimadReviewTask';
 import stepperWatermark from '../assets/figma/stepper-watermark.svg';
 import type { SectionStatus } from '../types/tender';
 
@@ -41,6 +44,17 @@ export default function TenderForm({ onBack, onOpenRequest }: Props) {
   const { currentSection, goToSection, sectionStatuses, isSaving, lastSaved, formData, saveState, saveNow, submit, readyToSubmit, isSubmitting, submitted, status, routeConfirmed } = useTender();
   const { isAr } = useLanguage();
   const t = useT();
+
+  // Manual mode: a submitted tender goes to Procurement's Inbox for the Etimad E-Market check.
+  const { addTask } = useInbox();
+  const { userName } = useRequests();
+  const { boqTotal } = useTender();
+  const taskSent = useRef(false);
+  useEffect(() => {
+    if (!submitted || taskSent.current) return;
+    const task = buildEtimadReviewTask(formData, submitted.requestNo, userName, boqTotal);
+    if (task) { addTask(task); taskSent.current = true; }
+  }, [submitted, formData, userName, boqTotal, addTask]);
 
   const mainRef = useRef<HTMLElement>(null);
   const [railCollapsed, setRailCollapsed] = useState(false);

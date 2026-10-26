@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { UNITS_OF_MEASURE } from '../data/mockData';
-import { isStale, needsJustification, isOnEtimad, requesterAnswer } from '../lib/etimadCheck';
-import EtimadPanel, { EtimadSwitch } from './EtimadPanel';
+import { isStale, needsJustification, isOnEtimad, requesterAnswer, etimadAnswerOf } from '../lib/etimadCheck';
+import EtimadPanel, { EtimadAnswer } from './EtimadPanel';
 import { PlusIcon, TrashIcon, SparklesIcon, ChevronDownIcon, ChevronRightIcon } from './Icons';
 import type { BOQRow, BOQCategory } from '../types/tender';
 import { BOQ_CATEGORIES, BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
@@ -532,7 +532,7 @@ function EtimadChip({ row, onChange }: { row: BOQRow; onChange: (v: boolean) => 
   const t = useT();
   return (
     <div className="flex items-center justify-between gap-1.5">
-      <EtimadSwitch size="sm" value={isOnEtimad(row)} onChange={onChange} />
+      <EtimadAnswer size="sm" showRequired={false} value={etimadAnswerOf(row)} onChange={(v) => onChange(v === 'yes')} />
       {needsJustification(row) && <span className="text-[10px] font-semibold text-error-600" title={t('Add a justification', 'أضف مبرراً')}>{t('Reason?', 'المبرر؟')}</span>}
     </div>
   );
