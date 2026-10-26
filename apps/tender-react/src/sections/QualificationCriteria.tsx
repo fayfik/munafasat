@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { RemoveRowButton, RemoveAllButton } from '../components/ListActions';
 import { useTender } from '../context/TenderContext';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { SectionCard, PeoplePicker, InfoBanner, AIButton } from '../components/ui';
@@ -98,6 +99,9 @@ export default function QualificationCriteria() {
   const mainPctOk = qualPctTotal === 100;
   const mainPctOver = qualPctTotal > 100;
 
+  const removeMain = (id: string) => updateField('qualificationCriteria', formData.qualificationCriteria.filter((m) => m.id !== id));
+  const removeSub = (mainId: string, subId: string) => updateField('qualificationCriteria', formData.qualificationCriteria.map((m) => m.id === mainId ? { ...m, subCriteria: m.subCriteria.filter((s) => s.id !== subId) } : m));
+
   function getSubPctTotal(mainId: string) {
     const m = formData.qualificationCriteria.find((c) => c.id === mainId);
     if (!m) return 0;
@@ -157,6 +161,7 @@ export default function QualificationCriteria() {
                 <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500 min-w-[220px]">{t('Criteria', 'المعايير')}</th>
                 <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500 min-w-[140px]">{t('Range', 'النطاق')}</th>
                 <th className="text-end px-4 py-2.5 text-xs font-medium text-neutral-500 w-28">{t('Weight (%)', 'الوزن (%)')}</th>
+                <th className="w-10" aria-label={t('Actions', 'إجراءات')} />
               </tr>
             </thead>
             <tbody>
@@ -186,6 +191,7 @@ export default function QualificationCriteria() {
                           <span className="text-xs text-neutral-500">%</span>
                         </div>
                       </td>
+                      <td className="px-1 text-center"><RemoveRowButton onClick={() => removeMain(main.id)} label={t('Remove criterion and its sub-criteria', 'إزالة المعيار ومعاييره الفرعية')} /></td>
                     </tr>
                     {/* Sub rows */}
                     {main.subCriteria.map((sub) => (
@@ -220,6 +226,7 @@ export default function QualificationCriteria() {
                             <span className="text-xs text-neutral-500">%</span>
                           </div>
                         </td>
+                        <td className="px-1 text-center"><RemoveRowButton onClick={() => removeSub(main.id, sub.id)} label={t('Remove sub-criterion', 'إزالة المعيار الفرعي')} /></td>
                       </tr>
                     ))}
                     {/* Sub total row */}
@@ -229,12 +236,21 @@ export default function QualificationCriteria() {
                       <td className={`px-4 py-1.5 text-end text-xs font-semibold tabular-nums ${subOk ? 'text-success-600' : 'text-warning-600'}`}>
                         {subTotal}% {!subOk && '⚠'}
                       </td>
+                      <td />
                     </tr>
                   </React.Fragment>
                 );
               })}
+              {formData.qualificationCriteria.length === 0 && (
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-neutral-400">
+                  {t('No qualification criteria yet. Use a template or import from similar projects.', 'لا توجد معايير تأهيل بعد. استخدم قالباً أو استورد من مشاريع مماثلة.')}
+                </td></tr>
+              )}
             </tbody>
           </table>
+        </div>
+        <div className="mt-2 flex justify-end">
+          <RemoveAllButton count={formData.qualificationCriteria.length} what={t('criteria', 'معايير')} onConfirm={() => updateField('qualificationCriteria', [])} />
         </div>
 
         {/* Main % total indicator */}

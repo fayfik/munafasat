@@ -1,6 +1,7 @@
 import { useT } from '../context/LanguageContext';
 import { isOnEtimad, requesterAnswer } from '../lib/etimadCheck';
 import type { BOQRow } from '../types/tender';
+import JustificationField from './JustificationField';
 
 // Manual mode: the requester answers "Is this item available on Etimad E-Market?"
 // with a Yes/No switch. Yes keeps the item in the tender and asks for a justification
@@ -19,7 +20,7 @@ interface Props {
 }
 
 /** The Yes / No switch itself. */
-export function EtimadSwitch({ value, onChange, size = 'md', id }: { value: boolean; onChange: (v: boolean) => void; size?: 'sm' | 'md'; id?: string }) {
+export function EtimadSwitch({ value, onChange, size = 'md', id, ariaLabel }: { value: boolean; onChange: (v: boolean) => void; size?: 'sm' | 'md'; id?: string; ariaLabel?: string }) {
   const t = useT();
   const sm = size === 'sm';
   return (
@@ -28,7 +29,7 @@ export function EtimadSwitch({ value, onChange, size = 'md', id }: { value: bool
       id={id}
       role="switch"
       aria-checked={value}
-      aria-label={t('Available on Etimad E-Market', 'متوفر في سوق اعتماد')}
+      aria-label={ariaLabel ?? t('Available on Etimad E-Market', 'متوفر في سوق اعتماد')}
       onClick={() => onChange(!value)}
       className={`inline-flex items-center gap-2 ${sm ? 'text-[11px]' : 'text-[12px]'} font-semibold select-none`}
       dir="ltr"
@@ -55,25 +56,20 @@ export default function EtimadPanel({ row, onMove, onUpdate, justificationOnly }
   const fieldId = `etimad-just-${row.id}`;
 
   const justification = on && (
-    <div className="rounded-lg border border-warning-100 bg-warning-50 px-3 py-2.5 space-y-1.5 slide-up">
-      <label htmlFor={fieldId} className="block text-[11px] font-semibold text-warning-800">
-        {t(ETIMAD_JUST_LABEL.en, ETIMAD_JUST_LABEL.ar)} <span className="text-error-600">*</span>
-      </label>
-      <textarea
+    <div className="slide-up">
+      <JustificationField
         id={fieldId}
+        label={t(ETIMAD_JUST_LABEL.en, ETIMAD_JUST_LABEL.ar)}
         value={just}
-        onChange={(e) => onUpdate({ etimadJustification: e.target.value, etimadKeep: true })}
-        rows={2}
         placeholder={t(ETIMAD_JUST_PLACEHOLDER.en, ETIMAD_JUST_PLACEHOLDER.ar)}
-        className="block w-full rounded-lg border border-warning-500/40 bg-white px-3 py-2 text-[12px] text-neutral-900 placeholder-neutral-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
+        onSubmit={(text) => onUpdate({ etimadJustification: text, etimadKeep: true })}
+        footer={
+          <button type="button" onClick={(e) => onMove(e.currentTarget.getBoundingClientRect())}
+            className="text-[11.5px] font-semibold text-brand-700 hover:text-brand-800">
+            {t('Move it to an Etimad E-Market request instead', 'نقله إلى طلب سوق اعتماد بدلاً من ذلك')}
+          </button>
+        }
       />
-      <div className="flex items-center gap-2 flex-wrap">
-        {!just.trim() && <span className="text-[11px] text-warning-700">{t('Required to keep this item in the tender.', 'مطلوب لإبقاء هذا البند في المنافسة.')}</span>}
-        <button type="button" onClick={(e) => onMove(e.currentTarget.getBoundingClientRect())}
-          className="ms-auto text-[11px] font-semibold text-brand-700 hover:text-brand-800">
-          {t('Move it to an Etimad E-Market request instead', 'نقله إلى طلب سوق اعتماد بدلاً من ذلك')}
-        </button>
-      </div>
     </div>
   );
 

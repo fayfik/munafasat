@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { RemoveRowButton, RemoveAllButton } from '../components/ListActions';
 import { useTender } from '../context/TenderContext';
 import { useT } from '../context/LanguageContext';
 import { SectionCard } from '../components/ui';
@@ -24,7 +25,7 @@ function fileIcon(type: string) {
 }
 
 export default function Attachments() {
-  const { formData, addAttachment, removeAttachment } = useTender();
+  const { formData, addAttachment, removeAttachment, updateField } = useTender();
   const t = useT();
   const [dragOver, setDragOver] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -112,9 +113,12 @@ export default function Attachments() {
         {/* File list */}
         {fileCount > 0 && (
           <div className="mt-4 space-y-2">
-            <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
-              {fileCount} {fileCount > 1 ? t('files attached', 'ملفات مرفقة') : t('file attached', 'ملف مرفق')}
-            </p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                {fileCount} {fileCount > 1 ? t('files attached', 'ملفات مرفقة') : t('file attached', 'ملف مرفق')}
+              </p>
+              <RemoveAllButton count={fileCount} what={t('files', 'ملفات')} onConfirm={() => updateField('attachments', [])} />
+            </div>
             {formData.attachments.map((att) => (
               <div key={att.id} className="flex items-center gap-3 bg-white rounded-lg border border-neutral-200 px-4 py-3 group hover:border-neutral-300 transition-colors slide-up">
                 <span className="text-xl flex-shrink-0">{fileIcon(att.mimeType)}</span>
@@ -124,12 +128,7 @@ export default function Attachments() {
                     {fileSize(att.size)} · {t('Uploaded', 'رُفع')} {new Date(att.uploadedAt).toLocaleDateString('en-SA')}
                   </p>
                 </div>
-                <button
-                  onClick={() => removeAttachment(att.id)}
-                  className="opacity-0 group-hover:opacity-100 text-neutral-300 hover:text-error-500 transition-all flex-shrink-0"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </button>
+                <RemoveRowButton onClick={() => removeAttachment(att.id)} label={t('Remove file', 'إزالة الملف')} />
               </div>
             ))}
           </div>

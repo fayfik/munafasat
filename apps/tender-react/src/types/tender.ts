@@ -33,6 +33,8 @@ export interface BOQRow {
   /** User kept an Etimad-available item in the tender. */
   etimadKeep?: boolean;
   etimadJustification?: string;
+  /** Manual mode: pre-filled from the items described for the Procurement route check. */
+  fromRouteCheck?: boolean;
   /** Supporting documents attached to this line (specs, drawings, quotes…). */
   attachments?: FileAttachment[];
   /** Mandatory-list reference (listed company / product) — captured for Material & Equipment items. */

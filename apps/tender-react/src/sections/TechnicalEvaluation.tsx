@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { RemoveRowButton, RemoveAllButton } from '../components/ListActions';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
@@ -223,14 +224,7 @@ export default function TechnicalEvaluation() {
                     <DocumentIcon className="w-4 h-4" />
                   </span>
                   <span className="flex-1 min-w-0 text-[13px] text-neutral-800">{doc}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeDoc(i)}
-                    className="text-neutral-300 hover:text-error-500 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
-                    aria-label={t('Remove document', 'إزالة الوثيقة')}
-                  >
-                    <TrashIcon className="w-3.5 h-3.5" />
-                  </button>
+                  <RemoveRowButton onClick={() => removeDoc(i)} label={t('Remove document', 'إزالة الوثيقة')} />
                 </div>
               ))}
             </div>
@@ -252,6 +246,9 @@ export default function TechnicalEvaluation() {
                 <PlusIcon className="w-4 h-4" />
                 {t('Add', 'إضافة')}
               </button>
+            </div>
+            <div className="flex justify-end">
+              <RemoveAllButton count={(formData.technicalDocumentsList as string[]).length} what={t('added documents', 'وثائق مضافة')} onConfirm={() => updateField('technicalDocumentsList', [])} />
             </div>
             <AiNote error={docsAi.error} usedSample={docsAi.usedSample} />
           </div>
@@ -307,9 +304,7 @@ export default function TechnicalEvaluation() {
                     />
                   </td>
                   <td className="px-2">
-                    <button onClick={() => removeTechReqRow(row.id)} className="opacity-0 group-hover:opacity-100 text-neutral-300 hover:text-error-500 transition-all">
-                      <TrashIcon className="w-3.5 h-3.5" />
-                    </button>
+                    <RemoveRowButton onClick={() => removeTechReqRow(row.id)} label={t('Remove requirement', 'إزالة المتطلب')} />
                   </td>
                 </tr>
               ))}
@@ -321,9 +316,12 @@ export default function TechnicalEvaluation() {
             </tbody>
           </table>
         </div>
-        <button onClick={addTechReqRow} className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm">
+        <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+        <button onClick={addTechReqRow} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm">
           <PlusIcon className="w-3.5 h-3.5" /> {t('Add Requirement', 'إضافة متطلب')}
         </button>
+        <RemoveAllButton count={formData.technicalRequirements.length} what={t('requirements', 'متطلبات')} onConfirm={() => updateField('technicalRequirements', [])} />
+        </div>
       </SectionCard>
 
       {/* Evaluation Criteria */}
@@ -393,9 +391,7 @@ export default function TechnicalEvaluation() {
                     </div>
                   </td>
                   <td className="px-2">
-                    <button onClick={() => removeEvalRow(row.id)} className="opacity-0 group-hover:opacity-100 text-neutral-300 hover:text-error-500 transition-all">
-                      <TrashIcon className="w-3.5 h-3.5" />
-                    </button>
+                    <RemoveRowButton onClick={() => removeEvalRow(row.id)} label={t('Remove criterion', 'إزالة المعيار')} />
                   </td>
                 </tr>
               ))}
@@ -423,9 +419,12 @@ export default function TechnicalEvaluation() {
           </div>
         )}
 
-        <button onClick={addEvalRow} className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm">
+        <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+        <button onClick={addEvalRow} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm">
           <PlusIcon className="w-3.5 h-3.5" /> {t('Add Criterion', 'إضافة معيار')}
         </button>
+        <RemoveAllButton count={formData.evaluationCriteria.length} what={t('criteria', 'معايير')} onConfirm={() => updateField('evaluationCriteria', [])} />
+        </div>
 
         <div className="mt-5 pt-5 border-t border-neutral-100">
           {/* Passing percentage — title & description on the left, the field on the right, one row */}

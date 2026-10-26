@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RemoveRowButton, RemoveAllButton } from './ListActions';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { SectionCard } from './ui';
 import { DocumentIcon, TrashIcon, PlusIcon } from './Icons';
@@ -77,14 +78,7 @@ export default function RegulatoryRecordsCard({ records, extra, onChange }: {
                   <DocumentIcon className="w-4 h-4" />
                 </span>
                 <span className="flex-1 min-w-0 text-[13px] text-neutral-800">{record}</span>
-                <button
-                  type="button"
-                  onClick={() => remove(record)}
-                  className="text-neutral-300 hover:text-error-500 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
-                  aria-label={t('Remove record', 'إزالة السجل')}
-                >
-                  <TrashIcon className="w-3.5 h-3.5" />
-                </button>
+                <RemoveRowButton onClick={() => remove(record)} label={t('Remove record', 'إزالة السجل')} />
               </div>
             ))}
           </div>
@@ -92,6 +86,12 @@ export default function RegulatoryRecordsCard({ records, extra, onChange }: {
           <p className="text-body-sm text-neutral-400 italic">
             {t('Select a project to load regulatory requirements.', 'اختر مشروعاً لتحميل المتطلبات التنظيمية.')}
           </p>
+        )}
+
+        {extra.length > 0 && (
+          <div className="flex justify-end">
+            <RemoveAllButton count={extra.length} what={t('added records', 'سجلات مضافة')} onConfirm={() => onChange([])} />
+          </div>
         )}
 
         {/* Add input */}

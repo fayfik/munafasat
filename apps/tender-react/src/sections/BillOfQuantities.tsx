@@ -16,6 +16,8 @@ import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiBoq, type AiBoqRow } from '../lib/aiTender';
 import { saveFile, aiErrorMessage } from '../lib/claudeRuntime';
 import { isStale, needsJustification, isOnEtimad, requesterAnswer } from '../lib/etimadCheck';
+import JustificationField from '../components/JustificationField';
+import { useAddOrReplace } from '../components/AddOrReplace';
 import EtimadPanel, { EtimadSwitch, ETIMAD_QUESTION, ETIMAD_JUST_LABEL, ETIMAD_JUST_PLACEHOLDER } from '../components/EtimadPanel';
 import BoqSheet from '../components/BoqSheet';
 import { useBoqLayout, setBoqLayout } from '../lib/boqLayout';
@@ -195,8 +197,9 @@ export default function BillOfQuantities() {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newItem, setNewItem] = useState({ ...EMPTY_FORM });
+  const addOrReplace = useAddOrReplace(formData.boqItems.length);
   // Groups start open, so items added elsewhere (AI, import) are visible right away.
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(formData.boqItems.map((r) => r.projectItem || 'Unclassified')));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(formData.boqItems.map((r) => r.projectItem || t('Unclassified', 'غير مصنف'))));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [checkingIds, setCheckingIds] = useState<Set<string>>(new Set());
   const [etimadError, setEtimadError] = useState('');
@@ -292,9 +295,11 @@ export default function BillOfQuantities() {
         return;
       }
       const rows: BOQRow[] = parsed.map((r) => ({ id: crypto.randomUUID(), category: deriveCategory(r.itemName), ...r }));
-      updateField('boqItems', rows);
-      setExpandedGroups(new Set(rows.map((r) => r.projectItem).filter(Boolean)));
       setShowUploadZone(false);
+      addOrReplace.run(rows.length, t('Import from template', 'استيراد من النموذج'), (m) => {
+        updateField('boqItems', m === 'add' ? [...formData.boqItems, ...rows] : rows);
+        setExpandedGroups((prev) => new Set([...(m === 'add' ? prev : []), ...rows.map((r) => r.projectItem).filter(Boolean)]));
+      });
     } catch {
       setUploadError(t('Failed to parse the file. Make sure you used the downloaded template.', 'تعذّر قراءة الملف. تأكد من استخدام النموذج الذي تم تنزيله.'));
     } finally {
@@ -312,6 +317,28 @@ export default function BillOfQuantities() {
     return effectiveQty(row) * p;
   };
 
+  // Fields still to be filled on a line (e.g. lines pre-filled from the route check).
+  const missingOf = (r: BOQRow): string[] => {
+    if ((r.category ?? deriveCategory(r.itemName)) === 'manpower') return [!r.projectItem && t('Budgeted item', 'البند المعتمد')].filter(Boolean) as string[];
+    return [
+      !r.projectItem && t('Budgeted item', 'البند المعتمد'),
+      r.quantity === '' && t('Quantity', 'الكمية'),
+      r.unitPrice === '' && t('Unit price', 'سعر الوحدة'),
+      !r.deliveryDate && t('Delivery date', 'موعد التسليم'),
+    ].filter(Boolean) as string[];
+  };
+  const incompleteCount = formData.boqItems.filter((r) => missingOf(r).length > 0).length;
+  const missingLine = (r: BOQRow) => {
+    const m = missingOf(r);
+    if (!m.length) return null;
+    return (
+      <div className="flex items-center gap-2 flex-wrap rounded-md border border-warning-200 bg-warning-50 px-3 py-1.5" data-testid="missing-line">
+        <span className="w-1.5 h-1.5 rounded-full bg-warning-500 flex-shrink-0" />
+        <span className="text-[11.5px] text-warning-800"><span className="font-semibold">{t('Still to fill:', 'متبقٍ للتعبئة:')}</span> {m.join(' · ')}</span>
+        <button type="button" onClick={() => startEdit(r)} className="ms-auto text-[11.5px] font-semibold text-brand-700 hover:text-brand-800">{t('Complete details', 'إكمال التفاصيل')} →</button>
+      </div>
+    );
+  };
   const groups: { key: string; rows: BOQRow[] }[] = [];
   formData.boqItems.forEach((row) => {
     const key = row.projectItem || t('Unclassified', 'غير مصنف');
@@ -323,7 +350,9 @@ export default function BillOfQuantities() {
   // Project-item group headers come from the (English) project item name; show the
   // Arabic name when the app language is Arabic.
   const projNameAr = new Map((selectedProject?.items ?? []).map((it) => [it.name, it.nameAr]));
-  const groupLabel = (key: string) => (isAr ? (projNameAr.get(key) ?? key) : key);
+  const groupLabel = (key: string) => key === t('Unclassified', 'غير مصنف')
+    ? t('Not linked to a budgeted item yet', 'لم يُربط ببند معتمد بعد')
+    : (isAr ? (projNameAr.get(key) ?? key) : key);
   // Seeded rows carry the English project-item name as the item name; show its
   // Arabic name in Arabic mode. Free-typed / AI rows keep their own name.
   const itemLabel = (name: string) => (isAr ? (projNameAr.get(name) ?? name) : name);
@@ -340,10 +369,12 @@ export default function BillOfQuantities() {
   const [showPastDialog, setShowPastDialog] = useState(false);
   function handleAISuggest() { setShowPastDialog(true); }
   function copyFromPast(rfp: PastRfp) {
-    const rows = (buildRfpImport(rfp, formData).boqItems ?? []).map((r) => ({ ...r, category: r.category ?? deriveCategory(r.itemName) }));
-    updateField('boqItems', rows);
-    setExpandedGroups(new Set(rows.map((r) => r.projectItem)));
+    const rows = (buildRfpImport(rfp, formData).boqItems ?? []).map((r) => ({ ...r, id: crypto.randomUUID(), category: r.category ?? deriveCategory(r.itemName) }));
     setShowPastDialog(false);
+    addOrReplace.run(rows.length, t(`Copy from ${rfp.code}`, `نسخ من ${rfp.code}`), (m) => {
+      updateField('boqItems', m === 'add' ? [...formData.boqItems, ...rows] : rows);
+      setExpandedGroups((prev) => new Set([...(m === 'add' ? prev : []), ...rows.map((r) => r.projectItem)]));
+    });
   }
 
   function handleAddItem() {
@@ -407,6 +438,8 @@ export default function BillOfQuantities() {
   }
 
   function renderItemForm(mode: 'add' | 'edit', lockedCategory?: BOQCategory | null) {
+    const editingRow = mode === 'edit' ? formData.boqItems.find((r) => r.id === editingId) : undefined;
+    const warnIf = (empty: boolean) => (editingRow && missingOf(editingRow).length > 0 && empty ? 'border-warning-400 bg-warning-50/60' : '');
     // Project-item classification = the items chosen in Project Setup, plus any
     // groups already present in the BOQ. A new item attaches to the one picked here
     // and groups under it in the Grid (subtotals & totals recompute automatically).
@@ -436,7 +469,7 @@ export default function BillOfQuantities() {
             <div className="flex items-start justify-between px-4 py-3 border-b border-neutral-200 bg-white">
               <div>
                 <p className="text-sm font-semibold text-neutral-800">{mode === 'edit' ? t('Edit BOQ Item', 'تعديل البند') : t('Add BOQ Item', 'إضافة بند')}</p>
-                <p className="text-xs text-neutral-500 mt-0.5">{mode === 'edit' ? t('Change the fields, then save. Changing name, quantity or price resets the Etimad check.', 'عدّل الحقول ثم احفظ. تغيير الاسم أو الكمية أو السعر يعيد التحقق من اعتماد.') : t('Fill all fields then save to add to the table', 'أكمل جميع الحقول ثم احفظ لإضافتها إلى الجدول')}</p>
+                <p className="text-xs text-neutral-500 mt-0.5">{mode === 'edit' ? t('Change the fields, then save. Fields still to fill are marked in orange.', 'عدّل الحقول ثم احفظ. الحقول غير المعبأة موضحة باللون البرتقالي.') : t('Fill all fields then save to add to the table', 'أكمل جميع الحقول ثم احفظ لإضافتها إلى الجدول')}</p>
               </div>
               <button
                 onClick={closeItemForm}
@@ -455,6 +488,7 @@ export default function BillOfQuantities() {
                   <Select
                     value={newItem.projectItem}
                     onChange={(e) => setNewItem((p) => ({ ...p, projectItem: e.target.value }))}
+                    className={warnIf(!newItem.projectItem)}
                   >
                     <option value="">{t('Select budgeted item…', 'اختر البند المعتمد…')}</option>
                     {itemNameOptions.map((v) => <option key={v} value={v}>{v}</option>)}
@@ -634,6 +668,7 @@ export default function BillOfQuantities() {
                         value={newItem.quantity}
                         onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value === '' ? '' : Number(e.target.value) }))}
                         placeholder="1"
+                        className={warnIf(newItem.quantity === '')}
                       />
                     </FormField>
                     <FormField label="Unit Price (SAR)" labelAr="سعر الوحدة">
@@ -642,6 +677,7 @@ export default function BillOfQuantities() {
                         value={newItem.unitPrice}
                         onChange={(e) => setNewItem((p) => ({ ...p, unitPrice: e.target.value === '' ? '' : Number(e.target.value) }))}
                         placeholder="0.00"
+                        className={warnIf(newItem.unitPrice === '')}
                       />
                     </FormField>
                   </div>
@@ -653,24 +689,13 @@ export default function BillOfQuantities() {
                         type="date"
                         value={newItem.deliveryDate}
                         onChange={(e) => setNewItem((p) => ({ ...p, deliveryDate: e.target.value }))}
+                        className={warnIf(!newItem.deliveryDate)}
                       />
                     </FormField>
                     <FormField label="Has Brand Name?" labelAr="هل يوجد علامة تجارية؟">
-                      <div className="flex rounded-lg border border-neutral-300 overflow-hidden mt-0.5" dir="ltr">
-                        <button
-                          type="button"
-                          onClick={() => setNewItem((p) => ({ ...p, hasBrandName: true }))}
-                          className={`flex-1 py-2 text-sm font-medium transition-colors ${newItem.hasBrandName ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
-                        >
-                          {t('Yes', 'نعم')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setNewItem((p) => ({ ...p, hasBrandName: false, brandJustification: '' }))}
-                          className={`flex-1 py-2 text-sm font-medium border-s border-neutral-300 transition-colors ${!newItem.hasBrandName ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
-                        >
-                          {t('No', 'لا')}
-                        </button>
+                      <div className="h-[38px] flex items-center">
+                        <EtimadSwitch id={`brand-switch-${mode}`} ariaLabel={t('Has brand name', 'يوجد علامة تجارية')} value={newItem.hasBrandName}
+                          onChange={(v) => setNewItem((p) => ({ ...p, hasBrandName: v, brandJustification: v ? p.brandJustification : '' }))} />
                       </div>
                     </FormField>
                   </div>
@@ -678,14 +703,13 @@ export default function BillOfQuantities() {
                   {/* 6. Brand Justification — when hasBrandName */}
                   {newItem.hasBrandName && (
                     <div className="slide-up">
-                      <FormField label="Brand Justification" labelAr="مبرر العلامة التجارية" required>
-                        <Textarea
-                          value={newItem.brandJustification}
-                          onChange={(e) => setNewItem((p) => ({ ...p, brandJustification: e.target.value }))}
-                          placeholder={t('Explain why a specific brand is required…', 'اشرح سبب الحاجة لعلامة تجارية محددة…')}
-                          rows={3}
-                        />
-                      </FormField>
+                      <JustificationField
+                        id={`brand-just-${mode}`}
+                        label={t('Brand justification — why is a specific brand required?', 'مبرر العلامة التجارية — لماذا تلزم علامة محددة؟')}
+                        value={newItem.brandJustification}
+                        placeholder={t('Explain why a specific brand is required…', 'اشرح سبب الحاجة لعلامة تجارية محددة…')}
+                        onSubmit={(text) => setNewItem((p) => ({ ...p, brandJustification: text }))}
+                      />
                     </div>
                   )}
 
@@ -711,14 +735,13 @@ export default function BillOfQuantities() {
                 </div>
                 {newItem.onEtimad && (
                   <div className="slide-up">
-                    <FormField label={ETIMAD_JUST_LABEL.en} labelAr={ETIMAD_JUST_LABEL.ar} required>
-                      <Textarea
-                        value={newItem.etimadJust}
-                        onChange={(e) => setNewItem((p) => ({ ...p, etimadJust: e.target.value }))}
-                        placeholder={t(ETIMAD_JUST_PLACEHOLDER.en, ETIMAD_JUST_PLACEHOLDER.ar)}
-                        rows={3}
-                      />
-                    </FormField>
+                    <JustificationField
+                      id={`etimad-just-${mode}`}
+                      label={t(ETIMAD_JUST_LABEL.en, ETIMAD_JUST_LABEL.ar)}
+                      value={newItem.etimadJust}
+                      placeholder={t(ETIMAD_JUST_PLACEHOLDER.en, ETIMAD_JUST_PLACEHOLDER.ar)}
+                      onSubmit={(text) => setNewItem((p) => ({ ...p, etimadJust: text }))}
+                    />
                     <p className="text-[11px] text-neutral-500 mt-1">{t('Procurement reviews this. Without a reason, the item should go to a separate Etimad E-Market request.', 'تراجع المشتريات هذا المبرر. بدون مبرر، ينبغي نقل البند إلى طلب مستقل في سوق اعتماد.')}</p>
                   </div>
                 )}
@@ -1045,6 +1068,12 @@ export default function BillOfQuantities() {
                 {etimadMissingJust > 0 && ' ' + t(`${etimadMissingJust} still need${etimadMissingJust === 1 ? 's' : ''} a justification.`, `${etimadMissingJust} ما زالت تحتاج مبرراً.`)}
               </p>
             </div>
+            {incompleteCount > 0 && (
+              <p className="basis-full text-[11.5px] font-semibold text-warning-800 flex items-center gap-1.5" data-testid="incomplete-note">
+                <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />
+                {t(`${incompleteCount} item${incompleteCount === 1 ? ' has' : 's have'} fields still to fill — marked in orange below.`, `${incompleteCount} بند فيه حقول لم تُعبأ — موضحة باللون البرتقالي أدناه.`)}
+              </p>
+            )}
             {formData.linkedEtimadRequestId && (
               <p className="basis-full text-[11px] text-success-700">
                 {t('Moved items are in a separate Etimad E-Market draft under My Requests.', 'البنود المنقولة موجودة في مسودة مستقلة لسوق اعتماد ضمن طلباتي.')}
@@ -1120,9 +1149,9 @@ export default function BillOfQuantities() {
                           const unitPrice = typeof row.unitPrice === 'number' ? row.unitPrice : 0;
                           const showCheckTop = !row.etimadCheck || isStale(row);
                           return (
-                            <div key={row.id} className="bg-white">
+                            <div key={row.id} className={missingOf(row).length ? "border-s-4 border-warning-400 bg-warning-50/30" : "bg-white"}>
                             {editingId === row.id ? renderItemForm('edit') : (<>
-                            <div className="grid grid-cols-[1fr_64px_104px_136px_84px] items-center px-5 py-3 bg-white hover:bg-neutral-50/40 transition-colors group/row">
+                            <div className={`grid grid-cols-[1fr_64px_104px_136px_84px] items-center px-5 py-3 ${missingOf(row).length ? "" : "bg-white"} hover:bg-neutral-50/40 transition-colors group/row`}>
                               {/* Item */}
                               <div className="pe-4 col-start-1">
                                 <p className="text-sm font-semibold text-neutral-900 leading-snug">{itemLabel(row.itemName) || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
@@ -1204,7 +1233,8 @@ export default function BillOfQuantities() {
                               </div>
                             </div>
                             {(
-                              <div className="px-5 pb-3.5">
+                              <div className="px-5 pb-3.5 space-y-2">
+                                {missingLine(row)}
                                 <EtimadPanel
                                   row={row}
                                   checking={checkingIds.has(row.id)}
@@ -1250,7 +1280,7 @@ export default function BillOfQuantities() {
                         const unitPrice = typeof row.unitPrice === 'number' ? row.unitPrice : 0;
                         const showCheckTop = !row.etimadCheck || isStale(row);
                         return (
-                          <div key={row.id} className="bg-white hover:bg-neutral-50/40 transition-colors">
+                          <div key={row.id} className={`${missingOf(row).length ? "border-s-4 border-warning-400 bg-warning-50/30" : "bg-white"} hover:bg-neutral-50/40 transition-colors`}>
                             <div className="grid grid-cols-[1fr_72px_112px_128px_56px] items-center gap-2 px-4 pt-2.5">
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-neutral-900 truncate">{itemLabel(row.itemName) || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
@@ -1266,6 +1296,7 @@ export default function BillOfQuantities() {
                             </div>
                             {(
                               <div className="px-4 pt-0 pb-3 space-y-2">
+                                {missingLine(row)}
                                 {(row.attachments?.length ?? 0) > 0 && <BoqAttachments readOnly attachments={row.attachments ?? []} onChange={() => {}} />}
                                 {<EtimadPanel row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} onMove={(origin) => requestMove(row, origin)} onUpdate={(patch) => updateBoqRow(row.id, patch)} />}
                               </div>
@@ -1328,6 +1359,7 @@ export default function BillOfQuantities() {
           </div>
         )}
       </SectionCard>
+      {addOrReplace.dialog}
       {showPastDialog && <BrowseRfpsDialog projectId={formData.projectId} onClose={() => setShowPastDialog(false)} onImport={copyFromPast} />}
 
       {/* Delete-all confirmation */}

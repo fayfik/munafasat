@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useAddOrReplace } from '../components/AddOrReplace';
 import * as XLSX from 'xlsx';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
@@ -127,6 +128,7 @@ export default function EsouqBillOfQuantities() {
   const [uploadErr, setUploadErr] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const addOrReplace = useAddOrReplace(formData.boqItems.length);
   const fileRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
@@ -191,8 +193,11 @@ export default function EsouqBillOfQuantities() {
 
   // Manual mode: copy the basket of a past eMarket purchase in this project, then edit it.
   function generateAI() {
-    updateField('boqItems', (isAr ? AI_ESOUQ_ROWS_AR : AI_ESOUQ_ROWS).map((r) => ({ id: crypto.randomUUID(), ...r })));
-    setExpanded(new Set(['product', 'service', 'vehicle-leasing']));
+    const incoming = (isAr ? AI_ESOUQ_ROWS_AR : AI_ESOUQ_ROWS).map((r) => ({ id: crypto.randomUUID(), ...r }));
+    addOrReplace.run(incoming.length, t('Copy from a past purchase', 'نسخ من عملية شراء سابقة'), (m) => {
+      updateField('boqItems', m === 'add' ? [...formData.boqItems, ...incoming] : incoming);
+      setExpanded(new Set(['product', 'service', 'vehicle-leasing']));
+    });
   }
 
   async function onUpload(file: File) {
@@ -201,9 +206,12 @@ export default function EsouqBillOfQuantities() {
     try {
       const parsed = await parseTemplate(file);
       if (!parsed.length) { setUploadErr(t('No valid rows found. Check the template columns.', 'لم يتم العثور على بنود صالحة. تحقق من أعمدة النموذج.')); return; }
-      updateField('boqItems', parsed.map((r) => ({ id: crypto.randomUUID(), ...r })));
-      setExpanded(new Set(['product', 'service', 'vehicle-leasing']));
+      const incoming = parsed.map((r) => ({ id: crypto.randomUUID(), ...r }));
       setShowUpload(false);
+      addOrReplace.run(incoming.length, t('Import from template', 'استيراد من النموذج'), (m) => {
+        updateField('boqItems', m === 'add' ? [...formData.boqItems, ...incoming] : incoming);
+        setExpanded(new Set(['product', 'service', 'vehicle-leasing']));
+      });
     } catch { setUploadErr(t('Failed to read the file. Use the downloaded template.', 'تعذّر قراءة الملف. استخدم النموذج المنزَّل.')); }
   }
 
@@ -211,6 +219,7 @@ export default function EsouqBillOfQuantities() {
 
   return (
     <div className="space-y-5">
+      {addOrReplace.dialog}
       <SectionCard
         title="Bill of Quantities"
         titleAr="جدول الكميات"
@@ -375,20 +384,22 @@ export default function EsouqBillOfQuantities() {
   /* ── Row card (grouped view) ─────────────────────────────────────────────── */
   function RowCard({ r }: { r: BOQRow }) {
     const isProduct = r.purchaseType === 'product';
-    const chips: { label: string; value: string }[] = [
-      { label: t('Supplier', 'المورّد'), value: r.supplier || '—' },
-      { label: t('Product ID', 'معرّف المنتج'), value: r.productId || '—' },
-      { label: t('Price', 'السعر'), value: n(r.unitPrice) ? `SAR ${fmt(n(r.unitPrice))}` : '—' },
+    const chips: { label: string; value: string; need?: boolean }[] = [
+      { label: t('Supplier', 'المورّد'), value: r.supplier || '—', need: true },
+      { label: t('Product ID', 'معرّف المنتج'), value: r.productId || '—', need: true },
+      { label: t('Price', 'السعر'), value: n(r.unitPrice) ? `SAR ${fmt(n(r.unitPrice))}` : '—', need: true },
       ...(isProduct
-        ? [{ label: t('Qty', 'الكمية'), value: `${r.quantity !== '' ? r.quantity : '—'} ${r.orderUnit || ''}`.trim() },
+        ? [{ label: t('Qty', 'الكمية'), value: `${r.quantity !== '' ? r.quantity : '—'} ${r.orderUnit || ''}`.trim(), need: true },
            { label: t('Shipping', 'الشحن'), value: n(r.shippingCharges) ? `SAR ${fmt(n(r.shippingCharges))}` : '—' }]
         : [{ label: t('Period', 'الفترة'), value: r.startDate && r.endDate ? `${r.startDate} → ${r.endDate}` : '—' },
            { label: t('Duration', 'المدة'), value: durationText(r.startDate, r.endDate, isAr) || '—' }]),
       { label: t('Delivery', 'التسليم'), value: r.deliveryDate || '—' },
       { label: t('Responsible', 'المسؤول'), value: `${r.respName || '—'}${r.respMobile ? ' · ' + r.respMobile : ''}` },
     ];
+    // Lines pre-filled from the route check: flag the fields still to fill.
+    const missing = chips.filter((c) => c.need && (c.value === '—' || c.value.startsWith('—')));
     return (
-      <div className="bg-white hover:bg-neutral-50/40 transition-colors px-4 py-3">
+      <div className={`${missing.length ? 'border-s-4 border-warning-400 bg-warning-50/30' : 'bg-white'} hover:bg-neutral-50/40 transition-colors px-4 py-3`}>
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
@@ -397,12 +408,18 @@ export default function EsouqBillOfQuantities() {
             </div>
             <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
               {chips.map((c, i) => (
-                <div key={i} className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wide text-neutral-400">{c.label}</p>
+                <div key={i} className={`min-w-0 ${missing.includes(c) ? 'rounded px-1.5 -mx-1.5 bg-warning-100/70' : ''}`}>
+                  <p className={`text-[10px] uppercase tracking-wide ${missing.includes(c) ? 'text-warning-700 font-semibold' : 'text-neutral-400'}`}>{c.label}</p>
                   <p className="text-[12.5px] text-neutral-700 truncate" dir={/SAR|\d{4}-/.test(c.value) ? 'ltr' : undefined} title={c.value}>{c.value}</p>
                 </div>
               ))}
             </div>
+            {missing.length > 0 && (
+              <div className="mt-2 flex items-center gap-2 flex-wrap rounded-md border border-warning-200 bg-warning-50 px-3 py-1.5" data-testid="missing-line">
+                <span className="text-[11.5px] text-warning-800"><span className="font-semibold">{t('Still to fill:', 'متبقٍ للتعبئة:')}</span> {missing.map((c) => c.label).join(' · ')}</span>
+                <button type="button" onClick={() => openEdit(r)} className="ms-auto text-[11.5px] font-semibold text-brand-700 hover:text-brand-800">{t('Complete details', 'إكمال التفاصيل')} →</button>
+              </div>
+            )}
           </div>
           <div className="text-end flex-shrink-0">
             <p className="text-[10px] uppercase tracking-wide text-neutral-400">{t('Total value', 'القيمة الإجمالية')}</p>

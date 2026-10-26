@@ -76,8 +76,8 @@ export default function ProcurementRouteStep() {
   const freeValid = freeItems.filter((f) => f.name.trim().length > 0);
 
   // Everything fed into the route check: chosen project items + free-typed items.
+  // Manual mode: budgeted items aren't sent to Procurement — only what the requester typed or listed.
   const clsInput: ClsItem[] = [
-    ...selected.map((i) => ({ id: i.id, name: i.name, nameAr: i.nameAr, type: i.type, projectItemId: i.id })),
     ...(intakeStyle === 'fields'
       ? detailsUsed.filter((d) => d.name.trim()).map((d) => ({ id: d.id, name: d.name.trim() }))
       : freeValid.map((f) => ({ id: f.id, name: f.name.trim() }))),
@@ -147,10 +147,7 @@ export default function ProcurementRouteStep() {
         return;
       }
       setIntakeError('');
-      setPending([
-        ...selected.map((i) => ({ id: i.id, name: i.name, nameAr: i.nameAr, type: i.type, projectItemId: i.id })),
-        ...detailsUsed.map((d) => ({ id: d.id, name: d.name.trim(), type: d.type ? CAT_TO_ITEM_TYPE[d.type] : undefined })),
-      ]);
+      setPending(detailsUsed.map((d) => ({ id: d.id, name: d.name.trim(), type: d.type ? CAT_TO_ITEM_TYPE[d.type] : undefined })));
       setSentAt(new Date().toISOString());
       setPhase('awaiting');
       return;
@@ -161,11 +158,8 @@ export default function ProcurementRouteStep() {
     if (effFree.length === 0 && text.trim().length > 0) {
       effFree = parseItemNames(text.trim()).map((n) => ({ id: uid(), name: n }));
     }
-    const input: ClsItem[] = [
-      ...selected.map((i) => ({ id: i.id, name: i.name, nameAr: i.nameAr, type: i.type, projectItemId: i.id })),
-      ...effFree.map((f) => ({ id: f.id, name: f.name.trim() })),
-    ];
-    if (input.length === 0) return;
+    const input: ClsItem[] = effFree.map((f) => ({ id: f.id, name: f.name.trim() }));
+    if (input.length === 0) { setIntakeError(t('Describe at least one item for Procurement to check.', 'صف بنداً واحداً على الأقل لتفحصه المشتريات.')); return; }
     // Validation: if the user typed something, at least one of those items must
     // read like a real procurement item — block random / gibberish text.
     const freeNames = effFree.map((f) => f.name.trim()).filter(Boolean);
@@ -215,14 +209,27 @@ export default function ProcurementRouteStep() {
     confirmRoute({
       sourceType: ROUTE_META[g.route].sourceType,
       projectId,
-      items: g.items.map((i) => ({ name: i.name, nameAr: i.nameAr, projectItemId: i.projectItemId })),
+      items: [...selected.map((i) => ({ name: i.name, nameAr: i.nameAr, projectItemId: i.id })), ...g.items.map((i) => ({ name: i.name, nameAr: i.nameAr }))],
       choice: 'help',
+      boqSeed: seedBoq(g.items, ROUTE_META[g.route].sourceType) as never,
     });
     // The other route's items become a linked draft, so they aren't lost.
     linkDrafts(groups.filter((x) => x.key !== g.key).map((x) => moveToDraft(x.route, x.items)));
     // Both routes now continue into the wizard (confirmRoute advances to Project Setup).
   }
 
+  // BOQ lines pre-filled from what was sent to Procurement. Budgeted item is left for the
+  // creator to link in the BOQ step; any missing field is flagged there.
+  const seedBoq = (vs: ItemVerdict[], sourceType: SourceType) => vs.map((v) => { const d = detailOf(v.id); return {
+    id: crypto.randomUUID(), projectItem: '', itemName: v.name, itemDescription: '', unitOfMeasure: 'Each',
+    quantity: (d?.qty ?? '') as number | '', unitPrice: (d?.unitPrice ?? '') as number | '', deliveryDate: d?.deliveryDate ?? '',
+    ...(d?.type ? { category: d.type } : {}),
+    fromRouteCheck: true,
+    ...(sourceType === 'souq-etimad'
+      ? { purchaseType: (d?.type ? (d.type === 'service' || d.type === 'manpower' ? 'service' : 'product') : (v.boqType === 'services' || v.boqType === 'manpower' ? 'service' : 'product')) as 'service' | 'product', productId: '', supplier: '',
+          lineTotal: (d && d.qty !== '' && d.unitPrice !== '' ? Number(d.qty) * Number(d.unitPrice) : '') as number | '' }
+      : {}),
+  }; });
   const toItems = (vs: ItemVerdict[]) => vs.map((i) => ({ name: i.name, nameAr: i.nameAr, projectItemId: i.projectItemId }));
   const itemNames = (vs: ItemVerdict[]) => vs.map((i) => (isAr ? i.nameAr : i.name)).join(isAr ? '، ' : ', ');
   // Save the flagged items as a separate draft request (shown in My Requests for this session).
@@ -232,16 +239,9 @@ export default function ProcurementRouteStep() {
     const sourceType = ROUTE_META[route].sourceType;
     const form = {
       sourceType, projectId, costCenterId: project?.costCenterId ?? '',
-      selectedProjectItemIds: vs.map((v) => v.projectItemId).filter((x): x is string => !!x),
+      selectedProjectItemIds: selected.map((x) => x.id),
       tenderingPurpose: project?.purpose ?? '',
-      boqItems: vs.map((v) => { const d = detailOf(v.id); return {
-        id: crypto.randomUUID(), projectItem: v.name, itemName: v.name, itemDescription: '', unitOfMeasure: 'Each',
-        quantity: d?.qty ?? '', unitPrice: d?.unitPrice ?? '', deliveryDate: d?.deliveryDate ?? '',
-        ...(d?.type ? { category: d.type } : {}),
-        ...(sourceType === 'souq-etimad'
-          ? { purchaseType: (v.boqType === 'services' || v.boqType === 'manpower' ? 'service' : 'product') as 'service' | 'product', productId: '', supplier: '', lineTotal: (d && d.qty !== '' && d.unitPrice !== '' ? Number(d.qty) * Number(d.unitPrice) : '') as number | '' }
-          : {}),
-      }; }),
+      boqItems: seedBoq(vs, sourceType),
     } as unknown as TenderFormData;
     const id = addSessionDraft({
       title: `${project?.name ?? 'Request'} — ${ROUTE_META[route].en} (${vs.length} item${vs.length > 1 ? 's' : ''})`,
@@ -490,7 +490,7 @@ export default function ProcurementRouteStep() {
                     : t(`${selected.length} budgeted item${selected.length > 1 ? 's' : ''} selected`, `${selected.length} بند معتمد محدد`)}
                 </span>
                 {mode === 'help' ? (
-                  <Button variant="primary" size="lg" onClick={runCheck} disabled={intakeStyle === 'fields' ? detailsUsed.length === 0 : (text.trim().length === 0 && freeValid.length === 0 && selected.length === 0)}>
+                  <Button variant="primary" size="lg" onClick={runCheck} disabled={intakeStyle === 'fields' ? detailsUsed.length === 0 : (text.trim().length === 0 && freeValid.length === 0)}>
                     {t('Send to Procurement for an Etimad check', 'إرسال إلى المشتريات لفحص اعتماد')} →
                   </Button>
                 ) : (
@@ -535,6 +535,7 @@ export default function ProcurementRouteStep() {
                      'يفحص فريق المشتريات كل بند في السوق الإلكتروني ويخبرك بما يمكن شراؤه منه وما يتطلب منافسة. ستُبلَّغ عند الرد.')}
                 </p>
                 <p className="text-[12px] text-neutral-500 mt-2">{t('Route you asked for:', 'المسار الذي طلبته:')} <span className="font-semibold text-neutral-700">{mode === 'tender' ? t('Tendering', 'منافسة') : mode === 'emarket' ? t('Etimad eMarket', 'السوق الإلكتروني') : t('Help me decide', 'ساعدني في الاختيار')}</span></p>
+                {selected.length > 0 && <p className="text-[12px] text-neutral-500 mt-1">{t(`Your ${selected.length} budgeted item${selected.length > 1 ? 's' : ''} aren’t sent for this check — they stay with the request, and you’ll link each BOQ line to one in the Bill of Quantities step.`, `لا تُرسل البنود المعتمدة (${selected.length}) لهذا الفحص — تبقى مع الطلب، وستربط كل بند في جدول الكميات بأحدها.`)}</p>}
               </div>
             </div>
             <ul className="mt-4 rounded-lg border border-neutral-200 divide-y divide-neutral-100">

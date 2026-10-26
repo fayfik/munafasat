@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RemoveRowButton, RemoveAllButton } from '../components/ListActions';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
@@ -222,12 +223,7 @@ export default function PaymentSchedule() {
                     </div>
                   </td>
                   <td className="px-2 py-1.5">
-                    <button
-                      onClick={() => removePaymentRow(row.id)}
-                      className="opacity-0 group-hover:opacity-100 text-neutral-300 hover:text-error-500 transition-all"
-                    >
-                      <TrashIcon className="w-3.5 h-3.5" />
-                    </button>
+                    <RemoveRowButton onClick={() => removePaymentRow(row.id)} label={t('Remove stage', 'إزالة المرحلة')} />
                   </td>
                 </tr>
               ))}
@@ -254,13 +250,16 @@ export default function PaymentSchedule() {
           </table>
         </div>
 
+        <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
         <button
           onClick={addPaymentRow}
-          className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm"
         >
           <PlusIcon className="w-3.5 h-3.5" />
           {t('Add Stage', 'إضافة مرحلة')}
         </button>
+        <RemoveAllButton count={formData.paymentStages.length} what={t('stages', 'مراحل')} onConfirm={() => updateField('paymentStages', [])} />
+        </div>
 
         {boqSubtotal === 0 && (
           <InfoBanner variant="info" className="mt-4">

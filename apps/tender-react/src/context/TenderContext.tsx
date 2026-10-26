@@ -106,7 +106,7 @@ interface TenderContextType {
   qualPctTotal: number;
   /** Step 1 (Procurement Route) determines the channel; later steps unlock once it's confirmed. */
   routeConfirmed: boolean;
-  confirmRoute: (opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[]; justification?: string; justifiedItems?: string[]; choice?: 'tender' | 'emarket' | 'help'; movedToDraft?: { count: number; route: SourceType } }) => void;
+  confirmRoute: (opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[]; justification?: string; justifiedItems?: string[]; choice?: 'tender' | 'emarket' | 'help'; movedToDraft?: { count: number; route: SourceType }; boqSeed?: BOQRow[] }) => void;
   importedFromProject: string | null;
   setImportedFromProject: (name: string | null) => void;
   /** Last RFP imported in Project Setup, with the values it replaced (for Undo). */
@@ -220,7 +220,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
 
   // Called from the Procurement Route step once the channel is determined.
   // Seeds the project, cost center, selected items and a starter BOQ for the chosen group.
-  const confirmRoute = useCallback((opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[]; justification?: string; justifiedItems?: string[]; choice?: 'tender' | 'emarket' | 'help'; movedToDraft?: { count: number; route: SourceType } }) => {
+  const confirmRoute = useCallback((opts: { sourceType: SourceType; projectId: string; items: { name: string; nameAr?: string; projectItemId?: string }[]; justification?: string; justifiedItems?: string[]; choice?: 'tender' | 'emarket' | 'help'; movedToDraft?: { count: number; route: SourceType }; boqSeed?: BOQRow[] }) => {
     const proj = PROJECTS.find((p) => p.id === opts.projectId);
     setFormData((prev) => ({
       ...prev,
@@ -233,8 +233,8 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       routeChoice: opts.choice,
       movedToDraft: opts.movedToDraft,
       tenderingPurpose: prev.tenderingPurpose || proj?.purpose || '',
-      // BOQ starts empty — the user builds it manually (Add BOQ Item / AI Suggest / import).
-      boqItems: [],
+      // BOQ starts empty — except lines the requester described for the route check (manual mode).
+      boqItems: opts.boqSeed ?? [],
     }));
     setRouteConfirmed(true);
     triggerSave();
