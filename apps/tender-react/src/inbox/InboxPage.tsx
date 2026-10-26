@@ -6,7 +6,7 @@ import { useLanguage, useT } from '../context/LanguageContext';
 import { SearchIcon, NavInboxIcon, ClockIcon, AlertTriangleIcon } from '../components/Icons';
 import type { InboxView, Task } from './types';
 import { useInbox, dueInfo } from './store';
-import { StateChip, TypeChip, PRIORITY_META } from './meta';
+import { StateChip, TYPE_META, PRIORITY_META } from './meta';
 import TaskDetail from './TaskDetail';
 
 const FILTERS: { key: InboxView; en: string; ar: string }[] = [
@@ -111,10 +111,11 @@ function TaskRow({ task, isAr, t, active, onSelect, tasks }: { task: Task; isAr:
             {d.overdue ? t(`${Math.abs(d.days)}d late`, `${Math.abs(d.days)}ي متأخرة`) : d.days <= 0 ? t('Today', 'اليوم') : t(`${d.days}d left`, `${d.days}ي متبقية`)}
           </span>
         </div>
-        {/* Row 2 — approval context (task type) · reference number */}
-        <div className="mt-2 ps-3.5 flex items-center gap-2 min-w-0">
-          <TypeChip type={task.type} isAr={isAr} />
-          <span className="text-[11.5px] font-semibold text-neutral-600 tabular-nums truncate" dir="ltr">{task.entity.ref}</span>
+        {/* Row 2 — approval context (task type, as text) · reference number */}
+        <div className="mt-1.5 ps-3.5 flex items-center gap-1.5 min-w-0 text-[11.5px]">
+          <span className="font-semibold text-neutral-700 whitespace-nowrap">{isAr ? TYPE_META[task.type].ar : TYPE_META[task.type].en}</span>
+          <span className="text-neutral-300">·</span>
+          <span className="font-semibold text-neutral-500 tabular-nums truncate" dir="ltr">{task.entity.ref}</span>
         </div>
         {/* Row 3 — requester · department (left) · status (right) */}
         <div className="mt-2 ps-3.5 flex items-center justify-between gap-2">
