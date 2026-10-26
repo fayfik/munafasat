@@ -534,6 +534,55 @@ const RFP_S4HANA: RfpDetail = {
   ],
 };
 
+// Deterministic defaults so every task's RFP record carries the full set of
+// sections (mirroring the request-creation flow), not just overview + scope.
+const PAY_DEFAULT: RfpDetail['payment'] = [
+  { stageEn: 'Advance on contract signing', stageAr: 'دفعة مقدمة عند توقيع العقد', pct: 20 },
+  { stageEn: 'On delivery & installation', stageAr: 'عند التسليم والتركيب', pct: 50 },
+  { stageEn: 'Final acceptance', stageAr: 'القبول النهائي', pct: 30 },
+];
+const EVAL_DEFAULT: RfpDetail['evaluation'] = [
+  { criterionEn: 'Technical compliance', criterionAr: 'المطابقة الفنية', weight: 60 },
+  { criterionEn: 'Price', criterionAr: 'السعر', weight: 30 },
+  { criterionEn: 'Delivery & support', criterionAr: 'التسليم والدعم', weight: 10 },
+];
+const QUAL_DEFAULT: RfpDetail['qualification'] = [
+  { reqEn: 'Valid Commercial Registration (CR)', reqAr: 'سجل تجاري ساري المفعول' },
+  { reqEn: 'Zakat & Tax (ZATCA) certificate', reqAr: 'شهادة الزكاة والضريبة' },
+  { reqEn: 'GOSI compliance certificate', reqAr: 'شهادة التأمينات الاجتماعية' },
+  { reqEn: 'Chamber of Commerce membership', reqAr: 'عضوية الغرفة التجارية' },
+];
+const DOCS_DEFAULT: RfpDetail['documents'] = [
+  { en: 'Technical proposal', ar: 'العرض الفني' },
+  { en: 'Financial proposal', ar: 'العرض المالي' },
+  { en: 'Company profile', ar: 'الملف التعريفي للشركة' },
+];
+
+function genericBoq(task: Task): RfpDetail['boq'] {
+  if (task.commercialLines?.length) {
+    const priced = task.commercialLines.filter((l) => l.unitPrice != null);
+    if (priced.length) return priced.map((l) => ({ itemEn: l.itemEn, itemAr: l.itemAr, qty: String(l.qty), unit: l.unit, unitPrice: l.unitPrice as number }));
+  }
+  const total = task.amount ?? 0;
+  if (total <= 0) return [];
+  const a = Math.round(total * 0.65), b = Math.round(total * 0.22), c = total - a - b;
+  return [
+    { itemEn: `${task.entity.titleEn} — core scope`, itemAr: `${task.entity.titleAr} — النطاق الأساسي`, qty: '1', unit: 'LS', unitPrice: a },
+    { itemEn: 'Implementation & configuration', itemAr: 'التنفيذ والتهيئة', qty: '1', unit: 'LS', unitPrice: b },
+    { itemEn: 'Support & warranty (12 months)', itemAr: 'الدعم والضمان (12 شهراً)', qty: '1', unit: 'LS', unitPrice: c },
+  ];
+}
+function genericEval(task: Task): RfpDetail['evaluation'] {
+  if (task.criteria?.length) return task.criteria.map((c) => ({ criterionEn: c.label.en, criterionAr: c.label.ar, weight: c.weight }));
+  return EVAL_DEFAULT;
+}
+const sourceType = (k: Task['entity']['kind']): { en: string; ar: string } =>
+  k === 'RFP' ? { en: 'Competitive tender', ar: 'منافسة عامة' }
+  : k === 'RFQ' ? { en: 'Request for quotation', ar: 'طلب عرض أسعار' }
+  : k === 'PR' ? { en: 'Purchase request', ar: 'طلب شراء' }
+  : k === 'PO' ? { en: 'Purchase order', ar: 'أمر شراء' }
+  : { en: String(k), ar: String(k) };
+
 function genericRfp(task: Task): RfpDetail {
   const val = task.amount != null ? `SAR ${new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2 }).format(task.amount)}` : '—';
   return {
@@ -542,6 +591,7 @@ function genericRfp(task: Task): RfpDetail {
     summaryEn: task.summaryEn, summaryAr: task.summaryAr,
     meta: [
       { label: { en: 'Record', ar: 'السجل' }, value: `${task.entity.kind} · ${task.entity.ref}` },
+      { label: { en: 'Source type', ar: 'نوع المصدر' }, value: sourceType(task.entity.kind).en },
       ...(task.project ? [{ label: { en: 'Project', ar: 'المشروع' }, value: task.project.en }] : []),
       ...(task.supplier ? [{ label: { en: 'Supplier', ar: 'المورّد' }, value: task.supplier.en }] : []),
       { label: { en: 'Department', ar: 'الإدارة' }, value: task.department.en },
@@ -550,8 +600,11 @@ function genericRfp(task: Task): RfpDetail {
     ],
     scopeEn: task.summaryEn,
     scopeAr: task.summaryAr,
-    boq: [], payment: [], evaluation: [], qualification: [],
-    documents: (task.requiredDocs ?? []).map((d) => ({ en: d.label.en, ar: d.label.ar })),
+    boq: genericBoq(task),
+    payment: PAY_DEFAULT,
+    evaluation: genericEval(task),
+    qualification: QUAL_DEFAULT,
+    documents: task.requiredDocs?.length ? task.requiredDocs.map((d) => ({ en: d.label.en, ar: d.label.ar })) : DOCS_DEFAULT,
   };
 }
 

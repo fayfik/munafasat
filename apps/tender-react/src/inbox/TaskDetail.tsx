@@ -1,7 +1,7 @@
 // Munafasat Inbox — task detail workspace (right pane).
 // Header with meta + Approve/Reject/Return CTAs, tabbed body (Overview / RFP /
 // Activity), and top actions: Chat (slide-in), History (task trail), Download PDF.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { Button } from '../components/ui';
@@ -57,13 +57,14 @@ function actionsFor(task: Task): ActionDef[] {
   }
 }
 
-export default function TaskDetail({ task, onBack }: { task: Task; onBack: () => void }) {
+export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: Task; onBack: () => void; onSideOpenChange?: (open: boolean) => void }) {
   const { isAr } = useLanguage();
   const t = useT();
   const { decide, addComment } = useInbox();
   const [tab, setTab] = useState<'overview' | 'rfp' | 'activity'>('overview');
   const [side, setSide] = useState<'chat' | 'history' | null>(null);
   const toggleSide = (s: 'chat' | 'history') => setSide((prev) => (prev === s ? null : s));
+  useEffect(() => { onSideOpenChange?.(side !== null); }, [side, onSideOpenChange]);
   const [pending, setPending] = useState<ActionDef | null>(null);
   const [note, setNote] = useState('');
 
@@ -209,9 +210,9 @@ export default function TaskDetail({ task, onBack }: { task: Task; onBack: () =>
           Inline third pane on lg+, slide-over on smaller screens. */}
       {side && (
         <>
-          <div className="lg:hidden absolute inset-0 bg-black/20 z-20" onClick={() => setSide(null)} />
-          <aside className="absolute inset-y-0 end-0 z-30 w-[360px] max-w-[88%] bg-white border-s border-neutral-200 shadow-2xl flex flex-col slide-up
-                            lg:static lg:z-auto lg:w-[360px] lg:max-w-none lg:shadow-none">
+          <div className="md:hidden absolute inset-0 bg-black/20 z-20" onClick={() => setSide(null)} />
+          <aside className="absolute inset-y-0 end-0 z-30 w-[340px] max-w-[88%] bg-white border-s border-neutral-200 shadow-2xl flex flex-col slide-up
+                            md:static md:z-auto md:w-[340px] md:max-w-none md:shadow-none lg:w-[360px]">
             {/* Pane header — switch between the two panes + collapse */}
             <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-12 border-b border-neutral-200 flex-shrink-0">
               <div className="flex items-center gap-0.5 bg-neutral-100 rounded-lg p-0.5">

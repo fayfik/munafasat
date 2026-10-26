@@ -23,6 +23,7 @@ export default function InboxPage() {
   const [view, setView] = useState<InboxView>('needs-action');
   const [q, setQ] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sideOpen, setSideOpen] = useState(false);
 
   const rows = useMemo(() => {
     const ql = q.trim().toLowerCase();
@@ -36,7 +37,7 @@ export default function InboxPage() {
   return (
     <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-neutral-50">
       {/* ── Left: task list (hidden on mobile while a task is open) ─── */}
-      <div className={`${selected ? 'hidden sm:flex' : 'flex'} w-full sm:w-[380px] lg:w-[420px] flex-shrink-0 flex-col border-e border-neutral-200 bg-white`}>
+      <div className={`${selected ? (sideOpen ? 'hidden xl:flex' : 'hidden sm:flex') : 'flex'} w-full sm:w-[380px] lg:w-[420px] flex-shrink-0 flex-col border-e border-neutral-200 bg-white`}>
         <div className="px-4 pt-4 pb-3 border-b border-neutral-100">
           <div className="flex items-center justify-between">
             <h1 className="text-[18px] font-bold text-neutral-900">{t('Inbox', 'الوارد')}</h1>
@@ -83,7 +84,7 @@ export default function InboxPage() {
       {/* ── Right: detail or empty state (single instance) ──────────── */}
       <div className={`${selected ? 'flex' : 'hidden sm:flex'} flex-1 min-w-0 flex-col bg-neutral-50`}>
         {selected
-          ? <TaskDetail key={selected.id} task={selected} onBack={() => setSelectedId(null)} />
+          ? <TaskDetail key={selected.id} task={selected} onBack={() => setSelectedId(null)} onSideOpenChange={setSideOpen} />
           : <EmptyDetail t={t} />}
       </div>
     </div>
