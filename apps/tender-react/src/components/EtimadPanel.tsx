@@ -1,219 +1,91 @@
-import { useState } from 'react';
 import { useT } from '../context/LanguageContext';
-import { isStale, isPendingProcurement } from '../lib/etimadCheck';
-import { CheckCircleIcon, AlertTriangleIcon, InfoIcon } from './Icons';
+import { isOnEtimad, requesterAnswer } from '../lib/etimadCheck';
 import type { BOQRow } from '../types/tender';
+
+// Manual mode: the requester answers "Is this item available on Etimad E-Market?"
+// with a Yes/No switch. Yes keeps the item in the tender and asks for a justification
+// (or lets them move it to a separate Etimad E-Market request instead).
 
 interface Props {
   row: BOQRow;
-  checking: boolean;
-  onCheck: () => void;
   onMove: (origin: DOMRect) => void;
   onUpdate: (patch: Partial<BOQRow>) => void;
-  /** Render nothing until the row has a current check (the caller shows EtimadCheckButton elsewhere). */
+  /** Kept for call-site compatibility with the AI version; unused in manual mode. */
+  checking?: boolean;
+  onCheck?: () => void;
   hideUnchecked?: boolean;
+  /** Only the justification part (the switch is rendered elsewhere, e.g. in the spreadsheet cell). */
+  justificationOnly?: boolean;
 }
 
-/** "Check Etimad availability" button on its own, for rows without a current check. */
-export function EtimadCheckButton({ row, checking, onCheck }: { row: BOQRow; checking: boolean; onCheck: () => void }) {
+/** The Yes / No switch itself. */
+export function EtimadSwitch({ value, onChange, size = 'md', id }: { value: boolean; onChange: (v: boolean) => void; size?: 'sm' | 'md'; id?: string }) {
   const t = useT();
-  const stale = isStale(row);
-  if (isPendingProcurement(row)) return <div className="flex justify-end"><PendingChip /></div>;
+  const sm = size === 'sm';
   return (
-    <div className="flex items-center justify-end gap-2 flex-wrap">
-      {stale && <span className="text-[11px] text-warning-700">{t('Item changed since the last check.', 'تغيّر البند منذ آخر تحقق.')}</span>}
-      <button
-        type="button"
-        onClick={onCheck}
-        disabled={checking}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        {stale ? t('Ask Procurement again', 'اطلب من المشتريات مجدداً') : t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد')}
-      </button>
-    </div>
-  );
-}
-
-function PendingChip() {
-  const t = useT();
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-warning-50 text-warning-700 border border-warning-100">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3 h-3"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-      {t('With Procurement for an Etimad check', 'لدى المشتريات للفحص في اعتماد')}
-    </span>
-  );
-}
-
-/** "Check Etimad availability" control and verdict for one BOQ item. */
-export default function EtimadPanel({ row, checking, onCheck, onMove, onUpdate, hideUnchecked }: Props) {
-  const t = useT();
-  const check = row.etimadCheck;
-  const stale = isStale(row);
-
-  const checkButton = (label: string) => (
     <button
       type="button"
-      onClick={onCheck}
-      disabled={checking}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      id={id}
+      role="switch"
+      aria-checked={value}
+      aria-label={t('Available on Etimad E-Market', 'متوفر في سوق اعتماد')}
+      onClick={() => onChange(!value)}
+      className={`inline-flex items-center gap-2 ${sm ? 'text-[11px]' : 'text-[12px]'} font-semibold select-none`}
+      dir="ltr"
     >
-      {label}
+      <span className={`relative inline-flex flex-shrink-0 rounded-full transition-colors ${sm ? 'w-7 h-4' : 'w-9 h-5'} ${value ? 'bg-brand-600' : 'bg-neutral-300'}`}>
+        <span className={`absolute top-0.5 rounded-full bg-white shadow transition-all ${sm ? 'w-3 h-3' : 'w-4 h-4'} ${value ? (sm ? 'left-3.5' : 'left-[18px]') : 'left-0.5'}`} />
+      </span>
+      <span className={value ? 'text-brand-700' : 'text-neutral-500'}>{value ? t('Yes', 'نعم') : t('No', 'لا')}</span>
     </button>
-  );
-
-  // Only the Procurement status line is kept (demo/estimate disclaimers hidden, as upstream).
-  const sourceNote = check?.source === 'procurement' ? (
-    <span className="text-[10px] text-neutral-400">{t('Checked on Etimad by the Procurement team (simulated for the prototype)', 'تحقق منه فريق المشتريات في اعتماد (محاكاة للنموذج الأولي)')}</span>
-  ) : null;
-
-  if (!check || stale) {
-    if (hideUnchecked) return null;
-    if (isPendingProcurement(row)) return <PendingChip />;
-    return (
-      <div className="flex items-center gap-2 flex-wrap">
-        {checkButton(stale ? t('Ask Procurement again', 'اطلب من المشتريات مجدداً') : t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد'))}
-        {stale && <span className="text-[11px] text-warning-700">{t('Item changed since the last check.', 'تغيّر البند منذ آخر تحقق.')}</span>}
-      </div>
-    );
-  }
-
-  if (check.status === 'not-available') {
-    return (
-      <div className="rounded-lg border border-success-100 bg-success-50 px-3 py-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <CheckCircleIcon className="w-3.5 h-3.5 text-success-600" />
-          <span className="text-[12px] font-semibold text-success-700">{t('Not in Etimad E-Market. Proceed with tendering.', 'غير متوفر في سوق اعتماد. تابع بالمنافسة.')}</span>
-          <span className="ms-auto">{checkButton(t('Ask Procurement again', 'اطلب من المشتريات مجدداً'))}</span>
-        </div>
-        {check.comment && <p className="text-[11px] text-success-700 mt-1">{check.comment}</p>}
-        <div className="mt-1">{sourceNote}</div>
-      </div>
-    );
-  }
-
-  if (check.status === 'uncertain') {
-    return (
-      <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <InfoIcon className="w-3.5 h-3.5 text-neutral-500" />
-          <span className="text-[12px] font-semibold text-neutral-700">{t('Unclear. Confirm on Etimad before proceeding.', 'غير واضح. تأكد من اعتماد قبل المتابعة.')}</span>
-          <span className="ms-auto">{checkButton(t('Ask Procurement again', 'اطلب من المشتريات مجدداً'))}</span>
-        </div>
-        {check.comment && <p className="text-[11px] text-neutral-600 mt-1">{check.comment}</p>}
-        <div className="mt-1">{sourceNote}</div>
-      </div>
-    );
-  }
-
-  // Available in Etimad E-Market
-  return (
-    <div className="rounded-lg border border-warning-100 bg-warning-50 px-3 py-2.5 space-y-2">
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <AlertTriangleIcon className="w-3.5 h-3.5 text-warning-600" />
-        <span className="text-[12px] font-semibold text-warning-700">{t('Available in Etimad E-Market', 'متوفر في سوق اعتماد')}</span>
-        <span className="ms-auto">{checkButton(t('Ask Procurement again', 'اطلب من المشتريات مجدداً'))}</span>
-      </div>
-      {check.comment && <p className="text-[11px] text-warning-700">{check.comment}</p>}
-
-      {!row.etimadKeep ? (
-        <>
-          <p className="text-[11px] text-warning-700">
-            {t('Procurement recommends buying this item through a separate Etimad E-Market request instead of this tender.', 'توصي المشتريات بشراء هذا البند عبر طلب مستقل في سوق اعتماد بدلاً من هذه المنافسة.')}
-          </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={(e) => onMove(e.currentTarget.getBoundingClientRect())}
-              className="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold hover:bg-brand-700 transition-colors"
-            >
-              {t('Move to Etimad E-Market request', 'نقل إلى طلب سوق اعتماد')}
-            </button>
-            <button
-              type="button"
-              onClick={() => onUpdate({ etimadKeep: true })}
-              className="px-3 py-1.5 rounded-lg border border-warning-500/40 bg-white text-[11px] font-semibold text-warning-700 hover:bg-warning-100 transition-colors"
-            >
-              {t('Keep in this tender', 'الإبقاء في هذه المنافسة')}
-            </button>
-          </div>
-        </>
-      ) : (
-        <JustificationBox
-          rowId={row.id}
-          saved={row.etimadJustification ?? ''}
-          onSubmit={(text) => onUpdate({ etimadJustification: text })}
-          onMoveInstead={() => onUpdate({ etimadKeep: false })}
-        />
-      )}
-      <div>{sourceNote}</div>
-    </div>
   );
 }
 
-/** Justification for keeping an Etimad-available item in the tender: draft → Submit → saved view with Edit. */
-function JustificationBox({ rowId, saved, onSubmit, onMoveInstead }: { rowId: string; saved: string; onSubmit: (text: string) => void; onMoveInstead: () => void }) {
+export const ETIMAD_QUESTION = { en: 'Is this item available on Etimad E-Market?', ar: 'هل هذا البند متوفر في سوق اعتماد؟' };
+export const ETIMAD_JUST_LABEL = { en: 'Justification — why buy it through this tender instead of Etimad E-Market?', ar: 'المبرر — لماذا يُشترى عبر هذه المنافسة بدلاً من سوق اعتماد؟' };
+export const ETIMAD_JUST_PLACEHOLDER = {
+  en: 'e.g. Must be delivered and supported by the same contractor as the implementation services.',
+  ar: 'مثال: يجب توريده ودعمه من المقاول نفسه المنفذ لخدمات التطبيق.',
+};
+
+export default function EtimadPanel({ row, onMove, onUpdate, justificationOnly }: Props) {
   const t = useT();
-  const [editing, setEditing] = useState(!saved.trim());
-  const [draft, setDraft] = useState(saved);
-  const [justSaved, setJustSaved] = useState(false);
-  const fieldId = `etimad-just-${rowId}`;
+  const on = isOnEtimad(row);
+  const just = row.etimadJustification ?? '';
+  const fieldId = `etimad-just-${row.id}`;
 
-  if (!editing) {
-    return (
-      <div className="rounded-lg border border-success-100 bg-white px-3 py-2 space-y-1">
-        <div className="flex items-center gap-1.5">
-          <CheckCircleIcon className="w-3.5 h-3.5 text-success-600" />
-          <span className="text-[11px] font-semibold text-success-700">
-            {justSaved ? t('Justification submitted', 'تم إرسال المبرر') : t('Justification', 'المبرر')}
-          </span>
-          <button
-            type="button"
-            onClick={() => { setDraft(saved); setEditing(true); setJustSaved(false); }}
-            className="ms-auto text-[11px] font-semibold text-brand-700 hover:text-brand-800"
-          >
-            {t('Edit', 'تعديل')}
-          </button>
-        </div>
-        <p className="text-[12px] text-neutral-800 whitespace-pre-line">{saved}</p>
-      </div>
-    );
-  }
-
-  const canSubmit = draft.trim().length > 0 && draft.trim() !== saved.trim();
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={fieldId} className="block text-[11px] font-semibold text-warning-700">
-        {t('Why tender this item instead of buying it on Etimad E-Market?', 'لماذا يُطرح هذا البند في منافسة بدلاً من شرائه من سوق اعتماد؟')}
+  const justification = on && (
+    <div className="rounded-lg border border-warning-100 bg-warning-50 px-3 py-2.5 space-y-1.5 slide-up">
+      <label htmlFor={fieldId} className="block text-[11px] font-semibold text-warning-800">
+        {t(ETIMAD_JUST_LABEL.en, ETIMAD_JUST_LABEL.ar)} <span className="text-error-600">*</span>
       </label>
       <textarea
         id={fieldId}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+        value={just}
+        onChange={(e) => onUpdate({ etimadJustification: e.target.value, etimadKeep: true })}
         rows={2}
-        placeholder={t('e.g. Must be delivered and supported by the same contractor as the implementation services.', 'مثال: يجب توريده ودعمه من المقاول نفسه المنفذ لخدمات التطبيق.')}
+        placeholder={t(ETIMAD_JUST_PLACEHOLDER.en, ETIMAD_JUST_PLACEHOLDER.ar)}
         className="block w-full rounded-lg border border-warning-500/40 bg-white px-3 py-2 text-[12px] text-neutral-900 placeholder-neutral-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
       />
       <div className="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={() => { onSubmit(draft.trim()); setEditing(false); setJustSaved(true); }}
-          className="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {t('Submit justification', 'إرسال المبرر')}
-        </button>
-        {saved.trim() && (
-          <button type="button" onClick={() => { setDraft(saved); setEditing(false); }} className="px-3 py-1.5 rounded-lg border border-neutral-300 bg-white text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50">
-            {t('Cancel', 'إلغاء')}
-          </button>
-        )}
-        {!saved.trim() && (
-          <span className="text-[11px] text-warning-700">{t('Required. Reviewers will ask for it.', 'مطلوب، فسيطلبه المراجعون.')}</span>
-        )}
-        <button type="button" onClick={onMoveInstead} className="text-[11px] font-semibold text-brand-700 hover:text-brand-800 ms-auto">
-          {t('Move to Etimad E-Market instead', 'النقل إلى سوق اعتماد بدلاً من ذلك')}
+        {!just.trim() && <span className="text-[11px] text-warning-700">{t('Required to keep this item in the tender.', 'مطلوب لإبقاء هذا البند في المنافسة.')}</span>}
+        <button type="button" onClick={(e) => onMove(e.currentTarget.getBoundingClientRect())}
+          className="ms-auto text-[11px] font-semibold text-brand-700 hover:text-brand-800">
+          {t('Move it to an Etimad E-Market request instead', 'نقله إلى طلب سوق اعتماد بدلاً من ذلك')}
         </button>
       </div>
+    </div>
+  );
+
+  if (justificationOnly) return justification || null;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-[11.5px] text-neutral-600">{t(ETIMAD_QUESTION.en, ETIMAD_QUESTION.ar)}</span>
+        <EtimadSwitch size="sm" value={on} onChange={(v) => onUpdate(requesterAnswer(row, v, just))} />
+      </div>
+      {justification}
     </div>
   );
 }

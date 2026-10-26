@@ -1,7 +1,9 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useTender } from '../context/TenderContext';
 import { useLanguage, useT } from '../context/LanguageContext';
-import { Button, Select, SectionCard, Badge, InfoBanner, Textarea } from '../components/ui';
+import { Button, Select, SectionCard, Badge, InfoBanner, Textarea, Input } from '../components/ui';
+import { BOQ_CATEGORIES, BOQ_CATEGORY_META } from '../lib/boqCategory';
+import type { BOQCategory, ProjectItemType } from '../types/tender';
 import { CheckIcon } from '../components/Icons';
 import DrawerClose from '../components/DrawerClose';
 import routeIllustration from '../assets/procurement-route-illustration.svg';
@@ -15,6 +17,10 @@ import {
 } from '../lib/triage';
 
 interface FreeItem { id: string; name: string; }
+/** "Item details" intake row (Help me decide, preset fields). */
+interface DetailRow { id: string; type: BOQCategory | ''; name: string; qty: number | ''; unitPrice: number | ''; deliveryDate: string; }
+const emptyDetail = (): DetailRow => ({ id: crypto?.randomUUID ? crypto.randomUUID() : `d_${Math.random().toString(36).slice(2)}`, type: '', name: '', qty: '', unitPrice: '', deliveryDate: '' });
+const CAT_TO_ITEM_TYPE: Record<BOQCategory, ProjectItemType> = { service: 'services', manpower: 'services', equipment: 'assets', material: 'consumables' };
 const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : `f_${Math.random().toString(36).slice(2)}`);
 
 type Phase = 'select' | 'checking' | 'awaiting' | 'result' | 'review' | 'landing';
@@ -42,6 +48,15 @@ export default function ProcurementRouteStep() {
   const [attachment, setAttachment] = useState<string | null>(null);
   const [intakeError, setIntakeError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  // Prototype: two ways to describe items for "Help me decide" — open text, or preset fields.
+  const [intakeStyle, setIntakeStyle] = useState<'text' | 'fields'>('text');
+  const [details, setDetails] = useState<DetailRow[]>([emptyDetail()]);
+  const detailsUsed = details.filter((d) => d.name.trim() || d.type || d.qty !== '' || d.unitPrice !== '' || d.deliveryDate);
+  const detailsIncomplete = detailsUsed.filter((d) => !d.name.trim() || !d.type || d.qty === '');
+  const editDetail = (id: string, patch: Partial<DetailRow>) => { if (intakeError) setIntakeError(''); setDetails((xs) => xs.map((d) => d.id === id ? { ...d, ...patch } : d)); };
+  const removeDetail = (id: string) => setDetails((xs) => xs.length > 1 ? xs.filter((d) => d.id !== id) : [emptyDetail()]);
+  const addDetail = () => setDetails((xs) => [...xs, emptyDetail()]);
+  const detailOf = (id: string) => (intakeStyle === 'fields' ? details.find((d) => d.id === id) : undefined);
 
   // Route choice (Tendering / Etimad eMarket / Help me decide) and the follow-up review.
   const [mode, setMode] = useState<RouteMode | ''>('');
@@ -63,7 +78,9 @@ export default function ProcurementRouteStep() {
   // Everything fed into the route check: chosen project items + free-typed items.
   const clsInput: ClsItem[] = [
     ...selected.map((i) => ({ id: i.id, name: i.name, nameAr: i.nameAr, type: i.type, projectItemId: i.id })),
-    ...freeValid.map((f) => ({ id: f.id, name: f.name.trim() })),
+    ...(intakeStyle === 'fields'
+      ? detailsUsed.filter((d) => d.name.trim()).map((d) => ({ id: d.id, name: d.name.trim() }))
+      : freeValid.map((f) => ({ id: f.id, name: f.name.trim() }))),
   ];
 
   // Already confirmed (navigated back, or opened an existing request) → summary + edit.
@@ -123,6 +140,21 @@ export default function ProcurementRouteStep() {
   const addFree = () => setFreeItems((xs) => [...xs, { id: uid(), name: '' }]);
 
   function runCheck() {
+    if (intakeStyle === 'fields') {
+      if (detailsUsed.length === 0) { setIntakeError(t('Add at least one item.', 'أضف بنداً واحداً على الأقل.')); return; }
+      if (detailsIncomplete.length > 0) {
+        setIntakeError(t('Each item needs a product type, a product name and a quantity.', 'يحتاج كل بند إلى نوع المنتج واسمه والكمية.'));
+        return;
+      }
+      setIntakeError('');
+      setPending([
+        ...selected.map((i) => ({ id: i.id, name: i.name, nameAr: i.nameAr, type: i.type, projectItemId: i.id })),
+        ...detailsUsed.map((d) => ({ id: d.id, name: d.name.trim(), type: d.type ? CAT_TO_ITEM_TYPE[d.type] : undefined })),
+      ]);
+      setSentAt(new Date().toISOString());
+      setPhase('awaiting');
+      return;
+    }
     // Typing is enough: if the user entered intake text but didn't run "Identify",
     // parse it now so the route check can proceed without the extra click.
     let effFree = freeValid;
@@ -202,13 +234,14 @@ export default function ProcurementRouteStep() {
       sourceType, projectId, costCenterId: project?.costCenterId ?? '',
       selectedProjectItemIds: vs.map((v) => v.projectItemId).filter((x): x is string => !!x),
       tenderingPurpose: project?.purpose ?? '',
-      boqItems: vs.map((v) => ({
+      boqItems: vs.map((v) => { const d = detailOf(v.id); return {
         id: crypto.randomUUID(), projectItem: v.name, itemName: v.name, itemDescription: '', unitOfMeasure: 'Each',
-        quantity: '' as const, unitPrice: '' as const, deliveryDate: '',
+        quantity: d?.qty ?? '', unitPrice: d?.unitPrice ?? '', deliveryDate: d?.deliveryDate ?? '',
+        ...(d?.type ? { category: d.type } : {}),
         ...(sourceType === 'souq-etimad'
-          ? { purchaseType: (v.boqType === 'services' || v.boqType === 'manpower' ? 'service' : 'product') as 'service' | 'product', productId: '', supplier: '', lineTotal: '' as const }
+          ? { purchaseType: (v.boqType === 'services' || v.boqType === 'manpower' ? 'service' : 'product') as 'service' | 'product', productId: '', supplier: '', lineTotal: (d && d.qty !== '' && d.unitPrice !== '' ? Number(d.qty) * Number(d.unitPrice) : '') as number | '' }
           : {}),
-      })),
+      }; }),
     } as unknown as TenderFormData;
     const id = addSessionDraft({
       title: `${project?.name ?? 'Request'} — ${ROUTE_META[route].en} (${vs.length} item${vs.length > 1 ? 's' : ''})`,
@@ -353,12 +386,31 @@ export default function ProcurementRouteStep() {
                 </p>
                 <span className="text-[11px] font-semibold text-neutral-600 bg-neutral-100 rounded-full px-2 py-0.5">{t('Required', 'مطلوب')}</span>
               </div>
-              <p className="text-[13px] text-neutral-600 mt-1 leading-relaxed">
-                {t('List what you need — type it, paste a list or attach a file. Procurement checks each item on Etimad and tells you the route.', 'اذكر ما تحتاجه — اكتبه أو الصق قائمة أو أرفق ملفاً. سنفحص كل بند في اعتماد ونقترح المسار المناسب.')}
-              </p>
+              {/* Prototype switch: two ways of describing the items */}
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <div role="radiogroup" aria-label={t('How do you want to describe the items?', 'كيف تريد وصف البنود؟')} className="inline-flex rounded-lg border border-neutral-300 bg-white p-0.5">
+                  {([['text', t('Describe in text', 'وصف نصي')], ['fields', t('Enter item details', 'إدخال تفاصيل البنود')]] as const).map(([k, label]) => (
+                    <button key={k} type="button" role="radio" aria-checked={intakeStyle === k}
+                      onClick={() => { setIntakeStyle(k); setIntakeError(''); }}
+                      className={`px-3 py-1.5 rounded-md text-[12.5px] font-semibold transition-colors ${intakeStyle === k ? 'bg-brand-600 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-50'}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-500 border border-dashed border-neutral-300 rounded-full px-2 py-0.5">{t('Prototype: compare both', 'نموذج أولي: قارن الطريقتين')}</span>
+              </div>
+
+              {intakeStyle === 'text' ? (<>
+              <div className="mt-3 rounded-lg border border-brand-100 bg-brand-50/60 px-3.5 py-2.5">
+                <p className="text-[12.5px] font-semibold text-brand-800">{t('Give Procurement as much detail as you can', 'زوّد المشتريات بأكبر قدر من التفاصيل')}</p>
+                <p className="text-[12px] text-brand-800/80 mt-0.5 leading-relaxed">
+                  {t('Procurement checks each item on Etimad from what you write here. For every item, say what it is, how many you need, key specs or brand, and when and where it’s needed. Vague descriptions mean questions back and a slower answer.',
+                     'تفحص المشتريات كل بند في اعتماد بناءً على ما تكتبه هنا. لكل بند، اذكر ما هو، والكمية المطلوبة، والمواصفات الأساسية أو العلامة التجارية، ومتى وأين تحتاجه. الأوصاف المبهمة تعني أسئلة إضافية وتأخراً في الرد.')}
+                </p>
+              </div>
               <div className="mt-3">
-                <Textarea rows={4} value={text} onChange={(e) => { setText(e.target.value); if (intakeError) setIntakeError(''); }}
-                  placeholder={t('e.g.\n20 contractor engineers\nOffice cleaning services\nNetwork switches x4', 'مثال:\n20 مهندس مقاول\nخدمات نظافة المكاتب\nمحولات شبكة ×4')} />
+                <Textarea rows={6} value={text} onChange={(e) => { setText(e.target.value); if (intakeError) setIntakeError(''); }}
+                  placeholder={t('e.g.\n20 laptops — 16 GB RAM, 512 GB SSD, 14-inch, needed by March at the Riyadh office\nOffice cleaning services — 3 floors, daily, 12-month contract\nNetwork switches x4 — 48-port, PoE, for the new data room', 'مثال:\n20 حاسوباً محمولاً — ذاكرة 16 جيجابايت، تخزين 512 جيجابايت، 14 بوصة، مطلوبة بحلول مارس في مكتب الرياض\nخدمات نظافة المكاتب — 3 طوابق، يومياً، عقد 12 شهراً\nمحولات شبكة ×4 — 48 منفذاً، PoE، لغرفة البيانات الجديدة')} />
               </div>
 
               <div className="flex items-center gap-2 mt-2.5">
@@ -386,8 +438,37 @@ export default function ProcurementRouteStep() {
                       </div>
                     );
                   })}
-                  <button type="button" onClick={addFree} className="text-[12px] font-semibold text-ai-700 hover:underline mt-0.5">+ {t('Add item', 'إضافة بند')}</button>
+                  <button type="button" onClick={addFree} className="text-[12px] font-semibold text-brand-700 hover:underline mt-0.5">+ {t('Add item', 'إضافة بند')}</button>
                 </div>
+              )}
+              </>) : (
+              <div className="mt-3 space-y-2" data-testid="detail-rows">
+                <p className="text-[12.5px] text-neutral-600">{t('Add each item you need. Procurement checks them on Etimad using these details.', 'أضف كل بند تحتاجه. تفحص المشتريات البنود في اعتماد بناءً على هذه التفاصيل.')}</p>
+                <div className="hidden md:grid grid-cols-[150px_1fr_84px_118px_140px_28px] gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                  <span>{t('Product type', 'نوع المنتج')} <span className="text-error-600">*</span></span>
+                  <span>{t('Product name', 'اسم المنتج')} <span className="text-error-600">*</span></span>
+                  <span>{t('Quantity', 'الكمية')} <span className="text-error-600">*</span></span>
+                  <span>{t('Unit price (SAR)', 'سعر الوحدة (ريال)')}</span>
+                  <span>{t('Delivery date', 'موعد التسليم')}</span>
+                  <span />
+                </div>
+                {details.map((d, i) => (
+                  <div key={d.id} className="grid grid-cols-1 md:grid-cols-[150px_1fr_84px_118px_140px_28px] gap-2 items-center rounded-lg border border-neutral-200 bg-white p-2">
+                    <Select value={d.type} onChange={(e) => editDetail(d.id, { type: e.target.value as BOQCategory })} aria-label={t(`Product type, item ${i + 1}`, `نوع المنتج، البند ${i + 1}`)}>
+                      <option value="">{t('Select…', 'اختر…')}</option>
+                      {BOQ_CATEGORIES.map((c) => <option key={c} value={c}>{isAr ? BOQ_CATEGORY_META[c].ar : BOQ_CATEGORY_META[c].en}</option>)}
+                    </Select>
+                    <Input value={d.name} onChange={(e) => editDetail(d.id, { name: e.target.value })} placeholder={t('e.g. Laptop, 14-inch, 16 GB RAM', 'مثال: حاسوب محمول 14 بوصة')} aria-label={t(`Product name, item ${i + 1}`, `اسم المنتج، البند ${i + 1}`)} />
+                    <Input type="number" min={1} value={d.qty} onChange={(e) => editDetail(d.id, { qty: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" aria-label={t(`Quantity, item ${i + 1}`, `الكمية، البند ${i + 1}`)} />
+                    <Input type="number" min={0} value={d.unitPrice} onChange={(e) => editDetail(d.id, { unitPrice: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0.00" aria-label={t(`Unit price, item ${i + 1}`, `سعر الوحدة، البند ${i + 1}`)} />
+                    <Input type="date" value={d.deliveryDate} onChange={(e) => editDetail(d.id, { deliveryDate: e.target.value })} aria-label={t(`Delivery date, item ${i + 1}`, `موعد التسليم، البند ${i + 1}`)} />
+                    <button type="button" onClick={() => removeDetail(d.id)} className="w-7 h-7 rounded-md text-neutral-500 hover:text-error-600 hover:bg-error-50 flex items-center justify-center" aria-label={t(`Remove item ${i + 1}`, `إزالة البند ${i + 1}`)}>×</button>
+                  </div>
+                ))}
+                <button type="button" onClick={addDetail} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-dashed border-brand-300 text-[12.5px] font-semibold text-brand-700 hover:bg-brand-50 transition-colors">
+                  + {t('Add item', 'إضافة بند')}
+                </button>
+              </div>
               )}
             </div>
             )}
@@ -409,7 +490,7 @@ export default function ProcurementRouteStep() {
                     : t(`${selected.length} budgeted item${selected.length > 1 ? 's' : ''} selected`, `${selected.length} بند معتمد محدد`)}
                 </span>
                 {mode === 'help' ? (
-                  <Button variant="primary" size="lg" onClick={runCheck} disabled={text.trim().length === 0 && freeValid.length === 0 && selected.length === 0}>
+                  <Button variant="primary" size="lg" onClick={runCheck} disabled={intakeStyle === 'fields' ? detailsUsed.length === 0 : (text.trim().length === 0 && freeValid.length === 0 && selected.length === 0)}>
                     {t('Send to Procurement for an Etimad check', 'إرسال إلى المشتريات لفحص اعتماد')} →
                   </Button>
                 ) : (
@@ -460,7 +541,9 @@ export default function ProcurementRouteStep() {
               {pending.map((c) => (
                 <li key={c.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
                   <span className="text-[13px] text-neutral-800">{isAr ? (c.nameAr ?? c.name) : c.name}</span>
-                  <span className="text-[11px] text-neutral-500">{c.projectItemId ? t('Budgeted item', 'بند معتمد') : t('Added', 'مضاف')}</span>
+                  <span className="text-[11px] text-neutral-500">{c.projectItemId ? t('Budgeted item', 'بند معتمد') : (() => { const d = detailOf(c.id); if (!d) return t('Added', 'مضاف');
+                    const bits = [d.type ? (isAr ? BOQ_CATEGORY_META[d.type].ar : BOQ_CATEGORY_META[d.type].en) : '', d.qty !== '' ? `× ${d.qty}` : '', d.unitPrice !== '' ? `SAR ${Number(d.unitPrice).toLocaleString('en-US')}` : '', d.deliveryDate ? t(`by ${d.deliveryDate}`, `بحلول ${d.deliveryDate}`) : ''].filter(Boolean);
+                    return bits.join(' · '); })()}</span>
                 </li>
               ))}
             </ul>

@@ -31,7 +31,22 @@ export function simulatedProcurementReply(rows: BOQRow[], isAr: boolean): Record
 }
 
 export function isStale(r: BOQRow): boolean {
+  // The requester's own yes/no answer stays with the line even if it's edited.
+  if (r.etimadCheck?.source === 'requester') return false;
   return !!r.etimadCheck && r.etimadCheck.itemKey !== etimadItemKey(r);
+}
+
+/** Manual mode: the requester says whether the item is on Etimad E-Market (Yes keeps it here with a justification). */
+export function isOnEtimad(r: BOQRow): boolean {
+  return r.etimadCheck?.status === 'available' && !isStale(r);
+}
+export function requesterAnswer(r: BOQRow, onEtimad: boolean, justification = ''): Partial<BOQRow> {
+  return {
+    etimadCheck: { status: onEtimad ? 'available' : 'not-available', comment: '', checkedAt: new Date().toISOString(), source: 'requester', itemKey: etimadItemKey(r) },
+    etimadKeep: onEtimad,
+    etimadJustification: onEtimad ? justification : '',
+    etimadRequestedAt: undefined,
+  };
 }
 
 /** Needs the user's attention: available in Etimad, kept in the tender, no justification. */

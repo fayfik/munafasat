@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { UNITS_OF_MEASURE } from '../data/mockData';
-import { isStale, needsJustification, isPendingProcurement } from '../lib/etimadCheck';
-import EtimadPanel from './EtimadPanel';
+import { isStale, needsJustification, isOnEtimad, requesterAnswer } from '../lib/etimadCheck';
+import EtimadPanel, { EtimadSwitch } from './EtimadPanel';
 import { PlusIcon, TrashIcon, SparklesIcon, ChevronDownIcon, ChevronRightIcon } from './Icons';
 import type { BOQRow, BOQCategory } from '../types/tender';
 import { BOQ_CATEGORIES, BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
@@ -262,7 +262,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                 i === TOTAL_AFTER ? <Th key="total" className="text-end">{t('Total (SAR)', 'الإجمالي (ر.س)')}</Th> : null,
               ])}
               <Th>{t('Docs', 'مستندات')}</Th>
-              <Th>{t('Etimad E-Market', 'سوق اعتماد')}</Th>
+              <Th>{t('On Etimad E-Market?', 'متوفر في اعتماد؟')}</Th>
               <Th><span className="sr-only">{t('Actions', 'إجراءات')}</span></Th>
             </tr>
           </thead>
@@ -402,7 +402,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                   </td>
                   {/* Etimad */}
                   <td className="border-b border-e border-neutral-200 px-1.5">
-                    <EtimadChip row={row} checking={checkingIds.has(row.id)} open={isOpen} onCheck={() => onCheck(row)} onToggle={() => toggle(row.id)} />
+                    <EtimadChip row={row} onChange={(v) => onUpdate(row.id, requesterAnswer(row, v, row.etimadJustification ?? ''))} />
                   </td>
                   {/* Delete */}
                   <td className="border-b border-neutral-200 text-center">
@@ -412,13 +412,13 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                     </button>
                   </td>
                 </tr>,
-                isOpen && row.etimadCheck ? (
+                isOpen && isOnEtimad(row) ? (
                   <tr key={row.id + '-etimad'}>
                     <td className="sticky start-0 z-20 bg-neutral-50 border-b border-e border-neutral-200" />
                     <td colSpan={colCount - 1} className="border-b border-neutral-200 bg-neutral-50/60 p-0">
                       <div className="sticky w-[min(640px,calc(100vw-120px))] p-2.5" style={{ insetInlineStart: 40 }}>
-                        <p className="text-[11px] font-semibold text-neutral-500 mb-1.5 truncate">{t('Etimad E-Market check for', 'نتيجة سوق اعتماد لـ')} “{row.itemName || t('row', 'صف') + ' ' + (r + 1)}”</p>
-                        <EtimadPanel row={row} checking={checkingIds.has(row.id)} onCheck={() => onCheck(row)} onMove={(origin) => onMove(row, origin)} onUpdate={(patch) => onUpdate(row.id, patch)} />
+                        <p className="text-[11px] font-semibold text-neutral-500 mb-1.5 truncate">{t('On Etimad E-Market — justification for', 'متوفر في سوق اعتماد — مبرر')} “{row.itemName || t('row', 'صف') + ' ' + (r + 1)}”</p>
+                        <EtimadPanel justificationOnly row={row} onMove={(origin) => onMove(row, origin)} onUpdate={(patch) => onUpdate(row.id, patch)} />
                       </div>
                     </td>
                   </tr>
@@ -528,35 +528,12 @@ function NationalitiesCell({ value, onChange, isAr, t, ...rest }: { value: strin
   );
 }
 
-function EtimadChip({ row, checking, open, onCheck, onToggle }: { row: BOQRow; checking: boolean; open: boolean; onCheck: () => void; onToggle: () => void }) {
+function EtimadChip({ row, onChange }: { row: BOQRow; onChange: (v: boolean) => void }) {
   const t = useT();
-  const base = 'w-full inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors';
-  if (checking) {
-    return <span className={`${base} bg-ai-50 text-ai-700 border-ai-200`}><SparklesIcon className="w-3 h-3 spin-slow" />{t('Checking…', 'جاري التحقق…')}</span>;
-  }
-  const check = row.etimadCheck;
-  if (isPendingProcurement(row)) {
-    return <span className={`${base} bg-warning-50 text-warning-700 border-warning-100`} title={t('With Procurement for an Etimad check', 'لدى المشتريات للفحص في اعتماد')}>{t('With Procurement', 'لدى المشتريات')}</span>;
-  }
-  if (!check || isStale(row)) {
-    return (
-      <button type="button" onClick={onCheck} disabled={!row.itemName.trim()} title={!row.itemName.trim() ? t('Add an item name first.', 'أضف اسم البند أولاً.') : t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد')}
-        className={`${base} bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed`}>
-        {check ? t('Changed · ask again', 'تغيّر · اطلب مجدداً') : t('Ask Procurement', 'اطلب من المشتريات')}
-      </button>
-    );
-  }
-  let label: string; let tone: string;
-  if (check.status === 'available') {
-    if (!row.etimadKeep) { label = t('In Etimad E-Market', 'متوفر في السوق'); tone = 'bg-warning-50 text-warning-700 border-warning-100'; }
-    else if (needsJustification(row)) { label = t('Kept · needs reason', 'مُبقى · يحتاج مبرراً'); tone = 'bg-error-50 text-error-700 border-error-100'; }
-    else { label = t('Kept · justified', 'مُبقى · مبرر'); tone = 'bg-success-50 text-success-700 border-success-100'; }
-  } else if (check.status === 'not-available') { label = t('Not in E-Market', 'غير متوفر في السوق'); tone = 'bg-success-50 text-success-700 border-success-100'; }
-  else { label = t('Unclear', 'غير واضح'); tone = 'bg-neutral-50 text-neutral-600 border-neutral-200'; }
   return (
-    <button type="button" onClick={onToggle} aria-expanded={open} className={`${base} ${tone} hover:brightness-95`}>
-      <ChevronRightIcon className={`w-3 h-3 flex-shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
-      <span className="truncate">{label}</span>
-    </button>
+    <div className="flex items-center justify-between gap-1.5">
+      <EtimadSwitch size="sm" value={isOnEtimad(row)} onChange={onChange} />
+      {needsJustification(row) && <span className="text-[10px] font-semibold text-error-600" title={t('Add a justification', 'أضف مبرراً')}>{t('Reason?', 'المبرر؟')}</span>}
+    </div>
   );
 }

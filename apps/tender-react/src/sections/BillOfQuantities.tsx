@@ -15,8 +15,8 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiBoq, type AiBoqRow } from '../lib/aiTender';
 import { saveFile, aiErrorMessage } from '../lib/claudeRuntime';
-import { isStale, needsJustification, isPendingProcurement, simulatedProcurementReply } from '../lib/etimadCheck';
-import EtimadPanel from '../components/EtimadPanel';
+import { isStale, needsJustification, isOnEtimad, requesterAnswer } from '../lib/etimadCheck';
+import EtimadPanel, { EtimadSwitch, ETIMAD_QUESTION, ETIMAD_JUST_LABEL, ETIMAD_JUST_PLACEHOLDER } from '../components/EtimadPanel';
 import BoqSheet from '../components/BoqSheet';
 import { useBoqLayout, setBoqLayout } from '../lib/boqLayout';
 import EsouqBillOfQuantities from './EsouqBillOfQuantities';
@@ -178,6 +178,8 @@ const EMPTY_FORM = {
   jobTitle: '', staffCount: '' as number | '', minQualification: '',
   minExperienceYears: '' as number | '', officialWorkingHours: '' as number | '',
   extraWorkingHours: '' as number | '', nationalityRequired: false, nationalities: [] as string[],
+  // Manual mode: the requester's own answer to "Is it on Etimad E-Market?"
+  onEtimad: false, etimadJust: '',
 };
 
 const GROUP_COLORS = ['bg-brand-500', 'bg-ai-500', 'bg-warning-500', 'bg-success-600', 'bg-error-500', 'bg-neutral-400'];
@@ -270,24 +272,11 @@ export default function BillOfQuantities() {
   // (Placed after all hooks above to respect the Rules of Hooks.)
   if (formData.sourceType === 'souq-etimad') return <EsouqBillOfQuantities />;
 
-  // Manual mode: lines are sent to Procurement, who check them on Etimad and reply.
-  function runEtimadCheck(rows: BOQRow[]) {
-    const now = new Date().toISOString();
-    rows.forEach((r) => updateBoqRow(r.id, { etimadRequestedAt: now }));
-    setEtimadError('');
-  }
-  // Prototype only: Procurement's answer for every line waiting on them.
-  function simulateProcurementReply() {
-    const waiting = formData.boqItems.filter(isPendingProcurement);
-    const results = simulatedProcurementReply(waiting, isAr);
-    Object.entries(results).forEach(([id, check]) => updateBoqRow(id, { etimadCheck: check, etimadRequestedAt: undefined }));
-  }
-
-  const uncheckedRows = formData.boqItems.filter((r) => r.itemName.trim() && (!r.etimadCheck || isStale(r)) && !isPendingProcurement(r));
-  const pendingRows = formData.boqItems.filter(isPendingProcurement);
-  const etimadAvailableCount = formData.boqItems.filter((r) => r.etimadCheck?.status === 'available' && !isStale(r)).length;
-  const namedCount = formData.boqItems.filter((r) => r.itemName.trim()).length;
+  // Manual mode: no automatic Etimad check — the requester answers Yes/No per item.
+  function runEtimadCheck(_rows: BOQRow[]) { /* not used in manual mode */ }
+  const etimadAvailableCount = formData.boqItems.filter(isOnEtimad).length;
   const etimadMissingJust = formData.boqItems.filter(needsJustification).length;
+  void isStale; void etimadError;
 
   async function handleFileUpload(file: File) {
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
@@ -361,7 +350,9 @@ export default function BillOfQuantities() {
     if (!newItem.projectItem || !newItem.itemName) return;
     const id = crypto.randomUUID();
     const category = newItem.category || deriveCategory(newItem.itemName);
-    updateField('boqItems', [...formData.boqItems, { id, ...newItem, category }]);
+    const { onEtimad, etimadJust, ...fields } = newItem;
+    const row: BOQRow = { id, ...fields, category };
+    updateField('boqItems', [...formData.boqItems, { ...row, ...requesterAnswer(row, onEtimad, etimadJust.trim()) }]);
     setExpandedGroups((prev) => new Set([...prev, newItem.projectItem]));
     setNewItem({ ...EMPTY_FORM });
     setShowAddForm(false);
@@ -391,13 +382,17 @@ export default function BillOfQuantities() {
       minExperienceYears: row.minExperienceYears ?? '', officialWorkingHours: row.officialWorkingHours ?? '',
       extraWorkingHours: row.extraWorkingHours ?? '', nationalityRequired: !!row.nationalityRequired,
       nationalities: row.nationalities ?? [],
+      onEtimad: isOnEtimad(row), etimadJust: row.etimadJustification ?? '',
     });
   }
 
   function handleSaveEdit() {
     if (!editingId || !newItem.projectItem || !newItem.itemName) return;
     const category = newItem.category || deriveCategory(newItem.itemName);
-    updateBoqRow(editingId, { ...newItem, category, brandJustification: newItem.hasBrandName ? newItem.brandJustification : '' });
+    const { onEtimad, etimadJust, ...fields } = newItem;
+    const prev = formData.boqItems.find((r) => r.id === editingId);
+    const merged = { ...(prev as BOQRow), ...fields, category } as BOQRow;
+    updateBoqRow(editingId, { ...fields, category, brandJustification: newItem.hasBrandName ? newItem.brandJustification : '', ...requesterAnswer(merged, onEtimad, etimadJust.trim()) });
     setExpandedGroups((prev) => new Set([...prev, newItem.projectItem]));
     closeItemForm();
   }
@@ -434,7 +429,8 @@ export default function BillOfQuantities() {
       newItem.minExperienceYears === '' || (newItem.nationalityRequired && newItem.nationalities.length === 0)
     );
     const formInvalid = !newItem.projectItem || !newItem.itemName ||
-      (!isMan && newItem.hasBrandName && !newItem.brandJustification.trim()) || manInvalid;
+      (!isMan && newItem.hasBrandName && !newItem.brandJustification.trim()) || manInvalid ||
+      (newItem.onEtimad && !newItem.etimadJust.trim());
     return (
           <div className={`${mode === 'edit' ? 'm-3' : 'mt-3'} rounded-xl border border-neutral-200 bg-neutral-50/60 overflow-hidden`}>
             <div className="flex items-start justify-between px-4 py-3 border-b border-neutral-200 bg-white">
@@ -703,6 +699,30 @@ export default function BillOfQuantities() {
                   </FormField>
                 </>
               )}
+
+              {/* Etimad E-Market — requester's own answer (manual mode) */}
+              <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3 space-y-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[13px] font-medium text-neutral-800">{t(ETIMAD_QUESTION.en, ETIMAD_QUESTION.ar)}</p>
+                    <p className="text-[11.5px] text-neutral-500 mt-0.5">{t('Standard catalogue items (licences, laptops, furniture, supplies…) are usually bought on Etimad E-Market, not through a tender.', 'البنود القياسية (التراخيص، الحواسيب، الأثاث، المستلزمات…) تُشترى عادةً من سوق اعتماد وليس عبر منافسة.')}</p>
+                  </div>
+                  <EtimadSwitch id={`etimad-switch-${mode}`} value={newItem.onEtimad} onChange={(v) => setNewItem((p) => ({ ...p, onEtimad: v, etimadJust: v ? p.etimadJust : '' }))} />
+                </div>
+                {newItem.onEtimad && (
+                  <div className="slide-up">
+                    <FormField label={ETIMAD_JUST_LABEL.en} labelAr={ETIMAD_JUST_LABEL.ar} required>
+                      <Textarea
+                        value={newItem.etimadJust}
+                        onChange={(e) => setNewItem((p) => ({ ...p, etimadJust: e.target.value }))}
+                        placeholder={t(ETIMAD_JUST_PLACEHOLDER.en, ETIMAD_JUST_PLACEHOLDER.ar)}
+                        rows={3}
+                      />
+                    </FormField>
+                    <p className="text-[11px] text-neutral-500 mt-1">{t('Procurement reviews this. Without a reason, the item should go to a separate Etimad E-Market request.', 'تراجع المشتريات هذا المبرر. بدون مبرر، ينبغي نقل البند إلى طلب مستقل في سوق اعتماد.')}</p>
+                  </div>
+                )}
+              </div>
 
               {/* Actions */}
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
@@ -1016,32 +1036,15 @@ export default function BillOfQuantities() {
         )}
 
         {formData.boqItems.length > 0 && (
-          <div className="mb-3 flex items-center gap-3 flex-wrap rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5">
+          <div className="mb-3 flex items-center gap-3 flex-wrap rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5" data-testid="etimad-banner">
             <div className="flex-1 min-w-[200px]">
-              <p className="text-[12px] font-semibold text-neutral-800">{t('Etimad E-Market availability — checked by Procurement', 'التوفر في سوق اعتماد — تتحقق منه المشتريات')}</p>
+              <p className="text-[12px] font-semibold text-neutral-800">{t('Etimad E-Market availability', 'التوفر في سوق اعتماد')}</p>
               <p className="text-[11px] text-neutral-500">
-                {uncheckedRows.length > 0
-                  ? t(`${uncheckedRows.length} of ${namedCount} items not sent to Procurement yet.`, `${uncheckedRows.length} من ${namedCount} بنود لم تُرسل إلى المشتريات بعد.`)
-                  : pendingRows.length > 0 ? '' : t('All items checked by Procurement.', 'تحققت المشتريات من جميع البنود.')}
-                {pendingRows.length > 0 && ' ' + t(`${pendingRows.length} with Procurement for an Etimad check.`, `${pendingRows.length} لدى المشتريات للفحص في اعتماد.`)}
-                {etimadAvailableCount > 0 && ' ' + t(`${etimadAvailableCount} available in Etimad E-Market.`, `${etimadAvailableCount} متوفرة في سوق اعتماد.`)}
-                {etimadMissingJust > 0 && ' ' + t(`${etimadMissingJust} kept without a justification.`, `${etimadMissingJust} أُبقيت دون مبرر.`)}
+                {t('For each item, switch on “Available on Etimad E-Market” if it’s listed there, and give a reason to keep it in this tender.', 'لكل بند، فعّل «متوفر في سوق اعتماد» إن كان مدرجاً هناك، واذكر سبب إبقائه في هذه المنافسة.')}
+                {etimadAvailableCount > 0 && ' ' + t(`${etimadAvailableCount} marked as available on Etimad.`, `${etimadAvailableCount} محددة كمتوفرة في اعتماد.`)}
+                {etimadMissingJust > 0 && ' ' + t(`${etimadMissingJust} still need${etimadMissingJust === 1 ? 's' : ''} a justification.`, `${etimadMissingJust} ما زالت تحتاج مبرراً.`)}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => runEtimadCheck(uncheckedRows)}
-              disabled={uncheckedRows.length === 0}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {uncheckedRows.length > 0 ? t(`Send ${uncheckedRows.length} to Procurement`, `إرسال ${uncheckedRows.length} إلى المشتريات`) : t('Send to Procurement', 'إرسال إلى المشتريات')}
-            </button>
-            {pendingRows.length > 0 && (
-              <button type="button" onClick={simulateProcurementReply} className="basis-full text-start text-[11px] font-semibold text-link hover:underline">
-                {t('Prototype: simulate Procurement’s response', 'نموذج أولي: محاكاة رد المشتريات')} →
-              </button>
-            )}
-            {etimadError && <p className="basis-full text-[11px] text-error-600">{etimadError}</p>}
             {formData.linkedEtimadRequestId && (
               <p className="basis-full text-[11px] text-success-700">
                 {t('Moved items are in a separate Etimad E-Market draft under My Requests.', 'البنود المنقولة موجودة في مسودة مستقلة لسوق اعتماد ضمن طلباتي.')}
@@ -1180,23 +1183,6 @@ export default function BillOfQuantities() {
 
                               {/* Etimad check (subtle) / Edit / Delete */}
                               <div className="flex justify-end gap-0.5">
-                                {isPendingProcurement(row) && (
-                                  <span className="w-7 h-7 rounded-lg flex items-center justify-center text-warning-600" title={t('With Procurement for an Etimad check', 'لدى المشتريات للفحص في اعتماد')}>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-                                  </span>
-                                )}
-                                {showCheckTop && !isPendingProcurement(row) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => runEtimadCheck([row])}
-                                    disabled={checkingIds.has(row.id)}
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors disabled:opacity-50"
-                                    title={isStale(row) ? t('Item changed — ask Procurement again', 'تغيّر البند — اطلب من المشتريات مجدداً') : t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد')}
-                                    aria-label={t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد')}
-                                  >
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
-                                  </button>
-                                )}
                                 <button
                                   type="button"
                                   onClick={() => startEdit(row)}
@@ -1217,10 +1203,9 @@ export default function BillOfQuantities() {
                                 </button>
                               </div>
                             </div>
-                            {row.etimadCheck && !isStale(row) && (
+                            {(
                               <div className="px-5 pb-3.5">
                                 <EtimadPanel
-                                  hideUnchecked
                                   row={row}
                                   checking={checkingIds.has(row.id)}
                                   onCheck={() => runEtimadCheck([row])}
@@ -1275,27 +1260,14 @@ export default function BillOfQuantities() {
                               <div className="text-end text-sm text-neutral-700 tabular-nums" dir="ltr">{unitPrice > 0 ? `SAR ${formatSAR(unitPrice)}` : '—'}</div>
                               <div className="text-end text-sm font-bold text-neutral-900 tabular-nums" dir="ltr">{total > 0 ? `SAR ${formatSAR(total)}` : '—'}</div>
                               <div className="flex justify-end gap-0.5">
-                                {isPendingProcurement(row) && (
-                                  <span className="w-7 h-7 rounded-lg flex items-center justify-center text-warning-600" title={t('With Procurement for an Etimad check', 'لدى المشتريات للفحص في اعتماد')}>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-                                  </span>
-                                )}
-                                {showCheckTop && !isPendingProcurement(row) && (
-                                  <button type="button" onClick={() => runEtimadCheck([row])} disabled={checkingIds.has(row.id)}
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors disabled:opacity-50"
-                                    title={isStale(row) ? t('Item changed — ask Procurement again', 'تغيّر البند — اطلب من المشتريات مجدداً') : t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد')}
-                                    aria-label={t('Ask Procurement to check Etimad', 'اطلب من المشتريات الفحص في اعتماد')}>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
-                                  </button>
-                                )}
                                 <button type="button" onClick={() => startEdit(row)} className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors" title={t('Edit item', 'تعديل البند')}><PencilIcon className="w-3.5 h-3.5" /></button>
                                 <button type="button" onClick={() => { if (editingId === row.id) closeItemForm(); removeBoqRow(row.id); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-error-500 hover:bg-error-50 transition-colors" title={t('Delete item', 'حذف البند')}><TrashIcon className="w-3.5 h-3.5" /></button>
                               </div>
                             </div>
-                            {((row.attachments?.length ?? 0) > 0 || (row.etimadCheck && !isStale(row))) && (
+                            {(
                               <div className="px-4 pt-0 pb-3 space-y-2">
                                 {(row.attachments?.length ?? 0) > 0 && <BoqAttachments readOnly attachments={row.attachments ?? []} onChange={() => {}} />}
-                                {row.etimadCheck && !isStale(row) && <EtimadPanel hideUnchecked row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} onMove={(origin) => requestMove(row, origin)} onUpdate={(patch) => updateBoqRow(row.id, patch)} />}
+                                {<EtimadPanel row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} onMove={(origin) => requestMove(row, origin)} onUpdate={(patch) => updateBoqRow(row.id, patch)} />}
                               </div>
                             )}
                           </div>

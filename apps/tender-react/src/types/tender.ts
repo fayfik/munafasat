@@ -72,7 +72,7 @@ export interface EtimadCheck {
   comment: string;
   checkedAt: string;
   /** 'estimate' until a live Etimad integration exists. */
-  source: 'demo' | 'estimate' | 'etimad' | 'procurement';
+  source: 'demo' | 'estimate' | 'etimad' | 'procurement' | 'requester';
   /** Name + description + unit + price the check was run against; a mismatch means the item changed since. */
   itemKey: string;
 }
