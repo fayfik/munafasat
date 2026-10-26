@@ -5,10 +5,10 @@ import { useTender } from '../context/TenderContext';
 import { useT } from '../context/LanguageContext';
 import { PROJECTS, UNITS_OF_MEASURE } from '../data/mockData';
 import { FormField, SectionCard, AIButton, InfoBanner, Input, Select, Textarea, Badge } from '../components/ui';
-import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, ChevronDownIcon, CheckIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon, DocumentIcon, CheckCircleIcon } from '../components/Icons';
+import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, ChevronDownIcon, CheckIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon, DocumentIcon, CheckCircleIcon, AlertTriangleIcon } from '../components/Icons';
 import HoverNote from '../components/HoverNote';
 import BoqAttachments from '../components/BoqAttachments';
-import type { BOQRow, BOQCategory, FileAttachment } from '../types/tender';
+import type { BOQRow, BOQCategory, FileAttachment, EtimadCheck } from '../types/tender';
 import { BOQ_CATEGORIES, BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
 import { QUALIFICATIONS, NATIONALITIES, nationalityLabel, effectiveQty, generateManpowerDescription } from '../lib/boqManpower';
 import { useLanguage } from '../context/LanguageContext';
@@ -215,6 +215,9 @@ export default function BillOfQuantities() {
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [expandedCats, setExpandedCats] = useState<Set<BOQCategory>>(() => new Set(BOQ_CATEGORIES));
   const [savingAddCheck, setSavingAddCheck] = useState(false);
+  // When a just-saved item turns out to be available on Etimad E-Market, we hold it
+  // here (NOT yet in the table) and surface a warning so the user decides what to do.
+  const [addWarning, setAddWarning] = useState<{ row: BOQRow; check: EtimadCheck } | null>(null);
   const toggleCat = (c: BOQCategory) => setExpandedCats((prev) => { const n = new Set(prev); n.has(c) ? n.delete(c) : n.add(c); return n; });
   const toggleView = (id: string) => setViewingId((cur) => (cur === id ? null : id));
   function addBlankSheetRow() {
@@ -394,26 +397,62 @@ export default function BillOfQuantities() {
     boqAi.run(() => aiBoq(formData, isAr), (r) => applyRows(arr<AiBoqRow>(r)), () => applyRows(isAr ? AI_BOQ_ROWS_AR : AI_BOQ_ROWS));
   }
 
+  // Add the finished row to the BOQ table and reset the form.
+  function commitNewRow(row: BOQRow) {
+    updateField('boqItems', [...formData.boqItems, row]);
+    setExpandedGroups((prev) => new Set([...prev, row.projectItem]));
+    setExpandedCats((prev) => new Set([...prev, row.category ?? deriveCategory(row.itemName)]));
+    setNewItem({ ...EMPTY_FORM });
+    setShowAddForm(false);
+    setAddCat(null);
+    setAddWarning(null);
+  }
+
+  // "Save": check Etimad E-Market FIRST, then decide. If the item is available on
+  // Etimad we do NOT add it — a warning appears and the user chooses what to do.
   async function handleAddItem() {
     if (!newItem.projectItem || !newItem.itemName || savingAddCheck) return;
     const id = crypto.randomUUID();
     const category = newItem.category || deriveCategory(newItem.itemName);
-    const newRow: BOQRow = { id, ...newItem, category };
-    updateField('boqItems', [...formData.boqItems, newRow]);
-    setExpandedGroups((prev) => new Set([...prev, newItem.projectItem]));
-    setExpandedCats((prev) => new Set([...prev, category]));
-    // Auto-trigger the Etimad E-Market check for the new item; the Save CTA shows
-    // "Checking item in Etimad E-Market" while it runs, then the row surfaces the
-    // availability flow (move to an Etimad E-Market request, or keep + justify).
+    const candidate: BOQRow = { id, ...newItem, category };
     setSavingAddCheck(true);
+    setEtimadError('');
+    setAddWarning(null);
+    let check: EtimadCheck | undefined;
     try {
-      await runEtimadCheck([newRow]);
+      const results = await checkEtimadAvailability([candidate], formData, isAr);
+      if (results === null) {
+        setEtimadError(t('The Etimad check uses AI, which is not available in this view. Open the page in Claude and allow AI to use it.', 'يعتمد التحقق من اعتماد على الذكاء الاصطناعي، وهو غير متاح في هذا العرض. افتح الصفحة في Claude واسمح باستخدامه.'));
+      } else {
+        check = results[candidate.id];
+      }
     } finally {
       setSavingAddCheck(false);
-      setNewItem({ ...EMPTY_FORM });
-      setShowAddForm(false);
-      setAddCat(null);
     }
+    // Available on Etimad → hold it back and warn; the user decides.
+    if (check && check.status === 'available') {
+      setAddWarning({ row: { ...candidate, etimadCheck: check }, check });
+      return;
+    }
+    // Otherwise add it, carrying any verdict so the row shows the result.
+    commitNewRow(check ? { ...candidate, etimadCheck: check } : candidate);
+  }
+
+  // Warning actions ─ keep the held item in this tender (requires a justification
+  // afterwards) or move it to a separate Etimad E-Market request (never hits the table).
+  function keepCandidateInTender() {
+    if (!addWarning) return;
+    commitNewRow({ ...addWarning.row, etimadKeep: true });
+  }
+  function moveCandidateToEtimad() {
+    if (!addWarning) return;
+    const moved = { ...addWarning.row, etimadKeep: false, etimadJustification: '' };
+    updateField('linkedEtimadRequestId', formData.linkedEtimadRequestId ?? crypto.randomUUID());
+    updateField('etimadMovedItems', [...(formData.etimadMovedItems ?? []), moved]);
+    setNewItem({ ...EMPTY_FORM });
+    setShowAddForm(false);
+    setAddCat(null);
+    setAddWarning(null);
   }
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -422,7 +461,10 @@ export default function BillOfQuantities() {
     setEditingId(null);
     setAddCat(null);
     setNewItem({ ...EMPTY_FORM });
+    setAddWarning(null);
   }
+  // Editing any field after an Etimad warning dismisses it so "Save" returns.
+  useEffect(() => { setAddWarning((w) => (w ? null : w)); }, [newItem]);
 
   function startEdit(row: BOQRow) {
     setShowAddForm(false);
@@ -752,26 +794,63 @@ export default function BillOfQuantities() {
                 </>
               )}
 
+              {/* Etimad availability warning — shown when a saved item is on Etimad.
+                  The item is NOT added; the user chooses what to do with it. */}
+              {mode === 'add' && addWarning && (
+                <div className="pt-2 border-t border-neutral-100">
+                  <div className="rounded-lg border border-warning-200 bg-warning-50 px-3.5 py-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <AlertTriangleIcon className="w-4 h-4 text-warning-600 flex-shrink-0" />
+                      <span className="text-[13px] font-bold text-warning-800">{t('Available in Etimad E-Market', 'متوفر في سوق اعتماد')}</span>
+                    </div>
+                    <p className="text-[12px] text-warning-700">
+                      {t('This item was not added. It appears to be available on Etimad E-Market, so we suggest buying it there instead of including it in this tender.', 'لم تتم إضافة هذا البند. يبدو أنه متوفر في سوق اعتماد، لذا نقترح شراءه هناك بدلاً من إدراجه في هذه المنافسة.')}
+                    </p>
+                    {addWarning.check.comment && <p className="text-[11.5px] text-warning-700/90">{addWarning.check.comment}</p>}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button type="button" onClick={moveCandidateToEtimad}
+                        className="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-[12px] font-semibold hover:bg-brand-700 transition-colors">
+                        {t('Move to Etimad E-Market request', 'نقل إلى طلب سوق اعتماد')}
+                      </button>
+                      <button type="button" onClick={keepCandidateInTender}
+                        className="px-3 py-1.5 rounded-lg border border-warning-500/50 bg-white text-[12px] font-semibold text-warning-700 hover:bg-warning-100 transition-colors">
+                        {t('Add to this tender anyway', 'الإضافة إلى هذه المنافسة على أي حال')}
+                      </button>
+                      <button type="button" onClick={() => setAddWarning(null)}
+                        className="ms-auto px-3 py-1.5 rounded-lg text-[12px] font-semibold text-neutral-500 hover:text-neutral-700">
+                        {t('Edit item', 'تعديل البند')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {mode === 'add' && etimadError && !addWarning && (
+                <p className="text-[11.5px] text-error-600 pt-1">{etimadError}</p>
+              )}
+
               {/* Actions */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
-                <button
-                  onClick={closeItemForm}
-                  className="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
-                >
-                  {t('Cancel', 'إلغاء')}
-                </button>
-                <button
-                  onClick={mode === 'edit' ? handleSaveEdit : handleAddItem}
-                  disabled={formInvalid || (mode === 'add' && savingAddCheck)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                >
-                  {mode === 'edit'
-                    ? t('Save changes', 'حفظ التغييرات')
-                    : savingAddCheck
-                      ? (<><SparklesIcon className="w-3.5 h-3.5 spin-slow" />{t('Checking item in Etimad E-Market…', 'جارٍ التحقق من البند في سوق اعتماد…')}</>)
-                      : t('Save & check Etimad', 'حفظ وتحقق من اعتماد')}
-                </button>
-              </div>
+              {!(mode === 'add' && addWarning) && (
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
+                  <button
+                    onClick={closeItemForm}
+                    className="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
+                  >
+                    {t('Cancel', 'إلغاء')}
+                  </button>
+                  <button
+                    onClick={mode === 'edit' ? handleSaveEdit : handleAddItem}
+                    disabled={formInvalid || (mode === 'add' && savingAddCheck)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {mode === 'edit'
+                      ? t('Save changes', 'حفظ التغييرات')
+                      : savingAddCheck
+                        ? (<><SparklesIcon className="w-3.5 h-3.5 spin-slow" />{t('Checking with Etimad E-Market…', 'جارٍ التحقق من سوق اعتماد…')}</>)
+                        : t('Save', 'حفظ')}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
     );
