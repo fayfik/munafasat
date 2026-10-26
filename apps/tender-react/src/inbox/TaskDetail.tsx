@@ -184,8 +184,12 @@ export default function TaskDetail({ task, onBack }: { task: Task; onBack: () =>
 
         {/* Tab content */}
         <div className="p-4 sm:p-6 max-w-4xl">
-          {tab === 'overview' && <TaskBody task={task} />}
-          {tab === 'rfp' && <RfpTab rfp={task.rfp} isAr={isAr} t={t} />}
+          {tab === 'overview' && (
+            <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <TaskBody task={task} />
+            </div>
+          )}
+          {tab === 'rfp' && <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />}
           {tab === 'activity' && <ActivityTab task={task} isAr={isAr} t={t} onComment={(x) => addComment(task.id, x)} terminal={terminal} />}
         </div>
       </div>
@@ -232,107 +236,222 @@ function SlaPill({ sla, t }: { sla: ReturnType<typeof slaInfo>; t: T }) {
   return <span className={`inline-flex items-center gap-1 text-[11px] font-semibold rounded-full border px-2 py-0.5 ${cls}`}><ClockIcon className="w-3 h-3" />{label}</span>;
 }
 
-function RfpTab({ rfp, isAr, t }: { rfp?: RfpDetail; isAr: boolean; t: T }) {
-  if (!rfp) return <p className="text-[13px] text-neutral-500">{t('No RFP record linked.', 'لا يوجد سجل منافسة مرتبط.')}</p>;
-  const boqTotal = rfp.boq.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
+const PALETTE = ['#699843', '#2A6193', '#6A47D6', '#E08E00', '#C22C18', '#3378B5', '#517632', '#868D80'];
+
+function Donut({ segments, size = 128, stroke = 20 }: { segments: { value: number; color: string }[]; size?: number; stroke?: number }) {
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  const r = (size - stroke) / 2, cx = size / 2, cy = size / 2, c = 2 * Math.PI * r;
+  let off = 0;
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-neutral-200 bg-white p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{rfp.refId}</p>
-        <h3 className="text-[16px] font-bold text-neutral-900 mt-0.5">{isAr ? rfp.titleAr : rfp.titleEn}</h3>
-        <p className="text-[13px] text-neutral-600 mt-1 leading-relaxed">{isAr ? rfp.summaryAr : rfp.summaryEn}</p>
-        <dl className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-2.5">
-          {rfp.meta.map((m, i) => (
-            <div key={i} className="min-w-0"><dt className="text-[10.5px] uppercase tracking-wide text-neutral-400">{tb(m.label, isAr)}</dt>
-              <dd className="text-[13px] font-medium text-neutral-800 truncate" dir={m.dir}>{m.value}</dd></div>
-          ))}
-        </dl>
-      </div>
-
-      <Block title={t('Scope of work', 'نطاق العمل')}><p className="text-[13px] text-neutral-700 leading-relaxed">{isAr ? rfp.scopeAr : rfp.scopeEn}</p></Block>
-
-      {rfp.boq.length > 0 && (
-        <Block title={t('Bill of quantities', 'جدول الكميات')}>
-          <div className="rounded-xl border border-neutral-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead><tr className="bg-neutral-50 border-b border-neutral-200 text-[11px] uppercase tracking-wide text-neutral-500">
-                <th className="text-start ps-3 pe-2 py-2 font-medium">{t('Item', 'البند')}</th>
-                <th className="px-2 py-2 font-medium w-20 text-center">{t('Qty', 'الكمية')}</th>
-                <th className="px-2 py-2 font-medium w-28 text-end">{t('Unit price', 'سعر الوحدة')}</th>
-                <th className="px-2 py-2 font-medium w-32 text-end">{t('Line total', 'الإجمالي')}</th>
-              </tr></thead>
-              <tbody className="divide-y divide-neutral-100">
-                {rfp.boq.map((l, i) => (
-                  <tr key={i} className="bg-white">
-                    <td className="ps-3 pe-2 py-2 text-[12.5px] text-neutral-800">{isAr ? l.itemAr : l.itemEn}</td>
-                    <td className="px-2 py-2 text-center text-[12px] text-neutral-600">{l.qty} {l.unit}</td>
-                    <td className="px-2 py-2 text-end text-[12px] text-neutral-700 tabular-nums" dir="ltr">{fmtSAR(l.unitPrice)}</td>
-                    <td className="px-2 py-2 text-end text-[12.5px] font-semibold text-neutral-800 tabular-nums" dir="ltr">{fmtSAR((Number(l.qty) || 1) * l.unitPrice)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot><tr className="bg-neutral-50 border-t-2 border-neutral-200">
-                <td className="ps-3 pe-2 py-2 text-end text-[12px] font-semibold text-neutral-600" colSpan={3}>{t('Subtotal', 'الإجمالي')}</td>
-                <td className="px-2 py-2 text-end text-[13px] font-bold tabular-nums text-neutral-900" dir="ltr">{fmtSAR(boqTotal)}</td>
-              </tr></tfoot>
-            </table>
-          </div>
-        </Block>
-      )}
-
-      {rfp.payment.length > 0 && (
-        <Block title={t('Payment schedule', 'جدول الدفعات')}>
-          <div className="space-y-1.5">
-            {rfp.payment.map((p, i) => (
-              <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2">
-                <span className="text-[13px] text-neutral-700">{i + 1}. {isAr ? p.stageAr : p.stageEn}</span>
-                <span className="text-[12.5px] font-semibold text-brand-700 tabular-nums">{p.pct}%</span>
-              </div>
-            ))}
-          </div>
-        </Block>
-      )}
-
-      {rfp.evaluation.length > 0 && (
-        <Block title={t('Evaluation criteria', 'معايير التقييم')}>
-          <div className="space-y-1.5">
-            {rfp.evaluation.map((c, i) => (
-              <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2">
-                <span className="text-[13px] text-neutral-700">{isAr ? c.criterionAr : c.criterionEn}</span>
-                <span className="text-[12.5px] font-semibold text-neutral-600 tabular-nums">{c.weight}%</span>
-              </div>
-            ))}
-          </div>
-        </Block>
-      )}
-
-      {rfp.qualification.length > 0 && (
-        <Block title={t('Qualification requirements', 'متطلبات التأهيل')}>
-          <ul className="space-y-1.5">
-            {rfp.qualification.map((qr, i) => (
-              <li key={i} className="flex items-start gap-2 text-[13px] text-neutral-700"><CheckCircleIcon className="w-4 h-4 text-success-600 mt-0.5 flex-shrink-0" />{isAr ? qr.reqAr : qr.reqEn}</li>
-            ))}
-          </ul>
-        </Block>
-      )}
-
-      {rfp.documents.length > 0 && (
-        <Block title={t('Documents', 'المستندات')}>
-          <ul className="space-y-1.5">
-            {rfp.documents.map((dc, i) => (
-              <li key={i} className="flex items-center gap-2 text-[13px] text-neutral-700 rounded-lg border border-neutral-200 bg-white px-3 py-2">
-                <DownloadIcon className="w-3.5 h-3.5 text-neutral-400" />{isAr ? dc.ar : dc.en}
-              </li>
-            ))}
-          </ul>
-        </Block>
-      )}
-    </div>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#EEF1EB" strokeWidth={stroke} />
+      <g transform={`rotate(-90 ${cx} ${cy})`}>
+        {segments.map((s, i) => {
+          const len = (s.value / total) * c; const el = (
+            <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={stroke}
+              strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-off} />
+          ); off += len; return el;
+        })}
+      </g>
+    </svg>
   );
 }
 
-function Block({ title, children }: { title: string; children: React.ReactNode }) {
-  return (<div><h4 className="text-[12px] font-semibold uppercase tracking-wide text-neutral-500 mb-2">{title}</h4>{children}</div>);
+function RfpSection({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+  return (
+    <section id={`rfp-${id}`} className="scroll-mt-24 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+      <div className="px-4 sm:px-5 py-3 border-b border-neutral-100 bg-neutral-50/50">
+        <h4 className="text-[13px] font-bold text-neutral-800">{title}</h4>
+      </div>
+      <div className="p-4 sm:p-5">{children}</div>
+    </section>
+  );
+}
+
+function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T }) {
+  if (!rfp) return <div className="rounded-xl border border-neutral-200 bg-white p-6 text-[13px] text-neutral-500 shadow-sm">{t('No RFP record linked to this task.', 'لا يوجد سجل منافسة مرتبط بهذه المهمة.')}</div>;
+  const boqTotal = rfp.boq.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
+  const estValue = boqTotal > 0 ? boqTotal : (amount ?? 0);
+  const costSegs = rfp.boq.map((l, i) => ({ value: (Number(l.qty) || 1) * l.unitPrice, color: PALETTE[i % PALETTE.length], label: isAr ? l.itemAr : l.itemEn }));
+  const payMax = Math.max(1, ...rfp.payment.map((p) => p.pct));
+  const evalMax = Math.max(1, ...rfp.evaluation.map((c) => c.weight));
+
+  // Sections present → jump nav
+  const sections: { id: string; en: string; ar: string }[] = [
+    { id: 'overview', en: 'Overview', ar: 'نظرة عامة' },
+    { id: 'scope', en: 'Scope', ar: 'النطاق' },
+    ...(rfp.boq.length ? [{ id: 'cost', en: 'Cost breakdown', ar: 'تفصيل التكلفة' }] : []),
+    ...(rfp.payment.length ? [{ id: 'payment', en: 'Payment', ar: 'الدفعات' }] : []),
+    ...(rfp.evaluation.length ? [{ id: 'evaluation', en: 'Evaluation', ar: 'التقييم' }] : []),
+    ...(rfp.qualification.length ? [{ id: 'qualification', en: 'Qualification', ar: 'التأهيل' }] : []),
+    ...(rfp.documents.length ? [{ id: 'documents', en: 'Documents', ar: 'المستندات' }] : []),
+  ];
+  const jump = (id: string) => document.getElementById(`rfp-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const stats: { label: string; value: string; dir?: 'ltr' }[] = [];
+  if (estValue > 0) stats.push({ label: t('Estimated value', 'القيمة التقديرية'), value: fmtSAR(estValue), dir: 'ltr' });
+  if (rfp.boq.length) stats.push({ label: t('BOQ line items', 'بنود الجدول'), value: String(rfp.boq.length) });
+  if (rfp.payment.length) stats.push({ label: t('Payment stages', 'مراحل الدفع'), value: String(rfp.payment.length) });
+  if (rfp.evaluation.length) stats.push({ label: t('Eval. criteria', 'معايير التقييم'), value: String(rfp.evaluation.length) });
+
+  return (
+    <div className="lg:grid lg:grid-cols-[168px_1fr] lg:gap-6">
+      {/* Jump-to-section nav */}
+      <nav className="mb-4 lg:mb-0 lg:sticky lg:top-2 self-start">
+        <p className="hidden lg:block text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400 px-2 mb-1.5">{t('Jump to', 'انتقل إلى')}</p>
+        <div className="flex lg:flex-col gap-1.5 overflow-x-auto -mx-1 px-1 lg:mx-0 lg:px-0">
+          {sections.map((s) => (
+            <button key={s.id} type="button" onClick={() => jump(s.id)}
+              className="text-start whitespace-nowrap px-2.5 py-1.5 rounded-lg text-[12.5px] font-medium text-neutral-600 bg-neutral-100 lg:bg-transparent hover:bg-neutral-100 hover:text-brand-700 transition-colors">
+              {isAr ? s.ar : s.en}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      <div className="space-y-5 min-w-0">
+        {/* Hero stats */}
+        {stats.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {stats.map((s, i) => (
+              <div key={i} className="rounded-xl border border-neutral-200 bg-white shadow-sm px-4 py-3">
+                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{s.label}</p>
+                <p className="text-[18px] font-bold text-neutral-900 mt-0.5 tabular-nums" dir={s.dir}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Overview */}
+        <RfpSection id="overview" title={t('Request overview', 'نظرة عامة على الطلب')}>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">{rfp.refId}</p>
+          <h3 className="text-[16px] font-bold text-neutral-900 mt-0.5">{isAr ? rfp.titleAr : rfp.titleEn}</h3>
+          <p className="text-[13px] text-neutral-600 mt-1 leading-relaxed">{isAr ? rfp.summaryAr : rfp.summaryEn}</p>
+          <dl className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 border-t border-neutral-100 pt-4">
+            {rfp.meta.map((m, i) => (
+              <div key={i} className="min-w-0"><dt className="text-[10.5px] uppercase tracking-wide text-neutral-400">{tb(m.label, isAr)}</dt>
+                <dd className="text-[13px] font-medium text-neutral-800 truncate mt-0.5" dir={m.dir}>{m.value}</dd></div>
+            ))}
+          </dl>
+        </RfpSection>
+
+        {/* Scope */}
+        <RfpSection id="scope" title={t('Scope of work', 'نطاق العمل')}>
+          <p className="text-[13px] text-neutral-700 leading-relaxed">{isAr ? rfp.scopeAr : rfp.scopeEn}</p>
+        </RfpSection>
+
+        {/* Cost breakdown — donut + legend + table */}
+        {rfp.boq.length > 0 && (
+          <RfpSection id="cost" title={t('Cost breakdown', 'تفصيل التكلفة')}>
+            <div className="flex flex-col lg:flex-row gap-5">
+              <div className="flex items-center gap-4 lg:flex-col lg:items-center flex-shrink-0">
+                <div className="relative">
+                  <Donut segments={costSegs} />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-[9px] uppercase tracking-wide text-neutral-400">{t('Total', 'الإجمالي')}</span>
+                    <span className="text-[13px] font-bold text-neutral-900 tabular-nums" dir="ltr">{fmtSAR(boqTotal).replace('SAR ', '')}</span>
+                  </div>
+                </div>
+                <ul className="space-y-1">
+                  {costSegs.map((s, i) => (
+                    <li key={i} className="flex items-center gap-1.5 text-[11.5px] text-neutral-600">
+                      <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: s.color }} />
+                      <span className="truncate max-w-[150px]">{s.label}</span>
+                      <span className="ms-auto font-semibold text-neutral-700 tabular-nums">{Math.round((s.value / (boqTotal || 1)) * 100)}%</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="flex-1 min-w-0 rounded-xl border border-neutral-200 overflow-hidden self-start">
+                <table className="w-full text-sm">
+                  <thead><tr className="bg-neutral-50 border-b border-neutral-200 text-[11px] uppercase tracking-wide text-neutral-500">
+                    <th className="text-start ps-3 pe-2 py-2 font-medium">{t('Item', 'البند')}</th>
+                    <th className="px-2 py-2 font-medium w-16 text-center">{t('Qty', 'الكمية')}</th>
+                    <th className="px-2 py-2 font-medium w-28 text-end">{t('Line total', 'الإجمالي')}</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {rfp.boq.map((l, i) => (
+                      <tr key={i} className="bg-white">
+                        <td className="ps-3 pe-2 py-2 text-[12.5px] text-neutral-800"><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: PALETTE[i % PALETTE.length] }} />{isAr ? l.itemAr : l.itemEn}</span></td>
+                        <td className="px-2 py-2 text-center text-[12px] text-neutral-600">{l.qty} {l.unit}</td>
+                        <td className="px-2 py-2 text-end text-[12.5px] font-semibold text-neutral-800 tabular-nums" dir="ltr">{fmtSAR((Number(l.qty) || 1) * l.unitPrice)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot><tr className="bg-neutral-50 border-t-2 border-neutral-200">
+                    <td className="ps-3 pe-2 py-2 text-end text-[12px] font-semibold text-neutral-600" colSpan={2}>{t('Subtotal', 'الإجمالي')}</td>
+                    <td className="px-2 py-2 text-end text-[13px] font-bold tabular-nums text-neutral-900" dir="ltr">{fmtSAR(boqTotal)}</td>
+                  </tr></tfoot>
+                </table>
+              </div>
+            </div>
+          </RfpSection>
+        )}
+
+        {/* Payment — horizontal bars */}
+        {rfp.payment.length > 0 && (
+          <RfpSection id="payment" title={t('Payment schedule', 'جدول الدفعات')}>
+            <div className="space-y-2.5">
+              {rfp.payment.map((p, i) => (
+                <div key={i}>
+                  <div className="flex items-center justify-between text-[12.5px] mb-1">
+                    <span className="text-neutral-700">{i + 1}. {isAr ? p.stageAr : p.stageEn}</span>
+                    <span className="font-semibold text-neutral-800 tabular-nums">{p.pct}% {estValue > 0 && <span className="text-neutral-400 font-normal" dir="ltr">· {fmtSAR((p.pct / 100) * estValue)}</span>}</span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-neutral-100 overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${(p.pct / payMax) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </RfpSection>
+        )}
+
+        {/* Evaluation — weight bars */}
+        {rfp.evaluation.length > 0 && (
+          <RfpSection id="evaluation" title={t('Evaluation criteria', 'معايير التقييم')}>
+            <div className="space-y-2.5">
+              {rfp.evaluation.map((c, i) => (
+                <div key={i}>
+                  <div className="flex items-center justify-between text-[12.5px] mb-1">
+                    <span className="text-neutral-700">{isAr ? c.criterionAr : c.criterionEn}</span>
+                    <span className="font-semibold text-neutral-800 tabular-nums">{c.weight}%</span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-neutral-100 overflow-hidden">
+                    <div className="h-full rounded-full bg-brand-500" style={{ width: `${(c.weight / evalMax) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </RfpSection>
+        )}
+
+        {/* Qualification */}
+        {rfp.qualification.length > 0 && (
+          <RfpSection id="qualification" title={t('Qualification requirements', 'متطلبات التأهيل')}>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+              {rfp.qualification.map((qr, i) => (
+                <li key={i} className="flex items-start gap-2 text-[13px] text-neutral-700"><CheckCircleIcon className="w-4 h-4 text-success-600 mt-0.5 flex-shrink-0" />{isAr ? qr.reqAr : qr.reqEn}</li>
+              ))}
+            </ul>
+          </RfpSection>
+        )}
+
+        {/* Documents */}
+        {rfp.documents.length > 0 && (
+          <RfpSection id="documents" title={t('Documents', 'المستندات')}>
+            <ul className="space-y-1.5">
+              {rfp.documents.map((dc, i) => (
+                <li key={i} className="flex items-center gap-2 text-[13px] text-neutral-700 rounded-lg border border-neutral-200 bg-neutral-50/60 px-3 py-2">
+                  <DownloadIcon className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />{isAr ? dc.ar : dc.en}
+                </li>
+              ))}
+            </ul>
+          </RfpSection>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function ActivityTab({ task, isAr, t, onComment, terminal }: { task: Task; isAr: boolean; t: T; onComment: (x: string) => void; terminal: boolean }) {
