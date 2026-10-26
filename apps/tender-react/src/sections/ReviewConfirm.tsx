@@ -676,7 +676,7 @@ function AmountEyeOffGlyph({ className = '' }: { className?: string }) {
 
 function HeroStat({ label, value, sub, maskable }: { label: string; value: string; sub?: string; maskable?: boolean }) {
   const t = useT();
-  const [hidden, setHidden] = useState(false);
+  const [hidden, setHidden] = useState(!!maskable); // amounts start hidden by default
   const canMask = !!maskable && value.startsWith('SAR');
   const display = canMask && hidden ? '(******)' : value;
   return (
