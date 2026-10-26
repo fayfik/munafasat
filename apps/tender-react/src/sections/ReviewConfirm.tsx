@@ -102,8 +102,8 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
             <Badge variant={status === 'draft' ? 'draft' : 'submitted'}>{status === 'draft' ? t('Draft', 'مسودة') : t('Ready', 'جاهز')}</Badge>
           </div>
           <div className="relative grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
-            <HeroStat label={t('Total value', 'القيمة الإجمالية')} value={boqSubtotal > 0 ? `SAR ${formatSAR0(boqSubtotal)}` : '—'} />
-            <HeroStat label={t('Grand total', 'الإجمالي')} value={boqTotal > 0 ? `SAR ${formatSAR0(boqTotal)}` : '—'} sub={t('incl. 15% VAT', 'شامل الضريبة')} />
+            <HeroStat maskable label={t('Total value', 'القيمة الإجمالية')} value={boqSubtotal > 0 ? `SAR ${formatSAR0(boqSubtotal)}` : '—'} />
+            <HeroStat maskable label={t('Grand total', 'الإجمالي')} value={boqTotal > 0 ? `SAR ${formatSAR0(boqTotal)}` : '—'} sub={t('incl. 15% VAT', 'شامل الضريبة')} />
             <HeroStat label={t('BOQ items', 'بنود الجدول')} value={`${formData.boqItems.length}`} />
             <HeroStat label={t('Payment milestones', 'مراحل الدفع')} value={isEsouq ? '—' : `${formData.paymentStages.length} ${t('stages', 'مراحل')}`} />
           </div>
@@ -658,11 +658,41 @@ function RfpModal({ onClose, requestNo, projectName, deptName, subtotal, grandTo
 function SubLabel({ children }: { children: ReactNode }) {
   return <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 mb-2">{children}</p>;
 }
-function HeroStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function AmountEyeGlyph({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+function AmountEyeOffGlyph({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.6 6.6A13.3 13.3 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.4-1.6" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M2 2l20 20" />
+    </svg>
+  );
+}
+
+function HeroStat({ label, value, sub, maskable }: { label: string; value: string; sub?: string; maskable?: boolean }) {
+  const t = useT();
+  const [hidden, setHidden] = useState(false);
+  const canMask = !!maskable && value.startsWith('SAR');
+  const display = canMask && hidden ? '(******)' : value;
   return (
     <div>
       <p className="text-[10.5px] font-semibold uppercase tracking-wide text-white/60">{label}</p>
-      <p className="text-[16px] font-bold mt-0.5 tabular-nums" dir="ltr">{value}</p>
+      <div className="flex items-center gap-1.5 mt-0.5">
+        <p className="text-[16px] font-bold tabular-nums" dir="ltr">{display}</p>
+        {canMask && (
+          <button type="button" onClick={() => setHidden((h) => !h)}
+            aria-label={hidden ? t('Show amount', 'إظهار المبلغ') : t('Hide amount', 'إخفاء المبلغ')}
+            title={hidden ? t('Show amount', 'إظهار المبلغ') : t('Hide amount', 'إخفاء المبلغ')}
+            className="w-6 h-6 rounded-md flex items-center justify-center text-white/60 hover:text-white hover:bg-white/15 transition-colors flex-shrink-0">
+            {hidden ? <AmountEyeOffGlyph className="w-4 h-4" /> : <AmountEyeGlyph className="w-4 h-4" />}
+          </button>
+        )}
+      </div>
       {sub && <p className="text-[10px] text-white/50">{sub}</p>}
     </div>
   );
