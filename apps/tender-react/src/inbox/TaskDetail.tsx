@@ -95,17 +95,12 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
     <div className="relative flex h-full min-h-0 bg-neutral-50">
       {/* ── Detail column ─────────────────────────────────────────── */}
       <div className="relative flex-1 min-w-0 flex flex-col">
-      {/* Top action bar */}
-      <div className="flex items-center justify-between gap-2 px-4 sm:px-6 h-12 border-b border-neutral-200 bg-white flex-shrink-0">
+      {/* Top bar — record id + mobile back */}
+      <div className="flex items-center gap-2 px-4 sm:px-6 h-12 border-b border-neutral-200 bg-white flex-shrink-0">
         <button onClick={onBack} className="sm:hidden inline-flex items-center gap-1 text-[13px] font-medium text-neutral-600 hover:text-neutral-900">
           <ArrowLeftIcon className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />{t('Back', 'رجوع')}
         </button>
-        <span className="hidden sm:block text-[12px] text-neutral-400 font-medium">{task.id}</span>
-        <div className="flex items-center gap-1.5">
-          <TopBtn onClick={() => toggleSide('chat')} active={side === 'chat'} label={t('Chat', 'المحادثة')} icon={<ChatGlyph className="w-4 h-4" />} />
-          <TopBtn onClick={() => toggleSide('history')} active={side === 'history'} label={t('History', 'السجل')} icon={<HistoryGlyph className="w-4 h-4" />} />
-          <TopBtn onClick={() => downloadTaskPdf(task)} label={t('Download', 'تنزيل')} icon={<DownloadIcon className="w-4 h-4" />} />
-        </div>
+        <span className="text-[12px] text-neutral-400 font-medium">{task.id}</span>
       </div>
 
       {/* Scrollable content */}
@@ -193,7 +188,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
         </div>
 
         {/* Tab content */}
-        <div className="p-4 sm:p-6 max-w-4xl">
+        <div className="p-4 sm:p-6">
           {tab === 'overview' && (
             <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
               <TaskBody task={task} />
@@ -207,12 +202,13 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
       </div>
 
       {/* ── Right pane: Conversation / Approval flow ─────────────────
-          Inline third pane on lg+, slide-over on smaller screens. */}
+          Opens to the LEFT of the icon strip. Inline third pane on md+,
+          slide-over on smaller screens. */}
       {side && (
         <>
-          <div className="md:hidden absolute inset-0 bg-black/20 z-20" onClick={() => setSide(null)} />
-          <aside className="absolute inset-y-0 end-0 z-30 w-[340px] max-w-[88%] bg-white border-s border-neutral-200 shadow-2xl flex flex-col slide-up
-                            md:static md:z-auto md:w-[340px] md:max-w-none md:shadow-none lg:w-[360px]">
+          <div className="md:hidden absolute inset-y-0 start-0 end-12 bg-black/20 z-20" onClick={() => setSide(null)} />
+          <aside className="absolute inset-y-0 end-12 z-30 w-[320px] max-w-[80%] bg-white border-s border-neutral-200 shadow-2xl flex flex-col slide-up
+                            md:static md:z-auto md:w-[320px] md:max-w-none md:shadow-none lg:w-[360px]">
             {/* Pane header — switch between the two panes + collapse */}
             <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-12 border-b border-neutral-200 flex-shrink-0">
               <div className="flex items-center gap-0.5 bg-neutral-100 rounded-lg p-0.5">
@@ -232,7 +228,24 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           </aside>
         </>
       )}
+
+      {/* ── Right icon strip (always visible) ───────────────────────── */}
+      <nav className="w-12 flex-shrink-0 border-s border-neutral-200 bg-white flex flex-col items-center py-2 gap-1 z-40">
+        <StripBtn active={side === 'chat'} onClick={() => toggleSide('chat')} label={t('Chat', 'المحادثة')} icon={<ChatGlyph className="w-[18px] h-[18px]" />} />
+        <StripBtn active={side === 'history'} onClick={() => toggleSide('history')} label={t('History', 'السجل')} icon={<HistoryGlyph className="w-[18px] h-[18px]" />} />
+        <div className="w-6 h-px bg-neutral-200 my-1" />
+        <StripBtn onClick={() => downloadTaskPdf(task)} label={t('Download', 'تنزيل')} icon={<DownloadIcon className="w-[18px] h-[18px]" />} />
+      </nav>
     </div>
+  );
+}
+
+function StripBtn({ active, onClick, label, icon }: { active?: boolean; onClick: () => void; label: string; icon: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} title={label} aria-label={label}
+      className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${active ? 'bg-brand-50 text-brand-700' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800'}`}>
+      {icon}
+    </button>
   );
 }
 
@@ -246,15 +259,6 @@ function PaneTab({ active, onClick, icon, children }: { active: boolean; onClick
 }
 
 // ── Small pieces ──────────────────────────────────────────────────────────────
-function TopBtn({ onClick, active, label, icon }: { onClick: () => void; active?: boolean; label: string; icon: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-[12.5px] font-medium border transition-colors ${active ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 hover:text-neutral-800'}`}>
-      {icon}<span className="hidden md:inline">{label}</span>
-    </button>
-  );
-}
-
 interface BandCell { label: string; value: React.ReactNode; emphasis?: boolean; dir?: 'ltr'; grow?: boolean; avatar?: Person; danger?: boolean }
 function SummaryBand({ cells }: { cells: BandCell[] }) {
   return (
