@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
 import { aiStages, type AiStage } from '../lib/aiTender';
 import { SectionCard, AIButton, InfoBanner } from '../components/ui';
 import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon } from '../components/Icons';
+import ConfirmDeleteAll from '../components/ConfirmDeleteAll';
 
 function formatSAR(n: number) {
   return new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -303,27 +303,15 @@ export default function PaymentSchedule() {
       </SectionCard>
 
       {/* Delete-all confirmation */}
-      {confirmDeleteAll && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setConfirmDeleteAll(false)} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 bg-gradient-to-br from-error-500 to-error-700 text-white flex items-center gap-2.5">
-              <AlertTriangleIcon className="w-5 h-5" />
-              <h3 className="text-[16px] font-bold">{t('Delete all payment stages?', 'حذف جميع مراحل الدفع؟')}</h3>
-            </div>
-            <div className="px-5 py-4">
-              <p className="text-[13.5px] text-neutral-700 leading-relaxed">
-                {t(`This removes all ${formData.paymentStages.length} payment stage${formData.paymentStages.length === 1 ? '' : 's'} and can't be undone.`,
-                   `سيؤدي هذا إلى حذف جميع مراحل الدفع (${formData.paymentStages.length}) ولا يمكن التراجع عنه.`)}
-              </p>
-            </div>
-            <div className="px-5 py-3 bg-neutral-50 border-t border-neutral-100 flex items-center justify-end gap-2">
-              <button type="button" onClick={() => setConfirmDeleteAll(false)}
-                className="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-600 hover:bg-neutral-50">{t('Cancel', 'إلغاء')}</button>
-              <button type="button" onClick={() => { updateField('paymentStages', []); setAmountDraft({}); setConfirmDeleteAll(false); }}
-                className="px-4 py-2 rounded-lg bg-error-600 text-white text-sm font-semibold hover:bg-error-700">{t('Yes, delete all', 'نعم، احذف الكل')}</button>
-            </div>
-          </div>
-        </div>, document.body)}
+      <ConfirmDeleteAll
+        open={confirmDeleteAll}
+        onCancel={() => setConfirmDeleteAll(false)}
+        onConfirm={() => { updateField('paymentStages', []); setAmountDraft({}); setConfirmDeleteAll(false); }}
+        contextLabel="Payment schedule" contextLabelAr="جدول الدفعات"
+        title="Delete all payment stages?" titleAr="حذف جميع مراحل الدفع؟"
+        message={`This removes all ${formData.paymentStages.length} payment stage${formData.paymentStages.length === 1 ? '' : 's'} and can't be undone.`}
+        messageAr={`سيؤدي هذا إلى حذف جميع مراحل الدفع (${formData.paymentStages.length}) ولا يمكن التراجع عنه.`}
+      />
     </div>
   );
 }

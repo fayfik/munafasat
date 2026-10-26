@@ -17,6 +17,7 @@ import { aiBoq, type AiBoqRow } from '../lib/aiTender';
 import { saveFile, aiErrorMessage } from '../lib/claudeRuntime';
 import { checkEtimadAvailability, isStale, needsJustification } from '../lib/etimadCheck';
 import EtimadPanel from '../components/EtimadPanel';
+import ConfirmDeleteAll from '../components/ConfirmDeleteAll';
 import BoqSheet from '../components/BoqSheet';
 import { useBoqLayout, setBoqLayout } from '../lib/boqLayout';
 import EsouqBillOfQuantities from './EsouqBillOfQuantities';
@@ -1481,32 +1482,15 @@ export default function BillOfQuantities() {
       </SectionCard>
 
       {/* Delete-all confirmation */}
-      {confirmDeleteAll && createPortal(
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/45 backdrop-blur-[2px] backdrop-in"
-          onClick={() => setConfirmDeleteAll(false)} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden pop-in" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 bg-gradient-to-br from-error-500 to-error-600 text-white flex items-start gap-3">
-              <span className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
-                <TrashIcon className="w-5 h-5" />
-              </span>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">{t('Bill of Quantities', 'جدول الكميات')}</p>
-                <h3 className="text-[16px] font-bold mt-0.5">{t('Delete all items?', 'حذف جميع البنود؟')}</h3>
-              </div>
-            </div>
-            <div className="px-5 py-4">
-              <p className="text-[13px] text-neutral-700 leading-relaxed">
-                {t(`Are you sure you want to delete all Bill of Quantities? This removes all ${formData.boqItems.length} item${formData.boqItems.length === 1 ? '' : 's'} and can't be undone.`,
-                   `هل أنت متأكد من حذف جميع بنود جدول الكميات؟ سيؤدي ذلك إلى إزالة جميع البنود (${formData.boqItems.length}) ولا يمكن التراجع عن ذلك.`)}
-              </p>
-            </div>
-            <div className="px-5 py-3 border-t border-neutral-100 flex justify-end gap-2">
-              <button type="button" onClick={() => setConfirmDeleteAll(false)} className="px-4 py-2 rounded-lg border border-neutral-300 bg-white text-[13px] font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors">{t('Cancel', 'إلغاء')}</button>
-              <button type="button" onClick={() => { updateField('boqItems', []); setExpandedGroups(new Set()); setShowAddForm(false); setConfirmDeleteAll(false); }}
-                className="px-4 py-2 rounded-lg bg-error-600 text-white text-[13px] font-semibold hover:bg-error-700 transition-colors shadow-sm">{t('Yes, delete all', 'نعم، احذف الكل')}</button>
-            </div>
-          </div>
-        </div>, document.body)}
+      <ConfirmDeleteAll
+        open={confirmDeleteAll}
+        onCancel={() => setConfirmDeleteAll(false)}
+        onConfirm={() => { updateField('boqItems', []); setExpandedGroups(new Set()); setShowAddForm(false); setConfirmDeleteAll(false); }}
+        contextLabel="Bill of Quantities" contextLabelAr="جدول الكميات"
+        title="Delete all items?" titleAr="حذف جميع البنود؟"
+        message={`This removes all ${formData.boqItems.length} item${formData.boqItems.length === 1 ? '' : 's'} and can't be undone.`}
+        messageAr={`سيؤدي هذا إلى حذف جميع البنود (${formData.boqItems.length}) ولا يمكن التراجع عنه.`}
+      />
 
       {/* Confirmation modal before moving a BOQ item out to an Etimad E-Market request */}
       {moveConfirm && createPortal(

@@ -6,6 +6,7 @@ import { aiTechDocs, aiTechReqs, aiEvalCriteria, type AiReq, type AiCriterion } 
 import { FormField, SectionCard, Textarea, Input, AIButton, PeoplePicker, InfoBanner } from '../components/ui';
 import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon, XIcon, DocumentIcon } from '../components/Icons';
 import ImportCriteriaDrawer, { type DrawerItem } from '../components/ImportCriteriaDrawer';
+import ConfirmDeleteAll from '../components/ConfirmDeleteAll';
 import { SIMILAR_PROJECTS, EVAL_LIBRARY, type LibEvalCriterion } from '../lib/criteriaLibrary';
 
 // Mandatory documents — always required, can't be removed (locked).
@@ -17,42 +18,44 @@ export const LOCKED_TECH_DOCS: { en: string; ar: string }[] = [
 ];
 const LOCKED_DOC_STRINGS = LOCKED_TECH_DOCS.flatMap((d) => [d.en, d.ar]);
 
-/** View-more (kebab) menu with a two-step "Delete all" — mirrors the BOQ actions menu. */
-function DeleteAllMenu({ count, onDeleteAll, t }: { count: number; onDeleteAll: () => void; t: (en: string, ar: string) => string }) {
+/** View-more (kebab) menu whose "Delete all" opens the shared confirmation modal. */
+function DeleteAllMenu({ count, onDeleteAll, t, contextLabel, contextLabelAr, title, titleAr, noun, nounAr }: {
+  count: number; onDeleteAll: () => void; t: (en: string, ar: string) => string;
+  contextLabel: string; contextLabelAr: string; title: string; titleAr: string; noun: string; nounAr: string;
+}) {
   const [open, setOpen] = useState(false);
-  const [confirm, setConfirm] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setConfirm(false); } };
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
   return (
     <div className="relative" ref={ref}>
-      <button type="button" onClick={() => { setOpen((o) => !o); setConfirm(false); }} aria-label={t('More actions', 'إجراءات أخرى')}
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-label={t('More actions', 'إجراءات أخرى')}
         className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${open ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-neutral-300 bg-white text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700'}`}>
         <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" /></svg>
       </button>
       {open && (
-        <div className="absolute end-0 z-30 mt-1 w-60 rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up py-1">
-          {!confirm ? (
-            <button type="button" disabled={count === 0} onClick={() => setConfirm(true)}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-error-600 hover:bg-error-50 transition-colors text-start disabled:opacity-40 disabled:cursor-not-allowed">
-              <TrashIcon className="w-4 h-4" />
-              {t('Delete all', 'حذف الكل')}
-            </button>
-          ) : (
-            <div className="px-3 py-2">
-              <p className="text-[12px] text-neutral-700 mb-2">{t(`Delete all ${count} row${count === 1 ? '' : 's'}?`, `حذف جميع الصفوف (${count})؟`)}</p>
-              <div className="flex items-center justify-end gap-2">
-                <button type="button" onClick={() => { setConfirm(false); setOpen(false); }} className="px-2.5 py-1 rounded-md text-[12px] font-medium text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
-                <button type="button" onClick={() => { onDeleteAll(); setConfirm(false); setOpen(false); }} className="px-2.5 py-1 rounded-md text-[12px] font-semibold bg-error-600 text-white hover:bg-error-700">{t('Delete all', 'حذف الكل')}</button>
-              </div>
-            </div>
-          )}
+        <div className="absolute end-0 z-30 mt-1 w-52 rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up py-1">
+          <button type="button" disabled={count === 0} onClick={() => { setOpen(false); setConfirmOpen(true); }}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-error-600 hover:bg-error-50 transition-colors text-start disabled:opacity-40 disabled:cursor-not-allowed">
+            <TrashIcon className="w-4 h-4" />
+            {t('Delete all', 'حذف الكل')}
+          </button>
         </div>
       )}
+      <ConfirmDeleteAll
+        open={confirmOpen}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => { onDeleteAll(); setConfirmOpen(false); }}
+        contextLabel={contextLabel} contextLabelAr={contextLabelAr}
+        title={title} titleAr={titleAr}
+        message={`This removes all ${count} ${noun} and can't be undone.`}
+        messageAr={`سيؤدي هذا إلى حذف جميع ${nounAr} (${count}) ولا يمكن التراجع عنه.`}
+      />
     </div>
   );
 }
@@ -304,7 +307,9 @@ export default function TechnicalEvaluation() {
         action={
           <div className="flex items-center gap-2">
             <AIButton onClick={generateReqs} loading={reqLoading} label={t('AI Suggest Requirements', 'اقتراح المتطلبات')} />
-            <DeleteAllMenu count={formData.technicalRequirements.length} onDeleteAll={() => updateField('technicalRequirements', [])} t={t} />
+            <DeleteAllMenu count={formData.technicalRequirements.length} onDeleteAll={() => updateField('technicalRequirements', [])} t={t}
+              contextLabel="Technical requirements" contextLabelAr="المتطلبات الفنية"
+              title="Delete all requirements?" titleAr="حذف جميع المتطلبات؟" noun="requirements" nounAr="المتطلبات" />
           </div>
         }
       >
@@ -382,7 +387,9 @@ export default function TechnicalEvaluation() {
               {t('Import from similar projects', 'استيراد من مشاريع مماثلة')}
             </button>
             <AIButton onClick={generateEval} loading={evalLoading} label={t('AI Suggest Criteria', 'اقتراح المعايير')} />
-            <DeleteAllMenu count={formData.evaluationCriteria.length} onDeleteAll={() => updateField('evaluationCriteria', [])} t={t} />
+            <DeleteAllMenu count={formData.evaluationCriteria.length} onDeleteAll={() => updateField('evaluationCriteria', [])} t={t}
+              contextLabel="Evaluation criteria" contextLabelAr="معايير التقييم"
+              title="Delete all criteria?" titleAr="حذف جميع المعايير؟" noun="criteria" nounAr="المعايير" />
           </div>
         }
       >
