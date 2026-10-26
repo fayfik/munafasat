@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
@@ -43,6 +44,17 @@ export default function PaymentSchedule() {
   // is focused we echo exactly what was typed (so keystrokes aren't clobbered by the
   // percentage round-trip); on blur we drop the draft and show the derived amount.
   const [amountDraft, setAmountDraft] = useState<Record<string, string>>({});
+
+  // View-more menu (Delete all) — mirrors the BOQ actions menu.
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const h = (e: MouseEvent) => { if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [moreOpen]);
   function reorder(from: number, to: number) {
     if (from === to) return;
     const next = [...formData.paymentStages];
@@ -114,7 +126,27 @@ export default function PaymentSchedule() {
         titleAr="جدول الدفعات"
         description="Define payment stages tied to project milestones. Enter a percentage or an amount — the other is computed from the BOQ total. Total must equal 100%."
         descriptionAr="حدد مراحل الدفع المرتبطة بمعالم المشروع. أدخل النسبة أو المبلغ — ويُحسب الآخر تلقائياً من إجمالي جدول الكميات. يجب أن يكون الإجمالي 100%."
-        action={<AIButton onClick={handleAISuggest} loading={aiLoading} label={t('AI Suggest Stages', 'اقتراح المراحل')} />}
+        action={
+          <div className="flex items-center gap-2">
+            <AIButton onClick={handleAISuggest} loading={aiLoading} label={t('AI Suggest Stages', 'اقتراح المراحل')} />
+            <div className="relative" ref={moreRef}>
+              <button type="button" onClick={() => setMoreOpen((o) => !o)} aria-label={t('More actions', 'إجراءات أخرى')}
+                className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${moreOpen ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-neutral-300 bg-white text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700'}`}>
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" /></svg>
+              </button>
+              {moreOpen && (
+                <div className="absolute end-0 z-30 mt-1 w-52 rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up py-1">
+                  <button type="button" disabled={formData.paymentStages.length === 0}
+                    onClick={() => { setMoreOpen(false); setConfirmDeleteAll(true); }}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-error-600 hover:bg-error-50 transition-colors text-start disabled:opacity-40 disabled:cursor-not-allowed">
+                    <TrashIcon className="w-4 h-4" />
+                    {t('Delete all', 'حذف الكل')}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        }
       >
         {aiLoading && (
           <div className="mb-4 rounded-lg border border-ai-200 bg-ai-50 p-4 ai-loading">
@@ -221,7 +253,8 @@ export default function PaymentSchedule() {
                   <td className="px-2 py-1.5">
                     <button
                       onClick={() => removePaymentRow(row.id)}
-                      className="opacity-0 group-hover:opacity-100 text-neutral-300 hover:text-error-500 transition-all"
+                      aria-label={t('Delete stage', 'حذف المرحلة')}
+                      className="text-neutral-400 hover:text-error-500 transition-colors"
                     >
                       <TrashIcon className="w-3.5 h-3.5" />
                     </button>
@@ -268,6 +301,29 @@ export default function PaymentSchedule() {
           </InfoBanner>
         )}
       </SectionCard>
+
+      {/* Delete-all confirmation */}
+      {confirmDeleteAll && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setConfirmDeleteAll(false)} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 bg-gradient-to-br from-error-500 to-error-700 text-white flex items-center gap-2.5">
+              <AlertTriangleIcon className="w-5 h-5" />
+              <h3 className="text-[16px] font-bold">{t('Delete all payment stages?', 'حذف جميع مراحل الدفع؟')}</h3>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-[13.5px] text-neutral-700 leading-relaxed">
+                {t(`This removes all ${formData.paymentStages.length} payment stage${formData.paymentStages.length === 1 ? '' : 's'} and can't be undone.`,
+                   `سيؤدي هذا إلى حذف جميع مراحل الدفع (${formData.paymentStages.length}) ولا يمكن التراجع عنه.`)}
+              </p>
+            </div>
+            <div className="px-5 py-3 bg-neutral-50 border-t border-neutral-100 flex items-center justify-end gap-2">
+              <button type="button" onClick={() => setConfirmDeleteAll(false)}
+                className="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-600 hover:bg-neutral-50">{t('Cancel', 'إلغاء')}</button>
+              <button type="button" onClick={() => { updateField('paymentStages', []); setAmountDraft({}); setConfirmDeleteAll(false); }}
+                className="px-4 py-2 rounded-lg bg-error-600 text-white text-sm font-semibold hover:bg-error-700">{t('Yes, delete all', 'نعم، احذف الكل')}</button>
+            </div>
+          </div>
+        </div>, document.body)}
     </div>
   );
 }

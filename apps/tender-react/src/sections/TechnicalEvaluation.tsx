@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
@@ -16,6 +16,46 @@ export const LOCKED_TECH_DOCS: { en: string; ar: string }[] = [
   { en: 'Proposed Team CVs & Certifications', ar: 'السير الذاتية وشهادات الفريق المقترح' },
 ];
 const LOCKED_DOC_STRINGS = LOCKED_TECH_DOCS.flatMap((d) => [d.en, d.ar]);
+
+/** View-more (kebab) menu with a two-step "Delete all" — mirrors the BOQ actions menu. */
+function DeleteAllMenu({ count, onDeleteAll, t }: { count: number; onDeleteAll: () => void; t: (en: string, ar: string) => string }) {
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setConfirm(false); } };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => { setOpen((o) => !o); setConfirm(false); }} aria-label={t('More actions', 'إجراءات أخرى')}
+        className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${open ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-neutral-300 bg-white text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700'}`}>
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" /></svg>
+      </button>
+      {open && (
+        <div className="absolute end-0 z-30 mt-1 w-60 rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up py-1">
+          {!confirm ? (
+            <button type="button" disabled={count === 0} onClick={() => setConfirm(true)}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-error-600 hover:bg-error-50 transition-colors text-start disabled:opacity-40 disabled:cursor-not-allowed">
+              <TrashIcon className="w-4 h-4" />
+              {t('Delete all', 'حذف الكل')}
+            </button>
+          ) : (
+            <div className="px-3 py-2">
+              <p className="text-[12px] text-neutral-700 mb-2">{t(`Delete all ${count} row${count === 1 ? '' : 's'}?`, `حذف جميع الصفوف (${count})؟`)}</p>
+              <div className="flex items-center justify-end gap-2">
+                <button type="button" onClick={() => { setConfirm(false); setOpen(false); }} className="px-2.5 py-1 rounded-md text-[12px] font-medium text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
+                <button type="button" onClick={() => { onDeleteAll(); setConfirm(false); setOpen(false); }} className="px-2.5 py-1 rounded-md text-[12px] font-semibold bg-error-600 text-white hover:bg-error-700">{t('Delete all', 'حذف الكل')}</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function LockGlyph({ className = '' }: { className?: string }) {
   return (
@@ -261,7 +301,12 @@ export default function TechnicalEvaluation() {
         titleAr="المتطلبات الفنية"
         description="Define specific technical requirements vendors must meet."
         descriptionAr="حدد المتطلبات الفنية المحددة التي يجب على الموردين استيفاؤها."
-        action={<AIButton onClick={generateReqs} loading={reqLoading} label={t('AI Suggest Requirements', 'اقتراح المتطلبات')} />}
+        action={
+          <div className="flex items-center gap-2">
+            <AIButton onClick={generateReqs} loading={reqLoading} label={t('AI Suggest Requirements', 'اقتراح المتطلبات')} />
+            <DeleteAllMenu count={formData.technicalRequirements.length} onDeleteAll={() => updateField('technicalRequirements', [])} t={t} />
+          </div>
+        }
       >
         {reqLoading && (
           <div className="mb-4 rounded-lg border border-ai-200 bg-ai-50 p-4 ai-loading">
@@ -337,6 +382,7 @@ export default function TechnicalEvaluation() {
               {t('Import from similar projects', 'استيراد من مشاريع مماثلة')}
             </button>
             <AIButton onClick={generateEval} loading={evalLoading} label={t('AI Suggest Criteria', 'اقتراح المعايير')} />
+            <DeleteAllMenu count={formData.evaluationCriteria.length} onDeleteAll={() => updateField('evaluationCriteria', [])} t={t} />
           </div>
         }
       >
@@ -428,8 +474,8 @@ export default function TechnicalEvaluation() {
               </label>
               <p className="text-[12px] text-neutral-500 mt-0.5 leading-relaxed">
                 {t(
-                  'Minimum score (out of 100%) a vendor must achieve to pass the technical evaluation stage.',
-                  'الحد الأدنى للدرجة (من 100%) التي يجب على المورد تحقيقها للنجاح في مرحلة التقييم الفني.'
+                  'Minimum score out of 100% a vendor must achieve to pass the technical evaluation stage.',
+                  'الحد الأدنى للدرجة من 100% التي يجب على المورد تحقيقها للنجاح في مرحلة التقييم الفني.'
                 )}
               </p>
             </div>
