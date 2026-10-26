@@ -6,7 +6,7 @@ import { useLanguage, useT } from '../context/LanguageContext';
 import { SearchIcon, NavInboxIcon, ClockIcon, AlertTriangleIcon } from '../components/Icons';
 import type { InboxView, Task } from './types';
 import { useInbox, dueInfo, fmtSAR } from './store';
-import { TypeChip, StateChip, PRIORITY_META, ENTITY_META, tb } from './meta';
+import { StateChip, PRIORITY_META, ENTITY_META } from './meta';
 import TaskDetail from './TaskDetail';
 
 const FILTERS: { key: InboxView; en: string; ar: string }[] = [
@@ -97,23 +97,28 @@ function TaskRow({ task, isAr, t, active, onSelect, tasks }: { task: Task; isAr:
   return (
     <li>
       <button type="button" onClick={onSelect}
-        className={`w-full text-start px-4 py-3 transition-colors relative ${active ? 'bg-brand-50' : 'hover:bg-neutral-50'}`}>
+        className={`w-full text-start ps-4 pe-3 py-3 transition-colors relative ${active ? 'bg-brand-50' : 'hover:bg-neutral-50'}`}>
         {active && <span className={`absolute ${isAr ? 'right-0' : 'left-0'} top-0 bottom-0 w-[3px] bg-brand-600`} />}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.dot}`} title={isAr ? p.ar : p.en} />
-            <TypeChip type={task.type} isAr={isAr} />
+        {/* Line 1 — task name (left) · status (top right) */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2 min-w-0">
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${p.dot}`} title={isAr ? p.ar : p.en} />
+            <p className={`text-[13.5px] font-semibold leading-snug line-clamp-2 ${active ? 'text-brand-900' : 'text-neutral-900'}`}>{isAr ? task.titleAr : task.titleEn}</p>
           </div>
-          <span className={`text-[11px] font-medium flex-shrink-0 inline-flex items-center gap-1 ${d.overdue ? 'text-error-700' : d.soon ? 'text-warning-700' : 'text-neutral-400'}`}>
-            {d.overdue && <AlertTriangleIcon className="w-3 h-3" />}
-            {d.overdue ? t(`${Math.abs(d.days)}d late`, `متأخرة ${Math.abs(d.days)}ي`) : d.days <= 0 ? t('Due today', 'اليوم') : t(`${d.days}d left`, `${d.days}ي متبقٍ`)}
-          </span>
-        </div>
-        <p className={`mt-1.5 text-[13.5px] font-semibold leading-snug truncate ${active ? 'text-brand-900' : 'text-neutral-900'}`}>{isAr ? task.titleAr : task.titleEn}</p>
-        <p className="text-[11.5px] text-neutral-500 mt-0.5 truncate">{ENTITY_META[task.entity.kind][isAr ? 'ar' : 'en']} · {task.entity.ref} · {task.requester.name.split(' ')[0]}</p>
-        <div className="mt-2 flex items-center justify-between gap-2">
           <StateChip state={task.state} isAr={isAr} />
-          {task.amount != null && <span className="text-[12px] font-semibold text-neutral-700 tabular-nums" dir="ltr">{fmtSAR(task.amount)}</span>}
+        </div>
+        {/* Line 2 — basic details (left) · amount + due (right) */}
+        <div className="mt-1 ps-3.5 flex items-center justify-between gap-2">
+          <p className="text-[11.5px] text-neutral-500 truncate">
+            {ENTITY_META[task.entity.kind][isAr ? 'ar' : 'en']} · {task.entity.ref} · {task.requester.name.split(' ')[0]}
+          </p>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {task.amount != null && <span className="text-[12px] font-semibold text-neutral-700 tabular-nums" dir="ltr">{fmtSAR(task.amount)}</span>}
+            <span className={`text-[11px] font-medium inline-flex items-center gap-0.5 ${d.overdue ? 'text-error-600' : d.soon ? 'text-warning-700' : 'text-neutral-400'}`}>
+              {d.overdue && <AlertTriangleIcon className="w-3 h-3" />}
+              {d.overdue ? t(`${Math.abs(d.days)}d late`, `${Math.abs(d.days)}ي متأخرة`) : d.days <= 0 ? t('today', 'اليوم') : t(`${d.days}d`, `${d.days}ي`)}
+            </span>
+          </div>
         </div>
       </button>
     </li>

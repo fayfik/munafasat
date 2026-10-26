@@ -137,13 +137,12 @@ export default function TaskDetail({ task, onBack }: { task: Task; onBack: () =>
           </div>
 
           {/* Meta grid */}
-          <dl className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-5 gap-y-3">
-            <Meta label={t('Type', 'النوع')} value={<TypeChip type={task.type} isAr={isAr} />} />
-            <Meta label={t('Related', 'مرتبط بـ')} value={`${ENTITY_META[task.entity.kind][isAr ? 'ar' : 'en']} · ${task.entity.ref}`} />
+          <dl className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3.5">
+            <Meta label={t('Related record', 'السجل المرتبط')} value={`${ENTITY_META[task.entity.kind][isAr ? 'ar' : 'en']} · ${task.entity.ref}`} />
             {task.project && <Meta label={t('Project', 'المشروع')} value={tb(task.project, isAr)} />}
             <Meta label={t('Requester', 'مقدّم الطلب')} value={personName(task.requester, isAr)} avatar={task.requester} />
             <Meta label={t('Department', 'الإدارة')} value={tb(task.department, isAr)} />
-            <Meta label={t('Status', 'الحالة')} value={isAr ? task.stageAr : task.stageEn} />
+            <Meta label={t('Process stage', 'مرحلة العملية')} value={isAr ? task.stageAr : task.stageEn} />
             {task.amount != null && <Meta label={t('Value', 'القيمة')} value={fmtSAR(task.amount)} dir="ltr" />}
             <Meta label={t('Received', 'الاستلام')} value={fmtDate(task.receivedAt, isAr)} />
             <Meta label={t('Due', 'الاستحقاق')} value={<span className={d.overdue ? 'text-error-700 font-semibold' : ''}>{fmtDate(task.dueAt, isAr)}</span>} />
