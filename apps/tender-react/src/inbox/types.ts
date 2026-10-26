@@ -178,7 +178,36 @@ export interface Task {
   originalValues?: { label: Bilingual; value: string }[];
   requiredDocs?: RequiredDoc[];
 
+  // Full RFP / request context (shown in the detail tabs) and the workflow trail.
+  slaHours?: number;            // total SLA window from receivedAt
+  rfp?: RfpDetail;
+  trail?: TrailStep[];
+
   activity: ActivityEntry[];
+}
+
+/** Complete RFP / request record a task relates to — rendered in the detail tabs. */
+export interface RfpDetail {
+  refId: string;
+  titleEn: string; titleAr: string;
+  summaryEn: string; summaryAr: string;
+  meta: { label: Bilingual; value: string; dir?: 'ltr' }[];
+  scopeEn: string; scopeAr: string;
+  boq: { itemEn: string; itemAr: string; qty: string; unit: string; unitPrice: number }[];
+  payment: { stageEn: string; stageAr: string; pct: number }[];
+  evaluation: { criterionEn: string; criterionAr: string; weight: number }[];
+  qualification: { reqEn: string; reqAr: string }[];
+  documents: { en: string; ar: string }[];
+}
+
+/** One step in the task's workflow trail (past, current, or upcoming). */
+export interface TrailStep {
+  id: string;
+  titleEn: string; titleAr: string;
+  actorEn: string; actorAr: string;
+  at?: string;                  // ISO, for done steps
+  note?: Bilingual;
+  state: 'done' | 'current' | 'upcoming';
 }
 
 export type InboxView =
