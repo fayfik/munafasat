@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { Button } from '../components/ui';
-import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadIcon, ChevronRightIcon, XIcon } from '../components/Icons';
+import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadIcon, ChevronRightIcon } from '../components/Icons';
 import type { Task, TaskAction, Person, RfpDetail } from './types';
 import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
 import { TaskBody } from './renderers';
@@ -62,8 +62,8 @@ export default function TaskDetail({ task, onBack }: { task: Task; onBack: () =>
   const t = useT();
   const { decide, addComment } = useInbox();
   const [tab, setTab] = useState<'overview' | 'rfp' | 'activity'>('overview');
-  const [chatOpen, setChatOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [side, setSide] = useState<'chat' | 'history' | null>(null);
+  const toggleSide = (s: 'chat' | 'history') => setSide((prev) => (prev === s ? null : s));
   const [pending, setPending] = useState<ActionDef | null>(null);
   const [note, setNote] = useState('');
 
@@ -91,7 +91,9 @@ export default function TaskDetail({ task, onBack }: { task: Task; onBack: () =>
   ];
 
   return (
-    <div className="relative flex flex-col h-full min-h-0">
+    <div className="relative flex h-full min-h-0 bg-neutral-50">
+      {/* ── Detail column ─────────────────────────────────────────── */}
+      <div className="relative flex-1 min-w-0 flex flex-col">
       {/* Top action bar */}
       <div className="flex items-center justify-between gap-2 px-4 sm:px-6 h-12 border-b border-neutral-200 bg-white flex-shrink-0">
         <button onClick={onBack} className="sm:hidden inline-flex items-center gap-1 text-[13px] font-medium text-neutral-600 hover:text-neutral-900">
@@ -99,8 +101,8 @@ export default function TaskDetail({ task, onBack }: { task: Task; onBack: () =>
         </button>
         <span className="hidden sm:block text-[12px] text-neutral-400 font-medium">{task.id}</span>
         <div className="flex items-center gap-1.5">
-          <TopBtn onClick={() => { setChatOpen(true); setHistoryOpen(false); }} active={chatOpen} label={t('Chat', 'المحادثة')} icon={<ChatGlyph className="w-4 h-4" />} />
-          <TopBtn onClick={() => { setHistoryOpen(true); setChatOpen(false); }} active={historyOpen} label={t('History', 'السجل')} icon={<HistoryGlyph className="w-4 h-4" />} />
+          <TopBtn onClick={() => toggleSide('chat')} active={side === 'chat'} label={t('Chat', 'المحادثة')} icon={<ChatGlyph className="w-4 h-4" />} />
+          <TopBtn onClick={() => toggleSide('history')} active={side === 'history'} label={t('History', 'السجل')} icon={<HistoryGlyph className="w-4 h-4" />} />
           <TopBtn onClick={() => downloadTaskPdf(task)} label={t('Download', 'تنزيل')} icon={<DownloadIcon className="w-4 h-4" />} />
         </div>
       </div>
@@ -136,17 +138,24 @@ export default function TaskDetail({ task, onBack }: { task: Task; onBack: () =>
             )}
           </div>
 
-          {/* Meta grid */}
-          <dl className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3.5">
-            <Meta label={t('Related record', 'السجل المرتبط')} value={`${ENTITY_META[task.entity.kind][isAr ? 'ar' : 'en']} · ${task.entity.ref}`} />
-            {task.project && <Meta label={t('Project', 'المشروع')} value={tb(task.project, isAr)} />}
-            <Meta label={t('Requester', 'مقدّم الطلب')} value={personName(task.requester, isAr)} avatar={task.requester} />
-            <Meta label={t('Department', 'الإدارة')} value={tb(task.department, isAr)} />
-            <Meta label={t('Process stage', 'مرحلة العملية')} value={isAr ? task.stageAr : task.stageEn} />
-            {task.amount != null && <Meta label={t('Value', 'القيمة')} value={fmtSAR(task.amount)} dir="ltr" />}
-            <Meta label={t('Received', 'الاستلام')} value={fmtDate(task.receivedAt, isAr)} />
-            <Meta label={t('Due', 'الاستحقاق')} value={<span className={d.overdue ? 'text-error-700 font-semibold' : ''}>{fmtDate(task.dueAt, isAr)}</span>} />
-          </dl>
+          {/* Request summary band — emphasized amount + key reference fields */}
+          <SummaryBand cells={[
+            ...(task.amount != null ? [{ label: t('Amount requested', 'القيمة المطلوبة'), value: fmtSAR(task.amount), emphasis: true, dir: 'ltr' as const, grow: true }] : []),
+            { label: t('Related record', 'السجل المرتبط'), value: `${ENTITY_META[task.entity.kind][isAr ? 'ar' : 'en']} · ${task.entity.ref}` },
+            ...(task.project ? [{ label: t('Project', 'المشروع'), value: tb(task.project, isAr) }] : []),
+            task.supplier
+              ? { label: t('Vendor', 'المورّد'), value: tb(task.supplier, isAr) }
+              : { label: t('Department', 'الإدارة'), value: tb(task.department, isAr) },
+            { label: t('Requester', 'مقدّم الطلب'), value: personName(task.requester, isAr), avatar: task.requester },
+            { label: t('Due', 'الاستحقاق'), value: fmtDate(task.dueAt, isAr), danger: d.overdue },
+          ]} />
+          {/* Secondary meta line */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-neutral-500">
+            <span><span className="text-neutral-400">{t('Process stage', 'مرحلة العملية')}:</span> <span className="font-medium text-neutral-700">{isAr ? task.stageAr : task.stageEn}</span></span>
+            <span className="text-neutral-300">·</span>
+            <span><span className="text-neutral-400">{t('Received', 'الاستلام')}:</span> <span className="font-medium text-neutral-700">{fmtDate(task.receivedAt, isAr)}</span></span>
+            {task.supplier && <><span className="text-neutral-300">·</span><span><span className="text-neutral-400">{t('Department', 'الإدارة')}:</span> <span className="font-medium text-neutral-700">{tb(task.department, isAr)}</span></span></>}
+          </div>
 
           {/* Pending decision panel */}
           {pending && (
@@ -193,17 +202,45 @@ export default function TaskDetail({ task, onBack }: { task: Task; onBack: () =>
           {tab === 'activity' && <ActivityTab task={task} isAr={isAr} t={t} onComment={(x) => addComment(task.id, x)} terminal={terminal} />}
         </div>
       </div>
+      {tab === 'rfp' && task.rfp && <JumpFab sections={rfpSections(task.rfp)} isAr={isAr} t={t} />}
+      </div>
 
-      {/* Chat drawer */}
-      <SideDrawer open={chatOpen} onClose={() => setChatOpen(false)} title={t('Chat', 'المحادثة')} isAr={isAr}>
-        <ChatPanel task={task} isAr={isAr} t={t} onSend={(x) => addComment(task.id, x)} disabled={terminal} />
-      </SideDrawer>
-
-      {/* History drawer */}
-      <SideDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} title={t('Task history', 'سجل المهمة')} isAr={isAr}>
-        <TrailPanel task={task} isAr={isAr} t={t} />
-      </SideDrawer>
+      {/* ── Right pane: Conversation / Approval flow ─────────────────
+          Inline third pane on lg+, slide-over on smaller screens. */}
+      {side && (
+        <>
+          <div className="lg:hidden absolute inset-0 bg-black/20 z-20" onClick={() => setSide(null)} />
+          <aside className="absolute inset-y-0 end-0 z-30 w-[360px] max-w-[88%] bg-white border-s border-neutral-200 shadow-2xl flex flex-col slide-up
+                            lg:static lg:z-auto lg:w-[360px] lg:max-w-none lg:shadow-none">
+            {/* Pane header — switch between the two panes + collapse */}
+            <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-12 border-b border-neutral-200 flex-shrink-0">
+              <div className="flex items-center gap-0.5 bg-neutral-100 rounded-lg p-0.5">
+                <PaneTab active={side === 'chat'} onClick={() => setSide('chat')} icon={<ChatGlyph className="w-3.5 h-3.5" />}>{t('Conversation', 'المحادثة')}</PaneTab>
+                <PaneTab active={side === 'history'} onClick={() => setSide('history')} icon={<HistoryGlyph className="w-3.5 h-3.5" />}>{t('Approval flow', 'مسار الاعتماد')}</PaneTab>
+              </div>
+              <button onClick={() => setSide(null)} title={t('Collapse panel', 'طي اللوحة')}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 flex-shrink-0">
+                <PanelCollapseGlyph className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 flex flex-col">
+              {side === 'chat'
+                ? <ChatPanel task={task} isAr={isAr} t={t} onSend={(x) => addComment(task.id, x)} disabled={terminal} />
+                : <TrailPanel task={task} isAr={isAr} t={t} />}
+            </div>
+          </aside>
+        </>
+      )}
     </div>
+  );
+}
+
+function PaneTab({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${active ? 'bg-white text-brand-700 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>
+      {icon}{children}
+    </button>
   );
 }
 
@@ -217,15 +254,19 @@ function TopBtn({ onClick, active, label, icon }: { onClick: () => void; active?
   );
 }
 
-function Meta({ label, value, dir, avatar }: { label: string; value: React.ReactNode; dir?: 'ltr'; avatar?: Person }) {
-  const { isAr } = useLanguage();
+interface BandCell { label: string; value: React.ReactNode; emphasis?: boolean; dir?: 'ltr'; grow?: boolean; avatar?: Person; danger?: boolean }
+function SummaryBand({ cells }: { cells: BandCell[] }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{label}</dt>
-      <dd className="mt-0.5 text-[13px] font-medium text-neutral-800 truncate flex items-center gap-1.5" dir={dir}>
-        {avatar && <Avatar name={avatar.name} id={avatar.id} className="w-5 h-5" />}
-        {value}
-      </dd>
+    <div className="mt-4 rounded-xl border border-neutral-200 bg-white overflow-hidden flex flex-col sm:flex-row">
+      {cells.map((c, i) => (
+        <div key={i} className={`px-4 py-2.5 min-w-0 ${c.grow ? 'sm:flex-[1.3]' : 'sm:flex-1'} ${i > 0 ? 'border-t sm:border-t-0 sm:border-s border-neutral-100' : ''}`}>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400 whitespace-nowrap">{c.label}</p>
+          <p className={`mt-0.5 truncate flex items-center gap-1.5 ${c.emphasis ? 'text-[17px] font-bold text-brand-700 tabular-nums whitespace-nowrap' : `text-[13px] font-semibold ${c.danger ? 'text-error-700' : 'text-neutral-800'}`}`} dir={c.dir}>
+            {c.avatar && <Avatar name={c.avatar.name} id={c.avatar.id} className="w-5 h-5" />}
+            {c.value}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -258,14 +299,31 @@ function Donut({ segments, size = 128, stroke = 20 }: { segments: { value: numbe
 }
 
 function RfpSection({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+  const { isAr } = useLanguage();
+  const [open, setOpen] = useState(true);
   return (
-    <section id={`rfp-${id}`} className="scroll-mt-24 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
-      <div className="px-4 sm:px-5 py-3 border-b border-neutral-100 bg-neutral-50/50">
-        <h4 className="text-[13px] font-bold text-neutral-800">{title}</h4>
-      </div>
-      <div className="p-4 sm:p-5">{children}</div>
+    <section id={`rfp-${id}`} className="scroll-mt-16 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-2.5 px-4 sm:px-5 py-3 text-start hover:bg-neutral-50/70 transition-colors">
+        <ChevronRightIcon className={`w-4 h-4 text-neutral-400 flex-shrink-0 transition-transform ${open ? 'rotate-90' : isAr ? 'rotate-180' : ''}`} />
+        <CheckCircleIcon className="w-4 h-4 text-success-600 flex-shrink-0" />
+        <h4 className="text-[13px] font-bold text-neutral-800 flex-1 min-w-0">{title}</h4>
+      </button>
+      {open && <div className="px-4 sm:px-5 pb-5 pt-1 border-t border-neutral-100">{children}</div>}
     </section>
   );
+}
+
+function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: string }[] {
+  return [
+    { id: 'overview', en: 'Overview', ar: 'نظرة عامة' },
+    { id: 'scope', en: 'Scope', ar: 'النطاق' },
+    ...(rfp.boq.length ? [{ id: 'cost', en: 'Bill of quantities', ar: 'جدول الكميات' }] : []),
+    ...(rfp.payment.length ? [{ id: 'payment', en: 'Payment', ar: 'الدفعات' }] : []),
+    ...(rfp.evaluation.length ? [{ id: 'evaluation', en: 'Evaluation', ar: 'التقييم' }] : []),
+    ...(rfp.qualification.length ? [{ id: 'qualification', en: 'Qualification', ar: 'التأهيل' }] : []),
+    ...(rfp.documents.length ? [{ id: 'documents', en: 'Documents', ar: 'المستندات' }] : []),
+  ];
 }
 
 function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T }) {
@@ -273,20 +331,7 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
   const boqTotal = rfp.boq.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
   const estValue = boqTotal > 0 ? boqTotal : (amount ?? 0);
   const costSegs = rfp.boq.map((l, i) => ({ value: (Number(l.qty) || 1) * l.unitPrice, color: PALETTE[i % PALETTE.length], label: isAr ? l.itemAr : l.itemEn }));
-  const payMax = Math.max(1, ...rfp.payment.map((p) => p.pct));
   const evalMax = Math.max(1, ...rfp.evaluation.map((c) => c.weight));
-
-  // Sections present → jump nav
-  const sections: { id: string; en: string; ar: string }[] = [
-    { id: 'overview', en: 'Overview', ar: 'نظرة عامة' },
-    { id: 'scope', en: 'Scope', ar: 'النطاق' },
-    ...(rfp.boq.length ? [{ id: 'cost', en: 'Cost breakdown', ar: 'تفصيل التكلفة' }] : []),
-    ...(rfp.payment.length ? [{ id: 'payment', en: 'Payment', ar: 'الدفعات' }] : []),
-    ...(rfp.evaluation.length ? [{ id: 'evaluation', en: 'Evaluation', ar: 'التقييم' }] : []),
-    ...(rfp.qualification.length ? [{ id: 'qualification', en: 'Qualification', ar: 'التأهيل' }] : []),
-    ...(rfp.documents.length ? [{ id: 'documents', en: 'Documents', ar: 'المستندات' }] : []),
-  ];
-  const jump = (id: string) => document.getElementById(`rfp-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const stats: { label: string; value: string; dir?: 'ltr' }[] = [];
   if (estValue > 0) stats.push({ label: t('Estimated value', 'القيمة التقديرية'), value: fmtSAR(estValue), dir: 'ltr' });
@@ -295,21 +340,7 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
   if (rfp.evaluation.length) stats.push({ label: t('Eval. criteria', 'معايير التقييم'), value: String(rfp.evaluation.length) });
 
   return (
-    <div className="lg:grid lg:grid-cols-[168px_1fr] lg:gap-6">
-      {/* Jump-to-section nav */}
-      <nav className="mb-4 lg:mb-0 lg:sticky lg:top-2 self-start">
-        <p className="hidden lg:block text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400 px-2 mb-1.5">{t('Jump to', 'انتقل إلى')}</p>
-        <div className="flex lg:flex-col gap-1.5 overflow-x-auto -mx-1 px-1 lg:mx-0 lg:px-0">
-          {sections.map((s) => (
-            <button key={s.id} type="button" onClick={() => jump(s.id)}
-              className="text-start whitespace-nowrap px-2.5 py-1.5 rounded-lg text-[12.5px] font-medium text-neutral-600 bg-neutral-100 lg:bg-transparent hover:bg-neutral-100 hover:text-brand-700 transition-colors">
-              {isAr ? s.ar : s.en}
-            </button>
-          ))}
-        </div>
-      </nav>
-
-      <div className="space-y-5 min-w-0">
+    <div className="space-y-5">
         {/* Hero stats */}
         {stats.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -340,9 +371,9 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
           <p className="text-[13px] text-neutral-700 leading-relaxed">{isAr ? rfp.scopeAr : rfp.scopeEn}</p>
         </RfpSection>
 
-        {/* Cost breakdown — donut + legend + table */}
+        {/* Bill of quantities — donut + legend + table */}
         {rfp.boq.length > 0 && (
-          <RfpSection id="cost" title={t('Cost breakdown', 'تفصيل التكلفة')}>
+          <RfpSection id="cost" title={t('Bill of quantities', 'جدول الكميات')}>
             <div className="flex flex-col lg:flex-row gap-5">
               <div className="flex items-center gap-4 lg:flex-col lg:items-center flex-shrink-0">
                 <div className="relative">
@@ -378,29 +409,43 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot><tr className="bg-neutral-50 border-t-2 border-neutral-200">
-                    <td className="ps-3 pe-2 py-2 text-end text-[12px] font-semibold text-neutral-600" colSpan={2}>{t('Subtotal', 'الإجمالي')}</td>
-                    <td className="px-2 py-2 text-end text-[13px] font-bold tabular-nums text-neutral-900" dir="ltr">{fmtSAR(boqTotal)}</td>
-                  </tr></tfoot>
+                  <tfoot className="bg-neutral-50 border-t-2 border-neutral-200">
+                    <tr>
+                      <td className="ps-3 pe-2 py-1.5 text-end text-[12px] text-neutral-500" colSpan={2}>{t('Subtotal', 'المجموع الفرعي')}</td>
+                      <td className="px-2 py-1.5 text-end text-[12.5px] font-semibold tabular-nums text-neutral-700" dir="ltr">{fmtSAR(boqTotal)}</td>
+                    </tr>
+                    <tr>
+                      <td className="ps-3 pe-2 py-1.5 text-end text-[12px] text-neutral-500" colSpan={2}>{t('VAT (15%)', 'ضريبة القيمة المضافة (15%)')}</td>
+                      <td className="px-2 py-1.5 text-end text-[12.5px] font-semibold tabular-nums text-neutral-700" dir="ltr">{fmtSAR(boqTotal * 0.15)}</td>
+                    </tr>
+                    <tr className="border-t border-neutral-200">
+                      <td className="ps-3 pe-2 py-2 text-end text-[12.5px] font-bold text-neutral-800" colSpan={2}>{t('Grand total', 'الإجمالي الكلي')}</td>
+                      <td className="px-2 py-2 text-end text-[13px] font-bold tabular-nums text-brand-700" dir="ltr">{fmtSAR(boqTotal * 1.15)}</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
           </RfpSection>
         )}
 
-        {/* Payment — horizontal bars */}
+        {/* Payment — validity bar + numbered stage cards */}
         {rfp.payment.length > 0 && (
           <RfpSection id="payment" title={t('Payment schedule', 'جدول الدفعات')}>
-            <div className="space-y-2.5">
+            <div className="h-2 rounded-full overflow-hidden flex mb-4 bg-neutral-100">
               {rfp.payment.map((p, i) => (
-                <div key={i}>
-                  <div className="flex items-center justify-between text-[12.5px] mb-1">
-                    <span className="text-neutral-700">{i + 1}. {isAr ? p.stageAr : p.stageEn}</span>
-                    <span className="font-semibold text-neutral-800 tabular-nums">{p.pct}% {estValue > 0 && <span className="text-neutral-400 font-normal" dir="ltr">· {fmtSAR((p.pct / 100) * estValue)}</span>}</span>
+                <div key={i} style={{ width: `${p.pct}%`, background: PALETTE[i % PALETTE.length] }} />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {rfp.payment.map((p, i) => (
+                <div key={i} className="rounded-xl border border-neutral-200 p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-md text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }}>{i + 1}</span>
+                    <span className="text-[12.5px] font-semibold text-neutral-700 truncate">{isAr ? p.stageAr : p.stageEn}</span>
                   </div>
-                  <div className="h-2.5 rounded-full bg-neutral-100 overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${(p.pct / payMax) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
-                  </div>
+                  <p className="text-[20px] font-bold text-neutral-900 mt-1.5 tabular-nums">{p.pct}%</p>
+                  {estValue > 0 && <p className="text-[12px] text-neutral-500 tabular-nums" dir="ltr">{fmtSAR((p.pct / 100) * estValue)}</p>}
                 </div>
               ))}
             </div>
@@ -449,7 +494,33 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
             </ul>
           </RfpSection>
         )}
-      </div>
+    </div>
+  );
+}
+
+function JumpFab({ sections, isAr, t }: { sections: { id: string; en: string; ar: string }[]; isAr: boolean; t: T }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="absolute bottom-5 end-5 z-20">
+      {open && (
+        <>
+          <div className="fixed inset-0 z-0" onClick={() => setOpen(false)} />
+          <div className="absolute bottom-14 end-0 z-10 w-56 rounded-xl border border-neutral-200 bg-white shadow-xl p-1.5 slide-up">
+            <p className="px-2.5 py-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{t('Jump to section', 'الانتقال إلى قسم')}</p>
+            {sections.map((s) => (
+              <button key={s.id} type="button"
+                onClick={() => { document.getElementById(`rfp-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setOpen(false); }}
+                className="w-full text-start px-2.5 py-1.5 rounded-lg text-[13px] font-medium text-neutral-700 hover:bg-brand-50 hover:text-brand-700 transition-colors">
+                {isAr ? s.ar : s.en}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      <button type="button" onClick={() => setOpen((o) => !o)} title={t('Jump to section', 'الانتقال إلى قسم')}
+        className="w-11 h-11 rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700 active:scale-95 transition flex items-center justify-center">
+        <JumpGlyph className="w-5 h-5" />
+      </button>
     </div>
   );
 }
@@ -484,22 +555,6 @@ function ActivityTab({ task, isAr, t, onComment, terminal }: { task: Task; isAr:
           </li>
         ))}
       </ol>
-    </div>
-  );
-}
-
-function SideDrawer({ open, onClose, title, isAr, children }: { open: boolean; onClose: () => void; title: string; isAr: boolean; children: React.ReactNode }) {
-  if (!open) return null;
-  return (
-    <div className="absolute inset-0 z-30" aria-hidden={!open}>
-      <div className="absolute inset-0 bg-black/20" onClick={onClose} />
-      <div className={`absolute inset-y-0 ${isAr ? 'left-0' : 'right-0'} w-[340px] max-w-[88%] bg-white shadow-2xl flex flex-col slide-up`}>
-        <div className="flex items-center justify-between px-4 h-12 border-b border-neutral-200 flex-shrink-0">
-          <h3 className="text-[14px] font-bold text-neutral-900">{title}</h3>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:bg-neutral-100"><XIcon className="w-4 h-4" /></button>
-        </div>
-        <div className="flex-1 min-h-0 flex flex-col">{children}</div>
-      </div>
     </div>
   );
 }
@@ -625,4 +680,10 @@ function ChatGlyph({ className = '' }: { className?: string }) {
 }
 function HistoryGlyph({ className = '' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path d="M12 7v5l4 2" /></svg>;
+}
+function PanelCollapseGlyph({ className = '' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16" /><path d="m10.5 10 2 2-2 2" /></svg>;
+}
+function JumpGlyph({ className = '' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>;
 }
