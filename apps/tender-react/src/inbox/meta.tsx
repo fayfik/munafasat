@@ -17,7 +17,7 @@ export const TYPE_META: Record<TaskType, { en: string; ar: string; variant: Badg
 };
 
 export const STATE_META: Record<TaskState, { en: string; ar: string; variant: BadgeVariant }> = {
-  available:     { en: 'Available',   ar: 'متاحة',       variant: 'info' },
+  available:     { en: 'Pending',     ar: 'معلّقة',       variant: 'info' },
   'in-progress': { en: 'In Progress', ar: 'قيد التنفيذ', variant: 'warning' },
   waiting:       { en: 'Waiting',     ar: 'بالانتظار',   variant: 'default' },
   returned:      { en: 'Returned',    ar: 'مُعادة',       variant: 'error' },

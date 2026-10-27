@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { RemoveRowButton, RemoveAllButton } from '../components/ListActions';
+import { useState, useRef, useEffect } from 'react';
+import { RemoveAllButton } from '../components/ListActions';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { useAiAction, AiNote, num, str, arr } from '../lib/useAiAction';
@@ -8,6 +8,7 @@ import { SectionCard, AIButton, InfoBanner } from '../components/ui';
 import TemplateMenu from '../components/TemplateMenu';
 import { PAYMENT_TEMPLATES } from '../lib/templates';
 import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon } from '../components/Icons';
+import ConfirmDeleteAll from '../components/ConfirmDeleteAll';
 
 function formatSAR(n: number) {
   return new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -46,6 +47,17 @@ export default function PaymentSchedule() {
   // is focused we echo exactly what was typed (so keystrokes aren't clobbered by the
   // percentage round-trip); on blur we drop the draft and show the derived amount.
   const [amountDraft, setAmountDraft] = useState<Record<string, string>>({});
+
+  // View-more menu (Delete all) — mirrors the BOQ actions menu.
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const h = (e: MouseEvent) => { if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [moreOpen]);
   function reorder(from: number, to: number) {
     if (from === to) return;
     const next = [...formData.paymentStages];
@@ -118,7 +130,27 @@ export default function PaymentSchedule() {
         titleAr="جدول الدفعات"
         description="Define payment stages tied to project milestones. Enter a percentage or an amount — the other is computed from the BOQ total. Total must equal 100%."
         descriptionAr="حدد مراحل الدفع المرتبطة بمعالم المشروع. أدخل النسبة أو المبلغ — ويُحسب الآخر تلقائياً من إجمالي جدول الكميات. يجب أن يكون الإجمالي 100%."
-        action={<TemplateMenu options={PAYMENT_TEMPLATES} onPick={applyTemplate} suggestedId={suggestedTpl} />}
+        action={
+          <div className="flex items-center gap-2">
+            <TemplateMenu options={PAYMENT_TEMPLATES} onPick={applyTemplate} suggestedId={suggestedTpl} />
+            <div className="relative" ref={moreRef}>
+              <button type="button" onClick={() => setMoreOpen((o) => !o)} aria-label={t('More actions', 'إجراءات أخرى')}
+                className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${moreOpen ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-neutral-300 bg-white text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700'}`}>
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" /></svg>
+              </button>
+              {moreOpen && (
+                <div className="absolute end-0 z-30 mt-1 w-52 rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up py-1">
+                  <button type="button" disabled={formData.paymentStages.length === 0}
+                    onClick={() => { setMoreOpen(false); setConfirmDeleteAll(true); }}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-error-600 hover:bg-error-50 transition-colors text-start disabled:opacity-40 disabled:cursor-not-allowed">
+                    <TrashIcon className="w-4 h-4" />
+                    {t('Delete all', 'حذف الكل')}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        }
       >
         {aiLoading && (
           <div className="mb-4 rounded-lg border border-ai-200 bg-ai-50 p-4 ai-loading">
@@ -223,7 +255,13 @@ export default function PaymentSchedule() {
                     </div>
                   </td>
                   <td className="px-2 py-1.5">
-                    <RemoveRowButton onClick={() => removePaymentRow(row.id)} label={t('Remove stage', 'إزالة المرحلة')} />
+                    <button
+                      onClick={() => removePaymentRow(row.id)}
+                      aria-label={t('Delete stage', 'حذف المرحلة')}
+                      className="text-neutral-400 hover:text-error-500 transition-colors"
+                    >
+                      <TrashIcon className="w-3.5 h-3.5" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -258,7 +296,6 @@ export default function PaymentSchedule() {
           <PlusIcon className="w-3.5 h-3.5" />
           {t('Add Stage', 'إضافة مرحلة')}
         </button>
-        <RemoveAllButton count={formData.paymentStages.length} what={t('stages', 'مراحل')} onConfirm={() => updateField('paymentStages', [])} />
         </div>
 
         {boqSubtotal === 0 && (
@@ -270,6 +307,17 @@ export default function PaymentSchedule() {
           </InfoBanner>
         )}
       </SectionCard>
+
+      {/* Delete-all confirmation */}
+      <ConfirmDeleteAll
+        open={confirmDeleteAll}
+        onCancel={() => setConfirmDeleteAll(false)}
+        onConfirm={() => { updateField('paymentStages', []); setAmountDraft({}); setConfirmDeleteAll(false); }}
+        contextLabel="Payment schedule" contextLabelAr="جدول الدفعات"
+        title="Delete all payment stages?" titleAr="حذف جميع مراحل الدفع؟"
+        message={`This removes all ${formData.paymentStages.length} payment stage${formData.paymentStages.length === 1 ? '' : 's'} and can't be undone.`}
+        messageAr={`سيؤدي هذا إلى حذف جميع مراحل الدفع (${formData.paymentStages.length}) ولا يمكن التراجع عنه.`}
+      />
     </div>
   );
 }

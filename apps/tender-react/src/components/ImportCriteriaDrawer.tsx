@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { LibProject } from '../lib/criteriaLibrary';
 import { formatLibDate } from '../lib/criteriaLibrary';
-import { CheckIcon } from './Icons';
+import { CheckIcon, SearchIcon } from './Icons';
 
 /** One selectable criterion row shown in the drawer. */
 export interface DrawerItem {
@@ -29,6 +29,7 @@ interface Props {
 export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, projects, itemsFor, existingKeys, onImport, isAr, t }: Props) {
   const [activeProject, setActiveProject] = useState(projects[0]?.id ?? '');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState('');
   const existing = existingKeys ?? new Set<string>();
 
   // Count of selectable (not-yet-imported) items per project, and how many are selected.
@@ -47,6 +48,10 @@ export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, pr
 
   if (!open) return null;
 
+  const q = query.trim().toLowerCase();
+  const visibleProjects = q
+    ? projects.filter((p) => [p.name, p.nameAr, p.code, p.entity, p.entityAr].filter(Boolean).some((s) => s!.toLowerCase().includes(q)))
+    : projects;
   const activeItems = itemsFor(activeProject);
   const activeProj = projects.find((p) => p.id === activeProject);
   const selectableActive = activeItems.filter((i) => !existing.has(i.key));
@@ -70,7 +75,7 @@ export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, pr
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
       <div className="relative w-full max-w-[920px] h-[82vh] rounded-2xl overflow-hidden bg-white shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="shrink-0 px-5 py-4 border-b border-neutral-100 bg-gradient-to-br from-brand-600 to-ai-700 text-white flex items-start justify-between gap-3">
+        <div className="shrink-0 px-5 py-4 surface-header text-white flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">{t('Reuse from similar projects', 'إعادة استخدام من مشاريع مماثلة')}</p>
             <h3 className="text-[17px] font-bold mt-0.5">{isAr ? titleAr : title}</h3>
@@ -85,8 +90,20 @@ export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, pr
         <div className="flex-1 min-h-0 flex">
           {/* Left — projects */}
           <div className="w-[260px] shrink-0 border-e border-neutral-200 bg-neutral-50/60 overflow-y-auto">
-            <p className="px-4 pt-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Projects', 'المشاريع')}</p>
-            {projects.map((p) => {
+            {/* Search RFPs / projects */}
+            <div className="sticky top-0 z-10 bg-neutral-50/95 backdrop-blur px-3 pt-3 pb-2 border-b border-neutral-200">
+              <div className="relative">
+                <SearchIcon className={`w-3.5 h-3.5 text-neutral-400 absolute top-1/2 -translate-y-1/2 ${isAr ? 'right-2.5' : 'left-2.5'} pointer-events-none`} />
+                <input value={query} onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t('Search RFP by name or code…', 'ابحث عن منافسة بالاسم أو الرمز…')}
+                  className={`w-full h-8 ${isAr ? 'pr-8 pl-2.5' : 'pl-8 pr-2.5'} text-[12px] rounded-lg border border-neutral-300 bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none`} />
+              </div>
+            </div>
+            <p className="px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Projects', 'المشاريع')}</p>
+            {visibleProjects.length === 0 && (
+              <p className="px-4 py-4 text-[12px] text-neutral-400">{t('No matching RFPs.', 'لا توجد منافسات مطابقة.')}</p>
+            )}
+            {visibleProjects.map((p) => {
               const c = counts[p.id];
               const isActive = p.id === activeProject;
               return (

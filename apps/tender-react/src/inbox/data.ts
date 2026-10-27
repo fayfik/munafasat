@@ -2,7 +2,7 @@
 // Deterministic mock: dates are offsets from load time so Overdue/Due-soon stay meaningful.
 // This is demonstration data only — nothing here is persisted or connected to SAP.
 
-import type { Person, Task } from './types';
+import type { Person, Task, RfpDetail, TrailStep } from './types';
 
 const DAY = 86400000;
 const base = Date.now();
@@ -437,3 +437,194 @@ export const SEED_TASKS: Task[] = [
     activity: [{ id: 'a1', kind: 'decision', actor: ME, at: iso(-7, 12), decision: sup('Review Complete', 'اكتملت المراجعة'), text: 'No financial objections.' }],
   },
 ];
+
+// ── RFP / request detail + workflow trail ─────────────────────────────────────
+const SLA_BY_PRIORITY: Record<Task['priority'], number> = { urgent: 24, high: 48, medium: 72, low: 120 };
+
+// Hero request: the PR a department manager is approving (TSK-4101).
+const PR_LAPTOPS: RfpDetail = {
+  refId: 'PR-2026-118',
+  titleEn: 'Engineering Laptops & Docking Stations', titleAr: 'حواسيب ومحطات إرساء هندسية',
+  summaryEn: 'Equip the newly-formed delivery team with 25 engineering laptops and docking stations so they can start on schedule.',
+  summaryAr: 'تجهيز فريق التسليم الجديد بـ 25 حاسوباً محمولاً هندسياً ومحطات إرساء لبدء العمل في موعده.',
+  meta: [
+    { label: { en: 'Project', ar: 'المشروع' }, value: 'Delivery Team Expansion' },
+    { label: { en: 'Cost center', ar: 'مركز التكلفة' }, value: 'OPS-DELIV-01' },
+    { label: { en: 'Budget line', ar: 'بند الميزانية' }, value: 'CAPEX · IT Hardware' },
+    { label: { en: 'Budget remaining', ar: 'الميزانية المتبقية' }, value: 'SAR 1,240,000.00', dir: 'ltr' },
+    { label: { en: 'Request value', ar: 'قيمة الطلب' }, value: 'SAR 487,500.00', dir: 'ltr' },
+    { label: { en: 'Procurement route', ar: 'مسار الشراء' }, value: 'Etimad E-Market' },
+  ],
+  scopeEn: 'Supply, deliver and commission 25 engineering-grade laptops (min. 32GB RAM, 1TB SSD) and 25 USB-C docking stations for the Delivery Team Expansion. Devices must be enrolled in the corporate MDM, imaged with the standard engineering build, and delivered to the Riyadh HQ within 30 days of PO issuance.',
+  scopeAr: 'توريد وتسليم وتشغيل 25 حاسوباً محمولاً من الفئة الهندسية (32 جيجابايت رام و1 تيرابايت تخزين كحد أدنى) و25 محطة إرساء USB-C لتوسعة فريق التسليم. يجب تسجيل الأجهزة في نظام إدارة الأجهزة المؤسسي وتجهيزها بالصورة القياسية وتسليمها للمقر الرئيسي بالرياض خلال 30 يوماً من إصدار أمر الشراء.',
+  boq: [
+    { itemEn: 'Engineering laptop (32GB/1TB)', itemAr: 'حاسوب محمول هندسي (32/1000)', qty: '25', unit: 'Each', unitPrice: 15600 },
+    { itemEn: 'USB-C docking station', itemAr: 'محطة إرساء USB-C', qty: '25', unit: 'Each', unitPrice: 1800 },
+    { itemEn: '3-year onsite warranty', itemAr: 'ضمان في الموقع 3 سنوات', qty: '25', unit: 'Each', unitPrice: 950 },
+  ],
+  payment: [
+    { stageEn: 'On delivery & acceptance', stageAr: 'عند التسليم والقبول', pct: 80 },
+    { stageEn: 'After 30-day burn-in', stageAr: 'بعد فترة تشغيل 30 يوماً', pct: 20 },
+  ],
+  evaluation: [
+    { criterionEn: 'Price', criterionAr: 'السعر', weight: 60 },
+    { criterionEn: 'Delivery lead time', criterionAr: 'مدة التسليم', weight: 25 },
+    { criterionEn: 'Warranty & support', criterionAr: 'الضمان والدعم', weight: 15 },
+  ],
+  qualification: [
+    { reqEn: 'Valid Commercial Registration (CR)', reqAr: 'سجل تجاري ساري المفعول' },
+    { reqEn: 'Authorized reseller certificate', reqAr: 'شهادة موزّع معتمد' },
+    { reqEn: 'Zakat & Tax certificate', reqAr: 'شهادة الزكاة والضريبة' },
+  ],
+  documents: [
+    { en: 'Purchase Request form (signed)', ar: 'نموذج طلب الشراء (موقّع)' },
+    { en: 'Supplier quotation — Jarir Marketing Co.', ar: 'عرض سعر المورّد — شركة جرير' },
+    { en: 'Budget availability confirmation', ar: 'تأكيد توفر الميزانية' },
+  ],
+};
+
+// Large tender request, reused by the RFP-2026-041 tasks.
+const RFP_S4HANA: RfpDetail = {
+  refId: 'RFP-2026-041',
+  titleEn: 'SAP S/4HANA Implementation', titleAr: 'تطبيق SAP S/4HANA',
+  summaryEn: 'Full S/4HANA implementation with Embedded EWM, data migration, training and hypercare for the entity.',
+  summaryAr: 'تطبيق كامل لـ S/4HANA مع إدارة المستودعات المدمجة وترحيل البيانات والتدريب والدعم بعد التشغيل.',
+  meta: [
+    { label: { en: 'Project', ar: 'المشروع' }, value: 'Core ERP Modernization' },
+    { label: { en: 'Procurement route', ar: 'مسار الشراء' }, value: 'Competitive Tender' },
+    { label: { en: 'Estimated value', ar: 'القيمة التقديرية' }, value: 'SAR 8,650,000.00', dir: 'ltr' },
+    { label: { en: 'Contract duration', ar: 'مدة العقد' }, value: '18 months' },
+    { label: { en: 'Evaluation split', ar: 'توزيع التقييم' }, value: 'Technical 70% / Commercial 30%' },
+    { label: { en: 'Suppliers invited', ar: 'الموردون المدعوون' }, value: '5' },
+  ],
+  scopeEn: 'Design, build, migrate and operate a greenfield S/4HANA environment covering FI, CO, MM and FM with Embedded EWM. Includes data migration from the legacy ECC system, 6 training batches, and 3 months of hypercare support.',
+  scopeAr: 'تصميم وبناء وترحيل وتشغيل بيئة S/4HANA جديدة تغطي المالية والتحكم والمشتريات وإدارة الأموال مع إدارة المستودعات المدمجة، بما في ذلك ترحيل البيانات من النظام القديم و6 دفعات تدريبية و3 أشهر دعم بعد التشغيل.',
+  boq: [
+    { itemEn: 'Core implementation (FI/CO/MM/FM)', itemAr: 'التطبيق الأساسي', qty: '1', unit: 'LS', unitPrice: 4200000 },
+    { itemEn: 'Embedded EWM module', itemAr: 'وحدة EWM المدمجة', qty: '1', unit: 'LS', unitPrice: 1650000 },
+    { itemEn: 'Data migration', itemAr: 'ترحيل البيانات', qty: '1', unit: 'LS', unitPrice: 900000 },
+    { itemEn: 'Training (per batch)', itemAr: 'التدريب (لكل دفعة)', qty: '6', unit: 'batch', unitPrice: 85000 },
+    { itemEn: 'Hypercare support (months)', itemAr: 'الدعم بعد التشغيل', qty: '3', unit: 'mo', unitPrice: 130000 },
+  ],
+  payment: [
+    { stageEn: 'Contract signing & kickoff', stageAr: 'توقيع العقد والانطلاق', pct: 15 },
+    { stageEn: 'Design approval', stageAr: 'اعتماد التصميم', pct: 20 },
+    { stageEn: 'Build & configuration', stageAr: 'البناء والتهيئة', pct: 25 },
+    { stageEn: 'UAT sign-off', stageAr: 'اعتماد اختبار القبول', pct: 20 },
+    { stageEn: 'Go-live & training', stageAr: 'التشغيل والتدريب', pct: 15 },
+    { stageEn: 'Project closure', stageAr: 'إغلاق المشروع', pct: 5 },
+  ],
+  evaluation: [
+    { criterionEn: 'Methodology & implementation approach', criterionAr: 'المنهجية وأسلوب التطبيق', weight: 30 },
+    { criterionEn: 'Team qualifications & certifications', criterionAr: 'مؤهلات الفريق والشهادات', weight: 25 },
+    { criterionEn: 'Relevant experience', criterionAr: 'الخبرة ذات الصلة', weight: 25 },
+    { criterionEn: 'Support & SLA model', criterionAr: 'نموذج الدعم والخدمة', weight: 20 },
+  ],
+  qualification: [
+    { reqEn: 'SAP Gold/Platinum partner certificate', reqAr: 'شهادة شريك SAP ذهبي/بلاتيني' },
+    { reqEn: '3+ comparable S/4HANA deliveries', reqAr: '3 مشاريع S/4HANA مماثلة أو أكثر' },
+    { reqEn: 'NCA ECC-1:2018 compliance', reqAr: 'الامتثال لضوابط الأمن السيبراني' },
+    { reqEn: 'Local presence in KSA', reqAr: 'حضور محلي في المملكة' },
+  ],
+  documents: [
+    { en: 'Scope of Work (12 pages)', ar: 'نطاق العمل (12 صفحة)' },
+    { en: 'Technical evaluation report', ar: 'تقرير التقييم الفني' },
+    { en: 'Commercial comparison sheet', ar: 'جدول المقارنة التجارية' },
+    { en: 'Award recommendation memo', ar: 'مذكرة توصية الترسية' },
+  ],
+};
+
+// Deterministic defaults so every task's RFP record carries the full set of
+// sections (mirroring the request-creation flow), not just overview + scope.
+const PAY_DEFAULT: RfpDetail['payment'] = [
+  { stageEn: 'Advance on contract signing', stageAr: 'دفعة مقدمة عند توقيع العقد', pct: 20 },
+  { stageEn: 'On delivery & installation', stageAr: 'عند التسليم والتركيب', pct: 50 },
+  { stageEn: 'Final acceptance', stageAr: 'القبول النهائي', pct: 30 },
+];
+const EVAL_DEFAULT: RfpDetail['evaluation'] = [
+  { criterionEn: 'Technical compliance', criterionAr: 'المطابقة الفنية', weight: 60 },
+  { criterionEn: 'Price', criterionAr: 'السعر', weight: 30 },
+  { criterionEn: 'Delivery & support', criterionAr: 'التسليم والدعم', weight: 10 },
+];
+const QUAL_DEFAULT: RfpDetail['qualification'] = [
+  { reqEn: 'Valid Commercial Registration (CR)', reqAr: 'سجل تجاري ساري المفعول' },
+  { reqEn: 'Zakat & Tax (ZATCA) certificate', reqAr: 'شهادة الزكاة والضريبة' },
+  { reqEn: 'GOSI compliance certificate', reqAr: 'شهادة التأمينات الاجتماعية' },
+  { reqEn: 'Chamber of Commerce membership', reqAr: 'عضوية الغرفة التجارية' },
+];
+const DOCS_DEFAULT: RfpDetail['documents'] = [
+  { en: 'Technical proposal', ar: 'العرض الفني' },
+  { en: 'Financial proposal', ar: 'العرض المالي' },
+  { en: 'Company profile', ar: 'الملف التعريفي للشركة' },
+];
+
+function genericBoq(task: Task): RfpDetail['boq'] {
+  if (task.commercialLines?.length) {
+    const priced = task.commercialLines.filter((l) => l.unitPrice != null);
+    if (priced.length) return priced.map((l) => ({ itemEn: l.itemEn, itemAr: l.itemAr, qty: String(l.qty), unit: l.unit, unitPrice: l.unitPrice as number }));
+  }
+  const total = task.amount ?? 0;
+  if (total <= 0) return [];
+  const a = Math.round(total * 0.65), b = Math.round(total * 0.22), c = total - a - b;
+  return [
+    { itemEn: `${task.entity.titleEn} — core scope`, itemAr: `${task.entity.titleAr} — النطاق الأساسي`, qty: '1', unit: 'LS', unitPrice: a },
+    { itemEn: 'Implementation & configuration', itemAr: 'التنفيذ والتهيئة', qty: '1', unit: 'LS', unitPrice: b },
+    { itemEn: 'Support & warranty (12 months)', itemAr: 'الدعم والضمان (12 شهراً)', qty: '1', unit: 'LS', unitPrice: c },
+  ];
+}
+function genericEval(task: Task): RfpDetail['evaluation'] {
+  if (task.criteria?.length) return task.criteria.map((c) => ({ criterionEn: c.label.en, criterionAr: c.label.ar, weight: c.weight }));
+  return EVAL_DEFAULT;
+}
+const sourceType = (k: Task['entity']['kind']): { en: string; ar: string } =>
+  k === 'RFP' ? { en: 'Competitive tender', ar: 'منافسة عامة' }
+  : k === 'RFQ' ? { en: 'Request for quotation', ar: 'طلب عرض أسعار' }
+  : k === 'PR' ? { en: 'Purchase request', ar: 'طلب شراء' }
+  : k === 'PO' ? { en: 'Purchase order', ar: 'أمر شراء' }
+  : { en: String(k), ar: String(k) };
+
+function genericRfp(task: Task): RfpDetail {
+  const val = task.amount != null ? `SAR ${new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2 }).format(task.amount)}` : '—';
+  return {
+    refId: task.entity.ref,
+    titleEn: task.entity.titleEn, titleAr: task.entity.titleAr,
+    summaryEn: task.summaryEn, summaryAr: task.summaryAr,
+    meta: [
+      { label: { en: 'Record', ar: 'السجل' }, value: `${task.entity.kind} · ${task.entity.ref}` },
+      { label: { en: 'Source type', ar: 'نوع المصدر' }, value: sourceType(task.entity.kind).en },
+      ...(task.project ? [{ label: { en: 'Project', ar: 'المشروع' }, value: task.project.en }] : []),
+      ...(task.supplier ? [{ label: { en: 'Supplier', ar: 'المورّد' }, value: task.supplier.en }] : []),
+      { label: { en: 'Department', ar: 'الإدارة' }, value: task.department.en },
+      { label: { en: 'Requester', ar: 'مقدّم الطلب' }, value: task.requester.name },
+      ...(task.amount != null ? [{ label: { en: 'Value', ar: 'القيمة' }, value: val, dir: 'ltr' as const }] : []),
+    ],
+    scopeEn: task.summaryEn,
+    scopeAr: task.summaryAr,
+    boq: genericBoq(task),
+    payment: PAY_DEFAULT,
+    evaluation: genericEval(task),
+    qualification: QUAL_DEFAULT,
+    documents: task.requiredDocs?.length ? task.requiredDocs.map((d) => ({ en: d.label.en, ar: d.label.ar })) : DOCS_DEFAULT,
+  };
+}
+
+function trailFor(task: Task): TrailStep[] {
+  return [
+    { id: 't1', titleEn: 'Request submitted', titleAr: 'تقديم الطلب', actorEn: task.requester.name, actorAr: task.requester.nameAr ?? task.requester.name, at: task.receivedAt, state: 'done' },
+    { id: 't2', titleEn: 'Procurement validation', titleAr: 'تحقق المشتريات', actorEn: 'Hana Al-Ghamdi', actorAr: 'هناء الغامدي', at: task.receivedAt, state: 'done', note: { en: 'Routing confirmed — budget available.', ar: 'تم تأكيد التوجيه — الميزانية متاحة.' } },
+    { id: 't3', titleEn: task.titleEn, titleAr: task.titleAr, actorEn: task.assignee.name, actorAr: task.assignee.nameAr ?? task.assignee.name, state: 'current', note: { en: 'Awaiting your decision.', ar: 'بانتظار قرارك.' } },
+    { id: 't4', titleEn: 'Finance approval', titleAr: 'موافقة المالية', actorEn: 'Khalid Al-Otaibi', actorAr: 'خالد العتيبي', state: 'upcoming' },
+    { id: 't5', titleEn: 'Purchase Order issued', titleAr: 'إصدار أمر الشراء', actorEn: 'Procurement', actorAr: 'المشتريات', state: 'upcoming' },
+    { id: 't6', titleEn: 'Delivery & goods receipt', titleAr: 'التسليم والاستلام', actorEn: task.requester.name, actorAr: task.requester.nameAr ?? task.requester.name, state: 'upcoming' },
+  ];
+}
+
+// Enrich every task with an RFP record, a trail and an SLA window; the two hero
+// approvals carry bespoke RFP detail.
+for (const tk of SEED_TASKS) {
+  tk.slaHours = SLA_BY_PRIORITY[tk.priority];
+  tk.trail = trailFor(tk);
+  tk.rfp = tk.entity.ref === 'RFP-2026-041' ? RFP_S4HANA : genericRfp(tk);
+}
+const hero = SEED_TASKS.find((t) => t.id === 'TSK-4101');
+if (hero) hero.rfp = PR_LAPTOPS;

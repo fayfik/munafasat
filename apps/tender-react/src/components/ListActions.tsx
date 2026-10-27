@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useT } from '../context/LanguageContext';
 import { TrashIcon } from './Icons';
+import ConfirmDeleteAll from './ConfirmDeleteAll';
 
 /** Always-visible remove button at the end of a list/table row. */
 export function RemoveRowButton({ onClick, label }: { onClick: () => void; label?: string }) {
@@ -14,25 +15,22 @@ export function RemoveRowButton({ onClick, label }: { onClick: () => void; label
   );
 }
 
-/** "Remove all" with an inline confirm step (no browser dialog). Renders nothing when there's nothing to remove. */
-export function RemoveAllButton({ count, onConfirm, what }: { count: number; onConfirm: () => void; what?: string }) {
+/** "Delete all" with the shared confirmation modal. Renders nothing when there's nothing to remove. */
+export function RemoveAllButton({ count, onConfirm, what, whatAr, context, contextAr }: { count: number; onConfirm: () => void; what?: string; whatAr?: string; context?: string; contextAr?: string }) {
   const t = useT();
   const [asking, setAsking] = useState(false);
   if (count === 0) return null;
-  if (asking) {
-    return (
-      <span className="inline-flex items-center gap-2 text-[12px]" role="group" aria-label={t('Confirm remove all', 'تأكيد إزالة الكل')}>
-        <span className="text-neutral-600">{t(`Remove all ${count}${what ? ` ${what}` : ''}?`, `إزالة الكل (${count})؟`)}</span>
-        <button type="button" onClick={() => setAsking(false)} className="px-2.5 py-1 rounded-md border border-neutral-300 bg-white font-semibold text-neutral-600 hover:bg-neutral-50">{t('Cancel', 'إلغاء')}</button>
-        <button type="button" onClick={() => { onConfirm(); setAsking(false); }} className="px-2.5 py-1 rounded-md bg-error-600 text-white font-semibold hover:bg-error-700">{t('Yes, remove all', 'نعم، أزل الكل')}</button>
-      </span>
-    );
-  }
   return (
-    <button type="button" onClick={() => setAsking(true)}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold text-neutral-500 hover:text-error-600 hover:bg-error-50 transition-colors">
-      <TrashIcon className="w-3.5 h-3.5" />
-      {t('Remove all', 'إزالة الكل')}
-    </button>
+    <>
+      <button type="button" onClick={() => setAsking(true)}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold text-neutral-500 hover:text-error-600 hover:bg-error-50 transition-colors">
+        <TrashIcon className="w-3.5 h-3.5" />
+        {t('Delete all', 'حذف الكل')}
+      </button>
+      <ConfirmDeleteAll open={asking} onCancel={() => setAsking(false)} onConfirm={() => { onConfirm(); setAsking(false); }}
+        contextLabel={context ?? 'Delete all'} contextLabelAr={contextAr ?? 'حذف الكل'}
+        title={`Delete all ${what ?? 'items'}?`} titleAr={`حذف جميع ${whatAr ?? 'البنود'}؟`}
+        message={`This removes all ${count} ${what ?? 'items'} and can't be undone.`} messageAr={`سيؤدي ذلك إلى إزالة جميع العناصر (${count}) ولا يمكن التراجع عن ذلك.`} />
+    </>
   );
 }

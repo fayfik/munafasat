@@ -1,14 +1,14 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { useTender } from '../context/TenderContext';
 import { useT } from '../context/LanguageContext';
 import { PROJECTS, UNITS_OF_MEASURE } from '../data/mockData';
 import { FormField, SectionCard, AIButton, InfoBanner, Input, Select, Textarea, Badge } from '../components/ui';
-import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, ChevronDownIcon, CheckIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon, DocumentIcon, CheckCircleIcon } from '../components/Icons';
+import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, ChevronDownIcon, CheckIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon, DocumentIcon, CheckCircleIcon, AlertTriangleIcon } from '../components/Icons';
 import HoverNote from '../components/HoverNote';
 import BoqAttachments from '../components/BoqAttachments';
-import type { BOQRow, BOQCategory, FileAttachment } from '../types/tender';
+import type { BOQRow, BOQCategory, FileAttachment, EtimadCheck } from '../types/tender';
 import { BOQ_CATEGORIES, BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
 import { QUALIFICATIONS, NATIONALITIES, nationalityLabel, effectiveQty, generateManpowerDescription } from '../lib/boqManpower';
 import { useLanguage } from '../context/LanguageContext';
@@ -19,6 +19,7 @@ import { isStale, needsJustification, isOnEtimad, requesterAnswer, etimadAnswerO
 import JustificationField from '../components/JustificationField';
 import { useAddOrReplace } from '../components/AddOrReplace';
 import EtimadPanel, { EtimadSwitch, EtimadAnswer, ETIMAD_QUESTION, ETIMAD_JUST_LABEL, ETIMAD_JUST_PLACEHOLDER } from '../components/EtimadPanel';
+import ConfirmDeleteAll from '../components/ConfirmDeleteAll';
 import BoqSheet from '../components/BoqSheet';
 import { useBoqLayout, setBoqLayout } from '../lib/boqLayout';
 import EsouqBillOfQuantities from './EsouqBillOfQuantities';
@@ -186,6 +187,14 @@ const EMPTY_FORM = {
 
 const GROUP_COLORS = ['bg-brand-500', 'bg-ai-500', 'bg-warning-500', 'bg-success-600', 'bg-error-500', 'bg-neutral-400'];
 
+function EyeGlyph({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 export default function BillOfQuantities() {
   const { formData, updateField, removeBoqRow, updateBoqRow, moveBoqRowsToEtimad, returnBoqItemFromEtimad, boqSubtotal, boqVat, boqTotal } = useTender();
   const t = useT();
@@ -207,6 +216,26 @@ export default function BillOfQuantities() {
   const [manpowerGenLoading, setManpowerGenLoading] = useState(false);
   const addFormRef = useRef<HTMLDivElement>(null);
   const layout = useBoqLayout();
+
+  // Row view (read-only accordion) vs edit; category accordion (Grouped view);
+  // and the "checking in Etimad" state while a newly-added item is auto-checked.
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [expandedCats, setExpandedCats] = useState<Set<BOQCategory>>(() => new Set(BOQ_CATEGORIES));
+  const [savingAddCheck, setSavingAddCheck] = useState(false);
+  // When a just-saved item turns out to be available on Etimad E-Market, we hold it
+  // here (NOT yet in the table) and surface a warning so the user decides what to do.
+  const [addWarning, setAddWarning] = useState<{ row: BOQRow; check: EtimadCheck } | null>(null);
+  const toggleCat = (c: BOQCategory) => setExpandedCats((prev) => { const n = new Set(prev); n.has(c) ? n.delete(c) : n.add(c); return n; });
+  const toggleView = (id: string) => setViewingId((cur) => (cur === id ? null : id));
+  function addBlankSheetRow() {
+    const blank: BOQRow = { id: crypto.randomUUID(), projectItem: '', itemName: '', itemDescription: '', unitOfMeasure: 'Each', quantity: '', unitPrice: '', deliveryDate: '', hasBrandName: false, brandJustification: '' };
+    updateField('boqItems', [...formData.boqItems, blank]);
+  }
+  // "Add manually" respects the active view: Table → inline sheet row; Grid/Grouped → the form.
+  function addManually() {
+    if (layout === 'sheet') addBlankSheetRow();
+    else { closeItemForm(); setShowAddForm(true); }
+  }
 
   // BOQ actions menu (expand/collapse/download/delete-all) next to the view switch.
   const [moreOpen, setMoreOpen] = useState(false);
@@ -385,17 +414,47 @@ export default function BillOfQuantities() {
     });
   }
 
-  function handleAddItem() {
-    if (!newItem.projectItem || !newItem.itemName) return;
-    const id = crypto.randomUUID();
-    const category = newItem.category || deriveCategory(newItem.itemName);
-    const { etimadAnswer, etimadJust, ...fields } = newItem;
-    const row: BOQRow = { id, ...fields, category };
-    updateField('boqItems', [...formData.boqItems, { ...row, ...(etimadAnswer ? requesterAnswer(row, etimadAnswer === 'yes', etimadJust.trim()) : {}) }]);
-    setExpandedGroups((prev) => new Set([...prev, newItem.projectItem]));
+  // Add the finished row to the BOQ table and reset the form.
+  function commitNewRow(row: BOQRow) {
+    updateField('boqItems', [...formData.boqItems, row]);
+    setExpandedGroups((prev) => new Set([...prev, row.projectItem]));
+    setExpandedCats((prev) => new Set([...prev, row.category ?? deriveCategory(row.itemName)]));
     setNewItem({ ...EMPTY_FORM });
     setShowAddForm(false);
     setAddCat(null);
+    setAddWarning(null);
+  }
+
+  // "Save" (manual mode): the requester's own Etimad answer decides. "No" adds the
+  // item; "Yes" holds it back so they choose: move it to an Etimad E-Market request,
+  // keep it in this tender (with the justification they wrote), or edit it.
+  function handleAddItem() {
+    if (!newItem.projectItem || !newItem.itemName || !newItem.etimadAnswer) return;
+    const id = crypto.randomUUID();
+    const category = newItem.category || deriveCategory(newItem.itemName);
+    const { etimadAnswer, etimadJust, ...fields } = newItem;
+    const candidate: BOQRow = { id, ...fields, category };
+    if (etimadAnswer === 'yes') {
+      const answered = { ...candidate, ...requesterAnswer(candidate, true, etimadJust.trim()) };
+      setAddWarning({ row: answered, check: answered.etimadCheck! });
+      return;
+    }
+    commitNewRow({ ...candidate, ...requesterAnswer(candidate, false) });
+  }
+
+  function keepCandidateInTender() {
+    if (!addWarning) return;
+    commitNewRow({ ...addWarning.row, etimadKeep: true });
+  }
+  function moveCandidateToEtimad() {
+    if (!addWarning) return;
+    const moved = { ...addWarning.row, etimadKeep: false, etimadJustification: '' };
+    updateField('linkedEtimadRequestId', formData.linkedEtimadRequestId ?? crypto.randomUUID());
+    updateField('etimadMovedItems', [...(formData.etimadMovedItems ?? []), moved]);
+    setNewItem({ ...EMPTY_FORM });
+    setShowAddForm(false);
+    setAddCat(null);
+    setAddWarning(null);
   }
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -404,7 +463,10 @@ export default function BillOfQuantities() {
     setEditingId(null);
     setAddCat(null);
     setNewItem({ ...EMPTY_FORM });
+    setAddWarning(null);
   }
+  // Editing any field after an Etimad warning dismisses it so "Save" returns.
+  useEffect(() => { setAddWarning((w) => (w ? null : w)); }, [newItem]);
 
   function startEdit(row: BOQRow) {
     setShowAddForm(false);
@@ -754,28 +816,138 @@ export default function BillOfQuantities() {
                   </div>
                 )}
               </div>
+              {/* Etimad availability warning — shown when a saved item is on Etimad.
+                  The item is NOT added; the user chooses what to do with it. */}
+              {mode === 'add' && addWarning && (
+                <div className="pt-2 border-t border-neutral-100">
+                  <div className="rounded-lg border border-warning-200 bg-warning-50 px-3.5 py-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <AlertTriangleIcon className="w-4 h-4 text-warning-600 flex-shrink-0" />
+                      <span className="text-[13px] font-bold text-warning-800">{t('Available in Etimad E-Market', 'متوفر في سوق اعتماد')}</span>
+                    </div>
+                    <p className="text-[12px] text-warning-700">
+                      {t('This item was not added. It appears to be available on Etimad E-Market, so we suggest buying it there instead of including it in this tender.', 'لم تتم إضافة هذا البند. يبدو أنه متوفر في سوق اعتماد، لذا نقترح شراءه هناك بدلاً من إدراجه في هذه المنافسة.')}
+                    </p>
+                    {addWarning.check.comment && <p className="text-[11.5px] text-warning-700/90">{addWarning.check.comment}</p>}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button type="button" onClick={moveCandidateToEtimad}
+                        className="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-[12px] font-semibold hover:bg-brand-700 transition-colors">
+                        {t('Move to Etimad E-Market request', 'نقل إلى طلب سوق اعتماد')}
+                      </button>
+                      <button type="button" onClick={keepCandidateInTender}
+                        className="px-3 py-1.5 rounded-lg border border-warning-500/50 bg-white text-[12px] font-semibold text-warning-700 hover:bg-warning-100 transition-colors">
+                        {t('Keep in this tender', 'الإبقاء في هذه المنافسة')}
+                      </button>
+                      <button type="button" onClick={() => setAddWarning(null)}
+                        className="ms-auto px-3 py-1.5 rounded-lg text-[12px] font-semibold text-neutral-500 hover:text-neutral-700">
+                        {t('Edit item', 'تعديل البند')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {mode === 'add' && etimadError && !addWarning && (
+                <p className="text-[11.5px] text-error-600 pt-1">{etimadError}</p>
+              )}
 
               {/* Actions */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
-                <button
-                  onClick={closeItemForm}
-                  className="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
-                >
-                  {t('Cancel', 'إلغاء')}
-                </button>
-                <button
-                  onClick={mode === 'edit' ? handleSaveEdit : handleAddItem}
-                  disabled={formInvalid}
-                  className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {mode === 'edit' ? t('Save changes', 'حفظ التغييرات') : t('Add to BOQ', 'إضافة إلى الجدول')}
-                </button>
-              </div>
+              {!(mode === 'add' && addWarning) && (
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
+                  <button
+                    onClick={closeItemForm}
+                    className="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
+                  >
+                    {t('Cancel', 'إلغاء')}
+                  </button>
+                  <button
+                    onClick={mode === 'edit' ? handleSaveEdit : handleAddItem}
+                    disabled={formInvalid || (mode === 'add' && savingAddCheck)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {mode === 'edit'
+                      ? t('Save changes', 'حفظ التغييرات')
+                      : savingAddCheck
+                        ? (<><SparklesIcon className="w-3.5 h-3.5 spin-slow" />{t('Checking with Etimad E-Market…', 'جارٍ التحقق من سوق اعتماد…')}</>)
+                        : t('Save', 'حفظ')}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
     );
   }
 
+
+  // Read-only "view mode" for a row — the same fields as the form, not editable.
+  function renderItemView(row: BOQRow) {
+    const cat = row.category ?? deriveCategory(row.itemName);
+    const m = BOQ_CATEGORY_META[cat];
+    const isMan = cat === 'manpower';
+    const qty = effectiveQty(row);
+    const price = typeof row.unitPrice === 'number' ? row.unitPrice : 0;
+    const total = qty * price;
+    const qual = QUALIFICATIONS.find((q) => q.value === row.minQualification);
+    const VRow = ({ label, labelAr, value, dir, full }: { label: string; labelAr: string; value: ReactNode; dir?: 'ltr'; full?: boolean }) => (
+      <div className={`py-2 grid grid-cols-[150px_1fr] gap-3 border-b border-neutral-100 last:border-0 ${full ? 'sm:col-span-2' : ''}`}>
+        <dt className="text-[12px] text-neutral-500">{t(label, labelAr)}</dt>
+        <dd className="text-[13px] text-neutral-800 min-w-0 break-words" dir={dir}>{value || <span className="text-neutral-300">—</span>}</dd>
+      </div>
+    );
+    return (
+      <div className="m-3 rounded-xl border border-neutral-200 bg-neutral-50/40 overflow-hidden slide-up">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-neutral-200 bg-white">
+          <p className="text-sm font-semibold text-neutral-800">{t('Item details', 'تفاصيل البند')}</p>
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={() => { setViewingId(null); startEdit(row); }}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-brand-200 bg-brand-50 text-brand-700 text-[12px] font-semibold hover:bg-brand-100 transition-colors">
+              <PencilIcon className="w-3.5 h-3.5" />{t('Edit', 'تعديل')}
+            </button>
+            <button type="button" onClick={() => setViewingId(null)} aria-label={t('Close', 'إغلاق')}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:bg-neutral-100">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+            </button>
+          </div>
+        </div>
+        <dl className="px-4 py-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+          <VRow label="Budgeted Item" labelAr="البند المعتمد" value={groupLabel(row.projectItem)} />
+          <VRow label="Category" labelAr="التصنيف" value={<Badge variant={m.badge}>{isAr ? m.ar : m.en}</Badge>} />
+          <VRow label="Item Name" labelAr="اسم البند" value={itemLabel(row.itemName)} full />
+          {row.itemDescription && <VRow label="Description" labelAr="الوصف" value={row.itemDescription} full />}
+          {isMan ? (<>
+            <VRow label="Job Title" labelAr="المسمى الوظيفي" value={row.jobTitle} />
+            <VRow label="Staff Count" labelAr="عدد الموظفين" value={row.staffCount !== '' && row.staffCount != null ? String(row.staffCount) : ''} />
+            <VRow label="Minimum Accepted Qualification" labelAr="الحد الأدنى للمؤهل" value={qual ? t(qual.en, qual.ar) : ''} />
+            <VRow label="Minimum Years of Experience" labelAr="الحد الأدنى لسنوات الخبرة" value={row.minExperienceYears !== '' && row.minExperienceYears != null ? String(row.minExperienceYears) : ''} />
+            <VRow label="Official Working Hours" labelAr="ساعات العمل الرسمية" value={row.officialWorkingHours !== '' && row.officialWorkingHours != null ? String(row.officialWorkingHours) : ''} />
+            <VRow label="Extra Working Hours" labelAr="ساعات العمل الإضافية" value={row.extraWorkingHours !== '' && row.extraWorkingHours != null ? String(row.extraWorkingHours) : ''} />
+            <VRow label="Nationality required" labelAr="الجنسية مطلوبة" value={row.nationalityRequired ? t('Yes', 'نعم') : t('No', 'لا')} />
+            {row.nationalityRequired && <VRow label="Nationalities" labelAr="الجنسيات" value={(row.nationalities ?? []).map((n) => nationalityLabel(n, isAr)).join('، ')} full />}
+            <VRow label="Unit Price (SAR)" labelAr="سعر الوحدة" value={price > 0 ? `SAR ${formatSAR(price)}` : ''} dir="ltr" />
+          </>) : (<>
+            <VRow label="Unit of Measure" labelAr="وحدة القياس" value={row.unitOfMeasure} />
+            <VRow label="Quantity" labelAr="الكمية" value={row.quantity !== '' && row.quantity != null ? String(row.quantity) : ''} />
+            <VRow label="Unit Price (SAR)" labelAr="سعر الوحدة" value={price > 0 ? `SAR ${formatSAR(price)}` : ''} dir="ltr" />
+            {(cat === 'material' || cat === 'equipment') && <VRow label="Mandatory List" labelAr="القائمة الإلزامية" value={row.mandatoryList} full />}
+            <VRow label="Has Brand Name" labelAr="علامة تجارية" value={row.hasBrandName ? t('Yes', 'نعم') : t('No', 'لا')} />
+            {row.hasBrandName && <VRow label="Brand Justification" labelAr="مبرر العلامة التجارية" value={row.brandJustification} full />}
+          </>)}
+          <VRow label="Delivery Date" labelAr="موعد التسليم" value={row.deliveryDate} dir="ltr" />
+          <VRow label="Line Total" labelAr="إجمالي البند" value={total > 0 ? `SAR ${formatSAR(total)}` : ''} dir="ltr" />
+          {row.etimadCheck && !isStale(row) && (
+            <VRow label="Etimad E-Market" labelAr="سوق اعتماد" full value={
+              <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold ${row.etimadCheck.status === 'available' ? 'text-warning-700' : row.etimadCheck.status === 'not-available' ? 'text-success-700' : 'text-neutral-600'}`}>
+                {row.etimadCheck.status === 'available' ? t('Available in Etimad E-Market', 'متوفر في سوق اعتماد') : row.etimadCheck.status === 'not-available' ? t('Not in Etimad E-Market — proceed with tender', 'غير متوفر في سوق اعتماد — تابع بالمنافسة') : t('Uncertain — confirm on Etimad', 'غير مؤكد — تحقق في اعتماد')}
+              </span>
+            } />
+          )}
+          {(row.attachments?.length ?? 0) > 0 && (
+            <VRow label="Attachments" labelAr="المرفقات" full value={<BoqAttachments readOnly attachments={row.attachments ?? []} onChange={() => {}} />} />
+          )}
+        </dl>
+      </div>
+    );
+  }
 
   // Empty state: no items yet, and not actively adding or uploading.
   // In this state we show ONLY the three option cards — every other control is hidden.
@@ -835,12 +1007,12 @@ export default function BillOfQuantities() {
               <div className="absolute end-0 z-30 mt-1 w-56 rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up py-1">
                 {(layout === 'cards' || layout === 'grouped') && (
                   <>
-                    <button type="button" onClick={() => { setExpandedGroups(new Set(groups.map((g) => g.key))); setMoreOpen(false); }}
+                    <button type="button" onClick={() => { if (layout === 'grouped') setExpandedCats(new Set(BOQ_CATEGORIES)); else setExpandedGroups(new Set(groups.map((g) => g.key))); setMoreOpen(false); }}
                       className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-neutral-700 hover:bg-neutral-50 transition-colors text-start">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-neutral-400"><path d="M7 14l5 5 5-5M7 10l5-5 5 5" /></svg>
                       {t('Expand all', 'توسيع الكل')}
                     </button>
-                    <button type="button" onClick={() => { setExpandedGroups(new Set()); setMoreOpen(false); }}
+                    <button type="button" onClick={() => { if (layout === 'grouped') setExpandedCats(new Set()); else setExpandedGroups(new Set()); setMoreOpen(false); }}
                       className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-neutral-700 hover:bg-neutral-50 transition-colors text-start">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-neutral-400"><path d="M7 9l5-5 5 5M7 15l5 5 5-5" /></svg>
                       {t('Collapse all', 'طي الكل')}
@@ -1044,10 +1216,10 @@ export default function BillOfQuantities() {
                 </span>
               </button>
 
-              {/* 3 · Add manually */}
+              {/* 3 · Add manually — renders per the active view (Table = inline row) */}
               <button
                 type="button"
-                onClick={() => { setBoqLayout('cards'); closeItemForm(); setShowAddForm(true); }}
+                onClick={addManually}
                 className="group relative flex flex-col text-start rounded-xl border border-neutral-200 bg-white p-4 hover:border-brand-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
               >
                 <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-neutral-100 text-neutral-700 ring-1 ring-neutral-200 mb-3 group-hover:scale-105 transition-transform">
@@ -1159,7 +1331,7 @@ export default function BillOfQuantities() {
                           const showCheckTop = !row.etimadCheck || isStale(row);
                           return (
                             <div key={row.id} className={missingOf(row).length ? "border-s-4 border-warning-400 bg-warning-50/30" : "bg-white"}>
-                            {editingId === row.id ? renderItemForm('edit') : (<>
+                            {editingId === row.id ? renderItemForm('edit') : viewingId === row.id ? renderItemView(row) : (<>
                             <div className={`grid grid-cols-[1fr_64px_104px_136px_84px] items-center px-5 py-3 ${missingOf(row).length ? "" : "bg-white"} hover:bg-neutral-50/40 transition-colors group/row`}>
                               {/* Item */}
                               <div className="pe-4 col-start-1">
@@ -1223,6 +1395,15 @@ export default function BillOfQuantities() {
                               <div className="flex justify-end gap-0.5">
                                 <button
                                   type="button"
+                                  onClick={() => toggleView(row.id)}
+                                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${viewingId === row.id ? 'text-brand-700 bg-brand-50' : 'text-neutral-500 hover:text-brand-700 hover:bg-brand-50'}`}
+                                  title={t('View details', 'عرض التفاصيل')}
+                                  aria-label={t('View details', 'عرض التفاصيل')}
+                                >
+                                  <EyeGlyph className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => startEdit(row)}
                                   className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors"
                                   title={t('Edit item', 'تعديل البند')}
@@ -1232,8 +1413,8 @@ export default function BillOfQuantities() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => { if (editingId === row.id) closeItemForm(); removeBoqRow(row.id); }}
-                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-300 hover:text-error-500 hover:bg-error-50 transition-colors"
+                                  onClick={() => { if (editingId === row.id) closeItemForm(); if (viewingId === row.id) setViewingId(null); removeBoqRow(row.id); }}
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-error-500 hover:bg-error-50 transition-colors"
                                   title={t('Delete item', 'حذف البند')}
                                   aria-label={t(`Delete ${row.itemName}`, `حذف ${row.itemName}`)}
                                 >
@@ -1266,31 +1447,36 @@ export default function BillOfQuantities() {
           </div>
         )}
 
-        {/* C · grouped by Etimad category */}
+        {/* C · grouped by Etimad category — accordion (expand / collapse) */}
         {formData.boqItems.length > 0 && layout === 'grouped' && (
           <div className="space-y-3">
             {BOQ_CATEGORIES.map((cat) => {
               const m = BOQ_CATEGORY_META[cat];
               const rows = formData.boqItems.filter((r) => (r.category ?? deriveCategory(r.itemName)) === cat);
+              if (rows.length === 0) return null;
               const subtotal = rows.reduce((s, r) => s + rowTotal(r), 0);
+              const isOpen = expandedCats.has(cat);
               return (
                 <div key={cat} className="rounded-xl border border-neutral-200 overflow-hidden">
-                  <div className="flex items-center gap-2.5 px-4 py-3 bg-neutral-50 border-b border-neutral-200">
+                  <button type="button" onClick={() => toggleCat(cat)}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 bg-neutral-50 hover:bg-neutral-100/60 transition-colors text-start">
+                    <ChevronRightIcon className={`w-3.5 h-3.5 text-neutral-500 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
                     <Badge variant={m.badge}>{isAr ? m.ar : m.en}</Badge>
                     <span className="text-[11px] text-neutral-500 tabular-nums">{rows.length} {rows.length === 1 ? t('item', 'بند') : t('items', 'بنود')}</span>
                     {subtotal > 0 && <span className="ms-auto text-xs font-semibold text-neutral-700 tabular-nums" dir="ltr">SAR {formatSAR(subtotal)}</span>}
-                  </div>
+                  </button>
 
-                  {rows.length > 0 && (
-                    <div className="divide-y divide-neutral-100">
+                  {isOpen && (
+                    <div className="divide-y divide-neutral-100 border-t border-neutral-200">
                       {rows.map((row) => {
                         if (editingId === row.id) return <div key={row.id}>{renderItemForm('edit')}</div>;
+                        if (viewingId === row.id) return <div key={row.id}>{renderItemView(row)}</div>;
                         const total = rowTotal(row);
                         const unitPrice = typeof row.unitPrice === 'number' ? row.unitPrice : 0;
                         const showCheckTop = !row.etimadCheck || isStale(row);
                         return (
                           <div key={row.id} className={`${missingOf(row).length ? "border-s-4 border-warning-400 bg-warning-50/30" : "bg-white"} hover:bg-neutral-50/40 transition-colors`}>
-                            <div className="grid grid-cols-[1fr_72px_112px_128px_56px] items-center gap-2 px-4 pt-2.5">
+                            <div className="grid grid-cols-[1fr_72px_112px_128px_84px] items-center gap-2 px-4 pt-2.5">
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-neutral-900 truncate">{itemLabel(row.itemName) || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
                                 {row.projectItem && <p className="text-[11px] text-neutral-500 truncate">{groupLabel(row.projectItem)}</p>}
@@ -1299,8 +1485,9 @@ export default function BillOfQuantities() {
                               <div className="text-end text-sm text-neutral-700 tabular-nums" dir="ltr">{unitPrice > 0 ? `SAR ${formatSAR(unitPrice)}` : '—'}</div>
                               <div className="text-end text-sm font-bold text-neutral-900 tabular-nums" dir="ltr">{total > 0 ? `SAR ${formatSAR(total)}` : '—'}</div>
                               <div className="flex justify-end gap-0.5">
+                                <button type="button" onClick={() => toggleView(row.id)} className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${viewingId === row.id ? 'text-brand-700 bg-brand-50' : 'text-neutral-500 hover:text-brand-700 hover:bg-brand-50'}`} title={t('View details', 'عرض التفاصيل')} aria-label={t('View details', 'عرض التفاصيل')}><EyeGlyph className="w-4 h-4" /></button>
                                 <button type="button" onClick={() => startEdit(row)} className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-brand-700 hover:bg-brand-50 transition-colors" title={t('Edit item', 'تعديل البند')}><PencilIcon className="w-3.5 h-3.5" /></button>
-                                <button type="button" onClick={() => { if (editingId === row.id) closeItemForm(); removeBoqRow(row.id); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-error-500 hover:bg-error-50 transition-colors" title={t('Delete item', 'حذف البند')}><TrashIcon className="w-3.5 h-3.5" /></button>
+                                <button type="button" onClick={() => { if (editingId === row.id) closeItemForm(); if (viewingId === row.id) setViewingId(null); removeBoqRow(row.id); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-error-500 hover:bg-error-50 transition-colors" title={t('Delete item', 'حذف البند')}><TrashIcon className="w-3.5 h-3.5" /></button>
                               </div>
                             </div>
                             {(
@@ -1372,32 +1559,15 @@ export default function BillOfQuantities() {
       {showPastDialog && <BrowseRfpsDialog projectId={formData.projectId} onClose={() => setShowPastDialog(false)} onImport={copyFromPast} />}
 
       {/* Delete-all confirmation */}
-      {confirmDeleteAll && createPortal(
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/45 backdrop-blur-[2px] backdrop-in"
-          onClick={() => setConfirmDeleteAll(false)} role="dialog" aria-modal="true" dir={isAr ? 'rtl' : 'ltr'}>
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden pop-in" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 bg-gradient-to-br from-error-500 to-error-600 text-white flex items-start gap-3">
-              <span className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
-                <TrashIcon className="w-5 h-5" />
-              </span>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">{t('Bill of Quantities', 'جدول الكميات')}</p>
-                <h3 className="text-[16px] font-bold mt-0.5">{t('Delete all items?', 'حذف جميع البنود؟')}</h3>
-              </div>
-            </div>
-            <div className="px-5 py-4">
-              <p className="text-[13px] text-neutral-700 leading-relaxed">
-                {t(`Are you sure you want to delete all Bill of Quantities? This removes all ${formData.boqItems.length} item${formData.boqItems.length === 1 ? '' : 's'} and can't be undone.`,
-                   `هل أنت متأكد من حذف جميع بنود جدول الكميات؟ سيؤدي ذلك إلى إزالة جميع البنود (${formData.boqItems.length}) ولا يمكن التراجع عن ذلك.`)}
-              </p>
-            </div>
-            <div className="px-5 py-3 border-t border-neutral-100 flex justify-end gap-2">
-              <button type="button" onClick={() => setConfirmDeleteAll(false)} className="px-4 py-2 rounded-lg border border-neutral-300 bg-white text-[13px] font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors">{t('Cancel', 'إلغاء')}</button>
-              <button type="button" onClick={() => { updateField('boqItems', []); setExpandedGroups(new Set()); setShowAddForm(false); setConfirmDeleteAll(false); }}
-                className="px-4 py-2 rounded-lg bg-error-600 text-white text-[13px] font-semibold hover:bg-error-700 transition-colors shadow-sm">{t('Yes, delete all', 'نعم، احذف الكل')}</button>
-            </div>
-          </div>
-        </div>, document.body)}
+      <ConfirmDeleteAll
+        open={confirmDeleteAll}
+        onCancel={() => setConfirmDeleteAll(false)}
+        onConfirm={() => { updateField('boqItems', []); setExpandedGroups(new Set()); setShowAddForm(false); setConfirmDeleteAll(false); }}
+        contextLabel="Bill of Quantities" contextLabelAr="جدول الكميات"
+        title="Delete all items?" titleAr="حذف جميع البنود؟"
+        message={`This removes all ${formData.boqItems.length} item${formData.boqItems.length === 1 ? '' : 's'} and can't be undone.`}
+        messageAr={`سيؤدي هذا إلى حذف جميع البنود (${formData.boqItems.length}) ولا يمكن التراجع عنه.`}
+      />
 
       {/* Confirmation modal before moving a BOQ item out to an Etimad E-Market request */}
       {moveConfirm && createPortal(

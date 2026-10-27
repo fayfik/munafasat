@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { RemoveRowButton, RemoveAllButton } from '../components/ListActions';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
@@ -9,6 +9,7 @@ import { EVAL_TEMPLATES } from '../lib/templates';
 import { FormField, SectionCard, Textarea, Input, AIButton, PeoplePicker, InfoBanner } from '../components/ui';
 import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon, XIcon, DocumentIcon } from '../components/Icons';
 import ImportCriteriaDrawer, { type DrawerItem } from '../components/ImportCriteriaDrawer';
+import ConfirmDeleteAll from '../components/ConfirmDeleteAll';
 import { SIMILAR_PROJECTS, EVAL_LIBRARY, type LibEvalCriterion } from '../lib/criteriaLibrary';
 
 // Mandatory documents — always required, can't be removed (locked).
@@ -19,6 +20,48 @@ export const LOCKED_TECH_DOCS: { en: string; ar: string }[] = [
   { en: 'Proposed Team CVs & Certifications', ar: 'السير الذاتية وشهادات الفريق المقترح' },
 ];
 const LOCKED_DOC_STRINGS = LOCKED_TECH_DOCS.flatMap((d) => [d.en, d.ar]);
+
+/** View-more (kebab) menu whose "Delete all" opens the shared confirmation modal. */
+function DeleteAllMenu({ count, onDeleteAll, t, contextLabel, contextLabelAr, title, titleAr, noun, nounAr }: {
+  count: number; onDeleteAll: () => void; t: (en: string, ar: string) => string;
+  contextLabel: string; contextLabelAr: string; title: string; titleAr: string; noun: string; nounAr: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-label={t('More actions', 'إجراءات أخرى')}
+        className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${open ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-neutral-300 bg-white text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700'}`}>
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" /></svg>
+      </button>
+      {open && (
+        <div className="absolute end-0 z-30 mt-1 w-52 rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden slide-up py-1">
+          <button type="button" disabled={count === 0} onClick={() => { setOpen(false); setConfirmOpen(true); }}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-error-600 hover:bg-error-50 transition-colors text-start disabled:opacity-40 disabled:cursor-not-allowed">
+            <TrashIcon className="w-4 h-4" />
+            {t('Delete all', 'حذف الكل')}
+          </button>
+        </div>
+      )}
+      <ConfirmDeleteAll
+        open={confirmOpen}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => { onDeleteAll(); setConfirmOpen(false); }}
+        contextLabel={contextLabel} contextLabelAr={contextLabelAr}
+        title={title} titleAr={titleAr}
+        message={`This removes all ${count} ${noun} and can't be undone.`}
+        messageAr={`سيؤدي هذا إلى حذف جميع ${nounAr} (${count}) ولا يمكن التراجع عنه.`}
+      />
+    </div>
+  );
+}
 
 function LockGlyph({ className = '' }: { className?: string }) {
   return (
@@ -261,7 +304,14 @@ export default function TechnicalEvaluation() {
         titleAr="المتطلبات الفنية"
         description="Define specific technical requirements vendors must meet."
         descriptionAr="حدد المتطلبات الفنية المحددة التي يجب على الموردين استيفاؤها."
-        action={<button type="button" onClick={generateReqs} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 bg-white text-xs font-semibold text-neutral-700 hover:bg-neutral-50 shadow-sm">{t('Add standard list', 'إضافة القائمة القياسية')}</button>}
+        action={
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={generateReqs} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 bg-white text-xs font-semibold text-neutral-700 hover:bg-neutral-50 shadow-sm">{t('Add standard list', 'إضافة القائمة القياسية')}</button>
+            <DeleteAllMenu count={formData.technicalRequirements.length} onDeleteAll={() => updateField('technicalRequirements', [])} t={t}
+              contextLabel="Technical requirements" contextLabelAr="المتطلبات الفنية"
+              title="Delete all requirements?" titleAr="حذف جميع المتطلبات؟" noun="requirements" nounAr="المتطلبات" />
+          </div>
+        }
       >
         {reqLoading && (
           <div className="mb-4 rounded-lg border border-ai-200 bg-ai-50 p-4 ai-loading">
@@ -320,7 +370,6 @@ export default function TechnicalEvaluation() {
         <button onClick={addTechReqRow} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm">
           <PlusIcon className="w-3.5 h-3.5" /> {t('Add Requirement', 'إضافة متطلب')}
         </button>
-        <RemoveAllButton count={formData.technicalRequirements.length} what={t('requirements', 'متطلبات')} onConfirm={() => updateField('technicalRequirements', [])} />
         </div>
       </SectionCard>
 
@@ -343,6 +392,9 @@ export default function TechnicalEvaluation() {
               updateField('evaluationCriteria', tpl.criteria.map((c) => ({ id: crypto.randomUUID(), ...c })));
               updateField('technicalPassingPercentage', tpl.passing);
             }} suggestedId={formData.scopeIncludes.includes('consultancy') && !formData.scopeIncludes.includes('technology') ? 'consultancy' : 'technology'} />
+            <DeleteAllMenu count={formData.evaluationCriteria.length} onDeleteAll={() => updateField('evaluationCriteria', [])} t={t}
+              contextLabel="Evaluation criteria" contextLabelAr="معايير التقييم"
+              title="Delete all criteria?" titleAr="حذف جميع المعايير؟" noun="criteria" nounAr="المعايير" />
           </div>
         }
       >
@@ -423,7 +475,6 @@ export default function TechnicalEvaluation() {
         <button onClick={addEvalRow} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-900 text-white text-xs font-semibold hover:bg-blue-800 transition-colors shadow-sm">
           <PlusIcon className="w-3.5 h-3.5" /> {t('Add Criterion', 'إضافة معيار')}
         </button>
-        <RemoveAllButton count={formData.evaluationCriteria.length} what={t('criteria', 'معايير')} onConfirm={() => updateField('evaluationCriteria', [])} />
         </div>
 
         <div className="mt-5 pt-5 border-t border-neutral-100">
@@ -435,8 +486,8 @@ export default function TechnicalEvaluation() {
               </label>
               <p className="text-[12px] text-neutral-500 mt-0.5 leading-relaxed">
                 {t(
-                  'Minimum score (out of 100%) a vendor must achieve to pass the technical evaluation stage.',
-                  'الحد الأدنى للدرجة (من 100%) التي يجب على المورد تحقيقها للنجاح في مرحلة التقييم الفني.'
+                  'Minimum score out of 100% a vendor must achieve to pass the technical evaluation stage.',
+                  'الحد الأدنى للدرجة من 100% التي يجب على المورد تحقيقها للنجاح في مرحلة التقييم الفني.'
                 )}
               </p>
             </div>
