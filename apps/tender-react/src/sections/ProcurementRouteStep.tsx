@@ -3,6 +3,7 @@ import { useTender } from '../context/TenderContext';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { Button, Select, SectionCard, Badge, InfoBanner, Textarea, Input } from '../components/ui';
 import { BOQ_CATEGORIES, BOQ_CATEGORY_META } from '../lib/boqCategory';
+import { etimadMatchFor, qtyFromText, type EtimadMatch } from '../lib/etimadCatalogue';
 import type { BOQCategory, ProjectItemType } from '../types/tender';
 import { CheckIcon } from '../components/Icons';
 import DrawerClose from '../components/DrawerClose';
@@ -69,6 +70,10 @@ export default function ProcurementRouteStep() {
   const [pending, setPending] = useState<ClsItem[]>([]);
   const [sentAt, setSentAt] = useState('');
   const [reviewedAt, setReviewedAt] = useState('');
+  // Procurement's reply: ONE matched Etimad listing per eMarket item; the requester confirms the quantity.
+  const [matches, setMatches] = useState<Record<string, EtimadMatch>>({});
+  const [matchQty, setMatchQty] = useState<Record<string, number | ''>>({});
+  const [verdictList, setVerdictList] = useState<ItemVerdict[]>([]);
 
   const project = PROJECTS.find((p) => p.id === projectId);
   const items: ProjectItem[] = project?.items ?? [];
@@ -190,6 +195,15 @@ export default function ProcurementRouteStep() {
     });
     setReviewedAt(new Date().toISOString());
     if (mode === 'help') {
+      const m: Record<string, EtimadMatch> = {}; const q: Record<string, number | ''> = {};
+      verdicts.filter((v) => v.route === 'souq-etimad').forEach((v) => {
+        const d = detailOf(v.id);
+        m[v.id] = etimadMatchFor(v.name, { unitPrice: d?.unitPrice });
+        // Text mode: read the quantity from the original line (the list parser drops "x 12").
+        const line = text.split(/\n/).find((l) => l.toLowerCase().includes(v.name.toLowerCase())) ?? v.name;
+        q[v.id] = d?.qty !== undefined && d.qty !== '' ? d.qty : (qtyFromText(line) || qtyFromText(v.name) || 1);
+      });
+      setMatches(m); setMatchQty(q); setVerdictList(verdicts);
       const g = groupItems(verdicts);
       setGroups(g); setChosenKey(g[0]?.key ?? ''); setPhase('result');
       return;
@@ -201,6 +215,16 @@ export default function ProcurementRouteStep() {
     setTenderAction(verdicts.every((v) => v.route === off) ? 'justify' : 'move');
     setJustification('');
     setPhase('review');
+  }
+
+  // The requester says Procurement's listing doesn't fit → the item goes to the tender side.
+  function rejectMatch(id: string) {
+    const next = verdictList.map((v) => (v.id === id ? { ...v, route: 'tendering' as RouteKey } : v));
+    setVerdictList(next);
+    setMatches((m) => { const x = { ...m }; delete x[id]; return x; });
+    const g = groupItems(next);
+    setGroups(g);
+    if (!g.some((x) => x.key === chosenKey)) setChosenKey(g[0]?.key ?? '');
   }
 
   function confirmChosen() {
@@ -220,7 +244,18 @@ export default function ProcurementRouteStep() {
 
   // BOQ lines pre-filled from what was sent to Procurement. Budgeted item is left for the
   // creator to link in the BOQ step; any missing field is flagged there.
-  const seedBoq = (vs: ItemVerdict[], sourceType: SourceType) => vs.map((v) => { const d = detailOf(v.id); return {
+  const seedBoq = (vs: ItemVerdict[], sourceType: SourceType) => vs.map((v) => { const d = detailOf(v.id); const mt = sourceType === 'souq-etimad' ? matches[v.id] : undefined;
+    if (mt) {
+      const q = matchQty[v.id] ?? 1;
+      return {
+        id: crypto.randomUUID(), projectItem: '', itemName: mt.productName, itemDescription: `Requested as: "${v.name}" · Etimad listing ${mt.sku}, checked ${new Date(mt.checkedAt).toLocaleDateString('en-GB')}`,
+        unitOfMeasure: mt.unit, orderUnit: mt.unit, quantity: q, unitPrice: mt.unitPrice, deliveryDate: d?.deliveryDate ?? '',
+        ...(d?.type ? { category: d.type } : {}), fromRouteCheck: true,
+        purchaseType: (d?.type === 'service' || d?.type === 'manpower' ? 'service' : 'product') as 'service' | 'product',
+        productId: mt.sku, supplier: mt.supplier, lineTotal: q !== '' ? Number(q) * mt.unitPrice : '',
+      };
+    }
+    return {
     id: crypto.randomUUID(), projectItem: '', itemName: v.name, itemDescription: '', unitOfMeasure: 'Each',
     quantity: (d?.qty ?? '') as number | '', unitPrice: (d?.unitPrice ?? '') as number | '', deliveryDate: d?.deliveryDate ?? '',
     ...(d?.type ? { category: d.type } : {}),
@@ -584,19 +619,64 @@ export default function ProcurementRouteStep() {
                 const isChosen = g.key === chosenKey;
                 const selectable = groups.length > 1;
                 return (
-                  <button key={g.key} type="button" onClick={() => selectable && setChosenKey(g.key)}
-                    className={`w-full text-start rounded-xl border px-4 py-3 transition-all ${isChosen ? 'border-brand-600 bg-brand-50' : 'border-neutral-200 bg-white'} ${selectable ? 'hover:border-neutral-300 cursor-pointer' : 'cursor-default'}`}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {selectable && <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${isChosen ? 'border-brand-600 bg-brand-600' : 'border-neutral-400'}`}>{isChosen && <span className="w-1.5 h-1.5 rounded-full bg-white" />}</span>}
-                        <Badge variant={rm.badge}>{isAr ? rm.ar : rm.en}</Badge>
-                        <span className="text-[11px] text-neutral-500">·</span>
-                        {g.boqTypes.map((bt) => { const bm = BOQ_TYPE_META[bt]; return <Badge key={bt} variant={bm.badge}>{isAr ? bm.ar : bm.en}</Badge>; })}
+                  <div key={g.key} className={`rounded-xl border transition-all ${isChosen ? 'border-brand-600 bg-brand-50/40' : 'border-neutral-200 bg-white'}`} data-testid={`group-${g.route}`}>
+                    <button type="button" onClick={() => selectable && setChosenKey(g.key)}
+                      className={`w-full text-start px-4 py-3 ${selectable ? 'cursor-pointer' : 'cursor-default'}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {selectable && <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${isChosen ? 'border-brand-600 bg-brand-600' : 'border-neutral-400'}`}>{isChosen && <span className="w-1.5 h-1.5 rounded-full bg-white" />}</span>}
+                          <Badge variant={rm.badge}>{isAr ? rm.ar : rm.en}</Badge>
+                          <span className="text-[11px] text-neutral-500">·</span>
+                          {g.boqTypes.map((bt) => { const bm = BOQ_TYPE_META[bt]; return <Badge key={bt} variant={bm.badge}>{isAr ? bm.ar : bm.en}</Badge>; })}
+                        </div>
+                        <span className="text-[12px] text-neutral-500 whitespace-nowrap">{t(`${g.items.length} item${g.items.length > 1 ? 's' : ''}`, `${g.items.length} بند`)}{selectable && isChosen ? ` · ${t('this request', 'هذا الطلب')}` : selectable ? ` · ${t('separate request', 'طلب منفصل')}` : ''}</span>
                       </div>
-                      <span className="text-[12px] text-neutral-500 whitespace-nowrap">{t(`${g.items.length} item${g.items.length > 1 ? 's' : ''}`, `${g.items.length} بند`)}{selectable && isChosen ? ` · ${t('this request', 'هذا الطلب')}` : selectable ? ` · ${t('separate request', 'طلب منفصل')}` : ''}</span>
-                    </div>
-                    <p className="text-[12px] text-neutral-600 mt-1.5 ps-0.5">{g.items.map((i) => (isAr ? i.nameAr : i.name)).join(isAr ? '، ' : ', ')}</p>
-                  </button>
+                    </button>
+                    <ul className="px-4 pb-3 space-y-2">
+                      {g.items.map((it) => {
+                        const mt = matches[it.id];
+                        if (g.route !== 'souq-etimad' || !mt) {
+                          return (
+                            <li key={it.id} className="rounded-lg border border-neutral-200 bg-white px-3 py-2">
+                              <p className="text-[13px] font-medium text-neutral-800">{isAr ? it.nameAr : it.name}</p>
+                              <p className="text-[11.5px] text-neutral-500">{t('Not on Etimad E-Market — needs a competitive tender.', 'غير متوفر في سوق اعتماد — يتطلب منافسة.')}</p>
+                            </li>
+                          );
+                        }
+                        const q = matchQty[it.id] ?? '';
+                        return (
+                          <li key={it.id} className="rounded-lg border border-neutral-200 bg-white px-3 py-2.5" data-testid="etimad-match">
+                            <p className="text-[11px] text-neutral-500">{t('You asked for:', 'طلبت:')} <span className="text-neutral-700">“{it.name}”</span></p>
+                            <div className="mt-1.5 flex items-start justify-between gap-3 flex-wrap">
+                              <div className="min-w-0">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-success-700">{t('Procurement’s Etimad match', 'مطابقة المشتريات في اعتماد')}</p>
+                                <p className="text-[13.5px] font-semibold text-neutral-900 leading-snug">{isAr ? mt.productNameAr : mt.productName}</p>
+                                <p className="text-[12px] text-neutral-600 mt-0.5">
+                                  <span className="font-mono text-[11.5px]" dir="ltr">{mt.sku}</span> · {isAr ? mt.supplierAr : mt.supplier} · <span dir="ltr">SAR {mt.unitPrice.toLocaleString('en-US')}</span> / {mt.unit}
+                                </p>
+                                <p className="text-[11px] text-neutral-400 mt-0.5">{t(`Price as listed on Etimad on ${new Date(mt.checkedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} (sample listing for the prototype)`, `السعر كما في اعتماد بتاريخ ${new Date(mt.checkedAt).toLocaleDateString('ar-SA')} (قائمة نموذجية)`)}</p>
+                              </div>
+                              <div className="flex items-end gap-3">
+                                <label className="text-[11px] text-neutral-500">
+                                  {t('Quantity', 'الكمية')}
+                                  <input type="number" min={1} value={q} onChange={(e) => setMatchQty((m) => ({ ...m, [it.id]: e.target.value === '' ? '' : Number(e.target.value) }))}
+                                    aria-label={t(`Quantity for ${it.name}`, `الكمية لـ ${it.name}`)}
+                                    className={`block mt-0.5 w-20 rounded-lg border px-2 py-1 text-[13px] text-end tabular-nums ${q === '' ? 'border-warning-400 bg-warning-50/60' : 'border-neutral-300'}`} />
+                                </label>
+                                <div className="text-end">
+                                  <p className="text-[11px] text-neutral-500">{t('Line total', 'إجمالي البند')}</p>
+                                  <p className="text-[13px] font-bold text-neutral-900 tabular-nums" dir="ltr">{q !== '' ? `SAR ${(Number(q) * mt.unitPrice).toLocaleString('en-US')}` : '—'}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <button type="button" onClick={() => rejectMatch(it.id)} className="mt-1.5 text-[11.5px] font-semibold text-neutral-500 hover:text-error-600">
+                              {t('This doesn’t fit what I need — send it to the tender', 'لا يناسب ما أحتاجه — أرسله إلى المنافسة')}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 );
               })}
             </div>
@@ -604,7 +684,8 @@ export default function ProcurementRouteStep() {
 
           <div className="flex items-center justify-between">
             <Button variant="secondary" onClick={() => setPhase('select')}>← {t('Back to items', 'العودة إلى البنود')}</Button>
-            <Button variant="primary" size="lg" onClick={confirmChosen}>
+            <Button variant="primary" size="lg" onClick={confirmChosen}
+              disabled={groups.some((g) => g.route === 'souq-etimad' && g.items.some((i) => matches[i.id] && (matchQty[i.id] ?? '') === ''))}>
               {chosen.route === 'tendering' ? t('Create this request & continue', 'إنشاء هذا الطلب والمتابعة') : t('Create eMarket purchase & continue', 'إنشاء طلب الشراء ومتابعة')} →
             </Button>
           </div>

@@ -54,10 +54,10 @@ function EtimadReviewBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T }
   const flagged = items.filter((i) => i.verdict === 'on-etimad').length;
   return (
     <div className="space-y-4">
-      <InfoBanner variant="info">
+      <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-[12.5px] text-neutral-700 leading-relaxed">
         {t(`Check each line on Etimad E-Market and confirm the requester's answer. ${yes} of ${items.length} were marked as available on Etimad and kept in the tender with a justification.`,
            `تحقق من كل بند في سوق اعتماد وأكّد إجابة مقدم الطلب. ${yes} من ${items.length} حُددت كمتوفرة في اعتماد وأُبقيت في المنافسة بمبرر.`)}
-      </InfoBanner>
+      </div>
       <Section title={t('BOQ lines and Etimad answers', 'بنود الجدول وإجابات اعتماد')}>
         <div className="rounded-xl border border-neutral-200 divide-y divide-neutral-100 overflow-hidden" data-testid="etimad-review-items">
           {items.map((it) => <EtimadReviewRow key={it.id} it={it} readOnly={readOnly} isAr={isAr} t={t} onChange={(p) => setEtimadItem(task.id, it.id, p)} />)}

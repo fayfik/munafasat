@@ -363,10 +363,23 @@ export default function BillOfQuantities() {
     ].filter(Boolean) as string[];
   };
   const incompleteCount = formData.boqItems.filter((r) => missingOf(r).length > 0).length;
+  // Grid rows show the Etimad answer and submitted justifications as pills; View opens the full item, Edit changes it.
+  const rowPills = (r: BOQRow) => {
+    const a = etimadAnswerOf(r);
+    const pill = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold border';
+    return (<>
+      {a === 'no' && <span className={`${pill} bg-neutral-50 text-neutral-600 border-neutral-200`} data-testid="pill-etimad">{t('Not on Etimad', 'غير متوفر في اعتماد')}</span>}
+      {a === 'yes' && <span className={`${pill} bg-warning-50 text-warning-700 border-warning-100`} data-testid="pill-etimad">{t('On Etimad · kept in tender', 'في اعتماد · أُبقي في المنافسة')}</span>}
+      {a === 'yes' && (r.etimadJustification ?? '').trim() && (
+        <span className={`${pill} bg-brand-50 text-brand-700 border-brand-100`} title={r.etimadJustification} data-testid="pill-just">{t('Etimad justification', 'مبرر اعتماد')}</span>
+      )}
+      {r.hasBrandName && (r.brandJustification ?? '').trim() && (
+        <span className={`${pill} bg-brand-50 text-brand-700 border-brand-100`} title={r.brandJustification} data-testid="pill-just">{t('Brand justification', 'مبرر العلامة التجارية')}</span>
+      )}
+    </>);
+  };
   const missingLine = (r: BOQRow) => {
-    // The Etimad question has its own "Answer required" cue right below, so it isn't repeated here.
-    const etimadLabels = [t('Etimad E-Market answer', 'إجابة سوق اعتماد'), t('Etimad justification', 'مبرر سوق اعتماد')];
-    const m = missingOf(r).filter((x) => !etimadLabels.includes(x));
+    const m = missingOf(r);
     if (!m.length) return null;
     return (
       <div className="flex items-center gap-2 flex-wrap rounded-md border border-warning-200 bg-warning-50 px-3 py-1.5" data-testid="missing-line">
@@ -764,8 +777,8 @@ export default function BillOfQuantities() {
                     </FormField>
                     <FormField label="Has Brand Name?" labelAr="هل يوجد علامة تجارية؟">
                       <div className="h-[38px] flex items-center">
-                        <EtimadSwitch id={`brand-switch-${mode}`} ariaLabel={t('Has brand name', 'يوجد علامة تجارية')} value={newItem.hasBrandName}
-                          onChange={(v) => setNewItem((p) => ({ ...p, hasBrandName: v, brandJustification: v ? p.brandJustification : '' }))} />
+                        <EtimadAnswer id={`brand-answer-${mode}`} showRequired={false} ariaLabel={t('Has brand name', 'يوجد علامة تجارية')} value={newItem.hasBrandName ? 'yes' : 'no'}
+                          onChange={(v) => setNewItem((p) => ({ ...p, hasBrandName: v === 'yes', brandJustification: v === 'yes' ? p.brandJustification : '' }))} />
                       </div>
                     </FormField>
                   </div>
@@ -826,7 +839,7 @@ export default function BillOfQuantities() {
                       <span className="text-[13px] font-bold text-warning-800">{t('Available in Etimad E-Market', 'متوفر في سوق اعتماد')}</span>
                     </div>
                     <p className="text-[12px] text-warning-700">
-                      {t('This item was not added. It appears to be available on Etimad E-Market, so we suggest buying it there instead of including it in this tender.', 'لم تتم إضافة هذا البند. يبدو أنه متوفر في سوق اعتماد، لذا نقترح شراءه هناك بدلاً من إدراجه في هذه المنافسة.')}
+                      {t('You said this item is available on Etimad E-Market, so it hasn’t been added yet. Buy it through a separate Etimad E-Market request, or keep it in this tender with your justification.', 'ذكرت أن هذا البند متوفر في سوق اعتماد، لذا لم تتم إضافته بعد. اشترِه عبر طلب مستقل في سوق اعتماد، أو أبقه في هذه المنافسة مع مبررك.')}
                     </p>
                     {addWarning.check.comment && <p className="text-[11.5px] text-warning-700/90">{addWarning.check.comment}</p>}
                     <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -930,17 +943,16 @@ export default function BillOfQuantities() {
             <VRow label="Unit Price (SAR)" labelAr="سعر الوحدة" value={price > 0 ? `SAR ${formatSAR(price)}` : ''} dir="ltr" />
             {(cat === 'material' || cat === 'equipment') && <VRow label="Mandatory List" labelAr="القائمة الإلزامية" value={row.mandatoryList} full />}
             <VRow label="Has Brand Name" labelAr="علامة تجارية" value={row.hasBrandName ? t('Yes', 'نعم') : t('No', 'لا')} />
-            {row.hasBrandName && <VRow label="Brand Justification" labelAr="مبرر العلامة التجارية" value={row.brandJustification} full />}
+            {row.hasBrandName && <VRow label="Brand Justification" labelAr="مبرر العلامة التجارية" value={<span className="whitespace-pre-line">{row.brandJustification}</span>} full />}
           </>)}
           <VRow label="Delivery Date" labelAr="موعد التسليم" value={row.deliveryDate} dir="ltr" />
           <VRow label="Line Total" labelAr="إجمالي البند" value={total > 0 ? `SAR ${formatSAR(total)}` : ''} dir="ltr" />
-          {row.etimadCheck && !isStale(row) && (
-            <VRow label="Etimad E-Market" labelAr="سوق اعتماد" full value={
-              <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold ${row.etimadCheck.status === 'available' ? 'text-warning-700' : row.etimadCheck.status === 'not-available' ? 'text-success-700' : 'text-neutral-600'}`}>
-                {row.etimadCheck.status === 'available' ? t('Available in Etimad E-Market', 'متوفر في سوق اعتماد') : row.etimadCheck.status === 'not-available' ? t('Not in Etimad E-Market — proceed with tender', 'غير متوفر في سوق اعتماد — تابع بالمنافسة') : t('Uncertain — confirm on Etimad', 'غير مؤكد — تحقق في اعتماد')}
-              </span>
-            } />
-          )}
+          <VRow label="On Etimad E-Market?" labelAr="متوفر في سوق اعتماد؟" value={
+            etimadAnswerOf(row) === 'yes' ? <span className="inline-flex items-center gap-3 flex-wrap"><span className="text-[12px] font-semibold text-warning-700">{t('Yes — kept in this tender', 'نعم — أُبقي في هذه المنافسة')}</span>
+              <button type="button" onClick={(e) => { const o = e.currentTarget.getBoundingClientRect(); setViewingId(null); requestMove(row, o); }} className="text-[12px] font-semibold text-brand-700 hover:text-brand-800">{t('Move to an Etimad E-Market request', 'نقل إلى طلب سوق اعتماد')}</button></span>
+            : etimadAnswerOf(row) === 'no' ? t('No', 'لا')
+            : <span className="text-[12px] font-semibold text-warning-700">{t('Not answered yet', 'لم تُجب بعد')}</span>} />
+          {etimadAnswerOf(row) === 'yes' && <VRow label="Etimad justification" labelAr="مبرر اعتماد" value={<span className="whitespace-pre-line">{row.etimadJustification}</span>} full />}
           {(row.attachments?.length ?? 0) > 0 && (
             <VRow label="Attachments" labelAr="المرفقات" full value={<BoqAttachments readOnly attachments={row.attachments ?? []} onChange={() => {}} />} />
           )}
@@ -1238,30 +1250,6 @@ export default function BillOfQuantities() {
           </div>
         )}
 
-        {formData.boqItems.length > 0 && (
-          <div className="mb-3 flex items-center gap-3 flex-wrap rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5" data-testid="etimad-banner">
-            <div className="flex-1 min-w-[200px]">
-              <p className="text-[12px] font-semibold text-neutral-800">{t('Etimad E-Market availability', 'التوفر في سوق اعتماد')}</p>
-              <p className="text-[11px] text-neutral-500">
-                {t('Answer Yes or No for every item. If an item is listed on Etimad E-Market, give a reason to keep it in this tender — Procurement checks every answer.', 'أجب بنعم أو لا لكل بند. إن كان البند مدرجاً في سوق اعتماد، اذكر سبب إبقائه في هذه المنافسة — تتحقق المشتريات من كل إجابة.')}
-                {etimadUnanswered > 0 && ' ' + t(`${etimadUnanswered} not answered yet.`, `${etimadUnanswered} لم تُجب بعد.`)}
-                {etimadAvailableCount > 0 && ' ' + t(`${etimadAvailableCount} marked as available on Etimad.`, `${etimadAvailableCount} محددة كمتوفرة في اعتماد.`)}
-                {etimadMissingJust > 0 && ' ' + t(`${etimadMissingJust} still need${etimadMissingJust === 1 ? 's' : ''} a justification.`, `${etimadMissingJust} ما زالت تحتاج مبرراً.`)}
-              </p>
-            </div>
-            {incompleteCount > 0 && (
-              <p className="basis-full text-[11.5px] font-semibold text-warning-800 flex items-center gap-1.5" data-testid="incomplete-note">
-                <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />
-                {t(`${incompleteCount} item${incompleteCount === 1 ? ' has' : 's have'} fields still to fill — marked in orange below.`, `${incompleteCount} بند فيه حقول لم تُعبأ — موضحة باللون البرتقالي أدناه.`)}
-              </p>
-            )}
-            {formData.linkedEtimadRequestId && (
-              <p className="basis-full text-[11px] text-success-700">
-                {t('Moved items are in a separate Etimad E-Market draft under My Requests.', 'البنود المنقولة موجودة في مسودة مستقلة لسوق اعتماد ضمن طلباتي.')}
-              </p>
-            )}
-          </div>
-        )}
 
         {/* B · spreadsheet */}
         {formData.boqItems.length > 0 && layout === 'sheet' && (
@@ -1341,21 +1329,7 @@ export default function BillOfQuantities() {
                                 )}
                                 <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                   {(() => { const m = BOQ_CATEGORY_META[row.category ?? deriveCategory(row.itemName)]; return <Badge variant={m.badge}>{isAr ? m.ar : m.en}</Badge>; })()}
-                                  {row.hasBrandName && (
-                                    <HoverNote
-                                      title={t('Brand justification', 'مبرر العلامة التجارية')}
-                                      trigger={
-                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-warning-50 text-warning-700 border border-warning-100">
-                                          {t('Brand req.', 'يتطلب علامة تجارية')}
-                                          <InfoIcon className="w-3 h-3" />
-                                        </span>
-                                      }
-                                    >
-                                      {(row.brandJustification ?? '').trim()
-                                        ? <span className="whitespace-pre-line">{row.brandJustification}</span>
-                                        : <span className="text-warning-100">{t('No justification yet. Edit the item to add one.', 'لا يوجد مبرر بعد. عدّل البند لإضافته.')}</span>}
-                                    </HoverNote>
-                                  )}
+                                  {rowPills(row)}
                                   {row.deliveryDate && (
                                     <span className="text-[10px] text-neutral-500" dir="ltr">{row.deliveryDate}</span>
                                   )}
@@ -1423,15 +1397,8 @@ export default function BillOfQuantities() {
                               </div>
                             </div>
                             {(
-                              <div className="px-5 pb-3.5 space-y-2">
+                              missingOf(row).length > 0 && <div className="px-5 pb-3.5 space-y-2">
                                 {missingLine(row)}
-                                <EtimadPanel
-                                  row={row}
-                                  checking={checkingIds.has(row.id)}
-                                  onCheck={() => runEtimadCheck([row])}
-                                  onMove={(origin) => requestMove(row, origin)}
-                                  onUpdate={(patch) => updateBoqRow(row.id, patch)}
-                                />
                               </div>
                             )}
                             </>)}
@@ -1480,6 +1447,7 @@ export default function BillOfQuantities() {
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-neutral-900 truncate">{itemLabel(row.itemName) || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
                                 {row.projectItem && <p className="text-[11px] text-neutral-500 truncate">{groupLabel(row.projectItem)}</p>}
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">{rowPills(row)}</div>
                               </div>
                               <div className="text-center text-sm text-neutral-700 tabular-nums">{row.quantity !== '' ? row.quantity : '—'}<span className="block text-[10px] text-neutral-500">{row.unitOfMeasure}</span></div>
                               <div className="text-end text-sm text-neutral-700 tabular-nums" dir="ltr">{unitPrice > 0 ? `SAR ${formatSAR(unitPrice)}` : '—'}</div>
@@ -1494,7 +1462,6 @@ export default function BillOfQuantities() {
                               <div className="px-4 pt-0 pb-3 space-y-2">
                                 {missingLine(row)}
                                 {(row.attachments?.length ?? 0) > 0 && <BoqAttachments readOnly attachments={row.attachments ?? []} onChange={() => {}} />}
-                                {<EtimadPanel row={row} checking={checkingIds.has(row.id)} onCheck={() => runEtimadCheck([row])} onMove={(origin) => requestMove(row, origin)} onUpdate={(patch) => updateBoqRow(row.id, patch)} />}
                               </div>
                             )}
                           </div>
