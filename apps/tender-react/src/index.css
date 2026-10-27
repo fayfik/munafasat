@@ -31,17 +31,17 @@
   --color-blue-800: #17344F;
   --color-blue-900: #0E1E2E;
 
-  /* ── AI accent: Purple (the app's "ai" colour) ── */
-  --color-ai-50:  #F2EEFC;
-  --color-ai-100: #E4D9F9;
-  --color-ai-200: #CBBAF3;   /* derived */
-  --color-ai-300: #B09AED;   /* derived */
-  --color-ai-400: #967BE6;   /* derived */
-  --color-ai-500: #7C5CE0;
-  --color-ai-600: #6A47D6;
-  --color-ai-700: #5636B0;
-  --color-ai-800: #43298A;   /* derived */
-  --color-ai-900: #311E65;   /* derived */
+  /* ── "ai" accent — manual (non-AI) build: mapped to neutral greys so nothing reads as AI ── */
+  --color-ai-50:  var(--color-neutral-100);
+  --color-ai-100: var(--color-neutral-200);
+  --color-ai-200: var(--color-neutral-200);
+  --color-ai-300: var(--color-neutral-300);
+  --color-ai-400: var(--color-neutral-400);
+  --color-ai-500: var(--color-neutral-500);
+  --color-ai-600: var(--color-neutral-600);
+  --color-ai-700: var(--color-neutral-700);
+  --color-ai-800: var(--color-neutral-800);
+  --color-ai-900: var(--color-neutral-900);
   --color-purple-50:  #F2EEFC;
   --color-purple-100: #E4D9F9;
   --color-purple-500: #7C5CE0;

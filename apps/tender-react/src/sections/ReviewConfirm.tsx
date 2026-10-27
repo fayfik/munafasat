@@ -4,7 +4,7 @@ import { useLanguage, useT } from '../context/LanguageContext';
 import { useRequests } from '../context/RequestStore';
 import { PROJECTS, ALL_COST_CENTERS } from '../data/mockData';
 import { SectionCard, Button, Badge } from '../components/ui';
-import { CheckCircleIcon, ExclamationCircleIcon, PencilIcon, SparklesIcon, AlertTriangleIcon, CheckIcon, ClockIcon, DocumentIcon, DownloadIcon } from '../components/Icons';
+import { CheckCircleIcon, ExclamationCircleIcon, PencilIcon, SparklesIcon, InfoIcon, AlertTriangleIcon, CheckIcon, ClockIcon, DocumentIcon, DownloadIcon } from '../components/Icons';
 import type { SectionStatus, Person } from '../types/tender';
 import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiExecutiveSummary } from '../lib/aiTender';
@@ -120,7 +120,7 @@ export default function ReviewConfirm({ onExit, onOpenRequest }: { onExit?: () =
     <div className="space-y-5">
       {importedFromProject && (
         <div className="flex items-start gap-3 rounded-xl border border-ai-200 bg-ai-50 px-5 py-4">
-          <SparklesIcon className="w-4 h-4 text-ai-600 flex-shrink-0 mt-0.5" />
+          <InfoIcon className="w-4 h-4 text-neutral-500 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-[13px] font-semibold text-ai-900">{t('Details imported from a similar project', 'تم استيراد التفاصيل من مشروع مماثل')}</p>
             <p className="text-[12px] text-ai-700 mt-0.5">{t(`Imported as a starting point for "${importedFromProject}". Review before submitting.`, `تم الاستيراد كنقطة بداية لـ "${importedFromProject}". راجع قبل التقديم.`)}</p>

@@ -6,7 +6,7 @@ import BrowseRfpsDialog from '../components/BrowseRfpsDialog';
 import { rfpsForProjectByRoute, buildRfpImport, formatRfpDate, IMPORTED_SECTIONS_EN, IMPORTED_SECTIONS_AR, type PastRfp } from '../lib/rfpLibrary';
 import type { TenderFormData, BOQRow } from '../types/tender';
 import { SectionCard, Textarea, Badge, AIButton } from '../components/ui';
-import { CheckCircleIcon, CheckIcon, ArrowLeftIcon, SparklesIcon, ChevronDownIcon } from '../components/Icons';
+import { CheckCircleIcon, CheckIcon, ArrowLeftIcon, DocumentIcon, ChevronDownIcon } from '../components/Icons';
 import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiPurpose } from '../lib/aiTender';
 import { EXPENSE_TYPES, expenseTypeOf } from '../lib/expenseTypes';
@@ -164,7 +164,7 @@ export default function ProjectSetup() {
         <div className="rounded-xl border border-ai-100 bg-ai-50/40 px-5 py-4">
           <div className="flex items-start gap-2.5">
             <span className="w-7 h-7 rounded-lg bg-ai-100 flex items-center justify-center flex-shrink-0">
-              <SparklesIcon className="w-4 h-4 text-ai-600" />
+              <DocumentIcon className="w-4 h-4 text-neutral-500" />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-semibold text-neutral-800">{isEsouq ? t(`${similarRfps.length} similar E-Market purchases found`, `تم العثور على ${similarRfps.length} عمليات شراء مشابهة في السوق الإلكتروني`) : t(`${similarRfps.length} similar RFPs found`, `تم العثور على ${similarRfps.length} طلبات عروض مماثلة`)}</p>

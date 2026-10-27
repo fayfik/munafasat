@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type ReactNode, type InputHTMLAttributes, type TextareaHTMLAttributes, type SelectHTMLAttributes } from 'react';
 import React from 'react';
-import { SparklesIcon, XIcon, SearchIcon, CheckIcon, ChevronDownIcon } from './Icons';
+import { InfoIcon, XIcon, SearchIcon, CheckIcon, ChevronDownIcon } from './Icons';
 import { PEOPLE } from '../data/mockData';
 import { RECOMMENDED_MEMBERS } from '../data/recommendedMembers';
 import type { Person } from '../types/tender';
@@ -16,8 +16,8 @@ const BADGE_STYLES: Record<BadgeVariant, string> = {
   warning:     'bg-warning-50 text-warning-700 border-warning-100',
   error:       'bg-error-50 text-error-700 border-error-100',
   info:        'bg-blue-50 text-blue-700 border-blue-100',
-  ai:          'bg-ai-50 text-ai-700 border-ai-100',
-  assets:      'bg-purple-50 text-purple-700 border-purple-100',
+  ai:          'bg-blue-50 text-blue-700 border-blue-100',
+  assets:      'bg-blue-50 text-blue-700 border-blue-100',
   services:    'bg-blue-50 text-blue-700 border-blue-100',
   consumables: 'bg-orange-50 text-orange-700 border-orange-100',
   // Request status chips (Munafasat tokens)
@@ -524,7 +524,7 @@ export function InfoBanner({ children, variant = 'info', className = '' }: { chi
   };
   return (
     <div className={`flex gap-2.5 rounded-lg border px-4 py-3 text-body-sm leading-relaxed ${styles[variant]} ${className}`}>
-      {(variant === 'ai' || variant === 'info') && <SparklesIcon className="w-4 h-4 flex-shrink-0 mt-0.5 text-ai-600" />}
+      {(variant === 'ai' || variant === 'info') && <InfoIcon className="w-4 h-4 flex-shrink-0 mt-0.5 text-neutral-500" />}
       <div className="flex-1">{children}</div>
     </div>
   );
