@@ -1,10 +1,10 @@
 // Munafasat Inbox — task detail workspace (right pane).
 // Header with meta + Approve/Reject/Return CTAs, tabbed body (Overview / RFP /
 // Activity), and top actions: Chat (slide-in), History (task trail), Download PDF.
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
-import { Button } from '../components/ui';
+import { Badge, Button } from '../components/ui';
 import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadIcon, ChevronRightIcon } from '../components/Icons';
 import type { Task, TaskAction, Person, RfpDetail } from './types';
 import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
@@ -303,18 +303,36 @@ function Donut({ segments, size = 128, stroke = 20 }: { segments: { value: numbe
   );
 }
 
-function RfpSection({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+type RfpView = 'table' | 'chart';
+
+function RfpSection({ id, title, meta, views, children }: { id: string; title: string; meta?: string; views?: { table: React.ReactNode; chart: React.ReactNode }; children?: React.ReactNode }) {
   const { isAr } = useLanguage();
+  const t = useT();
   const [open, setOpen] = useState(true);
+  const [view, setView] = useState<RfpView>('table');
   return (
     <section id={`rfp-${id}`} className="scroll-mt-16 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
-      <button type="button" onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2.5 px-4 sm:px-5 py-3 text-start hover:bg-neutral-50/70 transition-colors">
-        <ChevronRightIcon className={`w-4 h-4 text-neutral-400 flex-shrink-0 transition-transform ${open ? 'rotate-90' : isAr ? 'rotate-180' : ''}`} />
-        <CheckCircleIcon className="w-4 h-4 text-success-600 flex-shrink-0" />
-        <h4 className="text-[13px] font-bold text-neutral-800 flex-1 min-w-0">{title}</h4>
-      </button>
-      {open && <div className="px-4 sm:px-5 pb-5 pt-1 border-t border-neutral-100">{children}</div>}
+      <div className="flex items-center gap-2 pe-3 sm:pe-4 hover:bg-neutral-50/70 transition-colors">
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+          className="flex-1 min-w-0 flex items-center gap-2.5 ps-4 sm:ps-5 py-3 text-start">
+          <ChevronRightIcon className={`w-4 h-4 text-neutral-400 flex-shrink-0 transition-transform ${open ? 'rotate-90' : isAr ? 'rotate-180' : ''}`} />
+          <CheckCircleIcon className="w-4 h-4 text-success-600 flex-shrink-0" />
+          <h4 className="text-[13px] font-bold text-neutral-800 truncate">{title}</h4>
+          {meta && <span className="text-[11.5px] text-neutral-400 truncate hidden sm:inline" dir="auto">· {meta}</span>}
+        </button>
+        {views && (
+          <div className="inline-flex items-center rounded-lg border border-neutral-200 bg-white p-0.5 flex-shrink-0" role="group" aria-label={t('View', 'العرض')}>
+            {(['table', 'chart'] as const).map((v) => (
+              <button key={v} type="button" onClick={() => { setView(v); setOpen(true); }} aria-pressed={view === v}
+                title={v === 'table' ? t('Table view', 'عرض الجدول') : t('Chart view', 'عرض الرسم البياني')}
+                className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${view === v ? 'bg-brand-50 text-brand-700' : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50'}`}>
+                {v === 'table' ? <TableGlyph className="w-4 h-4" /> : <ChartGlyph className="w-4 h-4" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {open && <div className="px-4 sm:px-5 pb-5 pt-4 border-t border-neutral-100">{views ? views[view] : children}</div>}
     </section>
   );
 }
@@ -331,18 +349,355 @@ function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: string }[] {
   ];
 }
 
+const TH = 'px-3 py-2 font-medium text-[11px] uppercase tracking-wide text-neutral-500';
+const lineTotalOf = (l: RfpDetail['boq'][number]) => (Number(l.qty) || 1) * l.unitPrice;
+
+function SubLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 mb-2">{children}</p>;
+}
+
+function CommitteeChips({ members, isAr }: { members?: RfpDetail['evalCommittee']; isAr: boolean }) {
+  if (!members?.length) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {members.map((m, i) => (
+        <div key={i} className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50/60 ps-1.5 pe-3 py-1.5">
+          <Avatar name={m.name} id={m.name} className="w-7 h-7" />
+          <div className="min-w-0 leading-tight">
+            <p className="text-[12.5px] font-semibold text-neutral-800">{isAr ? m.nameAr : m.name}</p>
+            <p className="text-[11px] text-neutral-500">{isAr ? `${m.roleAr} · ${m.deptAr}` : `${m.roleEn} · ${m.deptEn}`}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T }) {
   if (!rfp) return <div className="rounded-xl border border-neutral-200 bg-white p-6 text-[13px] text-neutral-500 shadow-sm">{t('No RFP record linked to this task.', 'لا يوجد سجل منافسة مرتبط بهذه المهمة.')}</div>;
-  const boqTotal = rfp.boq.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
+  const boqTotal = rfp.boq.reduce((s, l) => s + lineTotalOf(l), 0);
   const estValue = boqTotal > 0 ? boqTotal : (amount ?? 0);
-  const costSegs = rfp.boq.map((l, i) => ({ value: (Number(l.qty) || 1) * l.unitPrice, color: PALETTE[i % PALETTE.length], label: isAr ? l.itemAr : l.itemEn }));
+  const costSegs = rfp.boq.map((l, i) => ({ value: lineTotalOf(l), color: PALETTE[i % PALETTE.length], label: isAr ? l.itemAr : l.itemEn }));
   const evalMax = Math.max(1, ...rfp.evaluation.map((c) => c.weight));
+  const evalTotal = rfp.evaluation.reduce((s, c) => s + c.weight, 0);
+  const payTotal = rfp.payment.reduce((s, p) => s + p.pct, 0);
+  const qualTotal = (rfp.qualCriteria ?? []).reduce((s, c) => s + c.pct, 0);
+  const budgets = Array.from(new Set(rfp.boq.map((l) => l.budgetEn ?? '')));
 
   const stats: { label: string; value: string; dir?: 'ltr' }[] = [];
   if (estValue > 0) stats.push({ label: t('Estimated value', 'القيمة التقديرية'), value: fmtSAR(estValue), dir: 'ltr' });
   if (rfp.boq.length) stats.push({ label: t('BOQ line items', 'بنود الجدول'), value: String(rfp.boq.length) });
   if (rfp.payment.length) stats.push({ label: t('Payment stages', 'مراحل الدفع'), value: String(rfp.payment.length) });
   if (rfp.evaluation.length) stats.push({ label: t('Eval. criteria', 'معايير التقييم'), value: String(rfp.evaluation.length) });
+
+  // ── Bill of quantities ──
+  const boqChart = (
+    <div className="flex flex-col lg:flex-row gap-5">
+      <div className="flex items-center gap-4 lg:flex-col lg:items-center flex-shrink-0">
+        <div className="relative">
+          <Donut segments={costSegs} />
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-[9px] uppercase tracking-wide text-neutral-400">{t('Total', 'الإجمالي')}</span>
+            <span className="text-[13px] font-bold text-neutral-900 tabular-nums" dir="ltr">{new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 }).format(boqTotal)}</span>
+            <span className="text-[9px] text-neutral-400">SAR</span>
+          </div>
+        </div>
+        <ul className="space-y-1">
+          {costSegs.map((s, i) => (
+            <li key={i} className="flex items-center gap-1.5 text-[11.5px] text-neutral-600">
+              <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: s.color }} />
+              <span className="truncate max-w-[150px]">{s.label}</span>
+              <span className="ms-auto font-semibold text-neutral-700 tabular-nums">{Math.round((s.value / (boqTotal || 1)) * 100)}%</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="flex-1 min-w-0 rounded-xl border border-neutral-200 overflow-hidden self-start">
+        <table className="w-full text-sm">
+          <thead><tr className="bg-neutral-50 border-b border-neutral-200 text-[11px] uppercase tracking-wide text-neutral-500">
+            <th className="text-start ps-3 pe-2 py-2 font-medium">{t('Item', 'البند')}</th>
+            <th className="px-2 py-2 font-medium w-28 text-center">{t('Qty', 'الكمية')}</th>
+            <th className="px-2 py-2 font-medium w-40 text-end">{t('Line total', 'الإجمالي')}</th>
+          </tr></thead>
+          <tbody className="divide-y divide-neutral-100">
+            {rfp.boq.map((l, i) => (
+              <tr key={i} className="bg-white">
+                <td className="ps-3 pe-2 py-2 text-[12.5px] text-neutral-800"><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} />{isAr ? l.itemAr : l.itemEn}</span></td>
+                <td className="px-2 py-2 text-center text-[12px] text-neutral-600 whitespace-nowrap">{l.qty} {l.unit}</td>
+                <td className="px-2 py-2 text-end text-[12.5px] font-semibold text-neutral-800 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(lineTotalOf(l))}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="bg-neutral-50 border-t-2 border-neutral-200">
+            <tr><td className="ps-3 pe-2 py-1.5 text-end text-[12px] text-neutral-500" colSpan={2}>{t('Subtotal', 'المجموع الفرعي')}</td><td className="px-2 py-1.5 text-end text-[12.5px] font-semibold tabular-nums text-neutral-700 whitespace-nowrap" dir="ltr">{fmtSAR(boqTotal)}</td></tr>
+            <tr><td className="ps-3 pe-2 py-1.5 text-end text-[12px] text-neutral-500" colSpan={2}>{t('VAT (15%)', 'ضريبة القيمة المضافة (15%)')}</td><td className="px-2 py-1.5 text-end text-[12.5px] font-semibold tabular-nums text-neutral-700 whitespace-nowrap" dir="ltr">{fmtSAR(boqTotal * 0.15)}</td></tr>
+            <tr className="border-t border-neutral-200"><td className="ps-3 pe-2 py-2 text-end text-[12.5px] font-bold text-neutral-800" colSpan={2}>{t('Grand total', 'الإجمالي الكلي')}</td><td className="px-2 py-2 text-end text-[13px] font-bold tabular-nums text-brand-700 whitespace-nowrap" dir="ltr">{fmtSAR(boqTotal * 1.15)}</td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+  const boqTable = (
+    <div className="overflow-x-auto rounded-xl border border-neutral-200">
+      <table className="w-full min-w-[860px] text-[12.5px]">
+        <thead><tr className="bg-neutral-50 border-b border-neutral-200">
+          <th className={`${TH} text-center w-10`}>#</th>
+          <th className={`${TH} text-start`}>{t('Item', 'البند')}</th>
+          <th className={`${TH} text-start`}>{t('Category', 'التصنيف')}</th>
+          <th className={`${TH} text-start`}>{t('Delivery', 'التسليم')}</th>
+          <th className={`${TH} text-end`}>{t('Qty', 'الكمية')}</th>
+          <th className={`${TH} text-end`}>{t('Unit price', 'سعر الوحدة')}</th>
+          <th className={`${TH} text-end`}>{t('Total', 'الإجمالي')}</th>
+        </tr></thead>
+        <tbody>
+          {budgets.map((b, bi) => {
+            const before = budgets.slice(0, bi).reduce((n, x) => n + rfp.boq.filter((l) => (l.budgetEn ?? '') === x).length, 0);
+            const lines = rfp.boq.filter((l) => (l.budgetEn ?? '') === b).map((l, k) => ({ l, i: before + k }));
+            const sub = lines.reduce((s, { l }) => s + lineTotalOf(l), 0);
+            const first = lines[0].l;
+            return (
+              <Fragment key={b || 'none'}>
+                {b && (
+                  <tr className="bg-neutral-50/80 border-y border-neutral-200">
+                    <td colSpan={6} className="px-3 py-1.5 text-[12px] font-semibold text-neutral-700">{isAr ? first.budgetAr : first.budgetEn} <span className="font-normal text-neutral-400">· {lines.length} {lines.length > 1 ? t('items', 'بنود') : t('item', 'بند')}</span></td>
+                    <td className="px-3 py-1.5 text-end text-[12px] font-semibold tabular-nums text-neutral-700" dir="ltr">{fmtSAR(sub)}</td>
+                  </tr>
+                )}
+                {lines.map(({ l, i }) => (
+                  <tr key={i} className="bg-white border-b border-neutral-100 align-top">
+                    <td className="px-3 py-2.5 text-center text-neutral-400 tabular-nums">{i + 1}</td>
+                    <td className="px-3 py-2.5 max-w-[320px]">
+                      <p className="font-semibold text-neutral-800">{isAr ? l.itemAr : l.itemEn}</p>
+                      {(l.descEn || l.descAr) && <p className="text-[11.5px] text-neutral-500 mt-0.5 leading-snug">{isAr ? l.descAr : l.descEn}</p>}
+                    </td>
+                    <td className="px-3 py-2.5">{l.category && <Badge variant={l.category === 'Service' ? 'services' : 'consumables'}>{l.category === 'Service' ? t('Service', 'خدمة') : t('Material', 'مواد')}</Badge>}</td>
+                    <td className="px-3 py-2.5 text-neutral-600 tabular-nums whitespace-nowrap" dir="ltr">{l.delivery ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-end text-neutral-700 tabular-nums whitespace-nowrap">{l.qty} <span className="text-neutral-400">{l.unit}</span></td>
+                    <td className="px-3 py-2.5 text-end text-neutral-600 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(l.unitPrice)}</td>
+                    <td className="px-3 py-2.5 text-end font-semibold text-neutral-900 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(lineTotalOf(l))}</td>
+                  </tr>
+                ))}
+              </Fragment>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr className="bg-neutral-50 border-t border-neutral-200"><td colSpan={6} className="px-3 py-2 text-end text-neutral-500">{t('Subtotal', 'المجموع الفرعي')}</td><td className="px-3 py-2 text-end tabular-nums font-medium" dir="ltr">{fmtSAR(boqTotal)}</td></tr>
+          <tr className="bg-neutral-50"><td colSpan={6} className="px-3 py-1.5 text-end text-neutral-500">{t('VAT (15%)', 'ضريبة القيمة المضافة (15%)')}</td><td className="px-3 py-1.5 text-end tabular-nums font-medium" dir="ltr">{fmtSAR(boqTotal * 0.15)}</td></tr>
+          <tr className="bg-brand-50 border-t border-brand-200 text-[13px]"><td colSpan={6} className="px-3 py-2 text-end font-bold text-brand-800">{t('Grand total', 'الإجمالي الكلي')}</td><td className="px-3 py-2 text-end tabular-nums font-bold text-brand-800" dir="ltr">{fmtSAR(boqTotal * 1.15)}</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+
+  // ── Payment schedule ──
+  const payChart = (
+    <>
+      <div className="h-2 rounded-full overflow-hidden flex mb-4 bg-neutral-100">
+        {rfp.payment.map((p, i) => <div key={i} style={{ width: `${p.pct}%`, background: PALETTE[i % PALETTE.length] }} />)}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {rfp.payment.map((p, i) => (
+          <div key={i} className="rounded-xl border border-neutral-200 p-3">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-md text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }}>{i + 1}</span>
+              <span className="text-[12.5px] font-semibold text-neutral-700 truncate">{isAr ? p.stageAr : p.stageEn}</span>
+            </div>
+            <p className="text-[20px] font-bold text-neutral-900 mt-1.5 tabular-nums">{p.pct}%</p>
+            {estValue > 0 && <p className="text-[12px] text-neutral-500 tabular-nums" dir="ltr">{fmtSAR((p.pct / 100) * estValue)}</p>}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+  const payTable = (
+    <>
+      <div className={`inline-flex items-center gap-1.5 text-[12.5px] font-semibold mb-3 ${payTotal === 100 ? 'text-success-600' : 'text-warning-600'}`}>
+        {payTotal === 100 ? <CheckCircleIcon className="w-4 h-4" /> : <AlertTriangleIcon className="w-4 h-4" />}
+        {t(`Payment stages ${payTotal === 100 ? 'valid' : 'incomplete'} (${payTotal}%)`, `مراحل الدفع ${payTotal === 100 ? 'صحيحة' : 'ناقصة'} (${payTotal}%)`)}
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-neutral-200">
+        <table className="w-full min-w-[720px] text-[12.5px]">
+          <thead><tr className="bg-neutral-50 border-b border-neutral-200">
+            <th className={`${TH} text-center w-10`}>#</th>
+            <th className={`${TH} text-start`}>{t('Stage', 'المرحلة')}</th>
+            <th className={`${TH} text-start`}>{t('Deliverable / condition', 'المخرج / الشرط')}</th>
+            <th className={`${TH} text-start`}>{t('Due', 'الاستحقاق')}</th>
+            <th className={`${TH} text-end`}>%</th>
+            <th className={`${TH} text-end`}>{t('Amount', 'المبلغ')}</th>
+          </tr></thead>
+          <tbody className="divide-y divide-neutral-100">
+            {rfp.payment.map((p, i) => (
+              <tr key={i} className="bg-white align-top">
+                <td className="px-3 py-2.5 text-center"><span className="inline-flex w-5 h-5 rounded-md text-white text-[10.5px] font-bold items-center justify-center" style={{ background: PALETTE[i % PALETTE.length] }}>{i + 1}</span></td>
+                <td className="px-3 py-2.5 font-semibold text-neutral-800">{isAr ? p.stageAr : p.stageEn}</td>
+                <td className="px-3 py-2.5 text-neutral-600 leading-snug">{(isAr ? p.descAr : p.descEn) ?? '—'}</td>
+                <td className="px-3 py-2.5 text-neutral-600 whitespace-nowrap">{(isAr ? p.dueAr : p.due) ?? '—'}</td>
+                <td className="px-3 py-2.5 text-end font-semibold text-neutral-800 tabular-nums">{p.pct}%</td>
+                <td className="px-3 py-2.5 text-end font-semibold text-neutral-900 tabular-nums whitespace-nowrap" dir="ltr">{estValue > 0 ? fmtSAR((p.pct / 100) * estValue) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot><tr className="bg-brand-50 border-t border-brand-200 text-[13px]">
+            <td colSpan={4} className="px-3 py-2 text-end font-bold text-brand-800">{t('Total', 'الإجمالي')}</td>
+            <td className="px-3 py-2 text-end font-bold text-brand-800 tabular-nums">{payTotal}%</td>
+            <td className="px-3 py-2 text-end font-bold text-brand-800 tabular-nums" dir="ltr">{estValue > 0 ? fmtSAR((payTotal / 100) * estValue) : '—'}</td>
+          </tr></tfoot>
+        </table>
+      </div>
+    </>
+  );
+
+  // ── Evaluation ──
+  const evalChart = (
+    <div className="space-y-2.5">
+      {rfp.evaluation.map((c, i) => (
+        <div key={i}>
+          <div className="flex items-center justify-between text-[12.5px] mb-1">
+            <span className="text-neutral-700">{isAr ? c.criterionAr : c.criterionEn}</span>
+            <span className="font-semibold text-neutral-800 tabular-nums">{c.weight}%</span>
+          </div>
+          <div className="h-2.5 rounded-full bg-neutral-100 overflow-hidden">
+            <div className="h-full rounded-full bg-brand-500" style={{ width: `${(c.weight / evalMax) * 100}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  const evalTable = (
+    <div className="space-y-5">
+      {rfp.evalCommittee?.length ? <div><SubLabel>{t('Evaluation committee', 'لجنة التقييم')}</SubLabel><CommitteeChips members={rfp.evalCommittee} isAr={isAr} /></div> : null}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <MiniStat label={t('Technical share', 'الوزن الفني')} value={`${rfp.techSplit ?? 0}%`} />
+        <MiniStat label={t('Commercial share', 'الوزن المالي')} value={`${100 - (rfp.techSplit ?? 0)}%`} />
+        <MiniStat label={t('Technical passing score', 'درجة الاجتياز الفني')} value={`${rfp.techPassing ?? 0}%`} />
+      </div>
+      {rfp.techRequirements?.length ? (
+        <div>
+          <SubLabel>{t('Technical requirements', 'المتطلبات الفنية')}</SubLabel>
+          <div className="overflow-x-auto rounded-xl border border-neutral-200">
+            <table className="w-full text-[12.5px]">
+              <thead><tr className="bg-neutral-50 border-b border-neutral-200">
+                <th className={`${TH} text-center w-10`}>#</th>
+                <th className={`${TH} text-start w-56`}>{t('Requirement', 'المتطلب')}</th>
+                <th className={`${TH} text-start`}>{t('Description', 'الوصف')}</th>
+              </tr></thead>
+              <tbody className="divide-y divide-neutral-100">
+                {rfp.techRequirements.map((r, i) => (
+                  <tr key={i} className="bg-white align-top">
+                    <td className="px-3 py-2.5 text-center text-neutral-400">{i + 1}</td>
+                    <td className="px-3 py-2.5 font-semibold text-neutral-800">{isAr ? r.reqAr : r.reqEn}</td>
+                    <td className="px-3 py-2.5 text-neutral-600 leading-snug">{isAr ? r.descAr : r.descEn}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+      <div>
+        <SubLabel>{t('Evaluation criteria & weights', 'معايير التقييم والأوزان')}</SubLabel>
+        <div className="overflow-x-auto rounded-xl border border-neutral-200">
+          <table className="w-full text-[12.5px]">
+            <thead><tr className="bg-neutral-50 border-b border-neutral-200">
+              <th className={`${TH} text-center w-10`}>#</th>
+              <th className={`${TH} text-start w-64`}>{t('Criterion', 'المعيار')}</th>
+              <th className={`${TH} text-start`}>{t('How it is scored', 'آلية التقييم')}</th>
+              <th className={`${TH} text-end w-24`}>{t('Weight', 'الوزن')}</th>
+            </tr></thead>
+            <tbody className="divide-y divide-neutral-100">
+              {rfp.evaluation.map((c, i) => (
+                <tr key={i} className="bg-white align-top">
+                  <td className="px-3 py-2.5 text-center text-neutral-400">{i + 1}</td>
+                  <td className="px-3 py-2.5 font-semibold text-neutral-800">{isAr ? c.criterionAr : c.criterionEn}</td>
+                  <td className="px-3 py-2.5 text-neutral-600 leading-snug">{(isAr ? c.descAr : c.descEn) ?? '—'}</td>
+                  <td className="px-3 py-2.5 text-end font-semibold text-neutral-800 tabular-nums">{c.weight}%</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot><tr className={`border-t border-neutral-200 ${evalTotal === 100 ? 'bg-success-50/50' : 'bg-warning-50/50'}`}>
+              <td colSpan={3} className="px-3 py-2 text-end text-[12px] font-semibold text-neutral-600">{t('Total weight', 'إجمالي الأوزان')}</td>
+              <td className={`px-3 py-2 text-end font-bold tabular-nums ${evalTotal === 100 ? 'text-success-700' : 'text-warning-700'}`}>{evalTotal}%</td>
+            </tr></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Qualification ──
+  const qualChart = (
+    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+      {rfp.qualification.map((qr, i) => (
+        <li key={i} className="flex items-start gap-2 text-[13px] text-neutral-700"><CheckCircleIcon className="w-4 h-4 text-success-600 mt-0.5 flex-shrink-0" />{isAr ? qr.reqAr : qr.reqEn}</li>
+      ))}
+    </ul>
+  );
+  const qualTable = (
+    <div className="space-y-5">
+      {rfp.qualCommittee?.length ? <div><SubLabel>{t('Qualification committee', 'لجنة التأهيل')}</SubLabel><CommitteeChips members={rfp.qualCommittee} isAr={isAr} /></div> : null}
+      {rfp.qualCriteria?.length ? (
+        <div>
+          <SubLabel>{t('Qualification criteria', 'معايير التأهيل')}</SubLabel>
+          <div className="overflow-x-auto rounded-xl border border-neutral-200">
+            <table className="w-full min-w-[560px] text-[12.5px]">
+              <thead><tr className="bg-neutral-50 border-b border-neutral-200">
+                <th className={`${TH} text-start`}>{t('Criteria', 'المعايير')}</th>
+                <th className={`${TH} text-start w-44`}>{t('Range', 'النطاق')}</th>
+                <th className={`${TH} text-end w-24`}>{t('Weight', 'الوزن')}</th>
+              </tr></thead>
+              <tbody>
+                {rfp.qualCriteria.map((m, i) => (
+                  <Fragment key={i}>
+                    <tr className="bg-neutral-50/80 border-y border-neutral-200">
+                      <td className="px-3 py-2 font-semibold text-neutral-800">{isAr ? m.nameAr : m.nameEn}</td>
+                      <td className="px-3 py-2 text-[11px] text-neutral-400 italic">{t('Main category', 'فئة رئيسية')}</td>
+                      <td className="px-3 py-2 text-end font-semibold text-neutral-800 tabular-nums">{m.pct}%</td>
+                    </tr>
+                    {m.subs.map((s, j) => (
+                      <tr key={j} className="bg-white border-b border-neutral-100">
+                        <td className="px-3 py-2 ps-7 text-neutral-700"><span className="text-neutral-300 me-1">└</span>{isAr ? s.nameAr : s.nameEn}</td>
+                        <td className="px-3 py-2 text-neutral-600" dir="auto">{s.range}</td>
+                        <td className="px-3 py-2 text-end text-neutral-700 tabular-nums">{s.pct}%</td>
+                      </tr>
+                    ))}
+                  </Fragment>
+                ))}
+              </tbody>
+              <tfoot><tr className={`border-t border-neutral-200 ${qualTotal === 100 ? 'bg-success-50/50' : 'bg-warning-50/50'}`}>
+                <td className="px-3 py-2 text-[12px] font-semibold text-neutral-600">{t('Main criteria total', 'إجمالي المعايير الرئيسية')}</td>
+                <td className="px-3 py-2 text-[12px] text-neutral-500">{t('Passing', 'الاجتياز')}: <span className="font-semibold text-neutral-800">{rfp.qualPassing ?? 0}%</span></td>
+                <td className={`px-3 py-2 text-end font-bold tabular-nums ${qualTotal === 100 ? 'text-success-700' : 'text-warning-700'}`}>{qualTotal}%</td>
+              </tr></tfoot>
+            </table>
+          </div>
+        </div>
+      ) : null}
+      <div>
+        <SubLabel>{t('Mandatory requirements', 'المتطلبات الإلزامية')}</SubLabel>
+        <div className="overflow-x-auto rounded-xl border border-neutral-200">
+          <table className="w-full text-[12.5px]">
+            <thead><tr className="bg-neutral-50 border-b border-neutral-200">
+              <th className={`${TH} text-center w-10`}>#</th>
+              <th className={`${TH} text-start`}>{t('Requirement', 'المتطلب')}</th>
+              <th className={`${TH} text-start`}>{t('Evidence', 'المستند المطلوب')}</th>
+              <th className={`${TH} text-start w-28`}>{t('Type', 'النوع')}</th>
+            </tr></thead>
+            <tbody className="divide-y divide-neutral-100">
+              {rfp.qualification.map((q, i) => (
+                <tr key={i} className="bg-white">
+                  <td className="px-3 py-2.5 text-center text-neutral-400">{i + 1}</td>
+                  <td className="px-3 py-2.5 font-semibold text-neutral-800">{isAr ? q.reqAr : q.reqEn}</td>
+                  <td className="px-3 py-2.5 text-neutral-600">{(isAr ? q.evidenceAr : q.evidenceEn) ?? '—'}</td>
+                  <td className="px-3 py-2.5"><Badge variant="default">{t('Pass / Fail', 'مستوفٍ / غير مستوفٍ')}</Badge></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-5">
@@ -358,7 +713,6 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
           </div>
         )}
 
-        {/* Overview */}
         <RfpSection id="overview" title={t('Request overview', 'نظرة عامة على الطلب')}>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">{rfp.refId}</p>
           <h3 className="text-[16px] font-bold text-neutral-900 mt-0.5">{isAr ? rfp.titleAr : rfp.titleEn}</h3>
@@ -371,129 +725,48 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
           </dl>
         </RfpSection>
 
-        {/* Scope */}
         <RfpSection id="scope" title={t('Scope of work', 'نطاق العمل')}>
           <p className="text-[13px] text-neutral-700 leading-relaxed">{isAr ? rfp.scopeAr : rfp.scopeEn}</p>
+          {rfp.scopeBlocks?.length ? (
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              {rfp.scopeBlocks.map((b, i) => (
+                <div key={i} className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3.5">
+                  <p className="text-[12px] font-bold text-neutral-800 mb-1.5">{isAr ? b.headAr : b.headEn}</p>
+                  <ul className="space-y-1">
+                    {(isAr ? b.itemsAr : b.itemsEn).map((x, j) => (
+                      <li key={j} className="flex items-start gap-2 text-[12.5px] text-neutral-600 leading-snug"><span className="w-1.5 h-1.5 rounded-full bg-brand-500 mt-1.5 flex-shrink-0" />{x}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </RfpSection>
 
-        {/* Bill of quantities — donut + legend + table */}
         {rfp.boq.length > 0 && (
-          <RfpSection id="cost" title={t('Bill of quantities', 'جدول الكميات')}>
-            <div className="flex flex-col lg:flex-row gap-5">
-              <div className="flex items-center gap-4 lg:flex-col lg:items-center flex-shrink-0">
-                <div className="relative">
-                  <Donut segments={costSegs} />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-[9px] uppercase tracking-wide text-neutral-400">{t('Total', 'الإجمالي')}</span>
-                    <span className="text-[13px] font-bold text-neutral-900 tabular-nums" dir="ltr">{fmtSAR(boqTotal).replace('SAR ', '')}</span>
-                  </div>
-                </div>
-                <ul className="space-y-1">
-                  {costSegs.map((s, i) => (
-                    <li key={i} className="flex items-center gap-1.5 text-[11.5px] text-neutral-600">
-                      <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: s.color }} />
-                      <span className="truncate max-w-[150px]">{s.label}</span>
-                      <span className="ms-auto font-semibold text-neutral-700 tabular-nums">{Math.round((s.value / (boqTotal || 1)) * 100)}%</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="flex-1 min-w-0 rounded-xl border border-neutral-200 overflow-hidden self-start">
-                <table className="w-full text-sm">
-                  <thead><tr className="bg-neutral-50 border-b border-neutral-200 text-[11px] uppercase tracking-wide text-neutral-500">
-                    <th className="text-start ps-3 pe-2 py-2 font-medium">{t('Item', 'البند')}</th>
-                    <th className="px-2 py-2 font-medium w-16 text-center">{t('Qty', 'الكمية')}</th>
-                    <th className="px-2 py-2 font-medium w-28 text-end">{t('Line total', 'الإجمالي')}</th>
-                  </tr></thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {rfp.boq.map((l, i) => (
-                      <tr key={i} className="bg-white">
-                        <td className="ps-3 pe-2 py-2 text-[12.5px] text-neutral-800"><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: PALETTE[i % PALETTE.length] }} />{isAr ? l.itemAr : l.itemEn}</span></td>
-                        <td className="px-2 py-2 text-center text-[12px] text-neutral-600">{l.qty} {l.unit}</td>
-                        <td className="px-2 py-2 text-end text-[12.5px] font-semibold text-neutral-800 tabular-nums" dir="ltr">{fmtSAR((Number(l.qty) || 1) * l.unitPrice)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-neutral-50 border-t-2 border-neutral-200">
-                    <tr>
-                      <td className="ps-3 pe-2 py-1.5 text-end text-[12px] text-neutral-500" colSpan={2}>{t('Subtotal', 'المجموع الفرعي')}</td>
-                      <td className="px-2 py-1.5 text-end text-[12.5px] font-semibold tabular-nums text-neutral-700" dir="ltr">{fmtSAR(boqTotal)}</td>
-                    </tr>
-                    <tr>
-                      <td className="ps-3 pe-2 py-1.5 text-end text-[12px] text-neutral-500" colSpan={2}>{t('VAT (15%)', 'ضريبة القيمة المضافة (15%)')}</td>
-                      <td className="px-2 py-1.5 text-end text-[12.5px] font-semibold tabular-nums text-neutral-700" dir="ltr">{fmtSAR(boqTotal * 0.15)}</td>
-                    </tr>
-                    <tr className="border-t border-neutral-200">
-                      <td className="ps-3 pe-2 py-2 text-end text-[12.5px] font-bold text-neutral-800" colSpan={2}>{t('Grand total', 'الإجمالي الكلي')}</td>
-                      <td className="px-2 py-2 text-end text-[13px] font-bold tabular-nums text-brand-700" dir="ltr">{fmtSAR(boqTotal * 1.15)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-          </RfpSection>
+          <RfpSection id="cost" title={t('Bill of quantities', 'جدول الكميات')} meta={`${rfp.boq.length} ${t('items', 'بنود')} · ${fmtSAR(boqTotal)}`} views={{ table: boqTable, chart: boqChart }} />
         )}
-
-        {/* Payment — validity bar + numbered stage cards */}
         {rfp.payment.length > 0 && (
-          <RfpSection id="payment" title={t('Payment schedule', 'جدول الدفعات')}>
-            <div className="h-2 rounded-full overflow-hidden flex mb-4 bg-neutral-100">
-              {rfp.payment.map((p, i) => (
-                <div key={i} style={{ width: `${p.pct}%`, background: PALETTE[i % PALETTE.length] }} />
-              ))}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {rfp.payment.map((p, i) => (
-                <div key={i} className="rounded-xl border border-neutral-200 p-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-md text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }}>{i + 1}</span>
-                    <span className="text-[12.5px] font-semibold text-neutral-700 truncate">{isAr ? p.stageAr : p.stageEn}</span>
-                  </div>
-                  <p className="text-[20px] font-bold text-neutral-900 mt-1.5 tabular-nums">{p.pct}%</p>
-                  {estValue > 0 && <p className="text-[12px] text-neutral-500 tabular-nums" dir="ltr">{fmtSAR((p.pct / 100) * estValue)}</p>}
-                </div>
-              ))}
-            </div>
-          </RfpSection>
+          <RfpSection id="payment" title={t('Payment schedule', 'جدول الدفعات')} meta={`${rfp.payment.length} ${t('stages', 'مراحل')}`} views={{ table: payTable, chart: payChart }} />
         )}
-
-        {/* Evaluation — weight bars */}
         {rfp.evaluation.length > 0 && (
-          <RfpSection id="evaluation" title={t('Evaluation criteria', 'معايير التقييم')}>
-            <div className="space-y-2.5">
-              {rfp.evaluation.map((c, i) => (
-                <div key={i}>
-                  <div className="flex items-center justify-between text-[12.5px] mb-1">
-                    <span className="text-neutral-700">{isAr ? c.criterionAr : c.criterionEn}</span>
-                    <span className="font-semibold text-neutral-800 tabular-nums">{c.weight}%</span>
-                  </div>
-                  <div className="h-2.5 rounded-full bg-neutral-100 overflow-hidden">
-                    <div className="h-full rounded-full bg-brand-500" style={{ width: `${(c.weight / evalMax) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </RfpSection>
+          <RfpSection id="evaluation" title={t('Evaluation criteria', 'معايير التقييم')} meta={`${rfp.evaluation.length} ${t('criteria', 'معايير')} · ${t('passing', 'الاجتياز')} ${rfp.techPassing ?? 0}%`} views={{ table: evalTable, chart: evalChart }} />
         )}
-
-        {/* Qualification */}
         {rfp.qualification.length > 0 && (
-          <RfpSection id="qualification" title={t('Qualification requirements', 'متطلبات التأهيل')}>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-              {rfp.qualification.map((qr, i) => (
-                <li key={i} className="flex items-start gap-2 text-[13px] text-neutral-700"><CheckCircleIcon className="w-4 h-4 text-success-600 mt-0.5 flex-shrink-0" />{isAr ? qr.reqAr : qr.reqEn}</li>
-              ))}
-            </ul>
-          </RfpSection>
+          <RfpSection id="qualification" title={t('Qualification requirements', 'متطلبات التأهيل')} meta={`${(rfp.qualCriteria?.length ?? 0) + rfp.qualification.length} ${t('requirements', 'متطلبات')}`} views={{ table: qualTable, chart: qualChart }} />
         )}
 
-        {/* Documents */}
         {rfp.documents.length > 0 && (
-          <RfpSection id="documents" title={t('Documents', 'المستندات')}>
+          <RfpSection id="documents" title={t('Documents', 'المستندات')} meta={`${rfp.documents.length} ${t('files', 'ملفات')}`}>
             <ul className="space-y-1.5">
               {rfp.documents.map((dc, i) => (
-                <li key={i} className="flex items-center gap-2 text-[13px] text-neutral-700 rounded-lg border border-neutral-200 bg-neutral-50/60 px-3 py-2">
-                  <DownloadIcon className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />{isAr ? dc.ar : dc.en}
+                <li key={i} className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 px-3 py-2">
+                  {dc.type && <span className="w-10 h-6 rounded-md bg-white border border-neutral-200 text-[10px] font-bold text-neutral-500 flex items-center justify-center flex-shrink-0">{dc.type}</span>}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-neutral-800 truncate">{isAr ? dc.ar : dc.en}</p>
+                    {(dc.size || dc.by) && <p className="text-[11px] text-neutral-400">{[dc.size, dc.by].filter(Boolean).join(' · ')}</p>}
+                  </div>
+                  <DownloadIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" />
                 </li>
               ))}
             </ul>
@@ -501,6 +774,21 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
         )}
     </div>
   );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 px-3 py-2">
+      <p className="text-[10.5px] uppercase tracking-wide text-neutral-400">{label}</p>
+      <p className="text-[15px] font-bold text-neutral-900 tabular-nums mt-0.5">{value}</p>
+    </div>
+  );
+}
+function TableGlyph({ className = '' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M3 15h18M9 4v16" /></svg>;
+}
+function ChartGlyph({ className = '' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 11-9-9v9z" /><path d="M15 3.5A9 9 0 0120.5 9H15z" /></svg>;
 }
 
 function JumpFab({ sections, isAr, t }: { sections: { id: string; en: string; ar: string }[]; isAr: boolean; t: T }) {

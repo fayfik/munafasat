@@ -193,12 +193,29 @@ export interface RfpDetail {
   summaryEn: string; summaryAr: string;
   meta: { label: Bilingual; value: string; dir?: 'ltr' }[];
   scopeEn: string; scopeAr: string;
-  boq: { itemEn: string; itemAr: string; qty: string; unit: string; unitPrice: number }[];
-  payment: { stageEn: string; stageAr: string; pct: number }[];
-  evaluation: { criterionEn: string; criterionAr: string; weight: number }[];
-  qualification: { reqEn: string; reqAr: string }[];
-  documents: { en: string; ar: string }[];
+  /** Structured scope blocks (objectives, in/out of scope, deliverables…). */
+  scopeBlocks?: { headEn: string; headAr: string; itemsEn: string[]; itemsAr: string[] }[];
+  boq: {
+    itemEn: string; itemAr: string; qty: string; unit: string; unitPrice: number;
+    descEn?: string; descAr?: string;
+    budgetEn?: string; budgetAr?: string;      // budgeted (project) item
+    category?: 'Service' | 'Material';
+    delivery?: string;                         // ISO date
+  }[];
+  payment: { stageEn: string; stageAr: string; pct: number; descEn?: string; descAr?: string; due?: string; dueAr?: string }[];
+  evaluation: { criterionEn: string; criterionAr: string; weight: number; descEn?: string; descAr?: string }[];
+  techPassing?: number;                        // technical passing score %
+  techSplit?: number;                          // technical share of the overall score %
+  techRequirements?: { reqEn: string; reqAr: string; descEn: string; descAr: string }[];
+  evalCommittee?: CommitteeMember[];
+  qualification: { reqEn: string; reqAr: string; evidenceEn?: string; evidenceAr?: string }[];
+  qualCriteria?: { nameEn: string; nameAr: string; pct: number; subs: { nameEn: string; nameAr: string; range: string; pct: number }[] }[];
+  qualPassing?: number;
+  qualCommittee?: CommitteeMember[];
+  documents: { en: string; ar: string; type?: string; size?: string; by?: string }[];
 }
+
+export interface CommitteeMember { name: string; nameAr: string; roleEn: string; roleAr: string; deptEn: string; deptAr: string }
 
 /** One step in the task's workflow trail (past, current, or upcoming). */
 export interface TrailStep {
