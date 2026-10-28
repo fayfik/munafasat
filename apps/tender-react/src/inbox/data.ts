@@ -652,14 +652,9 @@ const TECH_DOCS_DEFAULT: NonNullable<RfpDetail['techDocs']> = [
 ];
 const EVAL_COMMITTEE: NonNullable<RfpDetail['evalCommittee']> = [
   { name: 'Hana Al-Ghamdi', nameAr: 'هناء الغامدي', roleEn: 'Chair', roleAr: 'الرئيس', deptEn: 'Procurement', deptAr: 'المشتريات' },
-  { name: 'Faisal Al-Shehri', nameAr: 'فيصل الشهري', roleEn: 'Technical member', roleAr: 'عضو فني', deptEn: 'IT & Digital', deptAr: 'تقنية المعلومات' },
-  { name: 'Reem Al-Dossary', nameAr: 'ريم الدوسري', roleEn: 'Technical member', roleAr: 'عضو فني', deptEn: 'Enterprise Architecture', deptAr: 'البنية المؤسسية' },
-  { name: 'Majed Al-Zahrani', nameAr: 'ماجد الزهراني', roleEn: 'Secretary', roleAr: 'أمين اللجنة', deptEn: 'Procurement', deptAr: 'المشتريات' },
 ];
 const QUAL_COMMITTEE: NonNullable<RfpDetail['qualCommittee']> = [
   { name: 'Khalid Al-Otaibi', nameAr: 'خالد العتيبي', roleEn: 'Chair', roleAr: 'الرئيس', deptEn: 'Finance', deptAr: 'المالية' },
-  { name: 'Nora Al-Harbi', nameAr: 'نورة الحربي', roleEn: 'Member', roleAr: 'عضو', deptEn: 'Procurement — Qualification', deptAr: 'المشتريات — التأهيل' },
-  { name: 'Omar Al-Mutairi', nameAr: 'عمر المطيري', roleEn: 'Member', roleAr: 'عضو', deptEn: 'Legal', deptAr: 'الشؤون القانونية' },
 ];
 
 function genericBoq(task: Task): RfpDetail['boq'] {
