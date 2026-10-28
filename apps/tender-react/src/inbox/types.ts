@@ -206,6 +206,7 @@ export interface RfpDetail {
   evaluation: { criterionEn: string; criterionAr: string; weight: number; descEn?: string; descAr?: string }[];
   techPassing?: number;                        // technical passing score %
   techSplit?: number;                          // technical share of the overall score %
+  techDocs?: { en: string; ar: string }[];      // additional technical documents (beyond the locked set)
   techRequirements?: { reqEn: string; reqAr: string; descEn: string; descAr: string }[];
   evalCommittee?: CommitteeMember[];
   qualification: { reqEn: string; reqAr: string; evidenceEn?: string; evidenceAr?: string }[];

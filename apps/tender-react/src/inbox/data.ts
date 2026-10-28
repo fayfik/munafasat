@@ -491,6 +491,11 @@ const PR_LAPTOPS: RfpDetail = {
     { criterionEn: 'Warranty & support', criterionAr: 'الضمان والدعم', weight: 15, descEn: 'Onsite coverage, SLA and local service centres', descAr: 'التغطية في الموقع ومستوى الخدمة ومراكز الصيانة المحلية' },
   ],
   techPassing: 70, techSplit: 40,
+  techDocs: [
+    { en: 'Device datasheets', ar: 'نشرات مواصفات الأجهزة' },
+    { en: 'OEM authorization letter', ar: 'خطاب تفويض المصنع' },
+    { en: 'Warranty terms & service centre list', ar: 'شروط الضمان وقائمة مراكز الصيانة' },
+  ],
   techRequirements: [
     { reqEn: 'Minimum specification', reqAr: 'الحد الأدنى للمواصفات', descEn: '32GB RAM, 1TB NVMe SSD, 16" display, Wi-Fi 6E', descAr: 'ذاكرة 32 جيجابايت وتخزين 1 تيرابايت وشاشة 16 بوصة' },
     { reqEn: 'Corporate image', reqAr: 'الصورة المؤسسية', descEn: 'Supplier applies the engineering image and Intune enrolment before delivery', descAr: 'يطبق المورد الصورة الهندسية والتسجيل قبل التسليم' },
@@ -569,6 +574,12 @@ const RFP_S4HANA: RfpDetail = {
     { criterionEn: 'Support & SLA model', criterionAr: 'نموذج الدعم والخدمة', weight: 20, descEn: 'Hypercare, AMS model, response and resolution times', descAr: 'الدعم بعد التشغيل ونموذج خدمات التطبيقات وأوقات الاستجابة والحل' },
   ],
   techPassing: 70, techSplit: 70,
+  techDocs: [
+    { en: 'Implementation methodology (SAP Activate)', ar: 'منهجية التطبيق (SAP Activate)' },
+    { en: 'Project plan & Gantt chart', ar: 'خطة المشروع والجدول الزمني' },
+    { en: 'Solution architecture document', ar: 'وثيقة بنية الحل' },
+    { en: 'SAP partner certificate', ar: 'شهادة شراكة SAP' },
+  ],
   techRequirements: [
     { reqEn: 'Deployment', reqAr: 'النشر', descEn: 'S/4HANA 2023 FPS02 or later, private cloud in a KSA region', descAr: 'إصدار S/4HANA 2023 أو أحدث على سحابة خاصة داخل المملكة' },
     { reqEn: 'Integration', reqAr: 'التكامل', descEn: 'Etimad, SADAD and HR system through SAP Integration Suite (CPI)', descAr: 'اعتماد وسداد ونظام الموارد البشرية عبر منصة التكامل' },
@@ -620,16 +631,24 @@ const TECH_REQ_DEFAULT: NonNullable<RfpDetail['techRequirements']> = [
   { reqEn: 'Delivery plan', reqAr: 'خطة التسليم', descEn: 'Detailed delivery and installation schedule with milestones', descAr: 'جدول تفصيلي للتسليم والتركيب مع المراحل' },
   { reqEn: 'Warranty & support', reqAr: 'الضمان والدعم', descEn: 'Minimum 12-month warranty with local support in KSA', descAr: 'ضمان لا يقل عن 12 شهراً مع دعم محلي في المملكة' },
 ];
-const QUAL_CRITERIA_DEFAULT: NonNullable<RfpDetail['qualCriteria']> = [
-  { nameEn: 'Financial capability', nameAr: 'القدرة المالية', pct: 40, subs: [
-    { nameEn: 'Cash ratio (latest fiscal year)', nameAr: 'نسبة النقدية (آخر سنة مالية)', range: '≥ 1.2', pct: 50 },
-    { nameEn: 'Quick ratio (latest fiscal year)', nameAr: 'نسبة السيولة السريعة (آخر سنة مالية)', range: '≥ 1.0', pct: 50 } ] },
-  { nameEn: 'Experience', nameAr: 'الخبرة', pct: 35, subs: [
-    { nameEn: 'Similar projects in the last 5 years', nameAr: 'مشاريع مماثلة خلال آخر 5 سنوات', range: '≥ 3 projects', pct: 60 },
-    { nameEn: 'Years in the Saudi market', nameAr: 'سنوات العمل في السوق السعودي', range: '≥ 5 years', pct: 40 } ] },
-  { nameEn: 'Local content', nameAr: 'المحتوى المحلي', pct: 25, subs: [
-    { nameEn: 'Saudization (Nitaqat band)', nameAr: 'نسبة التوطين (نطاقات)', range: 'Green or above', pct: 50 },
-    { nameEn: 'Local content score', nameAr: 'درجة المحتوى المحلي', range: '≥ 40%', pct: 50 } ] },
+// Fixed qualification criteria — same main/sub list as the request-creation
+// step (TenderContext DEFAULT_QUAL), with ranges and weights filled in.
+const QUAL_CRITERIA_FIXED: NonNullable<RfpDetail['qualCriteria']> = [
+  { nameEn: 'Previous Experience', nameAr: 'الخبرة السابقة', pct: 40, subs: [
+    { nameEn: 'Number of years of experience', nameAr: 'عدد سنوات الخبرة', range: '5–15 years', pct: 30 },
+    { nameEn: 'Number of projects (last 3 years)', nameAr: 'عدد المشاريع خلال 3 سنوات', range: '3–10 similar projects', pct: 40 },
+    { nameEn: 'Total value of projects (last 3 years)', nameAr: 'إجمالي قيمة المشاريع خلال 3 سنوات', range: 'SAR 1M–10M', pct: 30 } ] },
+  { nameEn: 'Existing Contractual Obligations', nameAr: 'الالتزامات التعاقدية القائمة', pct: 30, subs: [
+    { nameEn: 'Number of existing projects', nameAr: 'عدد المشاريع القائمة', range: '2–8 active projects', pct: 50 },
+    { nameEn: 'Value of existing projects', nameAr: 'قيمة المشاريع القائمة', range: 'SAR 3M–15M', pct: 50 } ] },
+  { nameEn: 'Human Resources', nameAr: 'الموارد البشرية', pct: 30, subs: [
+    { nameEn: 'Number of employees', nameAr: 'عدد الموظفين', range: '50–500 employees', pct: 40 },
+    { nameEn: 'Percentage of Saudi employees', nameAr: 'نسبة الموظفين السعوديين', range: '25%–60% Saudi nationals', pct: 60 } ] },
+];
+const TECH_DOCS_DEFAULT: NonNullable<RfpDetail['techDocs']> = [
+  { en: 'Detailed technical compliance sheet', ar: 'جدول المطابقة الفنية التفصيلي' },
+  { en: 'Implementation / delivery plan', ar: 'خطة التنفيذ / التسليم' },
+  { en: 'Product datasheets & brochures', ar: 'نشرات ومواصفات المنتجات' },
 ];
 const EVAL_COMMITTEE: NonNullable<RfpDetail['evalCommittee']> = [
   { name: 'Hana Al-Ghamdi', nameAr: 'هناء الغامدي', roleEn: 'Chair', roleAr: 'الرئيس', deptEn: 'Procurement', deptAr: 'المشتريات' },
@@ -723,7 +742,8 @@ function completeRfp(r: RfpDetail): RfpDetail {
     techSplit: r.techSplit ?? 60,
     techRequirements: r.techRequirements ?? TECH_REQ_DEFAULT,
     evalCommittee: r.evalCommittee ?? EVAL_COMMITTEE,
-    qualCriteria: r.qualCriteria ?? QUAL_CRITERIA_DEFAULT,
+    qualCriteria: QUAL_CRITERIA_FIXED,
+    techDocs: r.techDocs ?? TECH_DOCS_DEFAULT,
     qualPassing: r.qualPassing ?? 60,
     qualCommittee: r.qualCommittee ?? QUAL_COMMITTEE,
   };

@@ -4,12 +4,13 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
+import { LOCKED_TECH_DOCS } from '../sections/TechnicalEvaluation';
 import { Badge, Button } from '../components/ui';
 import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadIcon, ChevronRightIcon } from '../components/Icons';
 import type { Task, TaskAction, Person, RfpDetail } from './types';
 import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
 import { TaskBody } from './renderers';
-import { TypeChip, StateChip, PriorityTag, ENTITY_META, tb } from './meta';
+import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
 
 type T = (en: string, ar: string) => string;
 const personName = (p: Person, isAr: boolean) => (isAr && p.nameAr ? p.nameAr : p.name);
@@ -110,7 +111,6 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <TypeChip type={task.type} isAr={isAr} />
                 <StateChip state={task.state} isAr={isAr} />
                 <PriorityTag priority={task.priority} isAr={isAr} />
                 <SlaPill sla={sla} t={t} />
@@ -344,7 +344,7 @@ function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: string }[] {
     ...(rfp.boq.length ? [{ id: 'cost', en: 'Bill of quantities', ar: 'جدول الكميات' }] : []),
     ...(rfp.payment.length ? [{ id: 'payment', en: 'Payment', ar: 'الدفعات' }] : []),
     ...(rfp.evaluation.length ? [{ id: 'evaluation', en: 'Evaluation', ar: 'التقييم' }] : []),
-    ...(rfp.qualification.length ? [{ id: 'qualification', en: 'Qualification', ar: 'التأهيل' }] : []),
+    ...(rfp.qualCriteria?.length ? [{ id: 'qualification', en: 'Qualification', ar: 'التأهيل' }] : []),
     ...(rfp.documents.length ? [{ id: 'documents', en: 'Documents', ar: 'المستندات' }] : []),
   ];
 }
@@ -567,6 +567,20 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
   const evalTable = (
     <div className="space-y-5">
       {rfp.evalCommittee?.length ? <div><SubLabel>{t('Evaluation committee', 'لجنة التقييم')}</SubLabel><CommitteeChips members={rfp.evalCommittee} isAr={isAr} /></div> : null}
+      <div>
+        <SubLabel>{t('Technical documents', 'الوثائق الفنية')}</SubLabel>
+        <div className="flex flex-wrap gap-1.5">
+          {LOCKED_TECH_DOCS.map((d, i) => (
+            <span key={`l-${i}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11.5px] bg-neutral-100 text-neutral-600 border border-neutral-200" title={t('Required in every tender', 'مطلوبة في كل منافسة')}>
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-2.5 h-2.5 text-neutral-400"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+              {isAr ? d.ar : d.en}
+            </span>
+          ))}
+          {(rfp.techDocs ?? []).map((d, i) => (
+            <span key={`u-${i}`} className="inline-flex items-center px-2.5 py-1 rounded-full text-[11.5px] bg-white text-neutral-700 border border-neutral-200">{isAr ? d.ar : d.en}</span>
+          ))}
+        </div>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <MiniStat label={t('Technical share', 'الوزن الفني')} value={`${rfp.techSplit ?? 0}%`} />
         <MiniStat label={t('Commercial share', 'الوزن المالي')} value={`${100 - (rfp.techSplit ?? 0)}%`} />
@@ -627,11 +641,26 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
 
   // ── Qualification ──
   const qualChart = (
-    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-      {rfp.qualification.map((qr, i) => (
-        <li key={i} className="flex items-start gap-2 text-[13px] text-neutral-700"><CheckCircleIcon className="w-4 h-4 text-success-600 mt-0.5 flex-shrink-0" />{isAr ? qr.reqAr : qr.reqEn}</li>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {(rfp.qualCriteria ?? []).map((m, i) => (
+        <div key={i} className="rounded-xl border border-neutral-200 p-3.5">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} />
+            <span className="text-[12.5px] font-semibold text-neutral-700 flex-1 min-w-0 truncate">{isAr ? m.nameAr : m.nameEn}</span>
+            <span className="text-[18px] font-bold text-neutral-900 tabular-nums">{m.pct}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-neutral-100 overflow-hidden mt-2 mb-3"><div className="h-full rounded-full" style={{ width: `${m.pct}%`, background: PALETTE[i % PALETTE.length] }} /></div>
+          <div className="space-y-2">
+            {m.subs.map((sb, j) => (
+              <div key={j}>
+                <div className="flex items-center justify-between gap-2 text-[11.5px]"><span className="text-neutral-600 truncate">{isAr ? sb.nameAr : sb.nameEn}</span><span className="font-semibold text-neutral-700 tabular-nums">{sb.pct}%</span></div>
+                <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden mt-1"><div className="h-full rounded-full opacity-70" style={{ width: `${sb.pct}%`, background: PALETTE[i % PALETTE.length] }} /></div>
+              </div>
+            ))}
+          </div>
+        </div>
       ))}
-    </ul>
+    </div>
   );
   const qualTable = (
     <div className="space-y-5">
@@ -673,29 +702,6 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
           </div>
         </div>
       ) : null}
-      <div>
-        <SubLabel>{t('Mandatory requirements', 'المتطلبات الإلزامية')}</SubLabel>
-        <div className="overflow-x-auto rounded-xl border border-neutral-200">
-          <table className="w-full text-[12.5px]">
-            <thead><tr className="bg-neutral-50 border-b border-neutral-200">
-              <th className={`${TH} text-center w-10`}>#</th>
-              <th className={`${TH} text-start`}>{t('Requirement', 'المتطلب')}</th>
-              <th className={`${TH} text-start`}>{t('Evidence', 'المستند المطلوب')}</th>
-              <th className={`${TH} text-start w-28`}>{t('Type', 'النوع')}</th>
-            </tr></thead>
-            <tbody className="divide-y divide-neutral-100">
-              {rfp.qualification.map((q, i) => (
-                <tr key={i} className="bg-white">
-                  <td className="px-3 py-2.5 text-center text-neutral-400">{i + 1}</td>
-                  <td className="px-3 py-2.5 font-semibold text-neutral-800">{isAr ? q.reqAr : q.reqEn}</td>
-                  <td className="px-3 py-2.5 text-neutral-600">{(isAr ? q.evidenceAr : q.evidenceEn) ?? '—'}</td>
-                  <td className="px-3 py-2.5"><Badge variant="default">{t('Pass / Fail', 'مستوفٍ / غير مستوفٍ')}</Badge></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 
@@ -752,8 +758,8 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
         {rfp.evaluation.length > 0 && (
           <RfpSection id="evaluation" title={t('Evaluation criteria', 'معايير التقييم')} meta={`${rfp.evaluation.length} ${t('criteria', 'معايير')} · ${t('passing', 'الاجتياز')} ${rfp.techPassing ?? 0}%`} views={{ table: evalTable, chart: evalChart }} />
         )}
-        {rfp.qualification.length > 0 && (
-          <RfpSection id="qualification" title={t('Qualification requirements', 'متطلبات التأهيل')} meta={`${(rfp.qualCriteria?.length ?? 0) + rfp.qualification.length} ${t('requirements', 'متطلبات')}`} views={{ table: qualTable, chart: qualChart }} />
+        {(rfp.qualCriteria?.length ?? 0) > 0 && (
+          <RfpSection id="qualification" title={t('Qualification criteria', 'معايير التأهيل')} meta={`${rfp.qualCriteria?.length ?? 0} ${t('main criteria', 'معايير رئيسية')} · ${(rfp.qualCriteria ?? []).reduce((n, m) => n + m.subs.length, 0)} ${t('sub-criteria', 'معايير فرعية')}`} views={{ table: qualTable, chart: qualChart }} />
         )}
 
         {rfp.documents.length > 0 && (
