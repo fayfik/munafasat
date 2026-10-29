@@ -112,7 +112,7 @@ interface InboxCtx {
   blocked: (t: Task) => boolean;
   // commands
   addComment: (id: string, text: string) => void;
-  decide: (id: string, action: 'approve' | 'reject' | 'return' | 'request-clarification' | 'complete' | 'submit' | 'save-draft', note?: string) => void;
+  decide: (id: string, action: 'approve' | 'reject' | 'return' | 'request-clarification' | 'complete' | 'submit' | 'save-draft', note?: string, decisionLabel?: Bilingual) => void;
   setChecklistItem: (id: string, itemId: string, patch: Partial<ChecklistItem>) => void;
   setField: (id: string, fieldId: string, value: CollectField['value']) => void;
   setCriterion: (id: string, critId: string, patch: Partial<EvalCriterion>) => void;
@@ -214,7 +214,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     });
   }, [patch]);
 
-  const decide = useCallback<InboxCtx['decide']>((id, action, note) => {
+  const decide = useCallback<InboxCtx['decide']>((id, action, note, decisionLabel) => {
     setTasks((xs) => {
       let completedDepId: string | null = null;
       const label: Record<string, Bilingual> = {
@@ -236,10 +236,10 @@ export function InboxProvider({ children }: { children: ReactNode }) {
         else if (action === 'save-draft') state = 'in-progress';
         const kind: ActivityEntry['kind'] = action === 'save-draft' ? 'system' : 'decision';
         const entry: ActivityEntry = { id: uid(), at: new Date().toISOString(), kind, actor: ME,
-          ...(kind === 'decision' ? { decision: label[action] } : { system: label[action] }), text: note?.trim() || undefined };
+          ...(kind === 'decision' ? { decision: decisionLabel ?? label[action] } : { system: label[action] }), text: note?.trim() || undefined };
         const done = action === 'approve' || action === 'complete' || action === 'submit';
         return { ...t, state, activity: [...t.activity, entry],
-          decision: (action === 'approve' || action === 'reject' || action === 'complete') ? label[action] : t.decision,
+          decision: (action === 'approve' || action === 'reject' || action === 'complete' || action === 'submit') ? (decisionLabel ?? label[action]) : t.decision,
           completedAt: done ? new Date().toISOString() : t.completedAt };
       });
       // Serial workflow: unlock dependents whose dependencies are now all completed.
