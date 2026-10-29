@@ -127,6 +127,9 @@ export interface ActivityEntry {
   system?: Bilingual;           // system event label
   decision?: Bilingual;         // formal decision label
   anchor?: { id: string; label: Bilingual }; // review comment pinned to an RFP section/field
+  replyTo?: string;             // reply to a review comment (root id)
+  resolved?: boolean;           // review comment resolved by the requester
+  editNote?: boolean;           // reply records an edit made to the commented field
 }
 
 /** A decision button on a task, as defined by the process task list. */
@@ -177,6 +180,9 @@ export interface Task {
   doaInfo?: { label: Bilingual; value: string }[];
   priceBreakdown?: boolean;     // show the estimated price by budget item
   reviewComments?: boolean;     // reviewer can pin comments to RFP sections/fields
+  respondComments?: boolean;    // requester replies to / resolves review comments and edits commented fields
+  /** Steps shown in the decision dialog ("What's next?") per action id. */
+  decisionSteps?: Record<string, { titleEn: string; titleAr: string; descEn: string; descAr: string }[]>;
 
   // Type-specific payloads (only the one matching `type` is populated, plus
   // an optional generic completion checklist on some types).

@@ -5,8 +5,9 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { LOCKED_TECH_DOCS } from '../sections/TechnicalEvaluation';
-import { CommentLayer, Commentable, AnchorChip, BubbleIcon, flashTarget, type AnchoredComment } from './comments';
-import { Badge, Button } from '../components/ui';
+import { CommentLayer, Commentable, AnchorChip, BubbleIcon, ThreadCard, PencilIcon, flashTarget, type AnchoredComment, type RespondHandlers } from './comments';
+import { Badge, Button, FormField, Input, Textarea } from '../components/ui';
+import { createPortal } from 'react-dom';
 import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadIcon, ChevronRightIcon } from '../components/Icons';
 import type { Bilingual, Task, TaskAction, Person, RfpDetail } from './types';
 import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
@@ -63,14 +64,32 @@ function actionsFor(task: Task): ActionDef[] {
 export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: Task; onBack: () => void; onSideOpenChange?: (open: boolean) => void }) {
   const { isAr } = useLanguage();
   const t = useT();
-  const { decide, addComment } = useInbox();
+  const { decide, addComment, resolveComment, updateRfp } = useInbox();
   const [tab, setTab] = useState<'overview' | 'rfp' | 'activity'>('overview');
   const [side, setSide] = useState<'chat' | 'history' | null>(null);
   const [commentMode, setCommentMode] = useState(false);
   useEffect(() => { setCommentMode(false); }, [task.id]);
   useEffect(() => { if (tab !== 'rfp') setCommentMode(false); }, [tab]);
-  const anchored: AnchoredComment[] = task.activity.filter((a) => a.kind === 'comment' && a.anchor)
-    .map((a) => ({ id: a.id, anchor: a.anchor!, text: a.text ?? '', author: personName(a.actor, isAr), at: a.at }));
+  const [editEnabled, setEditEnabled] = useState(false);
+  useEffect(() => { setEditEnabled(false); }, [task.id]);
+  const anchored: AnchoredComment[] = task.activity.filter((a) => a.kind === 'comment' && a.anchor && !a.replyTo)
+    .map((a) => ({ id: a.id, anchor: a.anchor!, text: a.text ?? '', author: personName(a.actor, isAr), at: a.at, resolved: a.resolved,
+      replies: task.activity.filter((r) => r.replyTo === a.id).map((r) => ({ id: r.id, text: r.text ?? '', author: personName(r.actor, isAr), at: r.at, kind: r.editNote ? 'edit' as const : 'reply' as const })) }));
+  const respond: RespondHandlers | undefined = task.respondComments && !['completed', 'rejected', 'cancelled'].includes(task.state) ? {
+    onReply: (rootId, text) => { const root = task.activity.find((a) => a.id === rootId); addComment(task.id, text, root?.anchor, rootId); },
+    onResolve: (rootId, resolved) => resolveComment(task.id, rootId, resolved),
+  } : undefined;
+  const renderEdit = (anchorId: string, close: () => void) => {
+    if (!task.rfp) return null;
+    const spec = editSpecFor(anchorId, task.rfp, isAr);
+    if (!spec) return null;
+    return <EditForm key={anchorId} spec={spec} isAr={isAr} t={t} onCancel={close} onSave={(vals, changes) => {
+      updateRfp(task.id, spec.apply(task.rfp!, vals));
+      // Log the edit on each open comment for this target, so the reviewer sees what changed.
+      for (const c of anchored.filter((x) => x.anchor.id === anchorId && !x.resolved)) addComment(task.id, changes.join('\n'), c.anchor, c.id, true);
+      close(); window.setTimeout(() => flashTarget(anchorId), 60);
+    }} />;
+  };
   const addAnchored = (anchor: { id: string; label: Bilingual }, text: string) => {
     addComment(task.id, text, anchor);
     // Office-style: the comments pane opens once the first comment lands.
@@ -85,19 +104,21 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const comp = useMemo(() => completionStatus(task), [task]);
   const d = dueInfo(task);
   const sla = slaInfo(task);
-  const terminal = task.state === 'completed' || task.state === 'rejected' || task.state === 'cancelled';
+  const awaiting = task.state === 'waiting' && !!task.reviewComments && !task.respondComments; // returned, waiting on the requester
+  const terminal = task.state === 'completed' || task.state === 'rejected' || task.state === 'cancelled' || awaiting;
   const acts = actionsFor(task);
 
   function run(a: ActionDef) {
     if (a.id === 'save-draft') { decide(task.id, 'save-draft'); return; }
     setPending(a); setNote('');
   }
-  function confirmPending() {
+  function confirmPending(n: string) {
     if (!pending) return;
-    if (pending.needsNote && !note.trim()) return;
-    decide(task.id, pending.id as Parameters<typeof decide>[1], note.trim() || undefined, pending.decision);
+    if (pending.needsNote && !n) return;
+    decide(task.id, pending.id as Parameters<typeof decide>[1], n || undefined, pending.decision);
     setPending(null); setNote('');
   }
+  void note;
 
   const TABS: { key: typeof tab; en: string; ar: string }[] = [
     { key: 'overview', en: 'Required action', ar: 'الإجراء المطلوب' },
@@ -178,21 +199,13 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             </div>
           </div>
 
-          {/* Pending decision panel */}
-          {pending && (
-            <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-3.5">
-              <p className="text-[13px] font-semibold text-neutral-800">{t('Confirm', 'تأكيد')}: {t(pending.label[0], pending.label[1])}</p>
-              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
-                placeholder={pending.needsNote ? t('Reason (required)…', 'السبب (مطلوب)…') : t('Note (optional)…', 'ملاحظة (اختياري)…')}
-                className="mt-2 w-full text-[13px] rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
-              <div className="mt-2 flex items-center justify-end gap-2">
-                <Button size="sm" variant="ghost" onClick={() => { setPending(null); setNote(''); }}>{t('Cancel', 'إلغاء')}</Button>
-                <Button size="sm" variant={pending.variant === 'danger' ? 'danger' : 'primary'} disabled={pending.needsNote && !note.trim()} onClick={confirmPending}>{t('Confirm', 'تأكيد')}</Button>
-              </div>
+          {awaiting && (
+            <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-warning-50 border border-warning-200 px-3.5 py-2.5">
+              <ClockIcon className="w-4 h-4 text-warning-700 flex-shrink-0" />
+              <span className="text-[13px] text-warning-800"><span className="font-semibold">{t(`Returned to ${task.requester.name}`, `أُعيد إلى ${task.requester.nameAr ?? task.requester.name}`)}</span> — {t('waiting for them to respond to your comments. The task comes back to you when they resubmit.', 'بانتظار ردهم على تعليقاتك. تعود المهمة إليك عند إعادة التقديم.')}</span>
             </div>
           )}
-
-          {terminal && (
+          {terminal && !awaiting && (
             <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-neutral-50 border border-neutral-200 px-3 py-2">
               <CheckCircleIcon className={`w-4 h-4 ${task.state === 'rejected' ? 'text-error-600' : 'text-success-600'}`} />
               <span className="text-[13px] font-medium text-neutral-700">{task.decision ? tb(task.decision, isAr) : t('Completed', 'مكتملة')}{task.completedAt && <span className="text-neutral-400 font-normal"> · {fmtDateTime(task.completedAt, isAr)}</span>}</span>
@@ -214,10 +227,13 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 
         {/* Tab content */}
         <div className="p-4 sm:p-6">
-          {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); setCommentMode(true); } : undefined} commentCount={anchored.length} />}
+          {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length} />}
           {tab === 'rfp' && (task.reviewComments && task.rfp ? (
-            <CommentLayer mode={commentMode && !terminal} isAr={isAr} comments={anchored} onAdd={addAnchored} authorLabel={personName(task.assignee, isAr)}>
-              <ReviewBar on={commentMode} onToggle={() => setCommentMode((m) => !m)} count={anchored.length} isAr={isAr} t={t} disabled={terminal} onOpenChat={() => setSide('chat')} />
+            <CommentLayer mode={!task.respondComments && commentMode && !terminal} isAr={isAr} comments={anchored} onAdd={addAnchored} authorLabel={personName(task.assignee, isAr)}
+              respond={respond} editing={!!respond && editEnabled} renderEdit={respond ? renderEdit : undefined}>
+              {task.respondComments
+                ? <RespondBar editOn={editEnabled} onToggleEdit={() => setEditEnabled((v) => !v)} total={anchored.length} resolved={anchored.filter((c) => c.resolved).length} t={t} disabled={!respond} onOpenChat={() => setSide('chat')} />
+                : <ReviewBar on={commentMode} onToggle={() => setCommentMode((m) => !m)} count={anchored.length} isAr={isAr} t={t} disabled={terminal} onOpenChat={() => setSide('chat')} />}
               <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />
             </CommentLayer>
           ) : <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />)}
@@ -248,12 +264,14 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             </div>
             <div className="flex-1 min-h-0 flex flex-col">
               {side === 'chat'
-                ? <ChatPanel task={task} isAr={isAr} t={t} onSend={(x) => addComment(task.id, x)} disabled={terminal} onJump={jumpTo} />
+                ? <ChatPanel task={task} isAr={isAr} t={t} onSend={(x) => addComment(task.id, x)} disabled={terminal} onJump={jumpTo} threads={anchored} respond={respond} />
                 : <TrailPanel task={task} isAr={isAr} t={t} />}
             </div>
           </aside>
         </>
       )}
+
+      {pending && <DecisionModal task={task} action={pending} isAr={isAr} t={t} onCancel={() => setPending(null)} onConfirm={confirmPending} />}
 
       {/* ── Right icon rail (always visible) — dark navy to anchor the workspace ── */}
       <nav className="w-16 flex-shrink-0 bg-[#17233A] flex flex-col items-center pt-3 pb-3 gap-1.5 z-40" aria-label={t('Task tools', 'أدوات المهمة')}>
@@ -816,6 +834,194 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
   );
 }
 
+// ── Editing commented fields (requester) ─────────────────────────────────────────
+type EditField = { key: string; label: [string, string]; kind: 'text' | 'textarea' | 'number'; value: string };
+type EditSpec = { fields: EditField[]; apply: (r: RfpDetail, v: Record<string, string>) => RfpDetail };
+
+/** Which RFP fields each commentable target exposes for editing (same fields as request creation). */
+function editSpecFor(id: string, r: RfpDetail, isAr: boolean): EditSpec | null {
+  const L = (en: string, ar: string): [string, string] => [en, ar];
+  const pick = <T extends object>(o: T, en: keyof T, ar: keyof T) => String((isAr ? o[ar] : o[en]) ?? '');
+  const setLang = <T extends object>(o: T, en: keyof T, ar: keyof T, v: string): T => ({ ...o, [isAr ? ar : en]: v });
+  const at = <T,>(arr: T[], i: number, fn: (x: T) => T) => arr.map((x, j) => (j === i ? fn(x) : x));
+  let m: RegExpMatchArray | null;
+  if (id === 'overview-summary' || id === 'sec-overview') return {
+    fields: [{ key: 'title', label: L('Request title', 'عنوان الطلب'), kind: 'text', value: pick(r, 'titleEn', 'titleAr') }, { key: 'summary', label: L('Summary', 'الملخص'), kind: 'textarea', value: pick(r, 'summaryEn', 'summaryAr') }],
+    apply: (x, v) => setLang(setLang(x, 'titleEn', 'titleAr', v.title), 'summaryEn', 'summaryAr', v.summary),
+  };
+  if (id === 'scope-summary' || id === 'sec-scope') return {
+    fields: [{ key: 'scope', label: L('Scope of work', 'نطاق العمل'), kind: 'textarea', value: pick(r, 'scopeEn', 'scopeAr') }],
+    apply: (x, v) => setLang(x, 'scopeEn', 'scopeAr', v.scope),
+  };
+  if ((m = id.match(/^meta-(\d+)$/))) { const i = +m[1]; const f = r.meta[i]; if (!f) return null; return {
+    fields: [{ key: 'value', label: [f.label.en, f.label.ar], kind: 'text', value: f.value }],
+    apply: (x, v) => ({ ...x, meta: at(x.meta, i, (y) => ({ ...y, value: v.value })) }) }; }
+  if ((m = id.match(/^scope-(\d+)$/))) { const i = +m[1]; const b = r.scopeBlocks?.[i]; if (!b) return null; return {
+    fields: [{ key: 'items', label: [`${b.headEn} (one per line)`, `${b.headAr} (بند في كل سطر)`], kind: 'textarea', value: (isAr ? b.itemsAr : b.itemsEn).join('\n') }],
+    apply: (x, v) => ({ ...x, scopeBlocks: at(x.scopeBlocks ?? [], i, (y) => ({ ...y, [isAr ? 'itemsAr' : 'itemsEn']: v.items.split('\n').map((s) => s.trim()).filter(Boolean) })) }) }; }
+  if ((m = id.match(/^boq-(\d+)$/))) { const i = +m[1]; const l = r.boq[i]; if (!l) return null; return {
+    fields: [
+      { key: 'name', label: L('Item name', 'اسم البند'), kind: 'text', value: pick(l, 'itemEn', 'itemAr') },
+      { key: 'desc', label: L('Description', 'الوصف'), kind: 'textarea', value: pick(l, 'descEn', 'descAr') },
+      { key: 'qty', label: L('Quantity', 'الكمية'), kind: 'number', value: l.qty },
+      { key: 'price', label: L('Unit price (SAR)', 'سعر الوحدة (ر.س)'), kind: 'number', value: String(l.unitPrice) },
+    ],
+    apply: (x, v) => ({ ...x, boq: at(x.boq, i, (y) => ({ ...setLang(setLang(y, 'itemEn', 'itemAr', v.name), 'descEn', 'descAr', v.desc), qty: v.qty, unitPrice: Number(v.price) || 0 })) }) }; }
+  if ((m = id.match(/^pay-(\d+)$/))) { const i = +m[1]; const p = r.payment[i]; if (!p) return null; return {
+    fields: [
+      { key: 'stage', label: L('Stage', 'المرحلة'), kind: 'text', value: pick(p, 'stageEn', 'stageAr') },
+      { key: 'desc', label: L('Deliverable / condition', 'المخرج / الشرط'), kind: 'textarea', value: pick(p, 'descEn', 'descAr') },
+      { key: 'due', label: L('Due', 'الاستحقاق'), kind: 'text', value: pick(p, 'due', 'dueAr') },
+      { key: 'pct', label: L('Percentage (%)', 'النسبة (%)'), kind: 'number', value: String(p.pct) },
+    ],
+    apply: (x, v) => ({ ...x, payment: at(x.payment, i, (y) => ({ ...setLang(setLang(setLang(y, 'stageEn', 'stageAr', v.stage), 'descEn', 'descAr', v.desc), 'due', 'dueAr', v.due), pct: Number(v.pct) || 0 })) }) }; }
+  if ((m = id.match(/^eval-(\d+)$/))) { const i = +m[1]; const c = r.evaluation[i]; if (!c) return null; return {
+    fields: [
+      { key: 'name', label: L('Criterion', 'المعيار'), kind: 'text', value: pick(c, 'criterionEn', 'criterionAr') },
+      { key: 'desc', label: L('How it is scored', 'آلية التقييم'), kind: 'textarea', value: pick(c, 'descEn', 'descAr') },
+      { key: 'w', label: L('Weight (%)', 'الوزن (%)'), kind: 'number', value: String(c.weight) },
+    ],
+    apply: (x, v) => ({ ...x, evaluation: at(x.evaluation, i, (y) => ({ ...setLang(setLang(y, 'criterionEn', 'criterionAr', v.name), 'descEn', 'descAr', v.desc), weight: Number(v.w) || 0 })) }) }; }
+  if ((m = id.match(/^treq-(\d+)$/))) { const i = +m[1]; const q = r.techRequirements?.[i]; if (!q) return null; return {
+    fields: [{ key: 'req', label: L('Requirement', 'المتطلب'), kind: 'text', value: pick(q, 'reqEn', 'reqAr') }, { key: 'desc', label: L('Description', 'الوصف'), kind: 'textarea', value: pick(q, 'descEn', 'descAr') }],
+    apply: (x, v) => ({ ...x, techRequirements: at(x.techRequirements ?? [], i, (y) => setLang(setLang(y, 'reqEn', 'reqAr', v.req), 'descEn', 'descAr', v.desc)) }) }; }
+  if ((m = id.match(/^qual-(\d+)-(\d+)$/))) { const i = +m[1], j = +m[2]; const sb = r.qualCriteria?.[i]?.subs[j]; if (!sb) return null; return {
+    fields: [{ key: 'range', label: L('Range', 'النطاق'), kind: 'text', value: sb.range }, { key: 'pct', label: L('Weight (%)', 'الوزن (%)'), kind: 'number', value: String(sb.pct) }],
+    apply: (x, v) => ({ ...x, qualCriteria: at(x.qualCriteria ?? [], i, (mm) => ({ ...mm, subs: at(mm.subs, j, (y) => ({ ...y, range: v.range, pct: Number(v.pct) || 0 })) })) }) }; }
+  if ((m = id.match(/^qual-(\d+)$/))) { const i = +m[1]; const q = r.qualCriteria?.[i]; if (!q) return null; return {
+    fields: [{ key: 'pct', label: [`${q.nameEn} — weight (%)`, `${q.nameAr} — الوزن (%)`], kind: 'number', value: String(q.pct) }],
+    apply: (x, v) => ({ ...x, qualCriteria: at(x.qualCriteria ?? [], i, (y) => ({ ...y, pct: Number(v.pct) || 0 })) }) }; }
+  if (id === 'tech-docs') return {
+    fields: [{ key: 'docs', label: L('Additional technical documents (one per line)', 'وثائق فنية إضافية (وثيقة في كل سطر)'), kind: 'textarea', value: (r.techDocs ?? []).map((d) => (isAr ? d.ar : d.en)).join('\n') }],
+    apply: (x, v) => ({ ...x, techDocs: v.docs.split('\n').map((s) => s.trim()).filter(Boolean).map((s) => ({ en: s, ar: s })) }) };
+  if ((m = id.match(/^doc-(\d+)$/))) { const i = +m[1]; const d = r.documents[i]; if (!d) return null; return {
+    fields: [{ key: 'name', label: L('Document name', 'اسم المستند'), kind: 'text', value: isAr ? d.ar : d.en }],
+    apply: (x, v) => ({ ...x, documents: at(x.documents, i, (y) => ({ ...y, [isAr ? 'ar' : 'en']: v.name })) }) }; }
+  return null;
+}
+
+function EditForm({ spec, isAr, t, onSave, onCancel }: { spec: EditSpec; isAr: boolean; t: T; onSave: (vals: Record<string, string>, changed: string[]) => void; onCancel: () => void }) {
+  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(spec.fields.map((f) => [f.key, f.value])));
+  const changed = spec.fields.filter((f) => (vals[f.key] ?? '') !== f.value);
+  return (
+    <div className="space-y-3">
+      {spec.fields.map((f) => (
+        <FormField key={f.key} label={f.label[0]} labelAr={f.label[1]}>
+          {f.kind === 'textarea'
+            ? <Textarea rows={3} value={vals[f.key]} onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))} />
+            : <Input type={f.kind === 'number' ? 'number' : 'text'} value={vals[f.key]} onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))} dir={f.kind === 'number' ? 'ltr' : undefined} />}
+        </FormField>
+      ))}
+      <div className="flex items-center gap-2 pt-1">
+        <span className="text-[11px] text-neutral-400">{changed.length ? t(`${changed.length} change${changed.length > 1 ? 's' : ''}`, `${changed.length} تغيير`) : t('No changes yet', 'لا توجد تغييرات')}</span>
+        <Button size="sm" variant="ghost" className="ms-auto" onClick={onCancel}>{t('Cancel', 'إلغاء')}</Button>
+        <Button size="sm" variant="primary" disabled={!changed.length} onClick={() => onSave(vals, changed.map((f) => { const lbl = isAr ? f.label[1] : f.label[0]; const nv = vals[f.key] ?? ''; return f.kind === 'textarea' || f.value.length > 48 || nv.length > 48 ? t(`${lbl} updated`, `تم تحديث ${lbl}`) : `${lbl}: ${f.value || '—'} → ${nv || '—'}`; }))}>{t('Save changes', 'حفظ التغييرات')}</Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Decision dialog ("What's next?") ─────────────────────────────────────────────
+type NextStep = { titleEn: string; titleAr: string; descEn: string; descAr: string };
+function nextStepsFor(task: Task, id: TaskAction): NextStep[] {
+  const own = task.decisionSteps?.[id];
+  if (own?.length) return own;
+  const s = (titleEn: string, titleAr: string, descEn: string, descAr: string) => ({ titleEn, titleAr, descEn, descAr });
+  if (id === 'reject') return [s('Request closed', 'إغلاق الطلب', 'The request is rejected and closed.', 'يُرفض الطلب ويُغلق.'), s('Requester notified', 'إشعار مقدّم الطلب', `${task.requester.name} receives your reason.`, `يتلقى ${task.requester.nameAr ?? task.requester.name} السبب.`)];
+  if (id === 'return') return [s('Back to the requester', 'العودة إلى مقدّم الطلب', `${task.requester.name} updates the request using your comments.`, `يحدّث ${task.requester.nameAr ?? task.requester.name} الطلب بناءً على ملاحظاتك.`), s('Resubmitted', 'إعادة التقديم', 'The request comes back through the same approval steps.', 'يعود الطلب عبر خطوات الاعتماد نفسها.')];
+  const trail = task.trail ?? []; const cur = trail.findIndex((x) => x.state === 'current');
+  const up = cur >= 0 ? trail.slice(cur + 1, cur + 4) : [];
+  if (up.length) return up.map((x) => s(x.titleEn, x.titleAr, x.actorEn, x.actorAr));
+  const o = task.outcomes?.[0];
+  return o ? [s(o.action.en, o.action.ar, o.next.en, o.next.ar)] : [];
+}
+
+function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: Task; action: ActionDef; isAr: boolean; t: T; onCancel: () => void; onConfirm: (note: string) => void }) {
+  const [choice, setChoice] = useState<'yes' | 'no' | null>(null);
+  const [note, setNote] = useState('');
+  const steps = nextStepsFor(task, action.id);
+  const verbEn = action.label[0].toLowerCase(), verbAr = action.label[1];
+  const yesDesc: Record<string, [string, string]> = {
+    approve: ['This will be recorded as your approval for this request.', 'سيُسجل هذا كاعتماد منك لهذا الطلب.'],
+    return: [`The request goes back to ${task.requester.name} with your comments.`, `يعود الطلب إلى ${task.requester.nameAr ?? task.requester.name} مع ملاحظاتك.`],
+    reject: ['The request will be rejected and closed.', 'سيُرفض الطلب ويُغلق.'],
+  };
+  const yd = yesDesc[action.id] ?? [`Confirm “${action.label[0]}” for this task.`, `تأكيد "${action.label[1]}" لهذه المهمة.`];
+  const needNote = choice === 'yes' && !!action.needsNote;
+  const ready = choice === 'no' || (choice === 'yes' && (!action.needsNote || note.trim().length > 0));
+  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [onCancel]);
+  const Opt = ({ v, title, desc }: { v: 'yes' | 'no'; title: string; desc: string }) => (
+    <button type="button" role="radio" aria-checked={choice === v} onClick={() => setChoice(v)}
+      className={`w-full text-start rounded-xl border px-5 py-4 flex items-start gap-3.5 transition-colors ${choice === v ? (v === 'yes' ? (action.variant === 'danger' ? 'border-error-500 bg-error-50/40' : 'border-[#2A3466] bg-[#F3F5FB]') : 'border-neutral-400 bg-neutral-50') : 'border-[#C7CCDD] hover:border-[#8E97B8]'}`}>
+      <span className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${choice === v ? 'border-[#2A3466]' : 'border-neutral-300'}`}>{choice === v && <span className="w-2.5 h-2.5 rounded-full bg-[#2A3466]" />}</span>
+      <span className="min-w-0"><span className="block text-[16px] font-semibold text-[#1B2350]">{title}</span><span className="block text-[13.5px] text-[#4A5274] mt-0.5">{desc}</span></span>
+    </button>
+  );
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-[#0F1530]/55 backdrop-blur-[2px] cm-fade-in" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div role="dialog" aria-modal="true" aria-label={t(`Confirm ${verbEn}`, `تأكيد ${verbAr}`)}
+        className="cm-dialog-in relative w-full max-w-[1000px] max-h-[94vh] overflow-y-auto rounded-2xl bg-[#2A3466] shadow-2xl grid grid-cols-1 md:grid-cols-[1fr_1.05fr] gap-0">
+        <Leaves />
+        {/* What's next */}
+        <div className="relative px-7 sm:px-12 py-8 md:py-14 flex flex-col justify-center">
+          <h2 className="text-[22px] font-semibold text-white">{t("What's next?", 'ما التالي؟')}</h2>
+          <ol className="mt-7">
+            {steps.map((s, i) => (
+              <li key={i} className="relative flex gap-4 pb-7 last:pb-0">
+                {i < steps.length - 1 && <span className="absolute top-11 bottom-1 start-[19px] w-0.5 bg-white/25" />}
+                <span className="w-10 h-10 rounded-full bg-white/25 text-white text-[15px] font-medium flex items-center justify-center flex-shrink-0">{i + 1}</span>
+                <span className="min-w-0 pt-1">
+                  <span className="block text-[16px] font-semibold text-white">{isAr ? s.titleAr : s.titleEn}</span>
+                  <span className="block text-[13.5px] text-white/65 mt-1 leading-relaxed">{isAr ? s.descAr : s.descEn}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+        {/* Confirm card */}
+        <div className="relative p-3 sm:p-5 md:p-6">
+          <div className="h-full rounded-2xl bg-white px-6 sm:px-9 py-8 sm:py-12 flex flex-col justify-center">
+            <h3 className="text-[19px] font-semibold text-[#1B2350]">{t(`Are you sure you want to ${verbEn}?`, `هل أنت متأكد من ${verbAr}؟`)}</h3>
+            <div role="radiogroup" className="mt-6 space-y-3.5">
+              <Opt v="yes" title={t('Yes', 'نعم')} desc={isAr ? yd[1] : yd[0]} />
+              <Opt v="no" title={t('No', 'لا')} desc={t(`Go back to the task without ${verbEn === 'approve' ? 'approving' : verbEn === 'reject' ? 'rejecting' : verbEn === 'return' ? 'returning' : 'changing anything'}.`, 'العودة إلى المهمة دون أي تغيير.')} />
+            </div>
+            {needNote || (choice === 'yes' && !action.needsNote) ? (
+              <div className="mt-4">
+                <label className="block text-[12.5px] font-semibold text-[#1B2350] mb-1.5">{action.needsNote ? (action.id === 'reject' ? t('Rejection reason', 'سبب الرفض') : t('Comments for the requester', 'ملاحظات لمقدّم الطلب')) : t('Note (optional)', 'ملاحظة (اختياري)')}{action.needsNote && <span className="text-error-600"> *</span>}</label>
+                <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder={action.needsNote ? t('Required…', 'مطلوب…') : t('Add a note…', 'أضف ملاحظة…')} />
+              </div>
+            ) : null}
+            <div className="mt-7 grid grid-cols-2 gap-4">
+              <button type="button" onClick={onCancel} className="h-12 rounded-lg border border-neutral-200 bg-white text-[15px] font-semibold text-[#1B2350] hover:bg-neutral-50 inline-flex items-center justify-center gap-2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-4 h-4"><path d="M18 6 6 18M6 6l12 12" /></svg>{t('Cancel', 'إلغاء')}
+              </button>
+              <button type="button" disabled={!ready} onClick={() => (choice === 'yes' ? onConfirm(note.trim()) : onCancel())}
+                className={`h-12 rounded-lg text-[15px] font-semibold inline-flex items-center justify-center gap-2 transition-colors ${ready ? (action.variant === 'danger' && choice === 'yes' ? 'bg-error-600 text-white hover:bg-error-700' : 'bg-[#2A3466] text-white hover:bg-[#1F2753]') : 'bg-neutral-100 text-neutral-300 border border-neutral-200 cursor-not-allowed'}`}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M2 12l5 5L18 6M9 17l1.5 1.5L22 7" /></svg>{t('Complete', 'إتمام')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function Leaves() {
+  const items: [number, number, number, number][] = [[4, 9, 1.2, -20], [19, 5, 1.4, 25], [27, 27, 1.1, -25], [3, 80, 2.4, -15], [9, 83, 1.9, 10], [31, 76, 2.2, 35]];
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl" aria-hidden>
+      {items.map(([x, y, s, r], i) => (
+        <svg key={i} viewBox="0 0 24 46" className="absolute" style={{ left: `${x}%`, top: `${y}%`, width: 24 * s, height: 46 * s, transform: `rotate(${r}deg)` }}>
+          <path d="M12 0C19 10 19 30 12 46C5 30 5 10 12 0Z" fill="white" fillOpacity="0.08" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 px-3 py-2">
@@ -866,7 +1072,7 @@ const TONE: Record<'success' | 'warning' | 'danger' | 'info', { pill: string; do
   info:    { pill: 'bg-blue-50 text-blue-700 border-blue-100', dot: 'bg-blue-500' },
 };
 
-function RequiredAction({ task, isAr, t, onReview, commentCount = 0 }: { task: Task; isAr: boolean; t: T; onReview?: () => void; commentCount?: number }) {
+function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCount = 0 }: { task: Task; isAr: boolean; t: T; onReview?: () => void; commentCount?: number; resolvedCount?: number }) {
   const [officer, setOfficer] = useState(task.assignTo?.[0]?.id ?? '');
   const lines = task.rfp?.boq ?? [];
   const budgets = Array.from(new Set(lines.map((l) => l.budgetEn ?? '')));
@@ -900,11 +1106,20 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0 }: { task: T
         <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white p-5 shadow-sm flex items-center gap-4 flex-wrap">
           <span className="w-11 h-11 rounded-xl bg-[#2A6193] text-white flex items-center justify-center flex-shrink-0"><BubbleIcon className="w-5 h-5" /></span>
           <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-bold text-neutral-900">{t('Review the RFP details', 'راجع تفاصيل المنافسة')}</p>
-            <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Go through each section of the request. Hover any section or field and add a comment — it is sent to the conversation with the section name.', 'راجع كل قسم من الطلب. مرّر المؤشر على أي قسم أو حقل وأضف تعليقاً — يُرسل إلى المحادثة مع اسم القسم.')}</p>
-            {commentCount > 0 && <p className="text-[12px] font-semibold text-[#21507A] mt-1">{t(`${commentCount} comment${commentCount > 1 ? 's' : ''} added`, `${commentCount} تعليق مضاف`)}</p>}
+            {task.respondComments ? (<>
+              <p className="text-[14px] font-bold text-neutral-900">{t('Respond to the review comments', 'الرد على تعليقات المراجعة')}</p>
+              <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Open the RFP details. Each commented section shows a marker — reply to or resolve the comment there. Turn on editing to change only the commented fields.', 'افتح تفاصيل المنافسة. يظهر مؤشر على كل قسم عليه تعليق — رد عليه أو حله هناك. فعّل التعديل لتغيير الحقول التي عليها تعليقات فقط.')}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <div className="h-1.5 w-40 rounded-full bg-neutral-200 overflow-hidden"><div className="h-full bg-success-500 rounded-full transition-all" style={{ width: `${commentCount ? (resolvedCount / commentCount) * 100 : 0}%` }} /></div>
+                <span className="text-[12px] font-semibold text-neutral-700">{t(`${resolvedCount} of ${commentCount} resolved`, `${resolvedCount} من ${commentCount} تم حلها`)}</span>
+              </div>
+            </>) : (<>
+              <p className="text-[14px] font-bold text-neutral-900">{t('Review the RFP details', 'راجع تفاصيل المنافسة')}</p>
+              <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Go through each section of the request. Hover any section or field and add a comment — it is sent to the conversation with the section name.', 'راجع كل قسم من الطلب. مرّر المؤشر على أي قسم أو حقل وأضف تعليقاً — يُرسل إلى المحادثة مع اسم القسم.')}</p>
+              {commentCount > 0 && <p className="text-[12px] font-semibold text-[#21507A] mt-1">{t(`${commentCount} comment${commentCount > 1 ? 's' : ''} added`, `${commentCount} تعليق مضاف`)}{resolvedCount > 0 && <span className="text-success-700"> · {t(`${resolvedCount} resolved by ${task.requester.name}`, `${resolvedCount} تم حلها من ${task.requester.nameAr ?? task.requester.name}`)}</span>}</p>}
+            </>)}
           </div>
-          <Button size="md" variant="primary" onClick={onReview}>{t('Review RFP & add comments', 'مراجعة المنافسة وإضافة تعليقات')}</Button>
+          <Button size="md" variant="primary" onClick={onReview}>{task.respondComments ? t('Open RFP details', 'فتح تفاصيل المنافسة') : t('Review RFP & add comments', 'مراجعة المنافسة وإضافة تعليقات')}</Button>
         </div>
       )}
 
@@ -999,7 +1214,7 @@ function ActivityTab({ task, isAr, t, onComment, terminal, onJump }: { task: Tas
   type Row = { key: string; at?: string; status: TLStatus; icon: React.ReactNode; title: string; sub: string; quote?: string; bubble?: string; chip?: { id: string; label: string } };
   const rows: Row[] = task.activity.map((a) => {
     const who = `${personName(a.actor, isAr)}${a.actor.role ? ` · ${isAr ? a.actor.roleAr ?? a.actor.role : a.actor.role}` : ''}`;
-    if (a.kind === 'comment') return { key: a.id, at: a.at, status: 'comment', icon: <ChatGlyph className="w-[18px] h-[18px]" />, title: a.anchor ? t('Review comment', 'تعليق مراجعة') : t('Comment added', 'تمت إضافة تعليق'), sub: who, bubble: a.text, chip: a.anchor ? { id: a.anchor.id, label: tb(a.anchor.label, isAr) } : undefined };
+    if (a.kind === 'comment') return { key: a.id, at: a.at, status: a.resolved ? 'done' : 'comment', icon: <ChatGlyph className="w-[18px] h-[18px]" />, title: a.editNote ? t('Field updated', 'تم تحديث الحقل') : a.replyTo ? t('Reply to review comment', 'رد على تعليق مراجعة') : a.anchor ? (a.resolved ? t('Review comment — resolved', 'تعليق مراجعة — تم الحل') : t('Review comment', 'تعليق مراجعة')) : t('Comment added', 'تمت إضافة تعليق'), sub: who, bubble: a.text, chip: a.anchor ? { id: a.anchor.id, label: tb(a.anchor.label, isAr) } : undefined };
     if (a.kind === 'decision') {
       const lbl = a.decision ? tb(a.decision, isAr) : '';
       const st: TLStatus = /reject|رفض/i.test(lbl) ? 'rejected' : /return|إعاد|مُعاد/i.test(lbl) ? 'returned' : 'approved';
@@ -1080,9 +1295,9 @@ const InfoGlyph = G(<><circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.0
 const SparkGlyph = G(<><path d="M12 3v4M12 17v4M3 12h4M17 12h4" /><path d="M12 8l1.5 2.5L16 12l-2.5 1.5L12 16l-1.5-2.5L8 12l2.5-1.5z" /></>);
 const TaskGlyph = G(<><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8 12l3 3 5-6" /></>);
 
-function ChatPanel({ task, isAr, t, onSend, disabled, onJump }: { task: Task; isAr: boolean; t: T; onSend: (x: string) => void; disabled: boolean; onJump?: (id: string) => void }) {
+function ChatPanel({ task, isAr, t, onSend, disabled, onJump, threads, respond }: { task: Task; isAr: boolean; t: T; onSend: (x: string) => void; disabled: boolean; onJump?: (id: string) => void; threads: AnchoredComment[]; respond?: RespondHandlers }) {
   const [msg, setMsg] = useState('');
-  const comments = task.activity.filter((a) => a.kind === 'comment');
+  const comments = task.activity.filter((a) => a.kind === 'comment' && !a.replyTo);
   const listRef = useRef<HTMLDivElement>(null);
   const seen = useRef(comments.length);
   const fresh = comments.length > seen.current ? comments[comments.length - 1].id : null;
@@ -1090,12 +1305,12 @@ function ChatPanel({ task, isAr, t, onSend, disabled, onJump }: { task: Task; is
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
     seen.current = comments.length;
   }, [comments.length]);
-  const review = comments.filter((a) => a.anchor).length;
+  const review = threads.length; const open = threads.filter((x) => !x.resolved).length;
   return (
     <>
       {review > 0 && (
         <div className="px-3 py-2 border-b border-neutral-200 bg-[#F3F8FC] text-[11.5px] text-[#21507A] font-semibold flex items-center gap-1.5">
-          <BubbleIcon className="w-3.5 h-3.5" />{t(`${review} review comment${review > 1 ? 's' : ''} on the RFP`, `${review} تعليق مراجعة على المنافسة`)}
+          <BubbleIcon className="w-3.5 h-3.5" />{t(`${review} review comment${review > 1 ? 's' : ''} on the RFP`, `${review} تعليق مراجعة على المنافسة`)}<span className="ms-auto font-medium text-neutral-500">{open ? t(`${open} open`, `${open} مفتوح`) : t('All resolved', 'تم حل الكل')}</span>
         </div>
       )}
       <div ref={listRef} data-comment-dock="pane" className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -1103,16 +1318,13 @@ function ChatPanel({ task, isAr, t, onSend, disabled, onJump }: { task: Task; is
         {comments.map((a) => {
           const mine = a.actor.id === 'u-me' || a.actor.id === task.assignee.id;
           if (a.anchor) {
+            const th = threads.find((x) => x.id === a.id);
             return (
               <div key={a.id} className={`flex gap-2 ${a.id === fresh ? 'cm-land' : ''}`}>
                 <Avatar name={a.actor.name} id={a.actor.id} className="w-6 h-6" />
-                <div className="min-w-0 flex-1 rounded-xl border border-[#C9DBEC] bg-white shadow-sm overflow-hidden">
-                  <div className="h-0.5 bg-[#2A6193]" />
-                  <div className="px-3 py-2">
-                    <AnchorChip label={tb(a.anchor.label, isAr)} onClick={onJump ? () => onJump(a.anchor!.id) : undefined} />
-                    <p className="text-[13px] text-neutral-800 mt-1.5 whitespace-pre-line">{a.text}</p>
-                    <p className="text-[10.5px] text-neutral-400 mt-1">{personName(a.actor, isAr)} · {fmtDateTime(a.at, isAr)}</p>
-                  </div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1"><AnchorChip label={tb(a.anchor.label, isAr)} onClick={onJump ? () => onJump(a.anchor!.id) : undefined} /></div>
+                  {th ? <ThreadCard c={th} isAr={isAr} respond={respond} /> : null}
                 </div>
               </div>
             );
@@ -1138,6 +1350,29 @@ function ChatPanel({ task, isAr, t, onSend, disabled, onJump }: { task: Task; is
         </div>
       )}
     </>
+  );
+}
+
+/** Requester's toolbar: progress on resolving comments + the switch that unlocks editing. */
+function RespondBar({ editOn, onToggleEdit, total, resolved, t, disabled, onOpenChat }: { editOn: boolean; onToggleEdit: () => void; total: number; resolved: number; t: T; disabled: boolean; onOpenChat: () => void }) {
+  return (
+    <div className={`mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 flex-wrap transition-colors ${editOn ? 'border-brand-500 bg-brand-50/50 shadow-[0_0_0_3px_rgba(105,152,67,0.10)]' : 'border-[#C9DBEC] bg-[#F3F8FC]'}`}>
+      <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${editOn ? 'bg-brand-600 text-white' : 'bg-[#2A6193] text-white'}`}>{editOn ? <PencilIcon className="w-[18px] h-[18px]" /> : <BubbleIcon className="w-[18px] h-[18px]" />}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-bold text-neutral-900">{editOn ? t('Editing is on — commented fields only', 'التعديل مفعّل — الحقول التي عليها تعليقات فقط') : t('Review comments on this RFP', 'تعليقات المراجعة على هذه المنافسة')}</p>
+        <p className="text-[12px] text-neutral-500">{editOn ? t('Click Edit next to a comment marker to change that field. Other fields stay locked.', 'اضغط تعديل بجانب مؤشر التعليق لتغيير ذلك الحقل. تبقى الحقول الأخرى مقفلة.') : t('Click a marker to reply or resolve. Turn on editing when you are ready to change the commented fields.', 'اضغط على المؤشر للرد أو الحل. فعّل التعديل عندما تكون جاهزاً لتغيير الحقول المعنية.')}</p>
+      </div>
+      <button type="button" onClick={onOpenChat} className="inline-flex items-center gap-1.5 rounded-full bg-white border border-[#C9DBEC] px-2.5 py-1 text-[11.5px] font-semibold text-[#21507A] hover:bg-[#EAF1F8]">
+        <BubbleIcon className="w-3.5 h-3.5" />{t(`${resolved}/${total} resolved`, `${resolved}/${total} تم حلها`)}
+      </button>
+      {!disabled && (
+        <button type="button" role="switch" aria-checked={editOn} onClick={onToggleEdit} data-cm-ui
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50">
+          <span className={`relative w-8 h-[18px] rounded-full transition-colors ${editOn ? 'bg-brand-600' : 'bg-neutral-300'}`}><span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-all ${editOn ? 'start-[16px]' : 'start-0.5'}`} /></span>
+          {t('Enable editing', 'تفعيل التعديل')}
+        </button>
+      )}
+    </div>
   );
 }
 

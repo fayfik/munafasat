@@ -424,3 +424,7 @@ section[data-cm-has] { background-color: #fff; outline: 2px solid rgba(42, 97, 1
 .cm-ring { border-radius: 9999px; border: 2px solid #2A6193; box-shadow: 0 0 16px rgba(42, 97, 147, .6); }
 .cm-land { animation: cm-land .55s cubic-bezier(.2, .9, .3, 1.15); }
 @keyframes cm-land { 0% { opacity: 0; transform: translateY(14px) scale(.94); } 60% { opacity: 1; transform: translateY(-2px) scale(1.01); } 100% { transform: none; } }
+.cm-fade-in { animation: cm-fade .18s ease-out; }
+@keyframes cm-fade { from { opacity: 0; } to { opacity: 1; } }
+.cm-dialog-in { animation: cm-dialog .26s cubic-bezier(.2, .9, .3, 1.1); }
+@keyframes cm-dialog { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
