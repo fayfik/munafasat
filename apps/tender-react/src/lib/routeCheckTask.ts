@@ -39,10 +39,6 @@ export function buildRouteCheckTask({ requestId, projectId, userName, items, tex
     department: { en: cc?.name ?? 'Procurement', ar: cc?.nameAr ?? 'المشتريات' },
     stageEn: 'Procurement route check', stageAr: 'فحص مسار الشراء',
     receivedAt: now.toISOString(), dueAt: due.toISOString(), slaHours: 24, mineAction: true,
-    outcomes: [
-      { action: { en: 'Send reply to requester', ar: 'إرسال الرد' }, next: { en: 'The requester sees your listings and chooses the route — items on Etimad become an E-Market purchase, the rest a tender.', ar: 'يرى مقدم الطلب المنتجات ويختار المسار — ما في اعتماد يصبح شراءً من السوق، والباقي منافسة.' }, tone: 'success' },
-      { action: { en: 'Ask for more detail', ar: 'طلب مزيد من التفاصيل' }, next: { en: 'Goes back to the requester with your question; they edit and resend.', ar: 'يعود إلى مقدم الطلب مع سؤالك؛ فيعدّل ويعيد الإرسال.' }, tone: 'warning' },
-    ],
     routeItems: items.map((it) => ({ ...it, verdict: null })),
     routeRequestText: text?.trim() || undefined,
     sourceDraftId: requestId,

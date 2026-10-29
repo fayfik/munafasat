@@ -128,10 +128,6 @@ function RouteCheckBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) 
   const answered = items.filter((i) => i.verdict === 'off' || (i.verdict === 'on' && i.match)).length;
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-[12.5px] text-neutral-700 leading-relaxed">
-        {t('The requester isn’t sure how to buy these. Search Etimad E-Market for each item: if it’s listed, pick the listing; if not, mark it “Not on Etimad” so it goes to a tender. Your reply goes back to the requester, who then chooses the route.',
-           'مقدم الطلب غير متأكد من طريقة شراء هذه البنود. ابحث عن كل بند في سوق اعتماد: إن كان مدرجاً فاختر المنتج، وإلا فحدده «غير متوفر في اعتماد» ليذهب إلى منافسة. يعود ردك إلى مقدم الطلب ليختار المسار.')}
-      </div>
       {task.routeRequestText && (
         <Section title={t('What the requester wrote', 'ما كتبه مقدم الطلب')}>
           <p className="rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-[12.5px] text-neutral-700 whitespace-pre-line">{task.routeRequestText}</p>
@@ -226,13 +222,27 @@ function RouteCheckRow({ it, readOnly, isAr, t, onChange }: { it: RouteCheckItem
           <p className="text-[10.5px] text-neutral-400 px-1">{t('Sample listings for the prototype — not live Etimad data.', 'قوائم نموذجية للنموذج الأولي — ليست بيانات اعتماد فعلية.')}</p>
         </div>
       )}
-      {it.verdict && !readOnly && (
-        <input value={it.note ?? ''} onChange={(e) => onChange({ note: e.target.value })}
-          placeholder={it.verdict === 'off' ? t('Note to the requester (optional) — e.g. why it needs a tender', 'ملاحظة لمقدم الطلب (اختياري)') : t('Note to the requester (optional)', 'ملاحظة لمقدم الطلب (اختياري)')}
-          aria-label={t(`Note for ${it.name}`, `ملاحظة لـ ${it.name}`)}
-          className="mt-2 w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[12px] focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
-      )}
+      {it.verdict && !readOnly && <NoteField key={it.verdict} it={it} t={t} onSave={(note) => onChange({ note })} />}
       {readOnly && it.note && <p className="mt-1.5 text-[12px] text-neutral-600"><span className="font-semibold text-neutral-500">{t('Note:', 'ملاحظة:')}</span> {it.note}</p>}
+    </div>
+  );
+}
+
+/** Note back to the requester: typed, then saved with its own button. */
+function NoteField({ it, t, onSave }: { it: RouteCheckItem; t: T; onSave: (note: string) => void }) {
+  const [draft, setDraft] = useState(it.note ?? '');
+  const saved = (it.note ?? '').trim();
+  const dirty = draft.trim() !== saved;
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <input value={draft} onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && dirty) onSave(draft.trim()); }}
+        placeholder={it.verdict === 'off' ? t('Note to the requester (optional) — e.g. why it needs a tender', 'ملاحظة لمقدم الطلب (اختياري)') : t('Note to the requester (optional)', 'ملاحظة لمقدم الطلب (اختياري)')}
+        aria-label={t(`Note for ${it.name}`, `ملاحظة لـ ${it.name}`)}
+        className="flex-1 min-w-0 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[12px] focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
+      <Button variant="secondary" size="sm" disabled={!dirty} onClick={() => onSave(draft.trim())}>
+        {!dirty && saved ? t('Saved', 'تم الحفظ') : t('Save', 'حفظ')}
+      </Button>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 // Munafasat Inbox — task detail workspace (right pane).
 // Header with meta + Approve/Reject/Return CTAs, tabbed body (Overview / RFP /
 // Activity), and top actions: Chat (slide-in), History (task trail), Download PDF.
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { LOCKED_TECH_DOCS } from '../sections/TechnicalEvaluation';
@@ -109,6 +109,37 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const sla = slaInfo(task);
   const terminal = task.state === 'completed' || task.state === 'rejected' || task.state === 'cancelled';
   const acts = actionsFor(task);
+  // Route checks keep their decision buttons under the items being answered.
+  const actionsAtBottom = task.type === 'route-check';
+  const pendingPanel = pending ? (
+
+            <div className={`${actionsAtBottom ? "" : "mt-4 "}rounded-xl border border-neutral-200 bg-neutral-50 p-3.5`}>
+              <p className="text-[13px] font-semibold text-neutral-800">{t('Confirm', 'تأكيد')}: {t(pending.label[0], pending.label[1])}</p>
+              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
+                placeholder={pending.needsNote ? t('Reason (required)…', 'السبب (مطلوب)…') : t('Note (optional)…', 'ملاحظة (اختياري)…')}
+                className="mt-2 w-full text-[13px] rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
+              <div className="mt-2 flex items-center justify-end gap-2">
+                <Button size="sm" variant="ghost" onClick={() => { setPending(null); setNote(''); }}>{t('Cancel', 'إلغاء')}</Button>
+                <Button size="sm" variant={pending.variant === 'danger' ? 'danger' : 'primary'} disabled={pending.needsNote && !note.trim()} onClick={confirmPending}>{t('Confirm', 'تأكيد')}</Button>
+              </div>
+            </div>
+  ) : null;
+  const bottomActions = actionsAtBottom && !terminal ? (
+    <div className="mt-5 pt-4 border-t border-neutral-100 space-y-3" data-testid="task-actions-bottom">
+      {pendingPanel ?? (
+        <div className="flex items-center justify-end gap-2 flex-wrap">
+          {acts.map((a) => (
+            <Button key={a.id} size="md"
+              variant={a.variant === 'danger' ? 'danger' : a.variant === 'primary' ? 'primary' : 'secondary'}
+              disabled={a.gated && !comp.canComplete}
+              onClick={() => run(a)}>
+              {t(a.label[0], a.label[1])}
+            </Button>
+          ))}
+        </div>
+      )}
+    </div>
+  ) : null;
 
   function run(a: ActionDef) {
     if (a.id === 'save-draft') { decide(task.id, 'save-draft'); return; }
@@ -154,7 +185,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           {/* Row 1 — task name · CTAs */}
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <h2 className="min-w-0 flex-1 text-[20px] font-bold text-neutral-900 leading-snug">{isAr ? task.titleAr : task.titleEn}</h2>
-            {!terminal && (
+            {!terminal && !actionsAtBottom && (
               <div className="flex items-center gap-2 flex-shrink-0">
                 {acts.map((a) => (
                   <Button key={a.id} size="md"
@@ -209,18 +240,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           </div>
 
           {/* Pending decision panel */}
-          {pending && (
-            <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-3.5">
-              <p className="text-[13px] font-semibold text-neutral-800">{t('Confirm', 'تأكيد')}: {t(pending.label[0], pending.label[1])}</p>
-              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
-                placeholder={pending.needsNote ? t('Reason (required)…', 'السبب (مطلوب)…') : t('Note (optional)…', 'ملاحظة (اختياري)…')}
-                className="mt-2 w-full text-[13px] rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
-              <div className="mt-2 flex items-center justify-end gap-2">
-                <Button size="sm" variant="ghost" onClick={() => { setPending(null); setNote(''); }}>{t('Cancel', 'إلغاء')}</Button>
-                <Button size="sm" variant={pending.variant === 'danger' ? 'danger' : 'primary'} disabled={pending.needsNote && !note.trim()} onClick={confirmPending}>{t('Confirm', 'تأكيد')}</Button>
-              </div>
-            </div>
-          )}
+          {!actionsAtBottom && pendingPanel}
 
           {terminal && (
             <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-neutral-50 border border-neutral-200 px-3 py-2">
@@ -244,7 +264,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 
         {/* Tab content */}
         <div className="p-4 sm:p-6">
-          {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} />}
+          {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} footer={bottomActions} />}
           {tab === 'rfp' && <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />}
           {tab === 'activity' && <ActivityTab task={task} isAr={isAr} t={t} onComment={(x) => addComment(task.id, x)} terminal={terminal} />}
         </div>
@@ -889,7 +909,7 @@ const TONE: Record<'success' | 'warning' | 'danger' | 'info', { pill: string; do
   info:    { pill: 'bg-blue-50 text-blue-700 border-blue-100', dot: 'bg-blue-500' },
 };
 
-function RequiredAction({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
+function RequiredAction({ task, isAr, t, footer }: { task: Task; isAr: boolean; t: T; footer?: ReactNode }) {
   const [officer, setOfficer] = useState(task.assignTo?.[0]?.id ?? '');
   const lines = task.rfp?.boq ?? [];
   const budgets = Array.from(new Set(lines.map((l) => l.budgetEn ?? '')));
@@ -906,7 +926,12 @@ function RequiredAction({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) 
             <p className="text-[12px] text-neutral-500 mt-0.5">{personName(task.assignee, isAr)} · {isAr ? task.assignee.roleAr : task.assignee.role} · {t('due', 'الاستحقاق')} {fmtDate(task.dueAt, isAr)}</p>
           </div>
         </div>
-        {task.outcomes?.length ? (
+        {task.type === 'route-check' ? (
+          <p className="mt-3 text-[13px] text-neutral-600 leading-relaxed">
+            {t('The requester isn’t sure how to buy these. Search Etimad E-Market for each item: if it’s listed, pick the listing; if not, mark it “Not on Etimad” so it goes to a tender. Your reply goes back to the requester, who then chooses the route.',
+               'مقدم الطلب غير متأكد من طريقة شراء هذه البنود. ابحث عن كل بند في سوق اعتماد: إن كان مدرجاً فاختر المنتج، وإلا فحدده «غير متوفر في اعتماد» ليذهب إلى منافسة. يعود ردك إلى مقدم الطلب ليختار المسار.')}
+          </p>
+        ) : task.outcomes?.length ? (
           <div className={`mt-4 grid grid-cols-1 gap-2.5 ${task.outcomes.length >= 3 ? 'md:grid-cols-3' : task.outcomes.length === 2 ? 'md:grid-cols-2' : ''}`}>
             {task.outcomes.map((o, i) => (
               <div key={i} className="rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
@@ -986,6 +1011,7 @@ function RequiredAction({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) 
       {/* Task form / record */}
       <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
         <TaskBody task={task} />
+        {footer}
       </div>
     </div>
   );
