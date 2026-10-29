@@ -128,6 +128,16 @@ export interface ActivityEntry {
   decision?: Bilingual;         // formal decision label
 }
 
+/** A decision button on a task, as defined by the process task list. */
+export interface TaskActionDef {
+  id: 'approve' | 'reject' | 'return' | 'complete' | 'submit' | 'save-draft';
+  labelEn: string; labelAr: string;
+  variant: 'primary' | 'secondary' | 'danger';
+  needsNote?: boolean;          // reason/comments required (Return, Reject)
+  gated?: boolean;              // disabled until the task's required inputs are complete
+  decision?: Bilingual;         // label recorded in the activity log (defaults by id)
+}
+
 export interface Task {
   id: string;
   type: TaskType;
@@ -158,6 +168,8 @@ export interface Task {
   dependsOn?: string[];         // serial: these task ids must complete first
   parallelGroup?: string;       // tasks sharing a group run in parallel
   joinNote?: Bilingual;         // next-stage join condition, for display
+
+  actions?: TaskActionDef[];    // CTAs for this task (falls back to defaults by type)
 
   // Type-specific payloads (only the one matching `type` is populated, plus
   // an optional generic completion checklist on some types).

@@ -7,7 +7,7 @@ import { useLanguage, useT } from '../context/LanguageContext';
 import { LOCKED_TECH_DOCS } from '../sections/TechnicalEvaluation';
 import { Badge, Button } from '../components/ui';
 import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadIcon, ChevronRightIcon } from '../components/Icons';
-import type { Task, TaskAction, Person, RfpDetail } from './types';
+import type { Bilingual, Task, TaskAction, Person, RfpDetail } from './types';
 import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
 import { TaskBody } from './renderers';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
@@ -31,8 +31,9 @@ function slaInfo(task: Task) {
   return { deadline, remH, breached: !terminal && remMs < 0, tight: !terminal && remMs >= 0 && remH <= 8 };
 }
 
-interface ActionDef { id: TaskAction; label: [string, string]; variant: 'primary' | 'secondary' | 'danger'; needsNote?: boolean; gated?: boolean }
+interface ActionDef { id: TaskAction; label: [string, string]; variant: 'primary' | 'secondary' | 'danger'; needsNote?: boolean; gated?: boolean; decision?: Bilingual }
 function actionsFor(task: Task): ActionDef[] {
+  if (task.actions?.length) return task.actions.map((a) => ({ id: a.id, label: [a.labelEn, a.labelAr], variant: a.variant, needsNote: a.needsNote, gated: a.gated, decision: a.decision }));
   switch (task.type) {
     case 'approval': return [
       { id: 'approve', label: ['Approve', 'اعتماد'], variant: 'primary' },
@@ -82,7 +83,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   function confirmPending() {
     if (!pending) return;
     if (pending.needsNote && !note.trim()) return;
-    decide(task.id, pending.id as Parameters<typeof decide>[1], note.trim() || undefined);
+    decide(task.id, pending.id as Parameters<typeof decide>[1], note.trim() || undefined, pending.decision);
     setPending(null); setNote('');
   }
 
