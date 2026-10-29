@@ -40,10 +40,10 @@ const P = {
 
 const sup = (en: string, ar: string) => ({ en, ar });
 
-// ── The purchase request every task in this inbox relates to ────────────────
+// ── The RFP every task in this inbox relates to ────────────────
 const REQ = {
   no: '4433',
-  ref: 'PR-4433',
+  ref: 'RFP-4433',
   titleEn: 'Enterprise ERP System Upgrade', titleAr: 'ترقية نظام تخطيط موارد المؤسسة',
   project: sup('Core ERP Modernization', 'تحديث نظام ERP الأساسي'),
   amount: 9940000,
@@ -54,12 +54,12 @@ const reqUser = (isAr = false) => (isAr ? REQ.requester.nameAr : REQ.requester.n
 
 /** Task titles from the process task list — names/departments are resolved, never hard-coded. */
 const TITLE = {
-  reviewFromUser: () => sup(`Review & approve purchase request #${REQ.no} from ${reqUser()}`, `مراجعة واعتماد طلب الشراء رقم ${REQ.no} من ${reqUser(true)}`),
-  techEvalFromUser: () => sup(`Review technical evaluation criteria for purchase request #${REQ.no} from ${reqUser()}`, `مراجعة معايير التقييم الفني لطلب الشراء رقم ${REQ.no} من ${reqUser(true)}`),
-  reviewFromDept: () => sup(`Review purchase request #${REQ.no} from ${reqDept()}`, `مراجعة طلب الشراء رقم ${REQ.no} من ${reqDept(true)}`),
-  qualFromDept: () => sup(`Review request & add qualification criteria for purchase request #${REQ.no} from ${reqDept()}`, `مراجعة الطلب وإضافة معايير التأهيل لطلب الشراء رقم ${REQ.no} من ${reqDept(true)}`),
-  doaFromDept: () => sup(`DOA approval for purchase request #${REQ.no} from ${reqDept()}`, `اعتماد تفويض الصلاحيات لطلب الشراء رقم ${REQ.no} من ${reqDept(true)}`),
-  priceFromDept: () => sup(`Approve estimated price for purchase request #${REQ.no} from ${reqDept()}`, `اعتماد السعر التقديري لطلب الشراء رقم ${REQ.no} من ${reqDept(true)}`),
+  reviewFromUser: () => sup(`Review & approve RFP #${REQ.no} from ${reqUser()}`, `مراجعة واعتماد المنافسة رقم ${REQ.no} من ${reqUser(true)}`),
+  techEvalFromUser: () => sup(`Review technical evaluation criteria for RFP #${REQ.no} from ${reqUser()}`, `مراجعة معايير التقييم الفني للمنافسة رقم ${REQ.no} من ${reqUser(true)}`),
+  reviewFromDept: () => sup(`Review RFP #${REQ.no} from ${reqDept()}`, `مراجعة المنافسة رقم ${REQ.no} من ${reqDept(true)}`),
+  qualFromDept: () => sup(`Review request & add qualification criteria for RFP #${REQ.no} from ${reqDept()}`, `مراجعة الطلب وإضافة معايير التأهيل للمنافسة رقم ${REQ.no} من ${reqDept(true)}`),
+  doaFromDept: () => sup(`DOA approval for RFP #${REQ.no} from ${reqDept()}`, `اعتماد تفويض الصلاحيات للمنافسة رقم ${REQ.no} من ${reqDept(true)}`),
+  priceFromDept: () => sup(`Approve estimated price for RFP #${REQ.no} from ${reqDept()}`, `اعتماد السعر التقديري للمنافسة رقم ${REQ.no} من ${reqDept(true)}`),
 };
 
 const step = (titleEn: string, titleAr: string, descEn: string, descAr: string) => ({ titleEn, titleAr, descEn, descAr });
@@ -76,7 +76,7 @@ const MANAGER_STEPS: NonNullable<Task['decisionSteps']> = {
     step('Back to you for approval', 'العودة إليك للاعتماد', 'Once every comment is resolved the request is resubmitted to you.', 'بعد حل جميع التعليقات يُعاد تقديم الطلب إليك.'),
   ],
   reject: [
-    step('Request closed', 'إغلاق الطلب', `Purchase request #${REQ.no} is rejected and closed.`, `يُرفض طلب الشراء رقم ${REQ.no} ويُغلق.`),
+    step('Request closed', 'إغلاق الطلب', `RFP #${REQ.no} is rejected and closed.`, `تُرفض المنافسة رقم ${REQ.no} وتُغلق.`),
     step('Requester notified', 'إشعار مقدّم الطلب', `${reqUser()} receives your rejection reason.`, `يتلقى ${reqUser(true)} سبب الرفض.`),
   ],
 };
@@ -139,7 +139,7 @@ export function buildCommentResponseTask(src: Task, note?: string): Task {
       { id: 'submit', labelEn: 'Resubmit for approval', labelAr: 'إعادة التقديم للاعتماد', variant: 'primary', gated: true, decision: sup('Resubmitted for approval', 'أُعيد التقديم للاعتماد') },
       { id: 'save-draft', labelEn: 'Save draft', labelAr: 'حفظ مسودة', variant: 'secondary' },
     ],
-    outcomes: [{ action: sup('Resubmit for approval', 'إعادة التقديم للاعتماد'), next: sup(`Back to ${mgr.name} — ${src.stageEn}`, `يعود إلى ${mgr.nameAr ?? mgr.name} — ${src.stageAr}`), tone: 'success' }],
+    outcomes: [{ action: sup('Resubmit for approval', 'إعادة التقديم للاعتماد'), next: sup(`it goes back to ${mgr.name} (${src.stageEn})`, `يعود إلى ${mgr.nameAr ?? mgr.name} (${src.stageAr})`), tone: 'success' }],
     decisionSteps: {
       submit: [
         step(`Back to ${mgr.name}`, `العودة إلى ${mgr.nameAr ?? mgr.name}`, `${mgr.name} reviews your replies and edits — ${src.stageEn}.`, `يراجع ${mgr.nameAr ?? mgr.name} ردودك وتعديلاتك — ${src.stageAr}.`),
@@ -191,7 +191,7 @@ const approvalRecord = [
 
 const SPECS: Spec[] = [
   { n: 1, type: 'approval', title: TITLE.reviewFromUser(),
-    summary: sup(`${reqUser()} submitted this purchase request. Review the RFP details, add comments on any section or field, then approve, return or reject.`, `قدّم ${reqUser(true)} طلب الشراء هذا. راجع تفاصيل المنافسة وأضف ملاحظاتك على أي قسم أو حقل، ثم اعتمد الطلب أو أعده أو ارفضه.`),
+    summary: sup(`${reqUser()} submitted this RFP. Review the request details, add comments on any section or field, then approve, return or reject.`, `قدّم ${reqUser(true)} هذه المنافسة. راجع تفاصيل الطلب وأضف ملاحظاتك على أي قسم أو حقل، ثم اعتمد الطلب أو أعده أو ارفضه.`),
     stage: sup('Department approval', 'اعتماد الإدارة'), assignee: P.manager, sla: 1, priority: 'high', received: -1,
     actions: [
       { id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary' },
@@ -326,20 +326,20 @@ const SPECS: Spec[] = [
 ];
 
 
-const toRequester = { action: sup('Return', 'إعادة'), next: sup('Back to the requester to update the form (with your comments)', 'يعود إلى مقدّم الطلب لتحديث النموذج (مع ملاحظاتك)'), tone: 'warning' as const };
+const toRequester = { action: sup('Return', 'إعادة'), next: sup('the request goes back to the requester to update, with your comments', 'يعود الطلب إلى مقدّم الطلب لتحديثه مع ملاحظاتك'), tone: 'warning' as const };
 const OUTCOMES: Record<number, NonNullable<Task['outcomes']>> = {
-  1: [{ action: sup('Approve', 'اعتماد'), next: sup('Specialist and finance reviews start in parallel', 'تبدأ المراجعات التخصصية والمالية بالتوازي'), tone: 'success' }, toRequester,
-      { action: sup('Reject', 'رفض'), next: sup('Request is closed with your rejection reason', 'يُغلق الطلب مع سبب الرفض'), tone: 'danger' }],
-  2: [{ action: sup('Approve', 'اعتماد'), next: sup('Technical evaluation verified — moves to risk review', 'تم التحقق من التقييم الفني — ينتقل إلى مراجعة المخاطر'), tone: 'success' }, toRequester],
-  3: [{ action: sup('Approve', 'اعتماد'), next: sup('Waits for the other parallel reviewers, then triggers Finance and Procurement qualification', 'ينتظر بقية المراجعين بالتوازي ثم يبدأ تأهيل المالية والمشتريات'), tone: 'success' }, toRequester],
-  7: [{ action: sup('Approve', 'اعتماد'), next: sup('Finance qualification + Procurement qualification', 'التأهيل المالي + تأهيل المشتريات'), tone: 'success' }, toRequester],
-  9: [{ action: sup('Complete', 'إكمال'), next: sup('Procurement qualification', 'تأهيل المشتريات'), tone: 'success' }],
-  10: [{ action: sup('Complete', 'إكمال'), next: sup('Procurement Team Lead — review request', 'رئيس فريق المشتريات — مراجعة الطلب'), tone: 'success' }],
-  11: [{ action: sup('Submit for DOA approval', 'إرسال لاعتماد الصلاحيات'), next: sup('No comments — goes to DOA approval', 'لا توجد ملاحظات — ينتقل لاعتماد الصلاحيات'), tone: 'success' },
-       { action: sup('Assign to officer', 'إسناد إلى أخصائي'), next: sup('New request or has comments — the officer reviews it', 'طلب جديد أو عليه ملاحظات — يراجعه الأخصائي'), tone: 'info' }],
-  12: [{ action: sup('Submit for DOA approval', 'إرسال لاعتماد الصلاحيات'), next: sup('Back to the Team Lead for DOA approval', 'يعود إلى رئيس الفريق لاعتماد الصلاحيات'), tone: 'success' }, { ...toRequester, action: sup('Return with comments', 'إعادة مع ملاحظات') }],
-  13: [{ action: sup('Approve', 'اعتماد'), next: sup('Director — approve estimated price', 'المدير — اعتماد السعر التقديري'), tone: 'success' }],
-  14: [{ action: sup('Approve', 'اعتماد'), next: sup('Request approval complete — PR is created in SAP ECC (PR & Etimad stage)', 'يكتمل اعتماد الطلب — يُنشأ طلب الشراء في SAP ECC (مرحلة طلب الشراء واعتماد)'), tone: 'success' }],
+  1: [{ action: sup('Approve', 'اعتماد'), next: sup('specialist and finance reviews start in parallel', 'تبدأ المراجعات التخصصية والمالية بالتوازي'), tone: 'success' }, toRequester,
+      { action: sup('Reject', 'رفض'), next: sup('the request is closed and the requester sees your reason', 'يُغلق الطلب ويطّلع مقدّم الطلب على السبب'), tone: 'danger' }],
+  2: [{ action: sup('Approve', 'اعتماد'), next: sup('the technical evaluation is marked verified and the request moves to risk review', 'يُعتمد التقييم الفني وينتقل الطلب إلى مراجعة المخاطر'), tone: 'success' }, toRequester],
+  3: [{ action: sup('Approve', 'اعتماد'), next: sup('it waits for the other parallel reviewers, then Finance and Procurement qualification starts', 'ينتظر بقية المراجعين بالتوازي ثم يبدأ تأهيل المالية والمشتريات'), tone: 'success' }, toRequester],
+  7: [{ action: sup('Approve', 'اعتماد'), next: sup('Finance and Procurement qualification starts', 'يبدأ التأهيل المالي وتأهيل المشتريات'), tone: 'success' }, toRequester],
+  9: [{ action: sup('Complete', 'إكمال'), next: sup('Procurement qualification starts', 'يبدأ تأهيل المشتريات'), tone: 'success' }],
+  10: [{ action: sup('Complete', 'إكمال'), next: sup('it goes to the Procurement Team Lead for review', 'ينتقل إلى رئيس فريق المشتريات للمراجعة'), tone: 'success' }],
+  11: [{ action: sup('Submit for DOA approval', 'إرسال لاعتماد الصلاحيات'), next: sup('the DOA approver receives it (use this when there are no comments)', 'يصل إلى معتمد الصلاحيات (عند عدم وجود ملاحظات)'), tone: 'success' },
+       { action: sup('Assign to officer', 'إسناد إلى أخصائي'), next: sup('the officer reviews it (use this for new requests or when there are comments)', 'يراجعه الأخصائي (للطلبات الجديدة أو عند وجود ملاحظات)'), tone: 'info' }],
+  12: [{ action: sup('Submit for DOA approval', 'إرسال لاعتماد الصلاحيات'), next: sup('it goes back to the Team Lead for DOA approval', 'يعود إلى رئيس الفريق لاعتماد الصلاحيات'), tone: 'success' }, { ...toRequester, action: sup('Return with comments', 'إعادة مع ملاحظات') }],
+  13: [{ action: sup('Approve', 'اعتماد'), next: sup('it goes to the Director to approve the estimated price', 'ينتقل إلى المدير لاعتماد السعر التقديري'), tone: 'success' }],
+  14: [{ action: sup('Approve', 'اعتماد'), next: sup('request approval is complete and the PR is created in SAP ECC', 'يكتمل اعتماد الطلب ويُنشأ طلب الشراء في SAP ECC'), tone: 'success' }],
 };
 const outcomesFor = (n: number) => OUTCOMES[n] ?? (n >= 3 && n <= 6 ? OUTCOMES[3] : n === 8 ? OUTCOMES[7] : []);
 // Steps completed before each task (parallel reviewers only follow steps 1–2).
@@ -359,7 +359,7 @@ export const SEED_TASKS: Task[] = SPECS.map((s) => {
   const t0 = slot(prior.length + 1) - 60 * 60000;
   const stepAt = (i: number) => slot(prior.length - i);
   const activity: Task['activity'] = [
-    { id: 'a0', kind: 'system', actor: REQ.requester, at: at(t0), system: sup(`Purchase request #${REQ.no} submitted`, `تم تقديم طلب الشراء رقم ${REQ.no}`) },
+    { id: 'a0', kind: 'system', actor: REQ.requester, at: at(t0), system: sup(`RFP #${REQ.no} submitted`, `تم تقديم المنافسة رقم ${REQ.no}`) },
     { id: 'a0c', kind: 'comment', actor: REQ.requester, at: at(t0 + 15 * 60000), text: 'Requesting approval for the ERP upgrade — the current ECC 6.0 support ends in 2027.' },
     ...prior.map((p, i) => ({
       id: `a${p.n}`, kind: 'decision' as const, actor: p.assignee, at: at(stepAt(i)),
@@ -375,7 +375,7 @@ export const SEED_TASKS: Task[] = SPECS.map((s) => {
     titleEn: s.title.en, titleAr: s.title.ar,
     summaryEn: s.summary.en, summaryAr: s.summary.ar,
     state: 'available', priority: s.priority,
-    entity: { kind: 'PR', ref: REQ.ref, titleEn: REQ.titleEn, titleAr: REQ.titleAr },
+    entity: { kind: 'RFP', ref: REQ.ref, titleEn: REQ.titleEn, titleAr: REQ.titleAr },
     project: REQ.project,
     amount: REQ.amount,
     requester: REQ.requester, assignee: s.assignee,
@@ -568,7 +568,7 @@ function trailFor(task: Task): TrailStep[] {
   }));
 }
 
-// Every task relates to purchase request #4433 — one shared RFP record.
+// Every task relates to RFP #4433 — one shared RFP record.
 const REQ_RFP = completeRfp({
   ...RFP_S4HANA,
   refId: REQ.ref, titleEn: REQ.titleEn, titleAr: REQ.titleAr,

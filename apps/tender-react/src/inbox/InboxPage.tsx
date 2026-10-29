@@ -137,7 +137,7 @@ function EmptyDetail({ t }: { t: (en: string, ar: string) => string }) {
           <NavInboxIcon className="w-7 h-7 text-brand-500" />
         </div>
         <p className="mt-4 text-[15px] font-semibold text-neutral-800">{t('No task selected', 'لم يتم اختيار مهمة')}</p>
-        <p className="mt-1 text-[13px] text-neutral-500 leading-relaxed">{t('Click a task on the left to view its details, RFP information and decision options.', 'انقر مهمة على اليسار لعرض تفاصيلها ومعلومات المنافسة وخيارات القرار.')}</p>
+        <p className="mt-1 text-[13px] text-neutral-500 leading-relaxed">{t('Click a task on the left to view its request details and decision options.', 'انقر مهمة على اليسار لعرض تفاصيل الطلب وخيارات القرار.')}</p>
       </div>
     </div>
   );

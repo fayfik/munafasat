@@ -39,6 +39,11 @@ export function buildRouteCheckTask({ requestId, projectId, userName, items, tex
     department: { en: cc?.name ?? 'Procurement', ar: cc?.nameAr ?? 'المشتريات' },
     stageEn: 'Procurement route check', stageAr: 'فحص مسار الشراء',
     receivedAt: now.toISOString(), dueAt: due.toISOString(), slaHours: 24, mineAction: true,
+    // Shown in the stage note (tab-bar info icon) as "If you …, …".
+    outcomes: [
+      { action: { en: 'Send the reply', ar: 'أرسلت الرد' }, next: { en: 'the requester sees your listings and chooses the route', ar: 'يرى مقدم الطلب المنتجات ويختار المسار' }, tone: 'success' },
+      { action: { en: 'Ask for more detail', ar: 'طلبت مزيداً من التفاصيل' }, next: { en: 'it goes back to the requester and returns to you when they resend', ar: 'يعود إلى مقدم الطلب ثم إليك عند إعادة الإرسال' }, tone: 'warning' },
+    ],
     decisionSteps: {
       complete: [
         { titleEn: 'Requester sees your answer', titleAr: 'يرى مقدم الطلب ردك', descEn: 'Items you found get your listings; the rest are marked for a tender.', descAr: 'البنود التي وجدتها تظهر مع المنتجات، والباقي للمنافسة.' },

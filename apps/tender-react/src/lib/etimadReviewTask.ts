@@ -36,6 +36,11 @@ export function buildEtimadReviewTask(form: TenderFormData, requestNo: string, u
     stageEn: 'Etimad E-Market review', stageAr: 'مراجعة سوق اعتماد',
     receivedAt: now.toISOString(), dueAt: due.toISOString(), mineAction: true,
     etimadItems: items,
+    outcomes: [
+      { action: { en: 'Confirm all answers', ar: 'أكدت جميع الإجابات' }, next: { en: 'the tender goes on to department approvals', ar: 'تستمر المنافسة إلى موافقات الإدارات' }, tone: 'success' },
+      { action: { en: 'Move flagged items', ar: 'نقلت البنود المحددة' }, next: { en: 'they leave the tender for a linked Etimad E-Market draft', ar: 'تنتقل إلى مسودة سوق اعتماد مرتبطة' }, tone: 'info' },
+      { action: { en: 'Return to the requester', ar: 'أعدته إلى مقدم الطلب' }, next: { en: 'they see your note and fix the Etimad answers', ar: 'يرى ملاحظتك ويصحح إجابات اعتماد' }, tone: 'warning' },
+    ],
     decisionSteps: {
       complete: [
         { titleEn: 'Answers confirmed', titleAr: 'تأكيد الإجابات', descEn: 'The requester’s Etimad answers are recorded as checked.', descAr: 'تُسجل إجابات اعتماد كمراجَعة.' },

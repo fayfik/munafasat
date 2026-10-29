@@ -3,9 +3,9 @@
 // Wrap any reviewable content in <CommentLayer> and mark targets with
 // <Commentable id label>. In comment mode, hovering a target shows a comment
 // button; clicking it opens a popover beside the element (Office-style). On
-// save, the comment card floats into the element marked
-// data-comment-dock="pane" (open chat pane) or data-comment-dock="rail"
-// (the Chat button), and the target keeps a marker + tint.
+// save, the comment card floats into the Comments pane — the element marked
+// data-comment-dock="pane" (open Comments pane) or data-comment-dock="rail"
+// (the Comments button), and the target keeps a marker + tint.
 
 import {
   createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState,
@@ -158,7 +158,7 @@ export function CommentLayer({ mode, isAr, comments, onAdd, children, authorLabe
     const from = popRef.current?.getBoundingClientRect();
     const text = draft.trim();
     const commit = () => onAdd({ id: openId, label: entry.label }, text);
-    // The comment is recorded as the card lands in the chat, so the two read as one motion.
+    // The comment is recorded as the card lands in Comments, so the two read as one motion.
     if (from) flyToDock(from, isAr ? entry.label.ar : entry.label.en, text, isAr, commit); else commit();
     close();
   }
@@ -267,7 +267,7 @@ export function CommentLayer({ mode, isAr, comments, onAdd, children, authorLabe
 
 const fmtT = (iso: string, isAr: boolean) => new Date(iso).toLocaleString(isAr ? 'ar-SA' : 'en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-/** One review comment with its replies, a reply box and Resolve / Reopen — shared by the popover and the chat. */
+/** One review comment with its replies, a reply box and Resolve / Reopen — shared by the popover and the Comments pane. */
 export function ThreadCard({ c, isAr, respond, compact }: { c: AnchoredComment; isAr: boolean; respond?: RespondHandlers; compact?: boolean }) {
   const [reply, setReply] = useState('');
   const [replying, setReplying] = useState(false);
@@ -365,8 +365,8 @@ function PopShell({ popRef, el, clip, isAr, width: W, label, onClose, headRight,
   );
 }
 
-// ── Floating hand-off into the chat dock ───────────────────────────────────────
-/** Animates a comment card from `from` into the chat dock and pulses the dock. */
+// ── Floating hand-off into the Comments dock ───────────────────────────────────────
+/** Animates a comment card from `from` into the Comments dock and pulses the dock. */
 export function flyToDock(from: DOMRect, label: string, text: string, isAr: boolean, onLanded?: () => void) {
   const dock = (document.querySelector('[data-comment-dock="pane"]') ?? document.querySelector('[data-comment-dock="rail"]')) as HTMLElement | null;
   if (!dock) { onLanded?.(); return; }
@@ -420,7 +420,7 @@ function pulse(dock: HTMLElement) {
   ring.animate([{ transform: 'scale(0.4)', opacity: 0.9 }, { transform: 'scale(1.8)', opacity: 0 }], { duration: 650, easing: 'ease-out' }).onfinish = () => ring.remove();
 }
 
-/** Briefly highlights the element a comment points to (used from the chat chip). */
+/** Briefly highlights the element a comment points to (used from the Comments chip). */
 export function flashTarget(id: string) {
   const el = document.querySelector(`[data-comment-id="${CSS.escape(id)}"]`) as HTMLElement | null;
   if (!el) return false;
@@ -430,7 +430,7 @@ export function flashTarget(id: string) {
   return true;
 }
 
-// ── Chip used in chat / activity ───────────────────────────────────────────────
+// ── Chip used in Comments / activity ───────────────────────────────────────────────
 export function AnchorChip({ label, onClick, light }: { label: string; onClick?: () => void; light?: boolean }) {
   const cls = `inline-flex items-center gap-1 max-w-full rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold ${light ? 'bg-white/20 text-white' : 'bg-[#EAF1F8] text-[#21507A]'} ${onClick ? 'hover:underline cursor-pointer' : ''}`;
   return onClick
