@@ -81,7 +81,7 @@ export function completionStatus(task: Task): Completion {
   } else if (task.type === 'route-check' && task.routeItems) {
     for (const it of task.routeItems) {
       total++;
-      if (it.verdict === 'off' || (it.verdict === 'on' && it.match)) done++;
+      if (it.verdict === 'off' || (it.verdict === 'on' && (it.matches?.length ?? 0) > 0)) done++;
       else missing.push({ en: it.name, ar: it.name });
     }
   } else if (task.type === 'validation' && task.validationChecks) {

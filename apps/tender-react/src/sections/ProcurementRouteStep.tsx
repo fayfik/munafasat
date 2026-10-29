@@ -79,6 +79,8 @@ export default function ProcurementRouteStep() {
   const [reviewedAt, setReviewedAt] = useState('');
   const [simulated, setSimulated] = useState(false);
   const [procNotes, setProcNotes] = useState<Record<string, string>>({});
+  // Procurement may offer up to three listings per item; the requester picks one (kept in `matches`).
+  const [matchOptions, setMatchOptions] = useState<Record<string, EtimadMatch[]>>({});
   // The Procurement task for this request's route check (live, from the Inbox).
   const checkTask = rc ? getTask(rc.taskId) : undefined;
   // Procurement's reply: ONE matched Etimad listing per eMarket item; the requester confirms the quantity.
@@ -246,18 +248,18 @@ export default function ProcurementRouteStep() {
 
   // Procurement replied in the Inbox: each item is on Etimad (with their listing) or not.
   function applyReply(task: Task) {
-    const m: Record<string, EtimadMatch> = {}; const notes: Record<string, string> = {};
+    const m: Record<string, EtimadMatch> = {}; const notes: Record<string, string> = {}; const opts: Record<string, EtimadMatch[]> = {};
     const verdicts: ItemVerdict[] = pending.map((c) => {
       const ri = task.routeItems?.find((x) => x.id === c.id);
-      const on = ri?.verdict === 'on' && !!ri.match;
-      if (on && ri?.match) m[c.id] = ri.match;
+      const on = ri?.verdict === 'on' && (ri.matches?.length ?? 0) > 0;
+      if (on && ri?.matches) { m[c.id] = ri.matches[0]; opts[c.id] = ri.matches; }
       if (ri?.note?.trim()) notes[c.id] = ri.note.trim();
       const v = classifyItem(c, on ? 'souq-etimad' : 'tendering');
       return { ...v,
         reason: on ? 'Listed on Etimad eMarket — can be bought directly from the catalogue.' : 'Not listed on Etimad eMarket — needs a competitive tender.',
         reasonAr: on ? 'مدرج في السوق الإلكتروني — يمكن شراؤه مباشرة من الكتالوج.' : 'غير مدرج في السوق الإلكتروني — يتطلب منافسة.' };
     });
-    setProcNotes(notes); setSimulated(false);
+    setProcNotes(notes); setMatchOptions(opts); setSimulated(false);
     showResult(verdicts, m, task.completedAt ?? new Date().toISOString());
   }
 
@@ -276,7 +278,7 @@ export default function ProcurementRouteStep() {
       verdicts.filter((v) => v.route === 'souq-etimad').forEach((v) => { m[v.id] = etimadMatchFor(v.name, { unitPrice: detailOf(v.id)?.unitPrice }); });
       // The Procurement task is no longer needed once the reply is simulated.
       if (rc && checkTask && checkTask.state !== 'completed') withdrawTask(rc.taskId);
-      setProcNotes({}); setSimulated(true);
+      setProcNotes({}); setMatchOptions({}); setSimulated(true);
       showResult(verdicts, m, new Date().toISOString());
       return;
     }
@@ -757,9 +759,30 @@ export default function ProcurementRouteStep() {
                         return (
                           <li key={it.id} className="rounded-lg border border-neutral-200 bg-white px-3 py-2.5" data-testid="etimad-match">
                             <p className="text-[11px] text-neutral-500">{t('You asked for:', 'طلبت:')} <span className="text-neutral-700">“{it.name}”</span></p>
+                            {(matchOptions[it.id]?.length ?? 0) > 1 && (
+                              <div className="mt-2" data-testid="match-options">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-success-700">{t(`Procurement found ${matchOptions[it.id].length} options on Etimad — pick one`, `وجدت المشتريات ${matchOptions[it.id].length} خيارات في اعتماد — اختر أحدها`)}</p>
+                                <div role="radiogroup" aria-label={t(`Etimad options for ${it.name}`, `خيارات اعتماد لـ ${it.name}`)} className="mt-1.5 grid gap-1.5">
+                                  {matchOptions[it.id].map((o) => {
+                                    const on = o.sku === mt.sku;
+                                    return (
+                                      <button key={o.sku} type="button" role="radio" aria-checked={on} onClick={() => setMatches((x) => ({ ...x, [it.id]: o }))}
+                                        className={`w-full text-start rounded-lg border px-3 py-2 flex items-start gap-2.5 transition-colors ${on ? 'border-brand-600 bg-brand-50/50' : 'border-neutral-200 hover:bg-neutral-50'}`}>
+                                        <span className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${on ? 'border-brand-600 bg-brand-600' : 'border-neutral-400'}`}>{on && <span className="w-1.5 h-1.5 rounded-full bg-white" />}</span>
+                                        <span className="min-w-0 flex-1">
+                                          <span className="block text-[12.5px] font-semibold text-neutral-900 leading-snug">{isAr ? o.productNameAr : o.productName}</span>
+                                          <span className="block text-[11.5px] text-neutral-600">{isAr ? o.supplierAr : o.supplier} · <span className="font-mono" dir="ltr">{o.sku}</span></span>
+                                        </span>
+                                        <span className="text-[12.5px] font-semibold text-neutral-800 tabular-nums whitespace-nowrap" dir="ltr">SAR {o.unitPrice.toLocaleString('en-US')} / {o.unit}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                             <div className="mt-1.5 flex items-start justify-between gap-3 flex-wrap">
                               <div className="min-w-0">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-success-700">{t('Procurement’s Etimad match', 'مطابقة المشتريات في اعتماد')}</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-success-700">{(matchOptions[it.id]?.length ?? 0) > 1 ? t('Your choice', 'اختيارك') : t('Procurement’s Etimad match', 'مطابقة المشتريات في اعتماد')}</p>
                                 <p className="text-[13.5px] font-semibold text-neutral-900 leading-snug">{isAr ? mt.productNameAr : mt.productName}</p>
                                 <p className="text-[12px] text-neutral-600 mt-0.5">
                                   <span className="font-mono text-[11.5px]" dir="ltr">{mt.sku}</span> · {isAr ? mt.supplierAr : mt.supplier} · <span dir="ltr">SAR {mt.unitPrice.toLocaleString('en-US')}</span> / {mt.unit}
@@ -781,7 +804,7 @@ export default function ProcurementRouteStep() {
                             </div>
                             {procNotes[it.id] && <p className="mt-1 text-[11.5px] text-neutral-600"><span className="font-semibold">{t('Procurement:', 'المشتريات:')}</span> {procNotes[it.id]}</p>}
                             <button type="button" onClick={() => rejectMatch(it.id)} className="mt-1.5 text-[11.5px] font-semibold text-neutral-500 hover:text-error-600">
-                              {t('This doesn’t fit what I need — send it to the tender', 'لا يناسب ما أحتاجه — أرسله إلى المنافسة')}
+                              {(matchOptions[it.id]?.length ?? 0) > 1 ? t('None of these fit what I need — send it to the tender', 'لا يناسب أي منها ما أحتاجه — أرسله إلى المنافسة') : t('This doesn’t fit what I need — send it to the tender', 'لا يناسب ما أحتاجه — أرسله إلى المنافسة')}
                             </button>
                           </li>
                         );

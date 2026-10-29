@@ -125,7 +125,7 @@ function RouteCheckBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) 
   const { setRouteItem } = useInbox();
   const items = task.routeItems ?? [];
   const readOnly = task.state === 'completed' || task.state === 'waiting' || task.state === 'cancelled';
-  const answered = items.filter((i) => i.verdict === 'off' || (i.verdict === 'on' && i.match)).length;
+  const answered = items.filter((i) => i.verdict === 'off' || (i.verdict === 'on' && (i.matches?.length ?? 0) > 0)).length;
   return (
     <div className="space-y-4">
       {task.routeRequestText && (
@@ -165,22 +165,28 @@ function ListingCard({ m, isAr, action }: { m: EtimadMatch; isAr: boolean; t: T;
   );
 }
 
+const MAX_OPTIONS = 3;
+
 function RouteCheckRow({ it, readOnly, isAr, t, onChange }: { it: RouteCheckItem; readOnly: boolean; isAr: boolean; t: T; onChange: (p: Partial<RouteCheckItem>) => void }) {
   const [q, setQ] = useState(it.name.replace(/^\s*\d+\s*[x×]?\s*/i, ''));
   const [picking, setPicking] = useState(false);
+  const picked = it.matches ?? [];
   const best = suggestedEtimad(it.name);
   const found = searchEtimad(q);
-  const results = best && !found.some((r) => r.sku === best.sku) && q.trim() ? [best, ...found] : (q.trim() ? found : best ? [best] : []);
+  const results = (best && !found.some((r) => r.sku === best.sku) && q.trim() ? [best, ...found] : (q.trim() ? found : best ? [best] : []))
+    .filter((r) => !picked.some((x) => x.sku === r.sku));
   const meta = [it.typeLabel, it.qty !== '' ? `× ${it.qty}` : '', it.unitPrice !== '' ? t(`est. ${fmtSAR(Number(it.unitPrice))}`, `تقدير ${fmtSAR(Number(it.unitPrice))}`) : '', it.deliveryDate ? t(`by ${it.deliveryDate}`, `بحلول ${it.deliveryDate}`) : ''].filter(Boolean).join(' · ');
   const vBtn = (v: 'on' | 'off', label: string) => (
     <button type="button" role="radio" aria-checked={it.verdict === v} disabled={readOnly}
-      onClick={() => { onChange(v === 'off' ? { verdict: 'off', match: undefined } : { verdict: 'on' }); setPicking(v === 'on' && !it.match); }}
+      onClick={() => { onChange(v === 'off' ? { verdict: 'off', matches: undefined } : { verdict: 'on' }); setPicking(v === 'on' && picked.length === 0); }}
       className={`px-3 py-1 text-[11.5px] font-semibold transition-colors ${v === 'off' ? 'border-s border-neutral-300' : ''} ${
         it.verdict === v ? (v === 'on' ? 'bg-success-600 text-white' : 'bg-neutral-700 text-white') : 'bg-white text-neutral-600 hover:bg-neutral-50'} disabled:cursor-default`}>
       {label}
     </button>
   );
-  const showSearch = !readOnly && it.verdict === 'on' && (!it.match || picking);
+  const showSearch = !readOnly && it.verdict === 'on' && picked.length < MAX_OPTIONS && (picked.length === 0 || picking);
+  const addOption = (m: EtimadMatch) => { onChange({ verdict: 'on', matches: [...picked, { ...m, checkedAt: new Date().toISOString() }] }); setPicking(false); };
+  const removeOption = (sku: string) => onChange({ matches: picked.filter((x) => x.sku !== sku) });
   return (
     <div className={`px-3.5 py-3 ${it.verdict === 'on' ? 'bg-success-50/40' : 'bg-white'}`} data-testid="route-check-row">
       <div className="flex items-start justify-between gap-3">
@@ -193,10 +199,23 @@ function RouteCheckRow({ it, readOnly, isAr, t, onChange }: { it: RouteCheckItem
           {vBtn('off', t('Not on Etimad', 'غير متوفر'))}
         </span>
       </div>
-      {it.verdict === 'on' && it.match && !picking && (
-        <div className="mt-2 rounded-lg border border-success-200 bg-white px-3 py-2">
-          <p className="text-[10.5px] font-semibold uppercase tracking-wide text-success-700 mb-0.5">{t('Listing you picked', 'المنتج الذي اخترته')}</p>
-          <ListingCard m={it.match} isAr={isAr} t={t} action={!readOnly ? <button type="button" onClick={() => setPicking(true)} className="text-[11.5px] font-semibold text-link hover:underline flex-shrink-0">{t('Change', 'تغيير')}</button> : undefined} />
+      {it.verdict === 'on' && picked.length > 0 && (
+        <div className="mt-2 rounded-lg border border-success-200 bg-white px-3 py-2" data-testid="picked-options">
+          <p className="text-[10.5px] font-semibold uppercase tracking-wide text-success-700 mb-1">
+            {picked.length === 1 ? t('Listing you picked', 'المنتج الذي اخترته') : t(`Options for the requester — ${picked.length} of ${MAX_OPTIONS}`, `خيارات لمقدم الطلب — ${picked.length} من ${MAX_OPTIONS}`)}
+          </p>
+          <ul className="divide-y divide-neutral-100">
+            {picked.map((m, i) => (
+              <li key={m.sku} className="py-1.5 flex items-start gap-2">
+                {picked.length > 1 && <span className="mt-0.5 w-5 h-5 rounded-full bg-success-50 text-success-700 text-[10.5px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>}
+                <div className="flex-1 min-w-0"><ListingCard m={m} isAr={isAr} t={t} action={!readOnly ? (
+                  <button type="button" onClick={() => removeOption(m.sku)} className="text-[11.5px] font-semibold text-neutral-500 hover:text-error-600 flex-shrink-0">{t('Remove', 'إزالة')}</button>) : undefined} /></div>
+              </li>
+            ))}
+          </ul>
+          {!readOnly && !picking && picked.length < MAX_OPTIONS && (
+            <button type="button" onClick={() => setPicking(true)} className="mt-1 text-[11.5px] font-semibold text-link hover:underline">+ {t('Add another option', 'إضافة خيار آخر')}</button>
+          )}
         </div>
       )}
       {showSearch && (
@@ -209,9 +228,9 @@ function RouteCheckRow({ it, readOnly, isAr, t, onChange }: { it: RouteCheckItem
               {results.map((m, i) => (
                 <li key={m.sku} className="py-2">
                   <ListingCard m={m} isAr={isAr} t={t} action={
-                    <button type="button" onClick={() => { onChange({ verdict: 'on', match: { ...m, checkedAt: new Date().toISOString() } }); setPicking(false); }}
+                    <button type="button" onClick={() => addOption(m)}
                       className="px-2.5 py-1 rounded-md border border-brand-600 text-[11.5px] font-semibold text-brand-700 hover:bg-brand-50 flex-shrink-0 whitespace-nowrap">
-                      {best && m.sku === best.sku && i === 0 ? t('Use best match', 'استخدام الأقرب') : t('Use this listing', 'استخدام هذا المنتج')}
+                      {picked.length ? t('Add as an option', 'إضافة كخيار') : best && m.sku === best.sku && i === 0 ? t('Use best match', 'استخدام الأقرب') : t('Use this listing', 'استخدام هذا المنتج')}
                     </button>} />
                 </li>
               ))}
@@ -219,7 +238,10 @@ function RouteCheckRow({ it, readOnly, isAr, t, onChange }: { it: RouteCheckItem
           ) : (
             <p className="text-[12px] text-neutral-500 px-1">{t('No listings found. Try other words — or mark it “Not on Etimad”.', 'لا توجد نتائج. جرّب كلمات أخرى — أو حدده «غير متوفر في اعتماد».')}</p>
           )}
-          <p className="text-[10.5px] text-neutral-400 px-1">{t('Sample listings for the prototype — not live Etimad data.', 'قوائم نموذجية للنموذج الأولي — ليست بيانات اعتماد فعلية.')}</p>
+          <div className="flex items-center justify-between gap-2 px-1">
+            <p className="text-[10.5px] text-neutral-400">{t(`Offer up to ${MAX_OPTIONS} listings — the requester picks one. Sample listings for the prototype, not live Etimad data.`, `اعرض حتى ${MAX_OPTIONS} منتجات — يختار مقدم الطلب أحدها. قوائم نموذجية.`)}</p>
+            {picked.length > 0 && <button type="button" onClick={() => setPicking(false)} className="text-[11.5px] font-semibold text-neutral-500 hover:text-neutral-800">{t('Done', 'تم')}</button>}
+          </div>
         </div>
       )}
       {it.verdict && !readOnly && <NoteField key={it.verdict} it={it} t={t} onSave={(note) => onChange({ note })} />}

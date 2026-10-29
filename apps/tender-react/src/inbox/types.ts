@@ -132,7 +132,7 @@ export interface RouteCheckItem {
   unitPrice: number | '';        // requester's estimate, SAR
   deliveryDate?: string;
   verdict?: 'on' | 'off' | null; // Procurement: on Etimad E-Market (with a listing) / not on Etimad
-  match?: EtimadMatch;           // the listing Procurement picked
+  matches?: EtimadMatch[];       // listings Procurement offers (1–3); the requester picks one
   note?: string;                 // optional note back to the requester
 }
 

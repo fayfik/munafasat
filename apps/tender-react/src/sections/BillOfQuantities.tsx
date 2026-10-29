@@ -5,6 +5,7 @@ import { useTender } from '../context/TenderContext';
 import { useT } from '../context/LanguageContext';
 import { PROJECTS, UNITS_OF_MEASURE } from '../data/mockData';
 import { FormField, SectionCard, AIButton, InfoBanner, Input, Select, Textarea, Badge } from '../components/ui';
+import { budgetFor } from '../lib/budgets';
 import { PlusIcon, TrashIcon, SparklesIcon, DownloadIcon, UploadIcon, ChevronRightIcon, ChevronDownIcon, CheckIcon, PencilIcon, InfoIcon, GridIcon, TableIcon, ListIcon, DocumentIcon, CheckCircleIcon, AlertTriangleIcon } from '../components/Icons';
 import HoverNote from '../components/HoverNote';
 import BoqAttachments from '../components/BoqAttachments';
@@ -389,6 +390,32 @@ export default function BillOfQuantities() {
       </div>
     );
   };
+  // Budget check (excl. VAT): each budgeted item's approved budget vs the BOQ lines linked to it.
+  const budgetLines = projectItems.map((it) => {
+    const linked = formData.boqItems.filter((r) => r.projectItem === it.name);
+    const boq = linked.reduce((s, r) => s + rowTotal(r), 0);
+    const budget = budgetFor(formData.projectId, it.name) ?? 0;
+    return { name: it.name, nameAr: it.nameAr, budget, boq, lines: linked.length };
+  });
+  const budgetOf = (key: string) => budgetLines.find((b) => b.name === key);
+  const unlinked = formData.boqItems.filter((r) => !r.projectItem);
+  const unlinkedTotal = unlinked.reduce((s, r) => s + rowTotal(r), 0);
+  const overBudget = budgetLines.filter((b) => b.boq > b.budget);
+  const budgetTotal = budgetLines.reduce((s, b) => s + b.budget, 0);
+  function linkToBudget(row: BOQRow, name: string) {
+    if (!name) return;
+    updateBoqRow(row.id, { projectItem: name });
+    setExpandedGroups((prev) => new Set([...prev, name]));
+  }
+  const linkSelect = (row: BOQRow) => (
+    <select value="" onChange={(e) => linkToBudget(row, e.target.value)} data-testid="link-budget"
+      aria-label={t(`Link ${row.itemName || 'this line'} to a budgeted item`, `ربط ${row.itemName || 'هذا البند'} ببند معتمد`)}
+      className="h-6 rounded-md border border-warning-400 bg-white px-1.5 text-[11px] font-semibold text-warning-800 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none">
+      <option value="">{t('Link to budgeted item…', 'ربط ببند معتمد…')}</option>
+      {projectItems.map((it) => <option key={it.id} value={it.name}>{isAr ? it.nameAr : it.name}</option>)}
+    </select>
+  );
+
   const groups: { key: string; rows: BOQRow[] }[] = [];
   formData.boqItems.forEach((row) => {
     const key = row.projectItem || t('Unclassified', 'غير مصنف');
@@ -1296,6 +1323,12 @@ export default function BillOfQuantities() {
                         SAR {formatSAR(subtotal)}
                       </span>
                     )}
+                    {(() => { const b = budgetOf(group.key); if (!b || !b.budget) return null; const over = b.boq > b.budget;
+                      return (
+                        <span className={`text-[11px] tabular-nums flex-shrink-0 rounded-full px-2 py-0.5 border ${over ? 'bg-error-50 text-error-700 border-error-100 font-semibold' : 'bg-white text-neutral-500 border-neutral-200'}`} dir="ltr" data-testid="group-budget">
+                          {over ? t(`Over budget by SAR ${formatSAR(b.boq - b.budget)}`, `يتجاوز الميزانية بـ ${formatSAR(b.boq - b.budget)} ريال`) : t(`of SAR ${formatSAR(b.budget)} budget`, `من ميزانية ${formatSAR(b.budget)} ريال`)}
+                        </span>
+                      ); })()}
                   </button>
 
                   {isExpanded && (
@@ -1330,6 +1363,7 @@ export default function BillOfQuantities() {
                                 <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                   {(() => { const m = BOQ_CATEGORY_META[row.category ?? deriveCategory(row.itemName)]; return <Badge variant={m.badge}>{isAr ? m.ar : m.en}</Badge>; })()}
                                   {rowPills(row)}
+                                  {!row.projectItem && projectItems.length > 0 && linkSelect(row)}
                                   {row.deliveryDate && (
                                     <span className="text-[10px] text-neutral-500" dir="ltr">{row.deliveryDate}</span>
                                   )}
@@ -1502,6 +1536,72 @@ export default function BillOfQuantities() {
             <PlusIcon className="w-3.5 h-3.5" />
             {t('Add item', 'إضافة بند')}
           </button>
+        )}
+
+        {/* Budget check — approved budget per budgeted item vs the BOQ lines linked to it */}
+        {formData.boqItems.length > 0 && budgetLines.length > 0 && (
+          <div className="mt-5 rounded-xl border border-neutral-200 overflow-hidden" data-testid="budget-check">
+            <div className="px-4 py-3 bg-neutral-50 border-b border-neutral-200 flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-[13px] font-semibold text-neutral-800">{t('Budget check', 'مطابقة الميزانية')}</p>
+                <p className="text-[11.5px] text-neutral-500">{t('Each BOQ line counts against the budgeted item it’s linked to. Amounts excl. VAT.', 'يُحتسب كل بند على البند المعتمد المرتبط به. المبالغ دون الضريبة.')}</p>
+              </div>
+              <span className={`text-[11.5px] font-semibold rounded-full px-2.5 py-1 border ${overBudget.length ? 'bg-error-50 text-error-700 border-error-100' : unlinked.length ? 'bg-warning-50 text-warning-700 border-warning-100' : 'bg-success-50 text-success-700 border-success-100'}`}>
+                {overBudget.length ? t(`${overBudget.length} over budget`, `${overBudget.length} تتجاوز الميزانية`) : unlinked.length ? t(`${unlinked.length} line${unlinked.length === 1 ? '' : 's'} not linked`, `${unlinked.length} غير مرتبطة`) : t('Within budget', 'ضمن الميزانية')}
+              </span>
+            </div>
+            <table className="w-full text-[12.5px]">
+              <thead>
+                <tr className="text-[10.5px] uppercase tracking-wide text-neutral-500 border-b border-neutral-100">
+                  <th className="text-start font-semibold px-4 py-2">{t('Budgeted item', 'البند المعتمد')}</th>
+                  <th className="text-end font-semibold px-3 py-2">{t('Budget', 'الميزانية')}</th>
+                  <th className="text-end font-semibold px-3 py-2">{t('BOQ', 'جدول الكميات')}</th>
+                  <th className="text-end font-semibold px-4 py-2 w-[30%]">{t('Remaining', 'المتبقي')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {budgetLines.map((b) => {
+                  const over = b.boq > b.budget; const pct = b.budget ? Math.min(100, (b.boq / b.budget) * 100) : 0;
+                  return (
+                    <tr key={b.name} className={over ? 'bg-error-50/40' : ''}>
+                      <td className="px-4 py-2.5">
+                        <p className="font-medium text-neutral-800">{isAr ? b.nameAr : b.name}</p>
+                        <p className="text-[11px] text-neutral-400">{b.lines ? t(`${b.lines} line${b.lines === 1 ? '' : 's'}`, `${b.lines} بند`) : t('No lines yet', 'لا بنود بعد')}</p>
+                      </td>
+                      <td className="px-3 py-2.5 text-end tabular-nums text-neutral-600" dir="ltr">SAR {formatSAR(b.budget)}</td>
+                      <td className="px-3 py-2.5 text-end tabular-nums text-neutral-800 font-medium" dir="ltr">SAR {formatSAR(b.boq)}</td>
+                      <td className="px-4 py-2.5">
+                        <p className={`text-end tabular-nums font-semibold ${over ? 'text-error-700' : 'text-neutral-700'}`} dir="ltr">{over ? `− SAR ${formatSAR(b.boq - b.budget)}` : `SAR ${formatSAR(b.budget - b.boq)}`}</p>
+                        <div className="mt-1 h-1.5 rounded-full bg-neutral-100 overflow-hidden"><div className={`h-full rounded-full ${over ? 'bg-error-500' : pct > 90 ? 'bg-warning-500' : 'bg-brand-500'}`} style={{ width: `${over ? 100 : pct}%` }} /></div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {unlinked.length > 0 && (
+                  <tr className="bg-warning-50/40">
+                    <td className="px-4 py-2.5" colSpan={2}>
+                      <p className="font-medium text-warning-800">{t('Not linked to a budgeted item', 'غير مرتبطة ببند معتمد')}</p>
+                      <p className="text-[11px] text-warning-700">{t(`${unlinked.length} line${unlinked.length === 1 ? '' : 's'} — use “Link to budgeted item” on each line so it counts against a budget.`, `${unlinked.length} بند — استخدم «ربط ببند معتمد» في كل بند ليُحتسب على ميزانية.`)}</p>
+                    </td>
+                    <td className="px-3 py-2.5 text-end tabular-nums text-warning-800 font-medium" dir="ltr">SAR {formatSAR(unlinkedTotal)}</td>
+                    <td />
+                  </tr>
+                )}
+                <tr className="bg-neutral-50 font-semibold">
+                  <td className="px-4 py-2.5 text-neutral-800">{t('Total', 'الإجمالي')}</td>
+                  <td className="px-3 py-2.5 text-end tabular-nums text-neutral-700" dir="ltr">SAR {formatSAR(budgetTotal)}</td>
+                  <td className="px-3 py-2.5 text-end tabular-nums text-neutral-900" dir="ltr">SAR {formatSAR(boqSubtotal)}</td>
+                  <td className={`px-4 py-2.5 text-end tabular-nums ${boqSubtotal > budgetTotal ? 'text-error-700' : 'text-neutral-700'}`} dir="ltr">{boqSubtotal > budgetTotal ? `− SAR ${formatSAR(boqSubtotal - budgetTotal)}` : `SAR ${formatSAR(budgetTotal - boqSubtotal)}`}</td>
+                </tr>
+              </tbody>
+            </table>
+            {overBudget.length > 0 && (
+              <p className="px-4 py-2.5 border-t border-error-100 bg-error-50 text-[12px] text-error-800">
+                {t(`The BOQ is over the approved budget for ${overBudget.map((b) => b.name).join(', ')}. Reduce quantities or prices, or ask Finance for a budget transfer before you submit.`,
+                   `جدول الكميات يتجاوز الميزانية المعتمدة لـ ${overBudget.map((b) => b.nameAr).join('، ')}. خفّض الكميات أو الأسعار، أو اطلب مناقلة من المالية قبل التقديم.`)}
+              </p>
+            )}
+          </div>
         )}
 
         {/* Totals */}
