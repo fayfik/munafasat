@@ -482,7 +482,7 @@ export default function TechnicalEvaluation() {
           <div className="flex items-center justify-between gap-4 flex-wrap rounded-xl border border-brand-200 bg-brand-50/40 px-4 py-3.5">
             <div className="min-w-0 flex-1">
               <label htmlFor="technical-passing-pct" className="text-[13.5px] font-bold text-neutral-900">
-                {t('Technical Passing Percentage', 'نسبة الاجتياز الفني')} <span className="text-error-600">*</span>
+                {t('Technical Passing Percentage', 'نسبة الاجتياز الفني')}
               </label>
               <p className="text-[12px] text-neutral-500 mt-0.5 leading-relaxed">
                 {t(

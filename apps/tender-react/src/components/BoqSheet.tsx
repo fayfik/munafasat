@@ -257,7 +257,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
               <Th sticky={0} className="text-center">#</Th>
               {COLS.map((c, i) => [
                 <Th key={c.key} sticky={i === 0 ? 40 : undefined} className={c.align === 'end' ? 'text-end' : ''}>
-                  {t(c.en, c.ar)}{(c.key === 'itemName' || c.key === 'projectItem') && <span className="text-error-500"> *</span>}
+                  {t(c.en, c.ar)}
                 </Th>,
                 i === TOTAL_AFTER ? <Th key="total" className="text-end">{t('Total (SAR)', 'الإجمالي (ر.س)')}</Th> : null,
               ])}

@@ -1061,7 +1061,7 @@ function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: T
             </div>
             {needNote || (choice === 'yes' && !action.needsNote) ? (
               <div className="mt-4">
-                <label className="block text-[12.5px] font-semibold text-[#1B2350] mb-1.5">{action.needsNote ? (action.id === 'reject' ? t('Rejection reason', 'سبب الرفض') : t('Comments for the requester', 'ملاحظات لمقدّم الطلب')) : t('Note (optional)', 'ملاحظة (اختياري)')}{action.needsNote && <span className="text-error-600"> *</span>}</label>
+                <label className="block text-[12.5px] font-semibold text-[#1B2350] mb-1.5">{action.needsNote ? (action.id === 'reject' ? t('Rejection reason', 'سبب الرفض') : t('Comments for the requester', 'ملاحظات لمقدّم الطلب')) : t('Note (optional)', 'ملاحظة (اختياري)')}</label>
                 <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder={action.needsNote ? t('Required…', 'مطلوب…') : t('Add a note…', 'أضف ملاحظة…')} />
               </div>
             ) : null}

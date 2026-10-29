@@ -557,9 +557,9 @@ export default function ProcurementRouteStep() {
               <div className="mt-3 space-y-2" data-testid="detail-rows">
                 <p className="text-[12.5px] text-neutral-600">{t('Add each item you need. Procurement checks them on Etimad using these details.', 'أضف كل بند تحتاجه. تفحص المشتريات البنود في اعتماد بناءً على هذه التفاصيل.')}</p>
                 <div className="hidden md:grid grid-cols-[150px_1fr_84px_118px_140px_28px] gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-                  <span>{t('Product type', 'نوع المنتج')} <span className="text-error-600">*</span></span>
-                  <span>{t('Product name', 'اسم المنتج')} <span className="text-error-600">*</span></span>
-                  <span>{t('Quantity', 'الكمية')} <span className="text-error-600">*</span></span>
+                  <span>{t('Product type', 'نوع المنتج')}</span>
+                  <span>{t('Product name', 'اسم المنتج')}</span>
+                  <span>{t('Quantity', 'الكمية')}</span>
                   <span>{t('Unit price (SAR)', 'سعر الوحدة (ريال)')}</span>
                   <span>{t('Delivery date', 'موعد التسليم')}</span>
                   <span />
@@ -852,7 +852,7 @@ export default function ProcurementRouteStep() {
                   body={t('Explain why these items need to be tendered rather than bought on eMarket.', 'وضّح سبب طرح هذه البنود في منافسة بدلاً من شرائها من السوق الإلكتروني.')}>
                   {tenderAction === 'justify' && (
                     <div className="mt-2.5" onClick={(e) => e.stopPropagation()}>
-                      <label htmlFor="route-justification" className="block text-[12px] font-medium text-neutral-700 mb-1">{t('Justification', 'المبرر')} <span className="text-error-600">*</span></label>
+                      <label htmlFor="route-justification" className="block text-[12px] font-medium text-neutral-700 mb-1">{t('Justification', 'المبرر')}</label>
                       <Textarea id="route-justification" rows={3} value={justification} onChange={(e) => setJustification(e.target.value)}
                         placeholder={t('e.g. Needs to be bundled with installation and support under one contract.', 'مثال: يجب دمجها مع التركيب والدعم في عقد واحد.')} />
                       {justification.trim().length > 0 && justification.trim().length < 15 && (

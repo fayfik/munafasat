@@ -313,7 +313,7 @@ function ChecklistRow({ task, c, isAr, t, onChange }: { task: Task; c: Checklist
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-medium text-neutral-800">
             {tb(c.label, isAr)}
-            {c.mandatory && <span className="text-error-500 ms-1">*</span>}
+            
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             {c.kind === 'yesno' && ['yes', 'no'].map((v) => (
@@ -388,7 +388,7 @@ function DataCollectionBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T
         {fields.filter(visible).map((f) => (
           <div key={f.id} className={f.kind === 'longtext' ? 'sm:col-span-2' : ''}>
             <label className="block text-[12.5px] font-medium text-neutral-700 mb-1">
-              {tb(f.label, isAr)}{f.required && <span className="text-error-500 ms-1">*</span>}
+              {tb(f.label, isAr)}
               {f.existing && <span className="ms-2 text-[10px] uppercase tracking-wide text-neutral-400">{t('existing', 'حالي')}</span>}
             </label>
             {f.existing ? (
@@ -607,7 +607,7 @@ function DocumentBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
         <div key={d.id} className={`rounded-lg border px-3.5 py-3 flex items-center gap-3 ${d.uploaded ? 'border-success-200 bg-success-50/40' : 'border-neutral-200 bg-white'}`}>
           <DocumentIcon className={`w-5 h-5 flex-shrink-0 ${d.uploaded ? 'text-success-600' : 'text-neutral-400'}`} />
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium text-neutral-800">{tb(d.label, isAr)}{d.mandatory && <span className="text-error-500 ms-1">*</span>}</p>
+            <p className="text-[13px] font-medium text-neutral-800">{tb(d.label, isAr)}</p>
             <p className="text-[11px] text-neutral-500 mt-0.5">{t('Accepted', 'المقبول')}: {d.formats}{d.uploaded ? ` · ${d.uploaded}` : ''}</p>
           </div>
           <Button size="sm" variant={d.uploaded ? 'secondary' : 'primary'} onClick={() => uploadDoc(task.id, d.id, `${d.id}_${task.entity.ref}.pdf`)}>

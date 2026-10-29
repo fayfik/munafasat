@@ -152,7 +152,7 @@ export default function EsouqBoqTable({ group, rows, onUpdate, onRemove, onAdd }
               <Th sticky={0} className="text-center">#</Th>
               {COLS.map((c, i) => (
                 <Th key={i} sticky={i === 0 ? 44 : undefined} className={c.kind === 'num' ? 'text-end' : ''}>
-                  {t(c.en, c.ar)}{c.req && <span className="text-error-500"> *</span>}
+                  {t(c.en, c.ar)}
                 </Th>
               ))}
               <Th><span className="sr-only">{t('Actions', 'إجراءات')}</span></Th>

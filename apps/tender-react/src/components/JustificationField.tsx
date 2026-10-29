@@ -40,7 +40,7 @@ export default function JustificationField({ id, label, value, onSubmit, placeho
   return (
     <div className="rounded-lg border border-warning-100 bg-warning-50 px-3 py-2.5 space-y-1.5" data-testid="justification-edit">
       <label htmlFor={id} className="block text-[11.5px] font-semibold text-warning-800">
-        {label} {required && <span className="text-error-600">*</span>}
+        {label} 
       </label>
       <textarea id={id} value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} placeholder={placeholder}
         className="block w-full rounded-lg border border-warning-500/40 bg-white px-3 py-2 text-[12.5px] text-neutral-900 placeholder-neutral-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none" />
