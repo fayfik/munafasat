@@ -4,8 +4,8 @@
 // these with the Task Command / Workflow / Audit services.
 
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
-import { SEED_TASKS, ME } from './data';
-import type { Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry, EtimadReviewItem, RouteCheckItem } from './types';
+import { SEED_TASKS, ME, buildCommentResponseTask } from './data';
+import type { RfpDetail, Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry, EtimadReviewItem, RouteCheckItem } from './types';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
 export const fmtSAR = (n: number) =>
@@ -84,6 +84,12 @@ export function completionStatus(task: Task): Completion {
       if (it.verdict === 'off' || (it.verdict === 'on' && (it.matches?.length ?? 0) > 0)) done++;
       else missing.push({ en: it.name, ar: it.name });
     }
+  } else if (task.respondComments) {
+    for (const a of task.activity) {
+      if (a.kind !== 'comment' || !a.anchor || a.replyTo) continue;
+      total++;
+      if (a.resolved) done++; else missing.push(a.anchor.label);
+    }
   } else if (task.type === 'validation' && task.validationChecks) {
     for (const v of task.validationChecks) {
       total++;
@@ -117,7 +123,9 @@ interface InboxCtx {
   getTask: (id: string) => Task | undefined;
   blocked: (t: Task) => boolean;
   // commands
-  addComment: (id: string, text: string) => void;
+  addComment: (id: string, text: string, anchor?: ActivityEntry['anchor'], replyTo?: string, editNote?: boolean) => void;
+  resolveComment: (id: string, commentId: string, resolved: boolean) => void;
+  updateRfp: (id: string, rfp: RfpDetail) => void;
   decide: (id: string, action: 'approve' | 'reject' | 'return' | 'request-clarification' | 'complete' | 'submit' | 'save-draft', note?: string, decisionLabel?: Bilingual) => void;
   setChecklistItem: (id: string, itemId: string, patch: Partial<ChecklistItem>) => void;
   setField: (id: string, fieldId: string, value: CollectField['value']) => void;
@@ -149,9 +157,16 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   const logActivity = (t: Task, entry: Omit<ActivityEntry, 'id' | 'at'> & { at?: string }): Task =>
     ({ ...t, activity: [...t.activity, { id: uid(), at: new Date().toISOString(), ...entry }] });
 
-  const addComment = useCallback((id: string, text: string) => {
+  const addComment = useCallback((id: string, text: string, anchor?: ActivityEntry['anchor'], replyTo?: string, editNote?: boolean) => {
     if (!text.trim()) return;
-    patch(id, (t) => logActivity(t, { kind: 'comment', actor: ME, text: text.trim() }));
+    patch(id, (t) => logActivity(t, { kind: 'comment', actor: (anchor || replyTo || t.respondComments) ? t.assignee : ME, text: text.trim(), anchor, replyTo, editNote }));
+  }, [patch]);
+
+  const resolveComment = useCallback((id: string, commentId: string, resolved: boolean) => {
+    patch(id, (t) => ({ ...t, state: t.state === 'available' ? 'in-progress' : t.state, activity: t.activity.map((a) => (a.id === commentId ? { ...a, resolved } : a)) }));
+  }, [patch]);
+  const updateRfp = useCallback((id: string, rfp: RfpDetail) => {
+    patch(id, (t) => ({ ...t, rfp, state: t.state === 'available' ? 'in-progress' : t.state }));
   }, [patch]);
 
   const setChecklistItem = useCallback((id: string, itemId: string, p: Partial<ChecklistItem>) => {
@@ -271,7 +286,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
         let state = t.state;
         if (action === 'approve' || action === 'complete' || action === 'submit') { state = 'completed'; completedDepId = t.id; }
         else if (action === 'reject') state = 'rejected';
-        else if (action === 'return') state = 'returned';
+        else if (action === 'return') state = t.reviewComments && !t.respondComments ? 'waiting' : 'returned';
         else if (action === 'request-clarification') state = 'waiting';
         else if (action === 'save-draft') state = 'in-progress';
         const kind: ActivityEntry['kind'] = action === 'save-draft' ? 'system' : 'decision';
@@ -282,6 +297,25 @@ export function InboxProvider({ children }: { children: ReactNode }) {
           decision: (action === 'approve' || action === 'reject' || action === 'complete' || action === 'submit') ? (decisionLabel ?? label[action]) : t.decision,
           completedAt: done ? new Date().toISOString() : t.completedAt };
       });
+      // Manager returned a reviewed request → the requester gets a task to answer the comments.
+      const src = next.find((t) => t.id === id);
+      if (action === 'return' && src?.reviewComments && !src.respondComments) {
+        return [buildCommentResponseTask(src, note), ...next.filter((t) => t.id !== `${id}-R`)];
+      }
+      // Requester resubmitted → the manager's task comes back with replies, resolutions and edits.
+      if (action === 'submit' && src?.respondComments && id.endsWith('-R')) {
+        const origId = id.slice(0, -2);
+        const strip = (x: string) => (x.startsWith('R-') ? x.slice(2) : x);
+        return next.map((t) => {
+          if (t.id !== origId) return t;
+          const byId = new Map(src.activity.filter((a) => a.kind === 'comment').map((a) => [strip(a.id), a]));
+          const kept = t.activity.map((a) => (byId.has(a.id) ? { ...a, resolved: byId.get(a.id)!.resolved } : a));
+          const added = src.activity.filter((a) => a.kind === 'comment' && !t.activity.some((x) => x.id === strip(a.id)))
+            .map((a) => ({ ...a, id: strip(a.id), replyTo: a.replyTo ? strip(a.replyTo) : undefined }));
+          const back: ActivityEntry = { id: uid(), at: new Date().toISOString(), kind: 'decision', actor: src.assignee, decision: { en: 'Resubmitted for approval', ar: 'أُعيد التقديم للاعتماد' }, system: { en: 'Address review comments', ar: 'معالجة تعليقات المراجعة' }, text: note?.trim() || undefined };
+          return { ...t, state: 'available', rfp: src.rfp ?? t.rfp, activity: [...kept, ...added, back], receivedAt: new Date().toISOString() };
+        });
+      }
       // Serial workflow: unlock dependents whose dependencies are now all completed.
       if (completedDepId) {
         return next.map((t) => {
@@ -303,10 +337,10 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       tasksForView: (v) => tasks.filter((t) => viewOf(t, tasks).includes(v)),
       getTask: (id) => tasks.find((t) => t.id === id),
       blocked: (t) => isBlocked(t, tasks),
-      addComment, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
+      addComment, resolveComment, updateRfp, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
       addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask,
     };
-  }, [tasks, addComment, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask]);
+  }, [tasks, addComment, resolveComment, updateRfp, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

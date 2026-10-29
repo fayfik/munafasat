@@ -39,6 +39,16 @@ export function buildRouteCheckTask({ requestId, projectId, userName, items, tex
     department: { en: cc?.name ?? 'Procurement', ar: cc?.nameAr ?? 'المشتريات' },
     stageEn: 'Procurement route check', stageAr: 'فحص مسار الشراء',
     receivedAt: now.toISOString(), dueAt: due.toISOString(), slaHours: 24, mineAction: true,
+    decisionSteps: {
+      complete: [
+        { titleEn: 'Requester sees your answer', titleAr: 'يرى مقدم الطلب ردك', descEn: 'Items you found get your listings; the rest are marked for a tender.', descAr: 'البنود التي وجدتها تظهر مع المنتجات، والباقي للمنافسة.' },
+        { titleEn: 'They choose the route', titleAr: 'يختار المسار', descEn: 'Etimad items become an E-Market purchase, the rest a tender — split into linked requests if needed.', descAr: 'بنود اعتماد تصبح شراءً من السوق، والباقي منافسة — بطلبات مرتبطة عند الحاجة.' },
+      ],
+      return: [
+        { titleEn: 'Back to the requester', titleAr: 'العودة إلى مقدم الطلب', descEn: 'They see your question and add the detail.', descAr: 'يرى سؤالك ويضيف التفاصيل.' },
+        { titleEn: 'Sent to you again', titleAr: 'يُرسل إليك مجدداً', descEn: 'The same task comes back to your Inbox when they resend.', descAr: 'تعود المهمة نفسها إلى صندوقك عند إعادة الإرسال.' },
+      ],
+    },
     routeItems: items.map((it) => ({ ...it, verdict: null })),
     routeRequestText: text?.trim() || undefined,
     sourceDraftId: requestId,

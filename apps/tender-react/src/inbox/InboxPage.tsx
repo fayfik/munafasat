@@ -120,7 +120,7 @@ function TaskRow({ task, isAr, t, active, onSelect, tasks }: { task: Task; isAr:
         {/* Row 3 — requester · department (left) · status (right) */}
         <div className="mt-2 ps-3.5 flex items-center justify-between gap-2">
           <p className="text-[11.5px] text-neutral-500 truncate">
-            {task.requester.name} · {task.department[isAr ? 'ar' : 'en']}
+            {isAr && task.requester.nameAr ? task.requester.nameAr : task.requester.name} · {task.department[isAr ? "ar" : "en"]}
           </p>
           <StateChip state={task.state} isAr={isAr} />
         </div>

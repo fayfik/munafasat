@@ -36,6 +36,20 @@ export function buildEtimadReviewTask(form: TenderFormData, requestNo: string, u
     stageEn: 'Etimad E-Market review', stageAr: 'مراجعة سوق اعتماد',
     receivedAt: now.toISOString(), dueAt: due.toISOString(), mineAction: true,
     etimadItems: items,
+    decisionSteps: {
+      complete: [
+        { titleEn: 'Answers confirmed', titleAr: 'تأكيد الإجابات', descEn: 'The requester’s Etimad answers are recorded as checked.', descAr: 'تُسجل إجابات اعتماد كمراجَعة.' },
+        { titleEn: 'Department approvals', titleAr: 'موافقات الإدارات', descEn: 'The tender continues to Line Manager, Finance and the other reviewers in parallel.', descAr: 'تستمر المنافسة إلى المدير والمالية والمراجعين بالتوازي.' },
+      ],
+      'move-emarket': [
+        { titleEn: 'Flagged lines leave the tender', titleAr: 'إخراج البنود المحددة', descEn: 'They go to a new Etimad E-Market draft linked to this request.', descAr: 'تنتقل إلى مسودة سوق اعتماد جديدة مرتبطة بالطلب.' },
+        { titleEn: 'Tender continues', titleAr: 'استمرار المنافسة', descEn: 'The remaining lines go on to department approvals.', descAr: 'تستمر البنود المتبقية إلى موافقات الإدارات.' },
+      ],
+      return: [
+        { titleEn: 'Back to the requester', titleAr: 'العودة إلى مقدم الطلب', descEn: 'They see your note at the top of the request and fix the Etimad answers.', descAr: 'يرى ملاحظتك ويصحح إجابات اعتماد.' },
+        { titleEn: 'Resubmitted', titleAr: 'إعادة التقديم', descEn: 'A new Etimad review comes to your Inbox.', descAr: 'تصل مراجعة اعتماد جديدة إلى صندوقك.' },
+      ],
+    },
     sourceRequest: { id: requestId, projectId: form.projectId, costCenterId: form.costCenterId, purpose: form.tenderingPurpose, requestNo, title },
     activity: [
       { id: `${requestNo}-a1`, kind: 'system', actor: requester, at: now.toISOString(), system: { en: 'Tender request submitted', ar: 'تم تقديم طلب المنافسة' } },
