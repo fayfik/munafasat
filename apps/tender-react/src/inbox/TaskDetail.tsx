@@ -1,6 +1,6 @@
 // Munafasat Inbox — task detail workspace (right pane).
 // Header with meta + Approve/Reject/Return CTAs, tabbed body (Overview / RFP /
-// Activity), and top actions: Chat (slide-in), History (task trail), Download PDF.
+// Activity), and top actions: Comments (side pane), History (task trail), Download PDF.
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
@@ -66,7 +66,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const t = useT();
   const { decide, addComment, resolveComment, updateRfp } = useInbox();
   const [tab, setTab] = useState<'overview' | 'rfp' | 'activity'>('overview');
-  const [side, setSide] = useState<'chat' | 'history' | null>(null);
+  const [side, setSide] = useState<'comments' | 'history' | null>(null);
   const [commentMode, setCommentMode] = useState(false);
   useEffect(() => { setCommentMode(false); }, [task.id]);
   useEffect(() => { if (tab !== 'rfp') setCommentMode(false); }, [tab]);
@@ -93,10 +93,10 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const addAnchored = (anchor: { id: string; label: Bilingual }, text: string) => {
     addComment(task.id, text, anchor);
     // Office-style: the comments pane opens once the first comment lands.
-    window.setTimeout(() => setSide((s) => s ?? 'chat'), 150);
+    window.setTimeout(() => setSide((s) => s ?? 'comments'), 150);
   };
   const jumpTo = (id: string) => { setTab('rfp'); window.setTimeout(() => flashTarget(id), 120); };
-  const toggleSide = (s: 'chat' | 'history') => setSide((prev) => (prev === s ? null : s));
+  const toggleSide = (s: 'comments' | 'history') => setSide((prev) => (prev === s ? null : s));
   useEffect(() => { onSideOpenChange?.(side !== null); }, [side, onSideOpenChange]);
   const [pending, setPending] = useState<ActionDef | null>(null);
   const [note, setNote] = useState('');
@@ -232,8 +232,8 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             <CommentLayer mode={!task.respondComments && commentMode && !terminal} isAr={isAr} comments={anchored} onAdd={addAnchored} authorLabel={personName(task.assignee, isAr)}
               respond={respond} editing={!!respond && editEnabled} renderEdit={respond ? renderEdit : undefined}>
               {task.respondComments
-                ? <RespondBar editOn={editEnabled} onToggleEdit={() => setEditEnabled((v) => !v)} total={anchored.length} resolved={anchored.filter((c) => c.resolved).length} t={t} disabled={!respond} onOpenChat={() => setSide('chat')} />
-                : <ReviewBar on={commentMode} onToggle={() => setCommentMode((m) => !m)} count={anchored.length} isAr={isAr} t={t} disabled={terminal} onOpenChat={() => setSide('chat')} />}
+                ? <RespondBar editOn={editEnabled} onToggleEdit={() => setEditEnabled((v) => !v)} total={anchored.length} resolved={anchored.filter((c) => c.resolved).length} t={t} disabled={!respond} onOpenComments={() => setSide('comments')} />
+                : <ReviewBar on={commentMode} onToggle={() => setCommentMode((m) => !m)} count={anchored.length} isAr={isAr} t={t} disabled={terminal} onOpenComments={() => setSide('comments')} />}
               <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />
             </CommentLayer>
           ) : <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />)}
@@ -243,7 +243,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
       {tab === 'rfp' && task.rfp && <JumpFab sections={rfpSections(task.rfp)} isAr={isAr} t={t} />}
       </div>
 
-      {/* ── Right pane: Conversation / Approval flow ─────────────────
+      {/* ── Right pane: Comments / Approval flow ─────────────────
           Opens to the LEFT of the icon strip. Inline third pane on md+,
           slide-over on smaller screens. */}
       {side && (
@@ -254,7 +254,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             {/* Pane header — switch between the two panes + collapse */}
             <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-12 bg-[#17233A] flex-shrink-0">
               <div className="flex items-center gap-0.5 bg-white/10 rounded-lg p-0.5">
-                <PaneTab active={side === 'chat'} onClick={() => setSide('chat')} icon={<ChatGlyph className="w-3.5 h-3.5" />}>{t('Conversation', 'المحادثة')}</PaneTab>
+                <PaneTab active={side === 'comments'} onClick={() => setSide('comments')} icon={<CommentGlyph className="w-3.5 h-3.5" />}>{t('Comments', 'التعليقات')}</PaneTab>
                 <PaneTab active={side === 'history'} onClick={() => setSide('history')} icon={<HistoryGlyph className="w-3.5 h-3.5" />}>{t('Approval flow', 'مسار الاعتماد')}</PaneTab>
               </div>
               <button onClick={() => setSide(null)} title={t('Collapse panel', 'طي اللوحة')}
@@ -263,8 +263,8 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
               </button>
             </div>
             <div className="flex-1 min-h-0 flex flex-col">
-              {side === 'chat'
-                ? <ChatPanel task={task} isAr={isAr} t={t} onSend={(x) => addComment(task.id, x)} disabled={terminal} onJump={jumpTo} threads={anchored} respond={respond} />
+              {side === 'comments'
+                ? <CommentsPanel task={task} isAr={isAr} t={t} onSend={(x) => addComment(task.id, x)} disabled={terminal} onJump={jumpTo} threads={anchored} respond={respond} />
                 : <TrailPanel task={task} isAr={isAr} t={t} />}
             </div>
           </aside>
@@ -275,7 +275,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 
       {/* ── Right icon rail (always visible) — dark navy to anchor the workspace ── */}
       <nav className="w-16 flex-shrink-0 bg-[#17233A] flex flex-col items-center pt-3 pb-3 gap-1.5 z-40" aria-label={t('Task tools', 'أدوات المهمة')}>
-        <StripBtn dock active={side === 'chat'} onClick={() => toggleSide('chat')} label={t('Chat', 'محادثة')} count={task.activity.filter((a) => a.kind === 'comment').length} icon={<ChatGlyph className="w-[18px] h-[18px]" />} />
+        <StripBtn dock active={side === 'comments'} onClick={() => toggleSide('comments')} label={t('Comments', 'التعليقات')} count={task.activity.filter((a) => a.kind === 'comment').length} icon={<CommentGlyph className="w-[18px] h-[18px]" />} />
         <StripBtn active={side === 'history'} onClick={() => toggleSide('history')} label={t('History', 'السجل')} icon={<HistoryGlyph className="w-[18px] h-[18px]" />} />
         <div className="w-8 h-px bg-white/10 my-1.5" />
         <StripBtn onClick={() => downloadTaskPdf(task)} label={t('PDF', 'PDF')} icon={<DownloadIcon className="w-[18px] h-[18px]" />} />
@@ -287,9 +287,9 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 function StripBtn({ active, onClick, label, icon, count, dock }: { active?: boolean; onClick: () => void; label: string; icon: React.ReactNode; count?: number; dock?: boolean }) {
   return (
     <button type="button" onClick={onClick} title={label} aria-label={label} aria-pressed={active} data-comment-dock={dock ? 'rail' : undefined}
-      className={`relative w-12 py-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${active ? 'bg-white text-[#17233A] shadow-sm' : 'text-white/65 hover:bg-white/10 hover:text-white'}`}>
+      className={`relative w-[60px] py-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${active ? 'bg-white text-[#17233A] shadow-sm' : 'text-white/65 hover:bg-white/10 hover:text-white'}`}>
       {icon}
-      <span className="text-[10px] font-semibold leading-none">{label}</span>
+      <span className="text-[9.5px] font-semibold leading-none tracking-tight">{label}</span>
       {!!count && <span className="absolute top-1 end-1.5 min-w-[16px] h-4 px-1 rounded-full bg-brand-500 text-white text-[9.5px] font-bold flex items-center justify-center">{count}</span>}
     </button>
   );
@@ -1115,7 +1115,7 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
               </div>
             </>) : (<>
               <p className="text-[14px] font-bold text-neutral-900">{t('Review the RFP details', 'راجع تفاصيل المنافسة')}</p>
-              <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Go through each section of the request. Hover any section or field and add a comment — it is sent to the conversation with the section name.', 'راجع كل قسم من الطلب. مرّر المؤشر على أي قسم أو حقل وأضف تعليقاً — يُرسل إلى المحادثة مع اسم القسم.')}</p>
+              <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Go through each section of the request. Hover any section or field and add a comment — it is posted to Comments with the section name.', 'راجع كل قسم من الطلب. مرّر المؤشر على أي قسم أو حقل وأضف تعليقاً — يُنشر في التعليقات مع اسم القسم.')}</p>
               {commentCount > 0 && <p className="text-[12px] font-semibold text-[#21507A] mt-1">{t(`${commentCount} comment${commentCount > 1 ? 's' : ''} added`, `${commentCount} تعليق مضاف`)}{resolvedCount > 0 && <span className="text-success-700"> · {t(`${resolvedCount} resolved by ${task.requester.name}`, `${resolvedCount} تم حلها من ${task.requester.nameAr ?? task.requester.name}`)}</span>}</p>}
             </>)}
           </div>
@@ -1214,7 +1214,7 @@ function ActivityTab({ task, isAr, t, onComment, terminal, onJump }: { task: Tas
   type Row = { key: string; at?: string; status: TLStatus; icon: React.ReactNode; title: string; sub: string; quote?: string; bubble?: string; chip?: { id: string; label: string } };
   const rows: Row[] = task.activity.map((a) => {
     const who = `${personName(a.actor, isAr)}${a.actor.role ? ` · ${isAr ? a.actor.roleAr ?? a.actor.role : a.actor.role}` : ''}`;
-    if (a.kind === 'comment') return { key: a.id, at: a.at, status: a.resolved ? 'done' : 'comment', icon: <ChatGlyph className="w-[18px] h-[18px]" />, title: a.editNote ? t('Field updated', 'تم تحديث الحقل') : a.replyTo ? t('Reply to review comment', 'رد على تعليق مراجعة') : a.anchor ? (a.resolved ? t('Review comment — resolved', 'تعليق مراجعة — تم الحل') : t('Review comment', 'تعليق مراجعة')) : t('Comment added', 'تمت إضافة تعليق'), sub: who, bubble: a.text, chip: a.anchor ? { id: a.anchor.id, label: tb(a.anchor.label, isAr) } : undefined };
+    if (a.kind === 'comment') return { key: a.id, at: a.at, status: a.resolved ? 'done' : 'comment', icon: <CommentGlyph className="w-[18px] h-[18px]" />, title: a.editNote ? t('Field updated', 'تم تحديث الحقل') : a.replyTo ? t('Reply to review comment', 'رد على تعليق مراجعة') : a.anchor ? (a.resolved ? t('Review comment — resolved', 'تعليق مراجعة — تم الحل') : t('Review comment', 'تعليق مراجعة')) : t('Comment added', 'تمت إضافة تعليق'), sub: who, bubble: a.text, chip: a.anchor ? { id: a.anchor.id, label: tb(a.anchor.label, isAr) } : undefined };
     if (a.kind === 'decision') {
       const lbl = a.decision ? tb(a.decision, isAr) : '';
       const st: TLStatus = /reject|رفض/i.test(lbl) ? 'rejected' : /return|إعاد|مُعاد/i.test(lbl) ? 'returned' : 'approved';
@@ -1279,9 +1279,9 @@ function ActivityTab({ task, isAr, t, onComment, terminal, onJump }: { task: Tas
 
       {!terminal && (
         <div className="border-t border-neutral-100 px-5 py-3 flex items-end gap-2">
-          <textarea value={c} onChange={(e) => setC(e.target.value)} rows={1} placeholder={t('Add a comment to the timeline…', 'أضف تعليقاً إلى السجل الزمني…')}
+          <textarea value={c} onChange={(e) => setC(e.target.value)} rows={1} placeholder={t('Add a comment…', 'أضف تعليقاً…')}
             className="flex-1 resize-none text-[13px] rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
-          <Button size="sm" variant="secondary" disabled={!c.trim()} onClick={() => { onComment(c); setC(''); }}>{t('Comment', 'تعليق')}</Button>
+          <Button size="sm" variant="secondary" disabled={!c.trim()} onClick={() => { onComment(c); setC(''); }}>{t('Post', 'نشر')}</Button>
         </div>
       )}
     </div>
@@ -1295,7 +1295,8 @@ const InfoGlyph = G(<><circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.0
 const SparkGlyph = G(<><path d="M12 3v4M12 17v4M3 12h4M17 12h4" /><path d="M12 8l1.5 2.5L16 12l-2.5 1.5L12 16l-1.5-2.5L8 12l2.5-1.5z" /></>);
 const TaskGlyph = G(<><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8 12l3 3 5-6" /></>);
 
-function ChatPanel({ task, isAr, t, onSend, disabled, onJump, threads, respond }: { task: Task; isAr: boolean; t: T; onSend: (x: string) => void; disabled: boolean; onJump?: (id: string) => void; threads: AnchoredComment[]; respond?: RespondHandlers }) {
+function CommentsPanel({ task, isAr, t, onSend, disabled, onJump, threads, respond }: { task: Task; isAr: boolean; t: T; onSend: (x: string) => void; disabled: boolean; onJump?: (id: string) => void; threads: AnchoredComment[]; respond?: RespondHandlers }) {
+  void task;
   const [msg, setMsg] = useState('');
   const comments = task.activity.filter((a) => a.kind === 'comment' && !a.replyTo);
   const listRef = useRef<HTMLDivElement>(null);
@@ -1314,7 +1315,7 @@ function ChatPanel({ task, isAr, t, onSend, disabled, onJump, threads, respond }
         </div>
       )}
       <div ref={listRef} data-comment-dock="pane" className="flex-1 overflow-y-auto p-3 space-y-3">
-        {comments.length === 0 && <p className="text-[12.5px] text-neutral-400 text-center mt-6">{t('No messages yet. Start the conversation.', 'لا توجد رسائل بعد. ابدأ المحادثة.')}</p>}
+        {comments.length === 0 && <p className="text-[12.5px] text-neutral-400 text-center mt-6">{t('No comments yet. Post the first one.', 'لا توجد تعليقات بعد. انشر أول تعليق.')}</p>}
         {comments.map((a) => {
           const mine = a.actor.id === 'u-me' || a.actor.id === task.assignee.id;
           if (a.anchor) {
@@ -1330,11 +1331,14 @@ function ChatPanel({ task, isAr, t, onSend, disabled, onJump, threads, respond }
             );
           }
           return (
-            <div key={a.id} className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''} ${a.id === fresh ? 'cm-land' : ''}`}>
+            <div key={a.id} className={`flex gap-2 ${a.id === fresh ? 'cm-land' : ''}`}>
               <Avatar name={a.actor.name} id={a.actor.id} className="w-6 h-6" />
-              <div className={`max-w-[80%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
-                <div className={`rounded-2xl px-3 py-2 text-[13px] ${mine ? 'bg-brand-600 text-white rounded-se-sm' : 'bg-neutral-100 text-neutral-800 rounded-ss-sm'}`}>{a.text}</div>
-                <span className="text-[10px] text-neutral-400 mt-0.5 px-1">{personName(a.actor, isAr)} · {fmtDateTime(a.at, isAr)}</span>
+              <div className={`min-w-0 flex-1 rounded-xl border px-3 py-2 ${mine ? 'border-brand-200 bg-brand-50/40' : 'border-neutral-200 bg-white'}`}>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11.5px] font-semibold text-neutral-800 truncate">{personName(a.actor, isAr)}</span>
+                  <span className="text-[10.5px] text-neutral-400 whitespace-nowrap">{fmtDateTime(a.at, isAr)}</span>
+                </div>
+                <p className="text-[12.5px] text-neutral-800 mt-1 whitespace-pre-line">{a.text}</p>
               </div>
             </div>
           );
@@ -1342,11 +1346,11 @@ function ChatPanel({ task, isAr, t, onSend, disabled, onJump, threads, respond }
       </div>
       {!disabled && (
         <div className="p-3 border-t border-neutral-200 flex items-end gap-2">
-          <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={1}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (msg.trim()) { onSend(msg); setMsg(''); } } }}
-            placeholder={t('Message…', 'رسالة…')}
+          <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={2}
+            onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); if (msg.trim()) { onSend(msg); setMsg(''); } } }}
+            placeholder={t('Add a comment…  (Ctrl + Enter to post)', 'أضف تعليقاً…  (Ctrl + Enter للنشر)')}
             className="flex-1 resize-none text-[13px] rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
-          <Button size="sm" variant="primary" disabled={!msg.trim()} onClick={() => { onSend(msg); setMsg(''); }}>{t('Send', 'إرسال')}</Button>
+          <Button size="sm" variant="primary" disabled={!msg.trim()} onClick={() => { onSend(msg); setMsg(''); }}>{t('Post', 'نشر')}</Button>
         </div>
       )}
     </>
@@ -1354,7 +1358,7 @@ function ChatPanel({ task, isAr, t, onSend, disabled, onJump, threads, respond }
 }
 
 /** Requester's toolbar: progress on resolving comments + the switch that unlocks editing. */
-function RespondBar({ editOn, onToggleEdit, total, resolved, t, disabled, onOpenChat }: { editOn: boolean; onToggleEdit: () => void; total: number; resolved: number; t: T; disabled: boolean; onOpenChat: () => void }) {
+function RespondBar({ editOn, onToggleEdit, total, resolved, t, disabled, onOpenComments }: { editOn: boolean; onToggleEdit: () => void; total: number; resolved: number; t: T; disabled: boolean; onOpenComments: () => void }) {
   return (
     <div className={`mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 flex-wrap transition-colors ${editOn ? 'border-brand-500 bg-brand-50/50 shadow-[0_0_0_3px_rgba(105,152,67,0.10)]' : 'border-[#C9DBEC] bg-[#F3F8FC]'}`}>
       <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${editOn ? 'bg-brand-600 text-white' : 'bg-[#2A6193] text-white'}`}>{editOn ? <PencilIcon className="w-[18px] h-[18px]" /> : <BubbleIcon className="w-[18px] h-[18px]" />}</span>
@@ -1362,7 +1366,7 @@ function RespondBar({ editOn, onToggleEdit, total, resolved, t, disabled, onOpen
         <p className="text-[13px] font-bold text-neutral-900">{editOn ? t('Editing is on — commented fields only', 'التعديل مفعّل — الحقول التي عليها تعليقات فقط') : t('Review comments on this RFP', 'تعليقات المراجعة على هذه المنافسة')}</p>
         <p className="text-[12px] text-neutral-500">{editOn ? t('Click Edit next to a comment marker to change that field. Other fields stay locked.', 'اضغط تعديل بجانب مؤشر التعليق لتغيير ذلك الحقل. تبقى الحقول الأخرى مقفلة.') : t('Click a marker to reply or resolve. Turn on editing when you are ready to change the commented fields.', 'اضغط على المؤشر للرد أو الحل. فعّل التعديل عندما تكون جاهزاً لتغيير الحقول المعنية.')}</p>
       </div>
-      <button type="button" onClick={onOpenChat} className="inline-flex items-center gap-1.5 rounded-full bg-white border border-[#C9DBEC] px-2.5 py-1 text-[11.5px] font-semibold text-[#21507A] hover:bg-[#EAF1F8]">
+      <button type="button" onClick={onOpenComments} className="inline-flex items-center gap-1.5 rounded-full bg-white border border-[#C9DBEC] px-2.5 py-1 text-[11.5px] font-semibold text-[#21507A] hover:bg-[#EAF1F8]">
         <BubbleIcon className="w-3.5 h-3.5" />{t(`${resolved}/${total} resolved`, `${resolved}/${total} تم حلها`)}
       </button>
       {!disabled && (
@@ -1377,7 +1381,7 @@ function RespondBar({ editOn, onToggleEdit, total, resolved, t, disabled, onOpen
 }
 
 /** Toolbar above the RFP details that switches review-comment mode on/off. */
-function ReviewBar({ on, onToggle, count, isAr, t, disabled, onOpenChat }: { on: boolean; onToggle: () => void; count: number; isAr: boolean; t: T; disabled: boolean; onOpenChat: () => void }) {
+function ReviewBar({ on, onToggle, count, isAr, t, disabled, onOpenComments }: { on: boolean; onToggle: () => void; count: number; isAr: boolean; t: T; disabled: boolean; onOpenComments: () => void }) {
   void isAr;
   return (
     <div className={`mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 flex-wrap transition-colors ${on ? 'border-[#2A6193] bg-[#F3F8FC] shadow-[0_0_0_3px_rgba(42,97,147,0.08)]' : 'border-neutral-200 bg-white shadow-sm'}`}>
@@ -1386,11 +1390,11 @@ function ReviewBar({ on, onToggle, count, isAr, t, disabled, onOpenChat }: { on:
         <p className="text-[13px] font-bold text-neutral-900">{on ? t('Commenting is on', 'وضع التعليق مفعّل') : t('Review the RFP', 'مراجعة المنافسة')}</p>
         <p className="text-[12px] text-neutral-500">
           {on ? t('Hover any section, row or field and click Comment. Press Esc to close a comment.', 'مرّر المؤشر على أي قسم أو صف أو حقل ثم اضغط تعليق. اضغط Esc للإغلاق.')
-              : t('Add comments to any section or field — they go to the conversation with the section name.', 'أضف تعليقات على أي قسم أو حقل — تُرسل إلى المحادثة مع اسم القسم.')}
+              : t('Add comments to any section or field — they are posted to Comments with the section name.', 'أضف تعليقات على أي قسم أو حقل — تُنشر في التعليقات مع اسم القسم.')}
         </p>
       </div>
       {count > 0 && (
-        <button type="button" onClick={onOpenChat} className="inline-flex items-center gap-1.5 rounded-full bg-white border border-[#C9DBEC] px-2.5 py-1 text-[11.5px] font-semibold text-[#21507A] hover:bg-[#EAF1F8]">
+        <button type="button" onClick={onOpenComments} className="inline-flex items-center gap-1.5 rounded-full bg-white border border-[#C9DBEC] px-2.5 py-1 text-[11.5px] font-semibold text-[#21507A] hover:bg-[#EAF1F8]">
           <BubbleIcon className="w-3.5 h-3.5" />{t(`${count} comment${count > 1 ? 's' : ''}`, `${count} تعليق`)}
         </button>
       )}
@@ -1487,7 +1491,7 @@ function downloadTaskPdf(task: Task) {
 }
 
 // ── Inline glyphs ─────────────────────────────────────────────────────────────
-function ChatGlyph({ className = '' }: { className?: string }) {
+function CommentGlyph({ className = '' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>;
 }
 function HistoryGlyph({ className = '' }: { className?: string }) {
