@@ -122,7 +122,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 
   const TABS: { key: typeof tab; en: string; ar: string }[] = [
     { key: 'overview', en: 'Required action', ar: 'الإجراء المطلوب' },
-    { key: 'rfp', en: 'RFP details', ar: 'تفاصيل المنافسة' },
+    { key: 'rfp', en: 'Request details', ar: 'تفاصيل الطلب' },
     { key: 'activity', en: 'Activity', ar: 'النشاط' },
   ];
 
@@ -179,7 +179,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             ))}
           </dl>
 
-          {/* Row 4 — project · PR amount */}
+          {/* Row 4 — project · RFP amount */}
           <div className="mt-3 grid grid-cols-1 @[560px]:grid-cols-2 gap-3">
             <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 flex items-center gap-3 min-w-0">
               <span className="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center flex-shrink-0"><FolderGlyph className="w-5 h-5" /></span>
@@ -192,7 +192,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             <div className="rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3 flex items-center gap-3 min-w-0">
               <span className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center flex-shrink-0 text-[11px] font-bold">SAR</span>
               <div className="min-w-0 flex-1">
-                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-brand-700/80">{t('PR amount', 'قيمة طلب الشراء')}</p>
+                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-brand-700/80">{t('RFP amount', 'قيمة المنافسة')}</p>
                 <p className="text-[19px] font-bold text-brand-800 tabular-nums leading-tight whitespace-nowrap" dir="ltr">{task.amount != null ? fmtSAR(task.amount) : '—'}</p>
                 {task.amount != null && <p className="text-[11.5px] text-brand-700/80 tabular-nums" dir="ltr">{t('Incl. VAT', 'شامل الضريبة')} {fmtSAR(task.amount * 1.15)}</p>}
               </div>
@@ -228,6 +228,12 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
         {/* Tab content */}
         <div className="p-4 sm:p-6">
           {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length} />}
+          {tab === 'rfp' && (
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-[12px] text-neutral-500 truncate">{t('RFP', 'المنافسة')} <span className="font-semibold text-neutral-700" dir="ltr">#{task.entity.ref.replace(/^RFP-/, '')}</span> · {isAr ? task.entity.titleAr : task.entity.titleEn}</p>
+              <Button size="sm" variant="secondary" onClick={() => downloadTaskPdf(task)}><DownloadIcon className="w-4 h-4" />{t('Download PDF', 'تنزيل PDF')}</Button>
+            </div>
+          )}
           {tab === 'rfp' && (task.reviewComments && task.rfp ? (
             <CommentLayer mode={!task.respondComments && commentMode && !terminal} isAr={isAr} comments={anchored} onAdd={addAnchored} authorLabel={personName(task.assignee, isAr)}
               respond={respond} editing={!!respond && editEnabled} renderEdit={respond ? renderEdit : undefined}>
@@ -277,8 +283,6 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
       <nav className="w-16 flex-shrink-0 bg-[#17233A] flex flex-col items-center pt-3 pb-3 gap-1.5 z-40" aria-label={t('Task tools', 'أدوات المهمة')}>
         <StripBtn dock active={side === 'comments'} onClick={() => toggleSide('comments')} label={t('Comments', 'التعليقات')} count={task.activity.filter((a) => a.kind === 'comment').length} icon={<CommentGlyph className="w-[18px] h-[18px]" />} />
         <StripBtn active={side === 'history'} onClick={() => toggleSide('history')} label={t('History', 'السجل')} icon={<HistoryGlyph className="w-[18px] h-[18px]" />} />
-        <div className="w-8 h-px bg-white/10 my-1.5" />
-        <StripBtn onClick={() => downloadTaskPdf(task)} label={t('PDF', 'PDF')} icon={<DownloadIcon className="w-[18px] h-[18px]" />} />
       </nav>
     </div>
   );
@@ -1109,18 +1113,18 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
           <div className="min-w-0 flex-1">
             {task.respondComments ? (<>
               <p className="text-[14px] font-bold text-neutral-900">{t('Respond to the review comments', 'الرد على تعليقات المراجعة')}</p>
-              <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Open the RFP details. Each commented section shows a marker — reply to or resolve the comment there. Turn on editing to change only the commented fields.', 'افتح تفاصيل المنافسة. يظهر مؤشر على كل قسم عليه تعليق — رد عليه أو حله هناك. فعّل التعديل لتغيير الحقول التي عليها تعليقات فقط.')}</p>
+              <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Open the request details. Each commented section shows a marker — reply to or resolve the comment there. Turn on editing to change only the commented fields.', 'افتح تفاصيل الطلب. يظهر مؤشر على كل قسم عليه تعليق — رد عليه أو حله هناك. فعّل التعديل لتغيير الحقول التي عليها تعليقات فقط.')}</p>
               <div className="mt-2 flex items-center gap-2">
                 <div className="h-1.5 w-40 rounded-full bg-neutral-200 overflow-hidden"><div className="h-full bg-success-500 rounded-full transition-all" style={{ width: `${commentCount ? (resolvedCount / commentCount) * 100 : 0}%` }} /></div>
                 <span className="text-[12px] font-semibold text-neutral-700">{t(`${resolvedCount} of ${commentCount} resolved`, `${resolvedCount} من ${commentCount} تم حلها`)}</span>
               </div>
             </>) : (<>
-              <p className="text-[14px] font-bold text-neutral-900">{t('Review the RFP details', 'راجع تفاصيل المنافسة')}</p>
+              <p className="text-[14px] font-bold text-neutral-900">{t('Review the request details', 'راجع تفاصيل الطلب')}</p>
               <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Go through each section of the request. Hover any section or field and add a comment — it is posted to Comments with the section name.', 'راجع كل قسم من الطلب. مرّر المؤشر على أي قسم أو حقل وأضف تعليقاً — يُنشر في التعليقات مع اسم القسم.')}</p>
               {commentCount > 0 && <p className="text-[12px] font-semibold text-[#21507A] mt-1">{t(`${commentCount} comment${commentCount > 1 ? 's' : ''} added`, `${commentCount} تعليق مضاف`)}{resolvedCount > 0 && <span className="text-success-700"> · {t(`${resolvedCount} resolved by ${task.requester.name}`, `${resolvedCount} تم حلها من ${task.requester.nameAr ?? task.requester.name}`)}</span>}</p>}
             </>)}
           </div>
-          <Button size="md" variant="primary" onClick={onReview}>{task.respondComments ? t('Open RFP details', 'فتح تفاصيل المنافسة') : t('Review RFP & add comments', 'مراجعة المنافسة وإضافة تعليقات')}</Button>
+          <Button size="md" variant="primary" onClick={onReview}>{task.respondComments ? t('Open request details', 'فتح تفاصيل الطلب') : t('Review RFP & add comments', 'مراجعة المنافسة وإضافة تعليقات')}</Button>
         </div>
       )}
 
@@ -1381,7 +1385,7 @@ function RespondBar({ editOn, onToggleEdit, total, resolved, t, disabled, onOpen
   );
 }
 
-/** Toolbar above the RFP details that switches review-comment mode on/off. */
+/** Toolbar above the request details that switches review-comment mode on/off. */
 function ReviewBar({ on, onToggle, count, isAr, t, disabled, onOpenComments }: { on: boolean; onToggle: () => void; count: number; isAr: boolean; t: T; disabled: boolean; onOpenComments: () => void }) {
   void isAr;
   return (
