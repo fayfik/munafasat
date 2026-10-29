@@ -105,7 +105,7 @@ interface InboxCtx {
   getTask: (id: string) => Task | undefined;
   blocked: (t: Task) => boolean;
   // commands
-  addComment: (id: string, text: string) => void;
+  addComment: (id: string, text: string, anchor?: ActivityEntry['anchor']) => void;
   decide: (id: string, action: 'approve' | 'reject' | 'return' | 'request-clarification' | 'complete' | 'submit' | 'save-draft', note?: string, decisionLabel?: Bilingual) => void;
   setChecklistItem: (id: string, itemId: string, patch: Partial<ChecklistItem>) => void;
   setField: (id: string, fieldId: string, value: CollectField['value']) => void;
@@ -128,9 +128,9 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   const logActivity = (t: Task, entry: Omit<ActivityEntry, 'id' | 'at'> & { at?: string }): Task =>
     ({ ...t, activity: [...t.activity, { id: uid(), at: new Date().toISOString(), ...entry }] });
 
-  const addComment = useCallback((id: string, text: string) => {
+  const addComment = useCallback((id: string, text: string, anchor?: ActivityEntry['anchor']) => {
     if (!text.trim()) return;
-    patch(id, (t) => logActivity(t, { kind: 'comment', actor: ME, text: text.trim() }));
+    patch(id, (t) => logActivity(t, { kind: 'comment', actor: ME, text: text.trim(), anchor }));
   }, [patch]);
 
   const setChecklistItem = useCallback((id: string, itemId: string, p: Partial<ChecklistItem>) => {

@@ -126,6 +126,7 @@ export interface ActivityEntry {
   text?: string;                // comment body / decision note
   system?: Bilingual;           // system event label
   decision?: Bilingual;         // formal decision label
+  anchor?: { id: string; label: Bilingual }; // review comment pinned to an RFP section/field
 }
 
 /** A decision button on a task, as defined by the process task list. */
@@ -175,6 +176,7 @@ export interface Task {
   assignTo?: Person[];          // officers the TL can assign to
   doaInfo?: { label: Bilingual; value: string }[];
   priceBreakdown?: boolean;     // show the estimated price by budget item
+  reviewComments?: boolean;     // reviewer can pin comments to RFP sections/fields
 
   // Type-specific payloads (only the one matching `type` is populated, plus
   // an optional generic completion checklist on some types).

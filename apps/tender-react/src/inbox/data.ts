@@ -54,7 +54,7 @@ const reqUser = (isAr = false) => (isAr ? REQ.requester.nameAr : REQ.requester.n
 
 /** Task titles from the process task list — names/departments are resolved, never hard-coded. */
 const TITLE = {
-  reviewFromUser: () => sup(`Review purchase request #${REQ.no} from ${reqUser()}`, `مراجعة طلب الشراء رقم ${REQ.no} من ${reqUser(true)}`),
+  reviewFromUser: () => sup(`Review & approve purchase request #${REQ.no} from ${reqUser()}`, `مراجعة واعتماد طلب الشراء رقم ${REQ.no} من ${reqUser(true)}`),
   techEvalFromUser: () => sup(`Review technical evaluation criteria for purchase request #${REQ.no} from ${reqUser()}`, `مراجعة معايير التقييم الفني لطلب الشراء رقم ${REQ.no} من ${reqUser(true)}`),
   reviewFromDept: () => sup(`Review purchase request #${REQ.no} from ${reqDept()}`, `مراجعة طلب الشراء رقم ${REQ.no} من ${reqDept(true)}`),
   qualFromDept: () => sup(`Review request & add qualification criteria for purchase request #${REQ.no} from ${reqDept()}`, `مراجعة الطلب وإضافة معايير التأهيل لطلب الشراء رقم ${REQ.no} من ${reqDept(true)}`),
@@ -91,14 +91,14 @@ const approvalRecord = [
 
 const SPECS: Spec[] = [
   { n: 1, type: 'approval', title: TITLE.reviewFromUser(),
-    summary: sup(`${reqUser()} submitted this purchase request. Approve it, return it with comments, or reject it with a reason.`, `قدّم ${reqUser(true)} طلب الشراء هذا. اعتمده أو أعده مع ملاحظات أو ارفضه مع ذكر السبب.`),
+    summary: sup(`${reqUser()} submitted this purchase request. Review the RFP details, add comments on any section or field, then approve, return or reject.`, `قدّم ${reqUser(true)} طلب الشراء هذا. راجع تفاصيل المنافسة وأضف ملاحظاتك على أي قسم أو حقل، ثم اعتمد الطلب أو أعده أو ارفضه.`),
     stage: sup('Department approval', 'اعتماد الإدارة'), assignee: P.manager, sla: 1, priority: 'high', received: -1,
     actions: [
       { id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary' },
       { id: 'return', labelEn: 'Return', labelAr: 'إعادة', variant: 'secondary', needsNote: true },
       { id: 'reject', labelEn: 'Reject', labelAr: 'رفض', variant: 'danger', needsNote: true },
     ],
-    extra: { approvalRecord, requireReasonOnReject: true } },
+    extra: { approvalRecord, requireReasonOnReject: true, reviewComments: true } },
   { n: 2, type: 'review', title: TITLE.techEvalFromUser(),
     summary: sup('Verify the technical evaluation criteria and weights before the specialist and finance reviews.', 'تحقق من معايير التقييم الفني وأوزانها قبل المراجعات التخصصية والمالية.'),
     stage: sup('Technical member review', 'مراجعة العضو الفني'), assignee: P.techMember, sla: 2, priority: 'medium', received: -1,

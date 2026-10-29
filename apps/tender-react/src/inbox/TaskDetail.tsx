@@ -1,10 +1,11 @@
 // Munafasat Inbox — task detail workspace (right pane).
 // Header with meta + Approve/Reject/Return CTAs, tabbed body (Overview / RFP /
 // Activity), and top actions: Chat (slide-in), History (task trail), Download PDF.
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { LOCKED_TECH_DOCS } from '../sections/TechnicalEvaluation';
+import { CommentLayer, Commentable, AnchorChip, BubbleIcon, flashTarget, type AnchoredComment } from './comments';
 import { Badge, Button } from '../components/ui';
 import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadIcon, ChevronRightIcon } from '../components/Icons';
 import type { Bilingual, Task, TaskAction, Person, RfpDetail } from './types';
@@ -65,6 +66,17 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const { decide, addComment } = useInbox();
   const [tab, setTab] = useState<'overview' | 'rfp' | 'activity'>('overview');
   const [side, setSide] = useState<'chat' | 'history' | null>(null);
+  const [commentMode, setCommentMode] = useState(false);
+  useEffect(() => { setCommentMode(false); }, [task.id]);
+  useEffect(() => { if (tab !== 'rfp') setCommentMode(false); }, [tab]);
+  const anchored: AnchoredComment[] = task.activity.filter((a) => a.kind === 'comment' && a.anchor)
+    .map((a) => ({ id: a.id, anchor: a.anchor!, text: a.text ?? '', author: personName(a.actor, isAr), at: a.at }));
+  const addAnchored = (anchor: { id: string; label: Bilingual }, text: string) => {
+    addComment(task.id, text, anchor);
+    // Office-style: the comments pane opens once the first comment lands.
+    window.setTimeout(() => setSide((s) => s ?? 'chat'), 150);
+  };
+  const jumpTo = (id: string) => { setTab('rfp'); window.setTimeout(() => flashTarget(id), 120); };
   const toggleSide = (s: 'chat' | 'history') => setSide((prev) => (prev === s ? null : s));
   useEffect(() => { onSideOpenChange?.(side !== null); }, [side, onSideOpenChange]);
   const [pending, setPending] = useState<ActionDef | null>(null);
@@ -202,9 +214,14 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 
         {/* Tab content */}
         <div className="p-4 sm:p-6">
-          {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} />}
-          {tab === 'rfp' && <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />}
-          {tab === 'activity' && <ActivityTab task={task} isAr={isAr} t={t} onComment={(x) => addComment(task.id, x)} terminal={terminal} />}
+          {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); setCommentMode(true); } : undefined} commentCount={anchored.length} />}
+          {tab === 'rfp' && (task.reviewComments && task.rfp ? (
+            <CommentLayer mode={commentMode && !terminal} isAr={isAr} comments={anchored} onAdd={addAnchored} authorLabel={personName(task.assignee, isAr)}>
+              <ReviewBar on={commentMode} onToggle={() => setCommentMode((m) => !m)} count={anchored.length} isAr={isAr} t={t} disabled={terminal} onOpenChat={() => setSide('chat')} />
+              <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />
+            </CommentLayer>
+          ) : <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />)}
+          {tab === 'activity' && <ActivityTab task={task} isAr={isAr} t={t} onComment={(x) => addComment(task.id, x)} terminal={terminal} onJump={jumpTo} />}
         </div>
       </div>
       {tab === 'rfp' && task.rfp && <JumpFab sections={rfpSections(task.rfp)} isAr={isAr} t={t} />}
@@ -231,7 +248,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             </div>
             <div className="flex-1 min-h-0 flex flex-col">
               {side === 'chat'
-                ? <ChatPanel task={task} isAr={isAr} t={t} onSend={(x) => addComment(task.id, x)} disabled={terminal} />
+                ? <ChatPanel task={task} isAr={isAr} t={t} onSend={(x) => addComment(task.id, x)} disabled={terminal} onJump={jumpTo} />
                 : <TrailPanel task={task} isAr={isAr} t={t} />}
             </div>
           </aside>
@@ -240,7 +257,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 
       {/* ── Right icon rail (always visible) — dark navy to anchor the workspace ── */}
       <nav className="w-16 flex-shrink-0 bg-[#17233A] flex flex-col items-center pt-3 pb-3 gap-1.5 z-40" aria-label={t('Task tools', 'أدوات المهمة')}>
-        <StripBtn active={side === 'chat'} onClick={() => toggleSide('chat')} label={t('Chat', 'محادثة')} count={task.activity.filter((a) => a.kind === 'comment').length} icon={<ChatGlyph className="w-[18px] h-[18px]" />} />
+        <StripBtn dock active={side === 'chat'} onClick={() => toggleSide('chat')} label={t('Chat', 'محادثة')} count={task.activity.filter((a) => a.kind === 'comment').length} icon={<ChatGlyph className="w-[18px] h-[18px]" />} />
         <StripBtn active={side === 'history'} onClick={() => toggleSide('history')} label={t('History', 'السجل')} icon={<HistoryGlyph className="w-[18px] h-[18px]" />} />
         <div className="w-8 h-px bg-white/10 my-1.5" />
         <StripBtn onClick={() => downloadTaskPdf(task)} label={t('PDF', 'PDF')} icon={<DownloadIcon className="w-[18px] h-[18px]" />} />
@@ -249,9 +266,9 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   );
 }
 
-function StripBtn({ active, onClick, label, icon, count }: { active?: boolean; onClick: () => void; label: string; icon: React.ReactNode; count?: number }) {
+function StripBtn({ active, onClick, label, icon, count, dock }: { active?: boolean; onClick: () => void; label: string; icon: React.ReactNode; count?: number; dock?: boolean }) {
   return (
-    <button type="button" onClick={onClick} title={label} aria-label={label} aria-pressed={active}
+    <button type="button" onClick={onClick} title={label} aria-label={label} aria-pressed={active} data-comment-dock={dock ? 'rail' : undefined}
       className={`relative w-12 py-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${active ? 'bg-white text-[#17233A] shadow-sm' : 'text-white/65 hover:bg-white/10 hover:text-white'}`}>
       {icon}
       <span className="text-[10px] font-semibold leading-none">{label}</span>
@@ -320,13 +337,13 @@ function Donut({ segments, size = 128, stroke = 20 }: { segments: { value: numbe
 
 type RfpView = 'table' | 'chart';
 
-function RfpSection({ id, title, meta, views, children }: { id: string; title: string; meta?: string; views?: { table: React.ReactNode; chart: React.ReactNode }; children?: React.ReactNode }) {
+function RfpSection({ id, title, meta, views, children, label }: { id: string; title: string; label?: Bilingual; meta?: string; views?: { table: React.ReactNode; chart: React.ReactNode }; children?: React.ReactNode }) {
   const { isAr } = useLanguage();
   const t = useT();
   const [open, setOpen] = useState(true);
   const [view, setView] = useState<RfpView>('table');
   return (
-    <section id={`rfp-${id}`} className="scroll-mt-16 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+    <Commentable id={`sec-${id}`} label={label ?? title}><section id={`rfp-${id}`} className="scroll-mt-16 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
       <div className="flex items-center gap-2 pe-3 sm:pe-4 hover:bg-neutral-50/70 transition-colors">
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
           className="flex-1 min-w-0 flex items-center gap-2.5 ps-4 sm:ps-5 py-3 text-start">
@@ -348,7 +365,7 @@ function RfpSection({ id, title, meta, views, children }: { id: string; title: s
         )}
       </div>
       {open && <div className="px-4 sm:px-5 pb-5 pt-4 border-t border-neutral-100">{views ? views[view] : children}</div>}
-    </section>
+    </section></Commentable>
   );
 }
 
@@ -436,11 +453,11 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
           </tr></thead>
           <tbody className="divide-y divide-neutral-100">
             {rfp.boq.map((l, i) => (
-              <tr key={i} className="bg-white">
+              <Commentable key={i} id={`boq-${i}`} label={{ en: l.itemEn, ar: l.itemAr }}><tr className="bg-white">
                 <td className="ps-3 pe-2 py-2 text-[12.5px] text-neutral-800"><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} />{isAr ? l.itemAr : l.itemEn}</span></td>
                 <td className="px-2 py-2 text-center text-[12px] text-neutral-600 whitespace-nowrap">{l.qty} {l.unit}</td>
                 <td className="px-2 py-2 text-end text-[12.5px] font-semibold text-neutral-800 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(lineTotalOf(l))}</td>
-              </tr>
+              </tr></Commentable>
             ))}
           </tbody>
           <tfoot className="bg-neutral-50 border-t-2 border-neutral-200">
@@ -479,7 +496,7 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
                   </tr>
                 )}
                 {lines.map(({ l, i }) => (
-                  <tr key={i} className="bg-white border-b border-neutral-100 align-top">
+                  <Commentable key={i} id={`boq-${i}`} label={{ en: l.itemEn, ar: l.itemAr }}><tr className="bg-white border-b border-neutral-100 align-top">
                     <td className="px-3 py-2.5 text-center text-neutral-400 tabular-nums">{i + 1}</td>
                     <td className="px-3 py-2.5 max-w-[320px]">
                       <p className="font-semibold text-neutral-800">{isAr ? l.itemAr : l.itemEn}</p>
@@ -490,7 +507,7 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
                     <td className="px-3 py-2.5 text-end text-neutral-700 tabular-nums whitespace-nowrap">{l.qty} <span className="text-neutral-400">{l.unit}</span></td>
                     <td className="px-3 py-2.5 text-end text-neutral-600 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(l.unitPrice)}</td>
                     <td className="px-3 py-2.5 text-end font-semibold text-neutral-900 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(lineTotalOf(l))}</td>
-                  </tr>
+                  </tr></Commentable>
                 ))}
               </Fragment>
             );
@@ -513,14 +530,14 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {rfp.payment.map((p, i) => (
-          <div key={i} className="rounded-xl border border-neutral-200 p-3">
+          <Commentable key={i} id={`pay-${i}`} label={{ en: p.stageEn, ar: p.stageAr }}><div className="rounded-xl border border-neutral-200 p-3">
             <div className="flex items-center gap-2">
               <span className="w-5 h-5 rounded-md text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }}>{i + 1}</span>
               <span className="text-[12.5px] font-semibold text-neutral-700 truncate">{isAr ? p.stageAr : p.stageEn}</span>
             </div>
             <p className="text-[20px] font-bold text-neutral-900 mt-1.5 tabular-nums">{p.pct}%</p>
             {estValue > 0 && <p className="text-[12px] text-neutral-500 tabular-nums" dir="ltr">{fmtSAR((p.pct / 100) * estValue)}</p>}
-          </div>
+          </div></Commentable>
         ))}
       </div>
     </>
@@ -543,14 +560,14 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
           </tr></thead>
           <tbody className="divide-y divide-neutral-100">
             {rfp.payment.map((p, i) => (
-              <tr key={i} className="bg-white align-top">
+              <Commentable key={i} id={`pay-${i}`} label={{ en: p.stageEn, ar: p.stageAr }}><tr className="bg-white align-top">
                 <td className="px-3 py-2.5 text-center"><span className="inline-flex w-5 h-5 rounded-md text-white text-[10.5px] font-bold items-center justify-center" style={{ background: PALETTE[i % PALETTE.length] }}>{i + 1}</span></td>
                 <td className="px-3 py-2.5 font-semibold text-neutral-800">{isAr ? p.stageAr : p.stageEn}</td>
                 <td className="px-3 py-2.5 text-neutral-600 leading-snug">{(isAr ? p.descAr : p.descEn) ?? '—'}</td>
                 <td className="px-3 py-2.5 text-neutral-600 whitespace-nowrap">{(isAr ? p.dueAr : p.due) ?? '—'}</td>
                 <td className="px-3 py-2.5 text-end font-semibold text-neutral-800 tabular-nums">{p.pct}%</td>
                 <td className="px-3 py-2.5 text-end font-semibold text-neutral-900 tabular-nums whitespace-nowrap" dir="ltr">{estValue > 0 ? fmtSAR((p.pct / 100) * estValue) : '—'}</td>
-              </tr>
+              </tr></Commentable>
             ))}
           </tbody>
           <tfoot><tr className="bg-brand-50 border-t border-brand-200 text-[13px]">
@@ -567,7 +584,7 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
   const evalChart = (
     <div className="space-y-2.5">
       {rfp.evaluation.map((c, i) => (
-        <div key={i}>
+        <Commentable key={i} id={`eval-${i}`} label={{ en: c.criterionEn, ar: c.criterionAr }}><div>
           <div className="flex items-center justify-between text-[12.5px] mb-1">
             <span className="text-neutral-700">{isAr ? c.criterionAr : c.criterionEn}</span>
             <span className="font-semibold text-neutral-800 tabular-nums">{c.weight}%</span>
@@ -575,14 +592,14 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
           <div className="h-2.5 rounded-full bg-neutral-100 overflow-hidden">
             <div className="h-full rounded-full bg-brand-500" style={{ width: `${(c.weight / evalMax) * 100}%` }} />
           </div>
-        </div>
+        </div></Commentable>
       ))}
     </div>
   );
   const evalTable = (
     <div className="space-y-5">
       {rfp.evalCommittee?.length ? <div><SubLabel>{t('Evaluation committee', 'لجنة التقييم')}</SubLabel><CommitteeChips members={rfp.evalCommittee} isAr={isAr} /></div> : null}
-      <div>
+      <Commentable id="tech-docs" label={{ en: 'Technical documents', ar: 'الوثائق الفنية' }}><div className="rounded-lg">
         <SubLabel>{t('Technical documents', 'الوثائق الفنية')}</SubLabel>
         <div className="flex flex-wrap gap-1.5">
           {LOCKED_TECH_DOCS.map((d, i) => (
@@ -595,7 +612,7 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
             <span key={`u-${i}`} className="inline-flex items-center px-2.5 py-1 rounded-full text-[11.5px] bg-white text-neutral-700 border border-neutral-200">{isAr ? d.ar : d.en}</span>
           ))}
         </div>
-      </div>
+      </div></Commentable>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <MiniStat label={t('Technical share', 'الوزن الفني')} value={`${rfp.techSplit ?? 0}%`} />
         <MiniStat label={t('Commercial share', 'الوزن المالي')} value={`${100 - (rfp.techSplit ?? 0)}%`} />
@@ -613,11 +630,11 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
               </tr></thead>
               <tbody className="divide-y divide-neutral-100">
                 {rfp.techRequirements.map((r, i) => (
-                  <tr key={i} className="bg-white align-top">
+                  <Commentable key={i} id={`treq-${i}`} label={{ en: r.reqEn, ar: r.reqAr }}><tr className="bg-white align-top">
                     <td className="px-3 py-2.5 text-center text-neutral-400">{i + 1}</td>
                     <td className="px-3 py-2.5 font-semibold text-neutral-800">{isAr ? r.reqAr : r.reqEn}</td>
                     <td className="px-3 py-2.5 text-neutral-600 leading-snug">{isAr ? r.descAr : r.descEn}</td>
-                  </tr>
+                  </tr></Commentable>
                 ))}
               </tbody>
             </table>
@@ -636,12 +653,12 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
             </tr></thead>
             <tbody className="divide-y divide-neutral-100">
               {rfp.evaluation.map((c, i) => (
-                <tr key={i} className="bg-white align-top">
+                <Commentable key={i} id={`eval-${i}`} label={{ en: c.criterionEn, ar: c.criterionAr }}><tr className="bg-white align-top">
                   <td className="px-3 py-2.5 text-center text-neutral-400">{i + 1}</td>
                   <td className="px-3 py-2.5 font-semibold text-neutral-800">{isAr ? c.criterionAr : c.criterionEn}</td>
                   <td className="px-3 py-2.5 text-neutral-600 leading-snug">{(isAr ? c.descAr : c.descEn) ?? '—'}</td>
                   <td className="px-3 py-2.5 text-end font-semibold text-neutral-800 tabular-nums">{c.weight}%</td>
-                </tr>
+                </tr></Commentable>
               ))}
             </tbody>
             <tfoot><tr className={`border-t border-neutral-200 ${evalTotal === 100 ? 'bg-success-50/50' : 'bg-warning-50/50'}`}>
@@ -658,7 +675,7 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
   const qualChart = (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
       {(rfp.qualCriteria ?? []).map((m, i) => (
-        <div key={i} className="rounded-xl border border-neutral-200 p-3.5">
+        <Commentable key={i} id={`qual-${i}`} label={{ en: m.nameEn, ar: m.nameAr }}><div className="rounded-xl border border-neutral-200 p-3.5">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} />
             <span className="text-[12.5px] font-semibold text-neutral-700 flex-1 min-w-0 truncate">{isAr ? m.nameAr : m.nameEn}</span>
@@ -673,7 +690,7 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
               </div>
             ))}
           </div>
-        </div>
+        </div></Commentable>
       ))}
     </div>
   );
@@ -693,17 +710,17 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
               <tbody>
                 {rfp.qualCriteria.map((m, i) => (
                   <Fragment key={i}>
-                    <tr className="bg-neutral-50/80 border-y border-neutral-200">
+                    <Commentable id={`qual-${i}`} label={{ en: m.nameEn, ar: m.nameAr }}><tr className="bg-neutral-50/80 border-y border-neutral-200">
                       <td className="px-3 py-2 font-semibold text-neutral-800">{isAr ? m.nameAr : m.nameEn}</td>
                       <td className="px-3 py-2 text-[11px] text-neutral-400 italic">{t('Main category', 'فئة رئيسية')}</td>
                       <td className="px-3 py-2 text-end font-semibold text-neutral-800 tabular-nums">{m.pct}%</td>
-                    </tr>
+                    </tr></Commentable>
                     {m.subs.map((s, j) => (
-                      <tr key={j} className="bg-white border-b border-neutral-100">
+                      <Commentable key={j} id={`qual-${i}-${j}`} label={{ en: s.nameEn, ar: s.nameAr }}><tr className="bg-white border-b border-neutral-100">
                         <td className="px-3 py-2 ps-7 text-neutral-700"><span className="text-neutral-300 me-1">└</span>{isAr ? s.nameAr : s.nameEn}</td>
                         <td className="px-3 py-2 text-neutral-600" dir="auto">{s.range}</td>
                         <td className="px-3 py-2 text-end text-neutral-700 tabular-nums">{s.pct}%</td>
-                      </tr>
+                      </tr></Commentable>
                     ))}
                   </Fragment>
                 ))}
@@ -726,69 +743,71 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
         {stats.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {stats.map((s, i) => (
-              <div key={i} className="rounded-xl border border-neutral-200 bg-white shadow-sm px-4 py-3">
+              <Commentable key={i} id={`stat-${i}`} label={{ en: s.label, ar: s.label }}><div className="rounded-xl border border-neutral-200 bg-white shadow-sm px-4 py-3">
                 <p className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{s.label}</p>
                 <p className="text-[18px] font-bold text-neutral-900 mt-0.5 tabular-nums" dir={s.dir}>{s.value}</p>
-              </div>
+              </div></Commentable>
             ))}
           </div>
         )}
 
-        <RfpSection id="overview" title={t('Request overview', 'نظرة عامة على الطلب')}>
+        <RfpSection id="overview" title={t('Request overview', 'نظرة عامة على الطلب')} label={{ en: 'Request overview', ar: 'نظرة عامة على الطلب' }}>
+          <Commentable id="overview-summary" label={{ en: 'Request overview — title & summary', ar: 'نظرة عامة — العنوان والملخص' }}><div className="rounded-lg">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">{rfp.refId}</p>
           <h3 className="text-[16px] font-bold text-neutral-900 mt-0.5">{isAr ? rfp.titleAr : rfp.titleEn}</h3>
           <p className="text-[13px] text-neutral-600 mt-1 leading-relaxed">{isAr ? rfp.summaryAr : rfp.summaryEn}</p>
+          </div></Commentable>
           <dl className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 border-t border-neutral-100 pt-4">
             {rfp.meta.map((m, i) => (
-              <div key={i} className="min-w-0"><dt className="text-[10.5px] uppercase tracking-wide text-neutral-400">{tb(m.label, isAr)}</dt>
-                <dd className="text-[13px] font-medium text-neutral-800 truncate mt-0.5" dir={m.dir}>{m.value}</dd></div>
+              <Commentable key={i} id={`meta-${i}`} label={{ en: m.label.en, ar: m.label.ar }}><div className="min-w-0"><dt className="text-[10.5px] uppercase tracking-wide text-neutral-400">{tb(m.label, isAr)}</dt>
+                <dd className="text-[13px] font-medium text-neutral-800 truncate mt-0.5" dir={m.dir}>{m.value}</dd></div></Commentable>
             ))}
           </dl>
         </RfpSection>
 
-        <RfpSection id="scope" title={t('Scope of work', 'نطاق العمل')}>
-          <p className="text-[13px] text-neutral-700 leading-relaxed">{isAr ? rfp.scopeAr : rfp.scopeEn}</p>
+        <RfpSection id="scope" title={t('Scope of work', 'نطاق العمل')} label={{ en: 'Scope of work', ar: 'نطاق العمل' }}>
+          <Commentable id={'scope-summary'} label={{ en: 'Scope of work — summary', ar: 'نطاق العمل — الملخص' }}><p className="text-[13px] text-neutral-700 leading-relaxed">{isAr ? rfp.scopeAr : rfp.scopeEn}</p></Commentable>
           {rfp.scopeBlocks?.length ? (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
               {rfp.scopeBlocks.map((b, i) => (
-                <div key={i} className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3.5">
+                <Commentable key={i} id={`scope-${i}`} label={{ en: b.headEn, ar: b.headAr }}><div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3.5">
                   <p className="text-[12px] font-bold text-neutral-800 mb-1.5">{isAr ? b.headAr : b.headEn}</p>
                   <ul className="space-y-1">
                     {(isAr ? b.itemsAr : b.itemsEn).map((x, j) => (
                       <li key={j} className="flex items-start gap-2 text-[12.5px] text-neutral-600 leading-snug"><span className="w-1.5 h-1.5 rounded-full bg-brand-500 mt-1.5 flex-shrink-0" />{x}</li>
                     ))}
                   </ul>
-                </div>
+                </div></Commentable>
               ))}
             </div>
           ) : null}
         </RfpSection>
 
         {rfp.boq.length > 0 && (
-          <RfpSection id="cost" title={t('Bill of quantities', 'جدول الكميات')} meta={`${rfp.boq.length} ${t('items', 'بنود')} · ${fmtSAR(boqTotal)}`} views={{ table: boqTable, chart: boqChart }} />
+          <RfpSection id="cost" title={t('Bill of quantities', 'جدول الكميات')} label={{ en: 'Bill of quantities', ar: 'جدول الكميات' }} meta={`${rfp.boq.length} ${t('items', 'بنود')} · ${fmtSAR(boqTotal)}`} views={{ table: boqTable, chart: boqChart }} />
         )}
         {rfp.payment.length > 0 && (
-          <RfpSection id="payment" title={t('Payment schedule', 'جدول الدفعات')} meta={`${rfp.payment.length} ${t('stages', 'مراحل')}`} views={{ table: payTable, chart: payChart }} />
+          <RfpSection id="payment" title={t('Payment schedule', 'جدول الدفعات')} label={{ en: 'Payment schedule', ar: 'جدول الدفعات' }} meta={`${rfp.payment.length} ${t('stages', 'مراحل')}`} views={{ table: payTable, chart: payChart }} />
         )}
         {rfp.evaluation.length > 0 && (
-          <RfpSection id="evaluation" title={t('Evaluation criteria', 'معايير التقييم')} meta={`${rfp.evaluation.length} ${t('criteria', 'معايير')} · ${t('passing', 'الاجتياز')} ${rfp.techPassing ?? 0}%`} views={{ table: evalTable, chart: evalChart }} />
+          <RfpSection id="evaluation" title={t('Evaluation criteria', 'معايير التقييم')} label={{ en: 'Evaluation criteria', ar: 'معايير التقييم' }} meta={`${rfp.evaluation.length} ${t('criteria', 'معايير')} · ${t('passing', 'الاجتياز')} ${rfp.techPassing ?? 0}%`} views={{ table: evalTable, chart: evalChart }} />
         )}
         {(rfp.qualCriteria?.length ?? 0) > 0 && (
-          <RfpSection id="qualification" title={t('Qualification criteria', 'معايير التأهيل')} meta={`${rfp.qualCriteria?.length ?? 0} ${t('main criteria', 'معايير رئيسية')} · ${(rfp.qualCriteria ?? []).reduce((n, m) => n + m.subs.length, 0)} ${t('sub-criteria', 'معايير فرعية')}`} views={{ table: qualTable, chart: qualChart }} />
+          <RfpSection id="qualification" title={t('Qualification criteria', 'معايير التأهيل')} label={{ en: 'Qualification criteria', ar: 'معايير التأهيل' }} meta={`${rfp.qualCriteria?.length ?? 0} ${t('main criteria', 'معايير رئيسية')} · ${(rfp.qualCriteria ?? []).reduce((n, m) => n + m.subs.length, 0)} ${t('sub-criteria', 'معايير فرعية')}`} views={{ table: qualTable, chart: qualChart }} />
         )}
 
         {rfp.documents.length > 0 && (
-          <RfpSection id="documents" title={t('Documents', 'المستندات')} meta={`${rfp.documents.length} ${t('files', 'ملفات')}`}>
+          <RfpSection id="documents" title={t('Documents', 'المستندات')} label={{ en: 'Documents', ar: 'المستندات' }} meta={`${rfp.documents.length} ${t('files', 'ملفات')}`}>
             <ul className="space-y-1.5">
               {rfp.documents.map((dc, i) => (
-                <li key={i} className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 px-3 py-2">
+                <Commentable key={i} id={`doc-${i}`} label={{ en: dc.en, ar: dc.ar }}><li className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 px-3 py-2">
                   {dc.type && <span className="w-10 h-6 rounded-md bg-white border border-neutral-200 text-[10px] font-bold text-neutral-500 flex items-center justify-center flex-shrink-0">{dc.type}</span>}
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-medium text-neutral-800 truncate">{isAr ? dc.ar : dc.en}</p>
                     {(dc.size || dc.by) && <p className="text-[11px] text-neutral-400">{[dc.size, dc.by].filter(Boolean).join(' · ')}</p>}
                   </div>
                   <DownloadIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" />
-                </li>
+                </li></Commentable>
               ))}
             </ul>
           </RfpSection>
@@ -847,7 +866,7 @@ const TONE: Record<'success' | 'warning' | 'danger' | 'info', { pill: string; do
   info:    { pill: 'bg-blue-50 text-blue-700 border-blue-100', dot: 'bg-blue-500' },
 };
 
-function RequiredAction({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
+function RequiredAction({ task, isAr, t, onReview, commentCount = 0 }: { task: Task; isAr: boolean; t: T; onReview?: () => void; commentCount?: number }) {
   const [officer, setOfficer] = useState(task.assignTo?.[0]?.id ?? '');
   const lines = task.rfp?.boq ?? [];
   const budgets = Array.from(new Set(lines.map((l) => l.budgetEn ?? '')));
@@ -875,6 +894,19 @@ function RequiredAction({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) 
           </div>
         ) : null}
       </div>
+
+      {/* Approver: review the RFP and pin comments */}
+      {onReview && (
+        <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white p-5 shadow-sm flex items-center gap-4 flex-wrap">
+          <span className="w-11 h-11 rounded-xl bg-[#2A6193] text-white flex items-center justify-center flex-shrink-0"><BubbleIcon className="w-5 h-5" /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-bold text-neutral-900">{t('Review the RFP details', 'راجع تفاصيل المنافسة')}</p>
+            <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Go through each section of the request. Hover any section or field and add a comment — it is sent to the conversation with the section name.', 'راجع كل قسم من الطلب. مرّر المؤشر على أي قسم أو حقل وأضف تعليقاً — يُرسل إلى المحادثة مع اسم القسم.')}</p>
+            {commentCount > 0 && <p className="text-[12px] font-semibold text-[#21507A] mt-1">{t(`${commentCount} comment${commentCount > 1 ? 's' : ''} added`, `${commentCount} تعليق مضاف`)}</p>}
+          </div>
+          <Button size="md" variant="primary" onClick={onReview}>{t('Review RFP & add comments', 'مراجعة المنافسة وإضافة تعليقات')}</Button>
+        </div>
+      )}
 
       {/* Team Lead: pick the officer */}
       {task.assignTo?.length ? (
@@ -962,12 +994,12 @@ const TL_META: Record<TLStatus, { en: string; ar: string; pill: string; dot: str
 };
 const fmtTime = (iso: string, isAr: boolean) => new Date(iso).toLocaleTimeString(isAr ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' });
 
-function ActivityTab({ task, isAr, t, onComment, terminal }: { task: Task; isAr: boolean; t: T; onComment: (x: string) => void; terminal: boolean }) {
+function ActivityTab({ task, isAr, t, onComment, terminal, onJump }: { task: Task; isAr: boolean; t: T; onComment: (x: string) => void; terminal: boolean; onJump?: (id: string) => void }) {
   const [c, setC] = useState('');
-  type Row = { key: string; at?: string; status: TLStatus; icon: React.ReactNode; title: string; sub: string; quote?: string; bubble?: string };
+  type Row = { key: string; at?: string; status: TLStatus; icon: React.ReactNode; title: string; sub: string; quote?: string; bubble?: string; chip?: { id: string; label: string } };
   const rows: Row[] = task.activity.map((a) => {
     const who = `${personName(a.actor, isAr)}${a.actor.role ? ` · ${isAr ? a.actor.roleAr ?? a.actor.role : a.actor.role}` : ''}`;
-    if (a.kind === 'comment') return { key: a.id, at: a.at, status: 'comment', icon: <ChatGlyph className="w-[18px] h-[18px]" />, title: t('Comment added', 'تمت إضافة تعليق'), sub: who, bubble: a.text };
+    if (a.kind === 'comment') return { key: a.id, at: a.at, status: 'comment', icon: <ChatGlyph className="w-[18px] h-[18px]" />, title: a.anchor ? t('Review comment', 'تعليق مراجعة') : t('Comment added', 'تمت إضافة تعليق'), sub: who, bubble: a.text, chip: a.anchor ? { id: a.anchor.id, label: tb(a.anchor.label, isAr) } : undefined };
     if (a.kind === 'decision') {
       const lbl = a.decision ? tb(a.decision, isAr) : '';
       const st: TLStatus = /reject|رفض/i.test(lbl) ? 'rejected' : /return|إعاد|مُعاد/i.test(lbl) ? 'returned' : 'approved';
@@ -1013,6 +1045,7 @@ function ActivityTab({ task, isAr, t, onComment, terminal }: { task: Task; isAr:
                   <p className="text-[14px] font-semibold text-neutral-900 leading-snug">{r.title}</p>
                   <p className="text-[12.5px] text-neutral-500 truncate">{r.sub}</p>
                   {r.quote && <p className="mt-1.5 text-[12.5px] text-neutral-600 border-s-2 border-neutral-200 ps-2.5 italic">“{r.quote}”</p>}
+                  {r.chip && <div className="mt-1.5"><AnchorChip label={r.chip.label} onClick={() => onJump?.(r.chip!.id)} /></div>}
                   {r.bubble && <div className="mt-1.5 rounded-xl rounded-ss-sm bg-neutral-50 border border-neutral-200 px-3 py-2 text-[12.5px] text-neutral-700">{r.bubble}</div>}
                 </div>
                 <span className={`mt-0.5 flex-shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${m.pill}`}>{isAr ? m.ar : m.en}</span>
@@ -1047,17 +1080,45 @@ const InfoGlyph = G(<><circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.0
 const SparkGlyph = G(<><path d="M12 3v4M12 17v4M3 12h4M17 12h4" /><path d="M12 8l1.5 2.5L16 12l-2.5 1.5L12 16l-1.5-2.5L8 12l2.5-1.5z" /></>);
 const TaskGlyph = G(<><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8 12l3 3 5-6" /></>);
 
-function ChatPanel({ task, isAr, t, onSend, disabled }: { task: Task; isAr: boolean; t: T; onSend: (x: string) => void; disabled: boolean }) {
+function ChatPanel({ task, isAr, t, onSend, disabled, onJump }: { task: Task; isAr: boolean; t: T; onSend: (x: string) => void; disabled: boolean; onJump?: (id: string) => void }) {
   const [msg, setMsg] = useState('');
   const comments = task.activity.filter((a) => a.kind === 'comment');
+  const listRef = useRef<HTMLDivElement>(null);
+  const seen = useRef(comments.length);
+  const fresh = comments.length > seen.current ? comments[comments.length - 1].id : null;
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+    seen.current = comments.length;
+  }, [comments.length]);
+  const review = comments.filter((a) => a.anchor).length;
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      {review > 0 && (
+        <div className="px-3 py-2 border-b border-neutral-200 bg-[#F3F8FC] text-[11.5px] text-[#21507A] font-semibold flex items-center gap-1.5">
+          <BubbleIcon className="w-3.5 h-3.5" />{t(`${review} review comment${review > 1 ? 's' : ''} on the RFP`, `${review} تعليق مراجعة على المنافسة`)}
+        </div>
+      )}
+      <div ref={listRef} data-comment-dock="pane" className="flex-1 overflow-y-auto p-3 space-y-3">
         {comments.length === 0 && <p className="text-[12.5px] text-neutral-400 text-center mt-6">{t('No messages yet. Start the conversation.', 'لا توجد رسائل بعد. ابدأ المحادثة.')}</p>}
         {comments.map((a) => {
-          const mine = a.actor.id === 'u-me';
+          const mine = a.actor.id === 'u-me' || a.actor.id === task.assignee.id;
+          if (a.anchor) {
+            return (
+              <div key={a.id} className={`flex gap-2 ${a.id === fresh ? 'cm-land' : ''}`}>
+                <Avatar name={a.actor.name} id={a.actor.id} className="w-6 h-6" />
+                <div className="min-w-0 flex-1 rounded-xl border border-[#C9DBEC] bg-white shadow-sm overflow-hidden">
+                  <div className="h-0.5 bg-[#2A6193]" />
+                  <div className="px-3 py-2">
+                    <AnchorChip label={tb(a.anchor.label, isAr)} onClick={onJump ? () => onJump(a.anchor!.id) : undefined} />
+                    <p className="text-[13px] text-neutral-800 mt-1.5 whitespace-pre-line">{a.text}</p>
+                    <p className="text-[10.5px] text-neutral-400 mt-1">{personName(a.actor, isAr)} · {fmtDateTime(a.at, isAr)}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
           return (
-            <div key={a.id} className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
+            <div key={a.id} className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''} ${a.id === fresh ? 'cm-land' : ''}`}>
               <Avatar name={a.actor.name} id={a.actor.id} className="w-6 h-6" />
               <div className={`max-w-[80%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
                 <div className={`rounded-2xl px-3 py-2 text-[13px] ${mine ? 'bg-brand-600 text-white rounded-se-sm' : 'bg-neutral-100 text-neutral-800 rounded-ss-sm'}`}>{a.text}</div>
@@ -1077,6 +1138,34 @@ function ChatPanel({ task, isAr, t, onSend, disabled }: { task: Task; isAr: bool
         </div>
       )}
     </>
+  );
+}
+
+/** Toolbar above the RFP details that switches review-comment mode on/off. */
+function ReviewBar({ on, onToggle, count, isAr, t, disabled, onOpenChat }: { on: boolean; onToggle: () => void; count: number; isAr: boolean; t: T; disabled: boolean; onOpenChat: () => void }) {
+  void isAr;
+  return (
+    <div className={`mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 flex-wrap transition-colors ${on ? 'border-[#2A6193] bg-[#F3F8FC] shadow-[0_0_0_3px_rgba(42,97,147,0.08)]' : 'border-neutral-200 bg-white shadow-sm'}`}>
+      <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${on ? 'bg-[#2A6193] text-white' : 'bg-[#EAF1F8] text-[#2A6193]'}`}><BubbleIcon className="w-[18px] h-[18px]" /></span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-bold text-neutral-900">{on ? t('Commenting is on', 'وضع التعليق مفعّل') : t('Review the RFP', 'مراجعة المنافسة')}</p>
+        <p className="text-[12px] text-neutral-500">
+          {on ? t('Hover any section, row or field and click Comment. Press Esc to close a comment.', 'مرّر المؤشر على أي قسم أو صف أو حقل ثم اضغط تعليق. اضغط Esc للإغلاق.')
+              : t('Add comments to any section or field — they go to the conversation with the section name.', 'أضف تعليقات على أي قسم أو حقل — تُرسل إلى المحادثة مع اسم القسم.')}
+        </p>
+      </div>
+      {count > 0 && (
+        <button type="button" onClick={onOpenChat} className="inline-flex items-center gap-1.5 rounded-full bg-white border border-[#C9DBEC] px-2.5 py-1 text-[11.5px] font-semibold text-[#21507A] hover:bg-[#EAF1F8]">
+          <BubbleIcon className="w-3.5 h-3.5" />{t(`${count} comment${count > 1 ? 's' : ''}`, `${count} تعليق`)}
+        </button>
+      )}
+      {!disabled && (
+        <button type="button" onClick={onToggle} data-cm-ui
+          className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors ${on ? 'bg-white border border-[#2A6193] text-[#21507A] hover:bg-[#EAF1F8]' : 'bg-[#2A6193] text-white hover:bg-[#21507A]'}`}>
+          {on ? <><CheckCircleIcon className="w-4 h-4" />{t('Done commenting', 'إنهاء التعليق')}</> : <><BubbleIcon className="w-4 h-4" />{t('Add comments', 'إضافة تعليقات')}</>}
+        </button>
+      )}
+    </div>
   );
 }
 

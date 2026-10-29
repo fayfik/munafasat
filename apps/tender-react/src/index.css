@@ -405,3 +405,22 @@ select {
   .donut-seg { transition: none; }
   .check-draw { stroke-dashoffset: 0; animation: none; }
 }
+
+/* ── Inbox review comments (src/inbox/comments.tsx) ───────────────────────── */
+.cm-on [data-comment-id] { transition: outline-color .15s ease, background-color .15s ease; }
+[data-comment-id].cm-hover { outline: 2px dashed #2A6193; outline-offset: 2px; border-radius: 8px; background-color: rgba(42, 97, 147, 0.04); }
+tr[data-comment-id].cm-hover { outline-offset: -2px; }
+[data-cm-has] { background-color: rgba(42, 97, 147, 0.06); outline: 1px solid rgba(42, 97, 147, 0.35); outline-offset: 2px; border-radius: 6px; }
+tr[data-cm-has] { outline-offset: -1px; }
+section[data-cm-has] { background-color: #fff; outline: 2px solid rgba(42, 97, 147, 0.3); outline-offset: 0; border-radius: 12px; }
+.cm-flash { animation: cm-flash 1.6s ease-out; }
+@keyframes cm-flash { 0%, 30% { background-color: rgba(42, 97, 147, 0.18); } 100% { background-color: transparent; } }
+.cm-pop-in { animation: cm-pop-in .16s cubic-bezier(.2, .9, .3, 1.2); transform-origin: top; }
+@keyframes cm-pop-in { from { opacity: 0; transform: translateY(4px) scale(.96); } to { opacity: 1; transform: none; } }
+.cm-fly { background: #fff; border: 1px solid #C9DBEC; border-radius: 12px; padding: 8px 10px; box-shadow: 0 16px 40px -10px rgba(23, 35, 58, .45), 0 0 0 4px rgba(42, 97, 147, .08); transform-origin: center; font-family: inherit; }
+.cm-fly-chip { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; font-weight: 600; color: #21507A; background: #EAF1F8; border-radius: 6px; padding: 2px 6px; }
+.cm-fly-text { margin-top: 4px; font-size: 12.5px; color: #2E332B; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cm-fly-dot { width: 8px; height: 8px; border-radius: 9999px; background: #2A6193; box-shadow: 0 0 10px 2px rgba(42, 97, 147, .55); }
+.cm-ring { border-radius: 9999px; border: 2px solid #2A6193; box-shadow: 0 0 16px rgba(42, 97, 147, .6); }
+.cm-land { animation: cm-land .55s cubic-bezier(.2, .9, .3, 1.15); }
+@keyframes cm-land { 0% { opacity: 0; transform: translateY(14px) scale(.94); } 60% { opacity: 1; transform: translateY(-2px) scale(1.01); } 100% { transform: none; } }
