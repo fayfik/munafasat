@@ -5,7 +5,7 @@
 
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 import { SEED_TASKS, ME } from './data';
-import type { Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry, EtimadReviewItem } from './types';
+import type { Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry, EtimadReviewItem, RouteCheckItem } from './types';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
 export const fmtSAR = (n: number) =>
@@ -78,6 +78,12 @@ export function completionStatus(task: Task): Completion {
       if (it.verdict === 'confirmed' || (it.verdict === 'on-etimad' && (it.note ?? '').trim())) done++;
       else missing.push({ en: it.name, ar: it.name });
     }
+  } else if (task.type === 'route-check' && task.routeItems) {
+    for (const it of task.routeItems) {
+      total++;
+      if (it.verdict === 'off' || (it.verdict === 'on' && it.match)) done++;
+      else missing.push({ en: it.name, ar: it.name });
+    }
   } else if (task.type === 'validation' && task.validationChecks) {
     for (const v of task.validationChecks) {
       total++;
@@ -122,6 +128,11 @@ interface InboxCtx {
   setEtimadItem: (id: string, itemId: string, patch: Partial<EtimadReviewItem>) => void;
   /** Procurement's outcome on an Etimad review: accept all, return to the requester, or move flagged items out. */
   finishEtimadReview: (id: string, outcome: 'accept' | 'return' | 'move', note?: string) => void;
+  setRouteItem: (id: string, itemId: string, patch: Partial<RouteCheckItem>) => void;
+  /** Procurement's outcome on a "Help me decide" route check: reply with their Etimad answers, or ask for more detail. */
+  finishRouteCheck: (id: string, outcome: 'reply' | 'ask', note?: string) => void;
+  /** The requester withdrew the request before Procurement replied. */
+  withdrawTask: (id: string) => void;
 }
 
 const Ctx = createContext<InboxCtx | null>(null);
@@ -184,7 +195,8 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   }, [patch]);
 
   const addTask = useCallback((task: Task) => {
-    setTasks((xs) => (xs.some((t) => t.id === task.id) ? xs : [task, ...xs]));
+    // Same id again (e.g. a request re-sent after Procurement asked for detail) replaces the old task.
+    setTasks((xs) => [task, ...xs.filter((t) => t.id !== task.id)]);
   }, []);
 
   const setEtimadItem = useCallback((id: string, itemId: string, p: Partial<EtimadReviewItem>) => {
@@ -212,6 +224,34 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       return { ...t, state: 'completed', decision: label[outcome], completedAt: now, activity: [...t.activity, entry],
         stageEn: 'Etimad review complete', stageAr: 'اكتملت مراجعة اعتماد' };
     });
+  }, [patch]);
+
+  const setRouteItem = useCallback((id: string, itemId: string, p: Partial<RouteCheckItem>) => {
+    patch(id, (t) => ({
+      ...t,
+      state: t.state === 'available' ? 'in-progress' : t.state,
+      routeItems: t.routeItems?.map((it) => (it.id === itemId ? { ...it, ...p } : it)),
+    }));
+  }, [patch]);
+
+  const finishRouteCheck = useCallback<InboxCtx['finishRouteCheck']>((id, outcome, note) => {
+    const label: Bilingual = outcome === 'reply'
+      ? { en: 'Etimad answers sent to the requester', ar: 'أُرسلت إجابات اعتماد إلى مقدم الطلب' }
+      : { en: 'Asked the requester for more detail', ar: 'طُلب من مقدم الطلب مزيد من التفاصيل' };
+    patch(id, (t) => {
+      const now = new Date().toISOString();
+      const entry: ActivityEntry = { id: uid(), at: now, kind: 'decision', actor: ME, decision: label, text: note?.trim() || undefined };
+      const base = { ...t, decision: label, replyNote: note?.trim() || undefined, activity: [...t.activity, entry] };
+      if (outcome === 'ask') {
+        return { ...base, state: 'waiting', mineAction: false, initiatedByMe: true, stageEn: 'With the requester — more detail needed', stageAr: 'لدى مقدم الطلب — مطلوب مزيد من التفاصيل' };
+      }
+      return { ...base, state: 'completed', completedAt: now, stageEn: 'Answered — requester chooses the route', stageAr: 'تم الرد — يختار مقدم الطلب المسار' };
+    });
+  }, [patch]);
+
+  const withdrawTask = useCallback((id: string) => {
+    patch(id, (t) => ({ ...t, state: 'cancelled', mineAction: false, stageEn: 'Withdrawn by the requester', stageAr: 'سحبه مقدم الطلب',
+      activity: [...t.activity, { id: uid(), at: new Date().toISOString(), kind: 'system', actor: t.requester, system: { en: 'Withdrawn by the requester', ar: 'سحبه مقدم الطلب' } }] }));
   }, [patch]);
 
   const decide = useCallback<InboxCtx['decide']>((id, action, note, decisionLabel) => {
@@ -264,9 +304,9 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       getTask: (id) => tasks.find((t) => t.id === id),
       blocked: (t) => isBlocked(t, tasks),
       addComment, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
-      addTask, setEtimadItem, finishEtimadReview,
+      addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask,
     };
-  }, [tasks, addComment, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, addTask, setEtimadItem, finishEtimadReview]);
+  }, [tasks, addComment, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

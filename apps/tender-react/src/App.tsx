@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import MyRequests from './pages/MyRequests';
 import TenderForm from './pages/TenderForm';
 import type { SourceType, TenderFormData } from './types/tender';
+import { onAppNav } from './lib/appNav';
 
 export type FullPage = AppPage | 'tender-form' | 'procure-intake';
 
@@ -36,6 +37,8 @@ function AppRoot() {
   // A linked Etimad E-Market draft opened in a new tab ("View draft request") — seeded via localStorage.
   const [externalForm, setExternalForm] = useState<TenderFormData | null>(null);
   const store = useRequests();
+  // Prototype hand-offs: requester → Procurement's task in the Inbox, and back to the request.
+  const [focusTask, setFocusTask] = useState<{ id: string; n: number } | null>(null);
 
   useEffect(() => {
     try {
@@ -64,6 +67,12 @@ function AppRoot() {
     else newRequest(r?.type);
   };
 
+  // Re-subscribe each render so the handler sees the current store.
+  useEffect(() => onAppNav((d) => {
+    if (d.kind === 'inbox-task') { setFocusTask((f) => ({ id: d.taskId, n: (f?.n ?? 0) + 1 })); setPage('inbox'); }
+    else openRequest(d.id);
+  }));
+
   const saved = target.kind === 'existing' ? store.get(target.id) : undefined;
 
   return (
@@ -80,7 +89,7 @@ function AppRoot() {
           onViewRequests={(f) => { setReqFilter(f ?? 'all'); setPage('my-requests'); }}
         />
       )}
-      {page === 'inbox' && <InboxPage />}
+      {page === 'inbox' && <InboxPage key={focusTask ? `${focusTask.id}-${focusTask.n}` : 'inbox'} focusTaskId={focusTask?.id} />}
       {page === 'reports' && <EmptyPage page="reports" />}
       {page === 'my-requests' && (
         <MyRequests key={reqFilter} initialFilter={reqFilter} onNewRequest={() => newRequest()} onOpenRequest={openRequest} />

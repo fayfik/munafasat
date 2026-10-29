@@ -181,6 +181,18 @@ export interface TenderFormData {
   routeChoice?: 'tender' | 'emarket' | 'help';
   /** Items moved out of this request into a separate draft (step 1). */
   movedToDraft?: { count: number; route: SourceType };
+  /** Help me decide (manual): the items sent to Procurement for an Etimad check, kept while waiting for their reply. */
+  routeCheck?: {
+    taskId: string;
+    sentAt: string;
+    projectId: string;
+    itemIds: string[];
+    intakeStyle: 'text' | 'fields';
+    text: string;
+    freeItems: { id: string; name: string }[];
+    details: { id: string; type: BOQCategory | ''; name: string; qty: number | ''; unitPrice: number | ''; deliveryDate: string }[];
+    pending: { id: string; name: string; nameAr?: string; type?: ProjectItemType }[];
+  };
   /** Separate draft requests created from this one in step 1 (items that follow the other route). */
   linkedDrafts?: { id: string; route: SourceType; items: string[] }[];
   /** Names of eMarket-available items kept in the tender with the justification above. */

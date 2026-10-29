@@ -1,3 +1,5 @@
+import type { EtimadMatch } from '../lib/etimadCatalogue';
+
 // Munafasat Inbox — task-driven work model.
 // Frontend prototype types. A real deployment resolves these from the Work Engine /
 // Task APIs; here they are served by a deterministic in-memory mock (see store.tsx).
@@ -13,7 +15,8 @@ export type TaskType =
   | 'validation'
   | 'clarification'
   | 'document-submission'
-  | 'etimad-review';
+  | 'etimad-review'
+  | 'route-check';
 
 /** Task lifecycle state. Not every task passes through every state. */
 export type TaskState =
@@ -120,6 +123,19 @@ export interface RequiredDoc {
   uploaded?: string | null;     // file name (mock)
 }
 
+/** One item in a Procurement "Help me decide" route check: Procurement searches Etimad and answers per item. */
+export interface RouteCheckItem {
+  id: string;
+  name: string;                  // what the requester asked for
+  typeLabel?: string;            // product type they picked (item-details intake)
+  qty: number | '';
+  unitPrice: number | '';        // requester's estimate, SAR
+  deliveryDate?: string;
+  verdict?: 'on' | 'off' | null; // Procurement: on Etimad E-Market (with a listing) / not on Etimad
+  match?: EtimadMatch;           // the listing Procurement picked
+  note?: string;                 // optional note back to the requester
+}
+
 /** One BOQ line in a Procurement "Etimad E-Market review" task. */
 export interface EtimadReviewItem {
   id: string;
@@ -210,6 +226,13 @@ export interface Task {
   originalValues?: { label: Bilingual; value: string }[];
   requiredDocs?: RequiredDoc[];
   etimadItems?: EtimadReviewItem[];
+  routeItems?: RouteCheckItem[];
+  /** What the requester wrote when they described items in free text. */
+  routeRequestText?: string;
+  /** The requester's request this check belongs to (its id in My Requests). */
+  sourceDraftId?: string;
+  /** Procurement's covering note when they reply or ask for more detail. */
+  replyNote?: string;
   /** The request being reviewed (used to create an eMarket draft from flagged items). */
   sourceRequest?: { projectId: string; costCenterId: string; purpose: string; requestNo: string; title: string };
 

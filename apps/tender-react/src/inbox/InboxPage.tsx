@@ -16,13 +16,13 @@ const FILTERS: { key: InboxView; en: string; ar: string }[] = [
   { key: 'completed', en: 'Completed', ar: 'مكتملة' },
 ];
 
-export default function InboxPage() {
+export default function InboxPage({ focusTaskId }: { focusTaskId?: string } = {}) {
   const t = useT();
   const { isAr } = useLanguage();
   const { tasks, countsByView, tasksForView, getTask } = useInbox();
   const [view, setView] = useState<InboxView>('needs-action');
   const [q, setQ] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(focusTaskId ?? null);
   const [sideOpen, setSideOpen] = useState(false);
 
   const rows = useMemo(() => {

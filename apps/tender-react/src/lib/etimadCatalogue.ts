@@ -59,3 +59,25 @@ export function qtyFromText(name: string): number | '' {
   const m = name.match(/^\s*(\d+)\s*[x×]?\s/i) ?? name.match(/[x×]\s*(\d+)\b/i) ?? name.match(/\b(\d+)\s*(?:pcs|units|nos)\b/i);
   return m ? Number(m[1]) : '';
 }
+
+const toMatch = (e: Entry): EtimadMatch => ({ productName: e.name, productNameAr: e.nameAr, sku: e.sku, supplier: e.supplier, supplierAr: e.supplierAr, unitPrice: e.price, unit: e.unit, checkedAt: new Date().toISOString() });
+
+/** Procurement's catalogue search in the route-check task (sample listings only). */
+export function searchEtimad(query: string, limit = 6): EtimadMatch[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const words = q.split(/\s+/).filter((w) => w.length > 1);
+  const scored = CATALOGUE.map((e) => {
+    const hay = `${e.name} ${e.nameAr} ${e.sku} ${e.supplier} ${e.kw.join(' ')}`.toLowerCase();
+    const score = words.reduce((s, w) => s + (hay.includes(w) ? 1 : 0), 0) + (e.kw.some((k) => q.includes(k)) ? 2 : 0);
+    return { e, score };
+  }).filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((x) => toMatch(x.e));
+}
+
+/** The listing Procurement is offered first for an item (best keyword hit), if the catalogue has one. */
+export function suggestedEtimad(name: string): EtimadMatch | null {
+  const text = ` ${name.toLowerCase()} `;
+  const e = CATALOGUE.find((x) => x.kw.some((k) => (/^[a-z]/.test(k) ? new RegExp(`(^|[^a-z])${k}`).test(text) : text.includes(k))));
+  return e ? toMatch(e) : null;
+}

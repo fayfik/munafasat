@@ -172,8 +172,10 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       : { ...INITIAL, ...(initialSeed ?? {}), sourceType: initialSourceType ?? initialSeed?.sourceType ?? INITIAL.sourceType });
   const [status, setStatus] = useState<TenderStatus>(initialStatus ?? 'draft');
   // Existing requests are already past the route step; new ones start on it.
-  const [routeConfirmed, setRouteConfirmed] = useState<boolean>(!!initialForm);
-  const [currentSection, setCurrentSection] = useState(initialForm ? 1 : 0);
+  // A request still waiting on Procurement's route check (Help me decide) reopens on step 1.
+  const pastRoute = !!initialForm && !initialForm.routeCheck;
+  const [routeConfirmed, setRouteConfirmed] = useState<boolean>(pastRoute);
+  const [currentSection, setCurrentSection] = useState(pastRoute ? 1 : 0);
   const [saveState, setSaveState] = useState<TenderContextType['saveState']>('idle');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [importedFromProject, setImportedFromProject] = useState<string | null>(null);
@@ -236,6 +238,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       tenderingPurpose: prev.tenderingPurpose || proj?.purpose || '',
       // BOQ starts empty — except lines the requester described for the route check (manual mode).
       boqItems: opts.boqSeed ?? [],
+      routeCheck: undefined,
     }));
     setRouteConfirmed(true);
     triggerSave();

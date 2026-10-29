@@ -60,6 +60,10 @@ function actionsFor(task: Task): ActionDef[] {
         { id: 'return', label: ['Return to requester', 'إعادة إلى مقدم الطلب'], variant: 'secondary', needsNote: true },
       ];
     }
+    case 'route-check': return [
+      { id: 'complete', label: ['Send reply to requester', 'إرسال الرد إلى مقدم الطلب'], variant: 'primary', gated: true },
+      { id: 'return', label: ['Ask for more detail', 'طلب مزيد من التفاصيل'], variant: 'secondary', needsNote: true },
+    ];
     case 'clarification': return [
       { id: 'submit', label: ['Resubmit', 'إعادة التقديم'], variant: 'primary' },
       { id: 'save-draft', label: ['Save draft', 'حفظ مسودة'], variant: 'secondary' },
@@ -74,8 +78,8 @@ function actionsFor(task: Task): ActionDef[] {
 export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: Task; onBack: () => void; onSideOpenChange?: (open: boolean) => void }) {
   const { isAr } = useLanguage();
   const t = useT();
-  const { decide, addComment, finishEtimadReview } = useInbox();
-  const { addSessionDraft } = useRequests();
+  const { decide, addComment, finishEtimadReview, finishRouteCheck } = useInbox();
+  const { addSessionDraft, updateSessionDraft } = useRequests();
   // Etimad review outcomes: confirm all, return to the requester, or move flagged lines to an eMarket draft.
   function finishEtimad(id: TaskAction, n?: string) {
     if (id === 'move-emarket') {
@@ -114,6 +118,13 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
     if (!pending) return;
     if (pending.needsNote && !note.trim()) return;
     if (task.type === 'etimad-review') { finishEtimad(pending.id, note.trim() || undefined); setPending(null); setNote(''); return; }
+    if (task.type === 'route-check') {
+      const replied = pending.id === 'complete';
+      finishRouteCheck(task.id, replied ? 'reply' : 'ask', note.trim() || undefined);
+      // The requester's request in My Requests shows where it stands.
+      if (task.sourceDraftId) updateSessionDraft(task.sourceDraftId, { routeCheckStatus: replied ? 'replied' : 'needs-detail' });
+      setPending(null); setNote(''); return;
+    }
     decide(task.id, pending.id as Parameters<typeof decide>[1], note.trim() || undefined, pending.decision);
     setPending(null); setNote('');
   }

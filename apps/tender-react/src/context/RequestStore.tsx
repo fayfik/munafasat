@@ -10,6 +10,8 @@ export interface SavedRequest extends TenderDraft {
   form?: TenderFormData;
   createdBy?: string | null;
   requestNo?: string;
+  /** Help me decide (manual): where the Procurement route check stands. */
+  routeCheckStatus?: 'with-procurement' | 'replied' | 'needs-detail';
 }
 
 interface StoreCtx {
@@ -21,7 +23,10 @@ interface StoreCtx {
   save: (id: string, form: TenderFormData, status: TenderStatus, extra?: Partial<SavedRequest>) => Promise<boolean>;
   get: (id: string) => SavedRequest | undefined;
   /** Adds a draft request for this browser session only (e.g. items moved out of a request in step 1). */
-  addSessionDraft: (draft: Omit<TenderDraft, 'id' | 'createdAt' | 'updatedAt' | 'status'>, form?: TenderFormData) => string;
+  addSessionDraft: (draft: Omit<TenderDraft, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { routeCheckStatus?: SavedRequest['routeCheckStatus'] }, form?: TenderFormData, id?: string) => string;
+  /** Changes a session draft in place (e.g. its route-check status or saved form). */
+  updateSessionDraft: (id: string, patch: Partial<SavedRequest>) => void;
+  removeSessionDraft: (id: string) => void;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -101,18 +106,27 @@ export function RequestStoreProvider({ children }: { children: ReactNode }) {
   // Drafts added in this same event aren't in state yet; the ref lets get() see them at once.
   const justAdded = useRef<SavedRequest[]>([]);
   const get = useCallback((id: string) => allRequests.find((r) => r.id === id) ?? justAdded.current.find((r) => r.id === id), [allRequests]);
-  const addSessionDraft = useCallback<StoreCtx['addSessionDraft']>((draft, form) => {
+  const addSessionDraft = useCallback<StoreCtx['addSessionDraft']>((draft, form, givenId) => {
     const now = new Date().toISOString();
-    const id = `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const id = givenId ?? `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     // With a form attached, the draft opens with its project and items already filled in.
     const rec = { ...draft, id, status: 'draft', createdAt: now, updatedAt: now, ...(form ? { form } : {}) } as SavedRequest;
-    justAdded.current = [rec, ...justAdded.current];
-    setSessionDrafts((xs) => [rec, ...xs]);
+    justAdded.current = [rec, ...justAdded.current.filter((r) => r.id !== id)];
+    setSessionDrafts((xs) => [rec, ...xs.filter((r) => r.id !== id)]);
     return id;
+  }, []);
+  const updateSessionDraft = useCallback<StoreCtx['updateSessionDraft']>((id, p) => {
+    const now = new Date().toISOString();
+    justAdded.current = justAdded.current.map((r) => (r.id === id ? { ...r, ...p, updatedAt: now } : r));
+    setSessionDrafts((xs) => xs.map((r) => (r.id === id ? { ...r, ...p, updatedAt: now } : r)));
+  }, []);
+  const removeSessionDraft = useCallback((id: string) => {
+    justAdded.current = justAdded.current.filter((r) => r.id !== id);
+    setSessionDrafts((xs) => xs.filter((r) => r.id !== id));
   }, []);
 
   return (
-    <Ctx.Provider value={{ mode, requests: allRequests, userName, canWrite, save, get, addSessionDraft }}>
+    <Ctx.Provider value={{ mode, requests: allRequests, userName, canWrite, save, get, addSessionDraft, updateSessionDraft, removeSessionDraft }}>
       {children}
     </Ctx.Provider>
   );

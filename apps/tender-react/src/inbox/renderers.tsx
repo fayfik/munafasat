@@ -4,7 +4,10 @@
 import { useLanguage, useT } from '../context/LanguageContext';
 import { Input, Textarea, Select, InfoBanner, Button } from '../components/ui';
 import { CheckCircleIcon, AlertTriangleIcon, InfoIcon, DocumentIcon, UploadIcon, ExclamationCircleIcon } from '../components/Icons';
-import type { Task, ChecklistItem, EtimadReviewItem } from './types';
+import { useState, type ReactNode } from 'react';
+import type { Task, ChecklistItem, EtimadReviewItem, RouteCheckItem } from './types';
+import { searchEtimad, suggestedEtimad, type EtimadMatch } from '../lib/etimadCatalogue';
+import { openRequestFromAnywhere } from '../lib/appNav';
 import { useInbox, fmtSAR } from './store';
 import { tb } from './meta';
 
@@ -113,6 +116,123 @@ function EtimadReviewRow({ it, readOnly, isAr, t, onChange }: { it: EtimadReview
             className="w-full rounded-lg border border-warning-400 bg-white px-3 py-1.5 text-[12.5px] focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Route check (Help me decide: Procurement checks the items on Etimad) ──────
+function RouteCheckBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
+  const { setRouteItem } = useInbox();
+  const items = task.routeItems ?? [];
+  const readOnly = task.state === 'completed' || task.state === 'waiting' || task.state === 'cancelled';
+  const answered = items.filter((i) => i.verdict === 'off' || (i.verdict === 'on' && i.match)).length;
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-[12.5px] text-neutral-700 leading-relaxed">
+        {t('The requester isn’t sure how to buy these. Search Etimad E-Market for each item: if it’s listed, pick the listing; if not, mark it “Not on Etimad” so it goes to a tender. Your reply goes back to the requester, who then chooses the route.',
+           'مقدم الطلب غير متأكد من طريقة شراء هذه البنود. ابحث عن كل بند في سوق اعتماد: إن كان مدرجاً فاختر المنتج، وإلا فحدده «غير متوفر في اعتماد» ليذهب إلى منافسة. يعود ردك إلى مقدم الطلب ليختار المسار.')}
+      </div>
+      {task.routeRequestText && (
+        <Section title={t('What the requester wrote', 'ما كتبه مقدم الطلب')}>
+          <p className="rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-[12.5px] text-neutral-700 whitespace-pre-line">{task.routeRequestText}</p>
+        </Section>
+      )}
+      <Section title={t(`Items to check — ${answered} of ${items.length} answered`, `البنود المطلوب فحصها — ${answered} من ${items.length}`)}>
+        <div className="rounded-xl border border-neutral-200 divide-y divide-neutral-100 overflow-hidden" data-testid="route-check-items">
+          {items.map((it) => <RouteCheckRow key={it.id} it={it} readOnly={readOnly} isAr={isAr} t={t} onChange={(p) => setRouteItem(task.id, it.id, p)} />)}
+        </div>
+      </Section>
+      {task.replyNote && (
+        <InfoBanner variant={task.state === 'waiting' ? 'warning' : 'info'}>
+          <span className="font-semibold">{task.state === 'waiting' ? t('You asked for more detail:', 'طلبت مزيداً من التفاصيل:') : t('Your note to the requester:', 'ملاحظتك لمقدم الطلب:')}</span> {task.replyNote}
+        </InfoBanner>
+      )}
+      {(task.state === 'completed' || task.state === 'waiting') && task.sourceDraftId && (
+        <div className="rounded-xl border border-dashed border-neutral-300 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-[12.5px] text-neutral-600"><span className="font-semibold">{t('Prototype:', 'نموذج أولي:')}</span> {t('switch back to the requester to see your reply.', 'عُد إلى مقدم الطلب لرؤية ردك.')}</p>
+          <Button variant="secondary" size="sm" onClick={() => openRequestFromAnywhere(task.sourceDraftId!)}>{t('Open the requester’s request', 'فتح طلب مقدم الطلب')} →</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ListingCard({ m, isAr, action }: { m: EtimadMatch; isAr: boolean; t: T; action?: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-[13px] font-semibold text-neutral-900 leading-snug">{isAr ? m.productNameAr : m.productName}</p>
+        <p className="text-[11.5px] text-neutral-600 mt-0.5"><span className="font-mono" dir="ltr">{m.sku}</span> · {isAr ? m.supplierAr : m.supplier} · <span dir="ltr">{fmtSAR(m.unitPrice)}</span> / {m.unit}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function RouteCheckRow({ it, readOnly, isAr, t, onChange }: { it: RouteCheckItem; readOnly: boolean; isAr: boolean; t: T; onChange: (p: Partial<RouteCheckItem>) => void }) {
+  const [q, setQ] = useState(it.name.replace(/^\s*\d+\s*[x×]?\s*/i, ''));
+  const [picking, setPicking] = useState(false);
+  const best = suggestedEtimad(it.name);
+  const found = searchEtimad(q);
+  const results = best && !found.some((r) => r.sku === best.sku) && q.trim() ? [best, ...found] : (q.trim() ? found : best ? [best] : []);
+  const meta = [it.typeLabel, it.qty !== '' ? `× ${it.qty}` : '', it.unitPrice !== '' ? t(`est. ${fmtSAR(Number(it.unitPrice))}`, `تقدير ${fmtSAR(Number(it.unitPrice))}`) : '', it.deliveryDate ? t(`by ${it.deliveryDate}`, `بحلول ${it.deliveryDate}`) : ''].filter(Boolean).join(' · ');
+  const vBtn = (v: 'on' | 'off', label: string) => (
+    <button type="button" role="radio" aria-checked={it.verdict === v} disabled={readOnly}
+      onClick={() => { onChange(v === 'off' ? { verdict: 'off', match: undefined } : { verdict: 'on' }); setPicking(v === 'on' && !it.match); }}
+      className={`px-3 py-1 text-[11.5px] font-semibold transition-colors ${v === 'off' ? 'border-s border-neutral-300' : ''} ${
+        it.verdict === v ? (v === 'on' ? 'bg-success-600 text-white' : 'bg-neutral-700 text-white') : 'bg-white text-neutral-600 hover:bg-neutral-50'} disabled:cursor-default`}>
+      {label}
+    </button>
+  );
+  const showSearch = !readOnly && it.verdict === 'on' && (!it.match || picking);
+  return (
+    <div className={`px-3.5 py-3 ${it.verdict === 'on' ? 'bg-success-50/40' : 'bg-white'}`} data-testid="route-check-row">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-neutral-900">{it.name}</p>
+          {meta && <p className="text-[11.5px] text-neutral-500" dir={isAr ? undefined : 'ltr'}>{meta}</p>}
+        </div>
+        <span role="radiogroup" aria-label={t(`Etimad answer for ${it.name}`, `إجابة اعتماد لـ ${it.name}`)} className="flex-shrink-0 inline-flex rounded-lg border border-neutral-300 overflow-hidden" dir="ltr">
+          {vBtn('on', t('On Etimad E-Market', 'متوفر في اعتماد'))}
+          {vBtn('off', t('Not on Etimad', 'غير متوفر'))}
+        </span>
+      </div>
+      {it.verdict === 'on' && it.match && !picking && (
+        <div className="mt-2 rounded-lg border border-success-200 bg-white px-3 py-2">
+          <p className="text-[10.5px] font-semibold uppercase tracking-wide text-success-700 mb-0.5">{t('Listing you picked', 'المنتج الذي اخترته')}</p>
+          <ListingCard m={it.match} isAr={isAr} t={t} action={!readOnly ? <button type="button" onClick={() => setPicking(true)} className="text-[11.5px] font-semibold text-link hover:underline flex-shrink-0">{t('Change', 'تغيير')}</button> : undefined} />
+        </div>
+      )}
+      {showSearch && (
+        <div className="mt-2 rounded-lg border border-neutral-200 bg-white p-2.5 space-y-2">
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Search Etimad E-Market (product, brand, SKU)…', 'ابحث في سوق اعتماد (منتج، علامة، رمز)…')}
+            aria-label={t(`Search Etimad for ${it.name}`, `البحث في اعتماد عن ${it.name}`)}
+            className="w-full rounded-lg border border-neutral-300 px-3 py-1.5 text-[12.5px] focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
+          {results.length > 0 ? (
+            <ul className="divide-y divide-neutral-100" data-testid="etimad-results">
+              {results.map((m, i) => (
+                <li key={m.sku} className="py-2">
+                  <ListingCard m={m} isAr={isAr} t={t} action={
+                    <button type="button" onClick={() => { onChange({ verdict: 'on', match: { ...m, checkedAt: new Date().toISOString() } }); setPicking(false); }}
+                      className="px-2.5 py-1 rounded-md border border-brand-600 text-[11.5px] font-semibold text-brand-700 hover:bg-brand-50 flex-shrink-0 whitespace-nowrap">
+                      {best && m.sku === best.sku && i === 0 ? t('Use best match', 'استخدام الأقرب') : t('Use this listing', 'استخدام هذا المنتج')}
+                    </button>} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[12px] text-neutral-500 px-1">{t('No listings found. Try other words — or mark it “Not on Etimad”.', 'لا توجد نتائج. جرّب كلمات أخرى — أو حدده «غير متوفر في اعتماد».')}</p>
+          )}
+          <p className="text-[10.5px] text-neutral-400 px-1">{t('Sample listings for the prototype — not live Etimad data.', 'قوائم نموذجية للنموذج الأولي — ليست بيانات اعتماد فعلية.')}</p>
+        </div>
+      )}
+      {it.verdict && !readOnly && (
+        <input value={it.note ?? ''} onChange={(e) => onChange({ note: e.target.value })}
+          placeholder={it.verdict === 'off' ? t('Note to the requester (optional) — e.g. why it needs a tender', 'ملاحظة لمقدم الطلب (اختياري)') : t('Note to the requester (optional)', 'ملاحظة لمقدم الطلب (اختياري)')}
+          aria-label={t(`Note for ${it.name}`, `ملاحظة لـ ${it.name}`)}
+          className="mt-2 w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[12px] focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
+      )}
+      {readOnly && it.note && <p className="mt-1.5 text-[12px] text-neutral-600"><span className="font-semibold text-neutral-500">{t('Note:', 'ملاحظة:')}</span> {it.note}</p>}
     </div>
   );
 }
@@ -490,6 +610,7 @@ export function TaskBody({ task }: { task: Task }) {
     case 'clarification': return <ClarificationBody task={task} isAr={isAr} t={t} />;
     case 'document-submission': return <DocumentBody task={task} isAr={isAr} t={t} />;
     case 'etimad-review': return <EtimadReviewBody task={task} isAr={isAr} t={t} />;
+    case 'route-check': return <RouteCheckBody task={task} isAr={isAr} t={t} />;
     default: return null;
   }
 }

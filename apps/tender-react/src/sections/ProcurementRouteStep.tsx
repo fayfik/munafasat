@@ -10,6 +10,10 @@ import DrawerClose from '../components/DrawerClose';
 import routeIllustration from '../assets/procurement-route-illustration.svg';
 import { PROJECTS, ALL_COST_CENTERS } from '../data/mockData';
 import { useRequests } from '../context/RequestStore';
+import { useInbox } from '../inbox/store';
+import type { Task } from '../inbox/types';
+import { buildRouteCheckTask, routeCheckTaskId } from '../lib/routeCheckTask';
+import { openInboxTask } from '../lib/appNav';
 import { EXPENSE_TYPES, expenseTypeOf } from '../lib/expenseTypes';
 import type { ProjectItem, SourceType, TenderFormData } from '../types/tender';
 import {
@@ -31,11 +35,13 @@ type RouteMode = 'tender' | 'emarket' | 'help';
 export default function ProcurementRouteStep() {
   const { isAr } = useLanguage();
   const t = useT();
-  const { confirmRoute, routeConfirmed, formData, updateField } = useTender();
+  const { confirmRoute, routeConfirmed, formData, updateField, requestId } = useTender();
+  // A request reopened while Procurement's route check is pending comes back with what was sent.
+  const rc = formData.routeCheck;
 
-  const [phase, setPhase] = useState<Phase>('select');
-  const [projectId, setProjectId] = useState('');
-  const [itemIds, setItemIds] = useState<string[]>([]);
+  const [phase, setPhase] = useState<Phase>(rc ? 'awaiting' : 'select');
+  const [projectId, setProjectId] = useState(rc?.projectId ?? '');
+  const [itemIds, setItemIds] = useState<string[]>(rc?.itemIds ?? []);
   const [check1, setCheck1] = useState(false);
   const [check2, setCheck2] = useState(false);
   const [groups, setGroups] = useState<RequestGroup[]>([]);
@@ -43,15 +49,15 @@ export default function ProcurementRouteStep() {
   const [showInfo, setShowInfo] = useState(false);
 
   // Free-text intake: type / paste / attach → AI extracts an editable list.
-  const [text, setText] = useState('');
+  const [text, setText] = useState(rc?.text ?? '');
   const [identifying, setIdentifying] = useState(false);
-  const [freeItems, setFreeItems] = useState<FreeItem[]>([]);
+  const [freeItems, setFreeItems] = useState<FreeItem[]>(rc?.freeItems ?? []);
   const [attachment, setAttachment] = useState<string | null>(null);
   const [intakeError, setIntakeError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   // Prototype: two ways to describe items for "Help me decide" — open text, or preset fields.
-  const [intakeStyle, setIntakeStyle] = useState<'text' | 'fields'>('text');
-  const [details, setDetails] = useState<DetailRow[]>([emptyDetail()]);
+  const [intakeStyle, setIntakeStyle] = useState<'text' | 'fields'>(rc?.intakeStyle ?? 'text');
+  const [details, setDetails] = useState<DetailRow[]>(rc?.details?.length ? rc.details : [emptyDetail()]);
   const detailsUsed = details.filter((d) => d.name.trim() || d.type || d.qty !== '' || d.unitPrice !== '' || d.deliveryDate);
   const detailsIncomplete = detailsUsed.filter((d) => !d.name.trim() || !d.type || d.qty === '');
   const editDetail = (id: string, patch: Partial<DetailRow>) => { if (intakeError) setIntakeError(''); setDetails((xs) => xs.map((d) => d.id === id ? { ...d, ...patch } : d)); };
@@ -60,16 +66,21 @@ export default function ProcurementRouteStep() {
   const detailOf = (id: string) => (intakeStyle === 'fields' ? details.find((d) => d.id === id) : undefined);
 
   // Route choice (Tendering / Etimad eMarket / Help me decide) and the follow-up review.
-  const [mode, setMode] = useState<RouteMode | ''>('');
+  const [mode, setMode] = useState<RouteMode | ''>(rc ? 'help' : '');
   const [flagged, setFlagged] = useState<ItemVerdict[]>([]);   // items that don't fit the chosen route
   const [rest, setRest] = useState<ItemVerdict[]>([]);         // items that do
   const [tenderAction, setTenderAction] = useState<'move' | 'justify'>('move');
   const [justification, setJustification] = useState('');
-  const { addSessionDraft } = useRequests();
+  const { addSessionDraft, removeSessionDraft, userName } = useRequests();
+  const { addTask, getTask, withdrawTask } = useInbox();
   // Manual mode: Procurement confirms which items are on Etimad eMarket.
-  const [pending, setPending] = useState<ClsItem[]>([]);
-  const [sentAt, setSentAt] = useState('');
+  const [pending, setPending] = useState<ClsItem[]>(rc?.pending ?? []);
+  const [sentAt, setSentAt] = useState(rc?.sentAt ?? '');
   const [reviewedAt, setReviewedAt] = useState('');
+  const [simulated, setSimulated] = useState(false);
+  const [procNotes, setProcNotes] = useState<Record<string, string>>({});
+  // The Procurement task for this request's route check (live, from the Inbox).
+  const checkTask = rc ? getTask(rc.taskId) : undefined;
   // Procurement's reply: ONE matched Etimad listing per eMarket item; the requester confirms the quantity.
   const [matches, setMatches] = useState<Record<string, EtimadMatch>>({});
   const [matchQty, setMatchQty] = useState<Record<string, number | ''>>({});
@@ -152,9 +163,7 @@ export default function ProcurementRouteStep() {
         return;
       }
       setIntakeError('');
-      setPending(detailsUsed.map((d) => ({ id: d.id, name: d.name.trim(), type: d.type ? CAT_TO_ITEM_TYPE[d.type] : undefined })));
-      setSentAt(new Date().toISOString());
-      setPhase('awaiting');
+      sendToProcurement(detailsUsed.map((d) => ({ id: d.id, name: d.name.trim(), type: d.type ? CAT_TO_ITEM_TYPE[d.type] : undefined })));
       return;
     }
     // Typing is enough: if the user entered intake text but didn't run "Identify",
@@ -179,9 +188,77 @@ export default function ProcurementRouteStep() {
     // Validation passed — persist the parsed items so they show during the check.
     if (freeValid.length === 0 && effFree.length > 0) setFreeItems(effFree);
     // Sent to Procurement — the requester waits for their Etimad check.
+    sendToProcurement(input, effFree);
+  }
+
+  // Sends the items to Procurement as an Inbox task and saves the request (My Requests) while it waits.
+  function sendToProcurement(input: ClsItem[], free: FreeItem[] = freeItems) {
+    const now = new Date().toISOString();
+    const taskItems = input.map((c) => {
+      const d = detailOf(c.id);
+      const line = text.split(/\n/).find((l) => l.toLowerCase().includes(c.name.toLowerCase())) ?? c.name;
+      return {
+        id: c.id, name: c.name,
+        typeLabel: d?.type ? BOQ_CATEGORY_META[d.type].en : undefined,
+        qty: (d ? d.qty : (qtyFromText(line) || qtyFromText(c.name))) as number | '',
+        unitPrice: (d?.unitPrice ?? '') as number | '',
+        deliveryDate: d?.deliveryDate || undefined,
+      };
+    });
+    const check = {
+      taskId: routeCheckTaskId(requestId), sentAt: now, projectId, itemIds, intakeStyle, text,
+      freeItems: free, details: intakeStyle === 'fields' ? details : [], pending: input,
+    };
+    addTask(buildRouteCheckTask({ requestId, projectId, userName, items: taskItems, text: intakeStyle === 'text' ? text : undefined }));
+    updateField('routeCheck', check);
+    const cc = ALL_COST_CENTERS.find((c) => c.id === project?.costCenterId);
+    addSessionDraft(
+      { title: `${project?.name ?? 'New request'} — Help me decide`, type: 'tendering', department: cc?.name ?? '—', budget: '—', routeCheckStatus: 'with-procurement' },
+      { ...formData, projectId, costCenterId: project?.costCenterId ?? formData.costCenterId, selectedProjectItemIds: itemIds, routeChoice: 'help', routeCheck: check },
+      requestId,
+    );
     setPending(input);
-    setSentAt(new Date().toISOString());
+    setSentAt(now);
     setPhase('awaiting');
+  }
+
+  function withdraw() {
+    if (rc) withdrawTask(rc.taskId);
+    removeSessionDraft(requestId);
+    updateField('routeCheck', undefined);
+    setPending([]);
+    setPhase('select');
+  }
+
+  // Shared by the real reply and the prototype shortcut: verdicts + Procurement's listings → result.
+  function showResult(verdicts: ItemVerdict[], m: Record<string, EtimadMatch>, at: string) {
+    const q: Record<string, number | ''> = {};
+    verdicts.filter((v) => v.route === 'souq-etimad' && m[v.id]).forEach((v) => {
+      const d = detailOf(v.id);
+      const line = text.split(/\n/).find((l) => l.toLowerCase().includes(v.name.toLowerCase())) ?? v.name;
+      q[v.id] = d?.qty !== undefined && d.qty !== '' ? d.qty : (qtyFromText(line) || qtyFromText(v.name) || 1);
+    });
+    setReviewedAt(at);
+    setMatches(m); setMatchQty(q); setVerdictList(verdicts);
+    const g = groupItems(verdicts);
+    setGroups(g); setChosenKey(g[0]?.key ?? ''); setPhase('result');
+  }
+
+  // Procurement replied in the Inbox: each item is on Etimad (with their listing) or not.
+  function applyReply(task: Task) {
+    const m: Record<string, EtimadMatch> = {}; const notes: Record<string, string> = {};
+    const verdicts: ItemVerdict[] = pending.map((c) => {
+      const ri = task.routeItems?.find((x) => x.id === c.id);
+      const on = ri?.verdict === 'on' && !!ri.match;
+      if (on && ri?.match) m[c.id] = ri.match;
+      if (ri?.note?.trim()) notes[c.id] = ri.note.trim();
+      const v = classifyItem(c, on ? 'souq-etimad' : 'tendering');
+      return { ...v,
+        reason: on ? 'Listed on Etimad eMarket — can be bought directly from the catalogue.' : 'Not listed on Etimad eMarket — needs a competitive tender.',
+        reasonAr: on ? 'مدرج في السوق الإلكتروني — يمكن شراؤه مباشرة من الكتالوج.' : 'غير مدرج في السوق الإلكتروني — يتطلب منافسة.' };
+    });
+    setProcNotes(notes); setSimulated(false);
+    showResult(verdicts, m, task.completedAt ?? new Date().toISOString());
   }
 
   // Prototype only: fills in Procurement's answer (sample data standing in for their Etimad check).
@@ -195,17 +272,12 @@ export default function ProcurementRouteStep() {
     });
     setReviewedAt(new Date().toISOString());
     if (mode === 'help') {
-      const m: Record<string, EtimadMatch> = {}; const q: Record<string, number | ''> = {};
-      verdicts.filter((v) => v.route === 'souq-etimad').forEach((v) => {
-        const d = detailOf(v.id);
-        m[v.id] = etimadMatchFor(v.name, { unitPrice: d?.unitPrice });
-        // Text mode: read the quantity from the original line (the list parser drops "x 12").
-        const line = text.split(/\n/).find((l) => l.toLowerCase().includes(v.name.toLowerCase())) ?? v.name;
-        q[v.id] = d?.qty !== undefined && d.qty !== '' ? d.qty : (qtyFromText(line) || qtyFromText(v.name) || 1);
-      });
-      setMatches(m); setMatchQty(q); setVerdictList(verdicts);
-      const g = groupItems(verdicts);
-      setGroups(g); setChosenKey(g[0]?.key ?? ''); setPhase('result');
+      const m: Record<string, EtimadMatch> = {};
+      verdicts.filter((v) => v.route === 'souq-etimad').forEach((v) => { m[v.id] = etimadMatchFor(v.name, { unitPrice: detailOf(v.id)?.unitPrice }); });
+      // The Procurement task is no longer needed once the reply is simulated.
+      if (rc && checkTask && checkTask.state !== 'completed') withdrawTask(rc.taskId);
+      setProcNotes({}); setSimulated(true);
+      showResult(verdicts, m, new Date().toISOString());
       return;
     }
     // Tendering: flag items that are on eMarket. eMarket: flag items that aren't.
@@ -237,6 +309,8 @@ export default function ProcurementRouteStep() {
       choice: 'help',
       boqSeed: seedBoq(g.items, ROUTE_META[g.route].sourceType) as never,
     });
+    // The request is past the route check now — it no longer waits in My Requests as "Help me decide".
+    removeSessionDraft(requestId);
     // The other route's items become a linked draft, so they aren't lost.
     linkDrafts(groups.filter((x) => x.key !== g.key).map((x) => moveToDraft(x.route, x.items)));
     // Both routes now continue into the wizard (confirmRoute advances to Project Setup).
@@ -553,8 +627,35 @@ export default function ProcurementRouteStep() {
       )}
 
       {/* AWAITING PROCUREMENT */}
-      {phase === 'awaiting' && (
+      {phase === 'awaiting' && (() => {
+        const replied = checkTask?.state === 'completed';
+        const needsDetail = checkTask?.state === 'waiting';
+        const fmt = (iso: string) => new Date(iso).toLocaleString(isAr ? 'ar-SA' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        return (
         <div className="space-y-4">
+          {replied && checkTask && (
+            <div className="rounded-xl border border-success-200 bg-success-50 px-5 py-4 flex items-start gap-3" data-testid="route-check-replied">
+              <span className="w-9 h-9 rounded-full bg-white text-success-600 flex items-center justify-center flex-shrink-0"><CheckIcon className="w-4 h-4" /></span>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-[15px] font-semibold text-neutral-900">{t('Procurement replied', 'ردّ فريق المشتريات')}</h3>
+                <p className="text-[13px] text-neutral-700 mt-0.5">
+                  {(() => { const on = (checkTask.routeItems ?? []).filter((i) => i.verdict === 'on').length; const n = checkTask.routeItems?.length ?? 0;
+                    return t(`${checkTask.assignee.name} checked your ${n} item${n === 1 ? '' : 's'} on Etimad E-Market${checkTask.completedAt ? ` · ${fmt(checkTask.completedAt)}` : ''}: ${on} listed there, ${n - on} need${n - on === 1 ? 's' : ''} a tender.`,
+                      `فحص ${checkTask.assignee.name} البنود (${n}) في سوق اعتماد: ${on} مدرجة، و${n - on} تتطلب منافسة.`); })()}
+                </p>
+                {checkTask.replyNote && <p className="text-[12.5px] text-neutral-700 mt-1.5"><span className="font-semibold">{t('Their note:', 'ملاحظتهم:')}</span> {checkTask.replyNote}</p>}
+              </div>
+              <Button variant="primary" onClick={() => applyReply(checkTask)}>{t('See their answer', 'عرض الرد')} →</Button>
+            </div>
+          )}
+          {needsDetail && checkTask && (
+            <div className="rounded-xl border border-warning-200 bg-warning-50 px-5 py-4" data-testid="route-check-needs-detail">
+              <h3 className="text-[15px] font-semibold text-neutral-900">{t('Procurement needs more detail', 'يحتاج فريق المشتريات إلى مزيد من التفاصيل')}</h3>
+              {checkTask.replyNote && <p className="text-[13px] text-neutral-800 mt-1">“{checkTask.replyNote}”</p>}
+              <p className="text-[12px] text-neutral-600 mt-1">{t('Add what they asked for, then send it again — the same request goes back to them.', 'أضف ما طلبوه ثم أرسله مجدداً — يعود الطلب نفسه إليهم.')}</p>
+              <Button variant="primary" className="mt-3" onClick={() => setPhase('select')}>{t('Edit & resend', 'تعديل وإعادة الإرسال')}</Button>
+            </div>
+          )}
           <SectionCard>
             <div className="flex items-start gap-3">
               <span className="w-9 h-9 rounded-full bg-warning-50 text-warning-600 flex items-center justify-center flex-shrink-0">
@@ -562,14 +663,14 @@ export default function ProcurementRouteStep() {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-[15px] font-semibold text-neutral-900">{t('Waiting for Procurement’s Etimad check', 'بانتظار فحص المشتريات في اعتماد')}</h3>
-                  <Badge variant="warning">{t('With Procurement', 'لدى المشتريات')}</Badge>
+                  <h3 className="text-[15px] font-semibold text-neutral-900">{replied ? t('Sent to Procurement for an Etimad check', 'أُرسل إلى المشتريات لفحص اعتماد') : t('Waiting for Procurement’s Etimad check', 'بانتظار فحص المشتريات في اعتماد')}</h3>
+                  <Badge variant={replied ? 'success' : 'warning'}>{replied ? t('Answered', 'تم الرد') : needsDetail ? t('Back with you', 'لديك') : t('With Procurement', 'لدى المشتريات')}</Badge>
                 </div>
                 <p className="text-[13px] text-neutral-600 mt-0.5">
-                  {t(`Sent on ${new Date(sentAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. Procurement checks each item on Etimad eMarket and tells you which can be bought there and which need a tender. You’ll be notified when they reply.`,
-                     'يفحص فريق المشتريات كل بند في السوق الإلكتروني ويخبرك بما يمكن شراؤه منه وما يتطلب منافسة. ستُبلَّغ عند الرد.')}
+                  {t(`Sent on ${sentAt ? fmt(sentAt) : '—'}. Procurement checks each item on Etimad eMarket and tells you which can be bought there and which need a tender. You’ll be notified when they reply — this request waits in My Requests meanwhile.`,
+                     'يفحص فريق المشتريات كل بند في السوق الإلكتروني ويخبرك بما يمكن شراؤه منه وما يتطلب منافسة. ستُبلَّغ عند الرد — ويبقى الطلب في "طلباتي" حتى ذلك الحين.')}
                 </p>
-                <p className="text-[12px] text-neutral-500 mt-2">{t('Route you asked for:', 'المسار الذي طلبته:')} <span className="font-semibold text-neutral-700">{mode === 'tender' ? t('Tendering', 'منافسة') : mode === 'emarket' ? t('Etimad eMarket', 'السوق الإلكتروني') : t('Help me decide', 'ساعدني في الاختيار')}</span></p>
+                <p className="text-[12px] text-neutral-500 mt-2">{t('Route you asked for:', 'المسار الذي طلبته:')} <span className="font-semibold text-neutral-700">{t('Help me decide', 'ساعدني في الاختيار')}</span></p>
                 {selected.length > 0 && <p className="text-[12px] text-neutral-500 mt-1">{t(`Your ${selected.length} budgeted item${selected.length > 1 ? 's' : ''} aren’t sent for this check — they stay with the request, and you’ll link each BOQ line to one in the Bill of Quantities step.`, `لا تُرسل البنود المعتمدة (${selected.length}) لهذا الفحص — تبقى مع الطلب، وستربط كل بند في جدول الكميات بأحدها.`)}</p>}
               </div>
             </div>
@@ -583,22 +684,30 @@ export default function ProcurementRouteStep() {
                 </li>
               ))}
             </ul>
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <Button variant="secondary" onClick={() => { setPending([]); setPhase('select'); }}>{t('Withdraw & edit', 'سحب وتعديل')}</Button>
-              <span className="text-[12px] text-neutral-500">{t('You can withdraw until Procurement replies.', 'يمكنك السحب حتى يرد فريق المشتريات.')}</span>
-            </div>
+            {!replied && (
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <Button variant="secondary" onClick={withdraw}>{t('Withdraw & edit', 'سحب وتعديل')}</Button>
+                <span className="text-[12px] text-neutral-500">{t('You can withdraw until Procurement replies.', 'يمكنك السحب حتى يرد فريق المشتريات.')}</span>
+              </div>
+            )}
           </SectionCard>
-          <div className="rounded-xl border border-dashed border-neutral-300 px-5 py-3 flex items-center justify-between gap-3">
-            <p className="text-[12.5px] text-neutral-600"><span className="font-semibold">{t('Prototype:', 'نموذج أولي:')}</span> {t('there is no Procurement team behind this demo.', 'لا يوجد فريق مشتريات خلف هذا العرض.')}</p>
-            <button type="button" onClick={simulateProcurementReply} className="text-[12.5px] font-semibold text-link hover:underline whitespace-nowrap">{t('Simulate Procurement response', 'محاكاة رد المشتريات')} →</button>
-          </div>
+          {!replied && !needsDetail && (
+            <div className="rounded-xl border border-dashed border-neutral-300 px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-[12.5px] text-neutral-600"><span className="font-semibold">{t('Prototype:', 'نموذج أولي:')}</span> {t('you play both sides. Open the task in the Inbox and answer as Procurement.', 'أنت تؤدي الدورين. افتح المهمة في صندوق المهام وأجب بصفتك المشتريات.')}</p>
+              <div className="flex items-center gap-3">
+                {rc && <Button variant="secondary" size="sm" onClick={() => openInboxTask(rc.taskId)}>{t('Open Procurement’s task', 'فتح مهمة المشتريات')} →</Button>}
+                <button type="button" onClick={simulateProcurementReply} className="text-[12px] font-semibold text-neutral-500 hover:text-link whitespace-nowrap">{t('Skip — simulate a reply', 'تخطٍّ — محاكاة الرد')}</button>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+        );
+      })()}
 
       {/* Who checked — shown on the result screens */}
       {(phase === 'result' || phase === 'review') && reviewedAt && (
         <p className="mb-3 text-[12px] text-neutral-500">
-          {t('Checked on Etimad by the Procurement team', 'تم الفحص في اعتماد من فريق المشتريات')} · {new Date(reviewedAt).toLocaleString(isAr ? 'ar-SA' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} <span className="text-neutral-400">{t('(simulated for the prototype)', '(محاكاة للنموذج الأولي)')}</span>
+          {t('Checked on Etimad by the Procurement team', 'تم الفحص في اعتماد من فريق المشتريات')} · {new Date(reviewedAt).toLocaleString(isAr ? 'ar-SA' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} {simulated && <span className="text-neutral-400">{t('(simulated for the prototype)', '(محاكاة للنموذج الأولي)')}</span>}
         </p>
       )}
 
@@ -640,6 +749,7 @@ export default function ProcurementRouteStep() {
                             <li key={it.id} className="rounded-lg border border-neutral-200 bg-white px-3 py-2">
                               <p className="text-[13px] font-medium text-neutral-800">{isAr ? it.nameAr : it.name}</p>
                               <p className="text-[11.5px] text-neutral-500">{t('Not on Etimad E-Market — needs a competitive tender.', 'غير متوفر في سوق اعتماد — يتطلب منافسة.')}</p>
+                              {procNotes[it.id] && <p className="text-[11.5px] text-neutral-600 mt-0.5"><span className="font-semibold">{t('Procurement:', 'المشتريات:')}</span> {procNotes[it.id]}</p>}
                             </li>
                           );
                         }
@@ -669,6 +779,7 @@ export default function ProcurementRouteStep() {
                                 </div>
                               </div>
                             </div>
+                            {procNotes[it.id] && <p className="mt-1 text-[11.5px] text-neutral-600"><span className="font-semibold">{t('Procurement:', 'المشتريات:')}</span> {procNotes[it.id]}</p>}
                             <button type="button" onClick={() => rejectMatch(it.id)} className="mt-1.5 text-[11.5px] font-semibold text-neutral-500 hover:text-error-600">
                               {t('This doesn’t fit what I need — send it to the tender', 'لا يناسب ما أحتاجه — أرسله إلى المنافسة')}
                             </button>

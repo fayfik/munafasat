@@ -231,6 +231,7 @@ function RequestRow({ tender, onOpen }: { tender: TenderDraft; onOpen: () => voi
   const label      = isAr ? sc.ar : sc.en;
   const isReturned = tender.status === 'returned';
   const isDraft    = tender.status === 'draft';
+  const rcs = (tender as { routeCheckStatus?: 'with-procurement' | 'replied' | 'needs-detail' }).routeCheckStatus;
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(isAr ? 'ar-SA' : 'en-SA', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -256,9 +257,10 @@ function RequestRow({ tender, onOpen }: { tender: TenderDraft; onOpen: () => voi
         </div>
       </td>
       <td className="px-4 py-3.5">
+        {rcs ? <Badge variant="default">{t('Route not decided', 'المسار لم يُحدد')}</Badge> : (
         <Badge variant={tender.type === 'tendering' ? 'info' : 'default'}>
           {tender.type === 'tendering' ? t('Tender', 'منافسة') : t('Etimad E-Market', 'سوق اعتماد')}
-        </Badge>
+        </Badge>)}
       </td>
       <td className="px-4 py-3.5 text-[12px] text-neutral-600">{tender.department}</td>
       <td className="px-4 py-3.5 text-[12px] font-semibold text-neutral-800 tabular-nums" dir="ltr">{tender.budget}</td>
@@ -266,6 +268,11 @@ function RequestRow({ tender, onOpen }: { tender: TenderDraft; onOpen: () => voi
         <div>
           <Badge variant={sc.variant}>{label}</Badge>
           {isReturned && <p className="text-[10px] text-error-600 font-semibold mt-1">{t('Action required', 'إجراء مطلوب')}</p>}
+          {rcs && (
+            <p className={`text-[10px] font-semibold mt-1 ${rcs === 'with-procurement' ? 'text-warning-700' : rcs === 'replied' ? 'text-success-700' : 'text-error-600'}`} data-testid="route-check-status">
+              {rcs === 'with-procurement' ? t('With Procurement — Etimad check', 'لدى المشتريات — فحص اعتماد') : rcs === 'replied' ? t('Procurement replied — choose the route', 'ردّت المشتريات — اختر المسار') : t('Procurement needs more detail', 'تحتاج المشتريات تفاصيل أكثر')}
+            </p>
+          )}
         </div>
       </td>
       <td className="px-4 py-3.5 text-[11px] text-neutral-400">{formatDate(tender.updatedAt)}</td>
