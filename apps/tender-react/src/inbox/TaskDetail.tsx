@@ -88,7 +88,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   }
 
   const TABS: { key: typeof tab; en: string; ar: string }[] = [
-    { key: 'overview', en: 'Overview', ar: 'نظرة عامة' },
+    { key: 'overview', en: 'Required action', ar: 'الإجراء المطلوب' },
     { key: 'rfp', en: 'RFP details', ar: 'تفاصيل المنافسة' },
     { key: 'activity', en: 'Activity', ar: 'النشاط' },
   ];
@@ -108,19 +108,10 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
         {/* Header card */}
-        <div className="bg-white border-b border-neutral-200 px-4 sm:px-6 py-4">
+        <div className="@container bg-white border-b border-neutral-200 px-4 sm:px-6 pt-5 pb-5">
+          {/* Row 1 — task name · CTAs */}
           <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <StateChip state={task.state} isAr={isAr} />
-                <PriorityTag priority={task.priority} isAr={isAr} />
-                <SlaPill sla={sla} t={t} />
-              </div>
-              <h2 className="mt-2 text-[20px] font-bold text-neutral-900 leading-tight">{isAr ? task.titleAr : task.titleEn}</h2>
-              <p className="mt-1 text-[13px] text-neutral-500 leading-relaxed max-w-2xl">{isAr ? task.summaryAr : task.summaryEn}</p>
-            </div>
-
-            {/* Decision CTAs */}
+            <h2 className="min-w-0 flex-1 text-[20px] font-bold text-neutral-900 leading-snug">{isAr ? task.titleAr : task.titleEn}</h2>
             {!terminal && (
               <div className="flex items-center gap-2 flex-shrink-0">
                 {acts.map((a) => (
@@ -134,24 +125,45 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
               </div>
             )}
           </div>
+          {/* Row 2 — description */}
+          <p className="mt-1.5 text-[13px] text-neutral-500 leading-relaxed max-w-3xl">{isAr ? task.summaryAr : task.summaryEn}</p>
 
-          {/* Request summary band — emphasized amount + key reference fields */}
-          <SummaryBand cells={[
-            ...(task.amount != null ? [{ label: t('Amount requested', 'القيمة المطلوبة'), value: fmtSAR(task.amount), emphasis: true, dir: 'ltr' as const, grow: true }] : []),
-            { label: t('Related record', 'السجل المرتبط'), value: `${ENTITY_META[task.entity.kind][isAr ? 'ar' : 'en']} · ${task.entity.ref}` },
-            ...(task.project ? [{ label: t('Project', 'المشروع'), value: tb(task.project, isAr) }] : []),
-            task.supplier
-              ? { label: t('Vendor', 'المورّد'), value: tb(task.supplier, isAr) }
-              : { label: t('Department', 'الإدارة'), value: tb(task.department, isAr) },
-            { label: t('Requester', 'مقدّم الطلب'), value: personName(task.requester, isAr), avatar: task.requester },
-            { label: t('Due', 'الاستحقاق'), value: fmtDate(task.dueAt, isAr), danger: d.overdue },
-          ]} />
-          {/* Secondary meta line */}
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-neutral-500">
-            <span><span className="text-neutral-400">{t('Process stage', 'مرحلة العملية')}:</span> <span className="font-medium text-neutral-700">{isAr ? task.stageAr : task.stageEn}</span></span>
-            <span className="text-neutral-300">·</span>
-            <span><span className="text-neutral-400">{t('Received', 'الاستلام')}:</span> <span className="font-medium text-neutral-700">{fmtDate(task.receivedAt, isAr)}</span></span>
-            {task.supplier && <><span className="text-neutral-300">·</span><span><span className="text-neutral-400">{t('Department', 'الإدارة')}:</span> <span className="font-medium text-neutral-700">{tb(task.department, isAr)}</span></span></>}
+          {/* Row 3 — key facts: label on top, value below */}
+          <dl className="mt-4 grid grid-cols-2 @[520px]:grid-cols-4 @[860px]:grid-cols-[0.95fr_0.85fr_0.95fr_0.8fr_1.2fr_1.7fr_0.95fr] gap-px bg-neutral-200 rounded-xl border border-neutral-200 overflow-hidden">
+            {[
+              { k: t('Created', 'تاريخ الإنشاء'), v: <span className="tabular-nums">{fmtDate(task.receivedAt, isAr)}</span> },
+              { k: t('Status', 'الحالة'), v: <StateChip state={task.state} isAr={isAr} /> },
+              { k: t('SLA left', 'المتبقي من SLA'), v: <SlaValue sla={sla} t={t} terminal={terminal} /> },
+              { k: t('Priority', 'الأولوية'), v: <PriorityTag priority={task.priority} isAr={isAr} /> },
+              { k: t('Department', 'الإدارة الطالبة'), v: <span className="truncate">{tb(task.department, isAr)}</span> },
+              { k: t('Requester', 'مقدّم الطلب'), v: <span className="inline-flex items-center gap-1.5 min-w-0"><Avatar name={task.requester.name} id={task.requester.id} className="w-5 h-5" /><span className="truncate">{personName(task.requester, isAr)}</span></span> },
+              { k: t('Due date', 'الاستحقاق'), v: <span className={`tabular-nums ${d.overdue ? 'text-error-700' : ''}`}>{fmtDate(task.dueAt, isAr)}</span> },
+            ].map((c, i) => (
+              <div key={i} className={`bg-neutral-50 px-3 py-2.5 min-w-0 ${i === 6 ? 'col-span-2 @[860px]:col-span-1' : ''}`}>
+                <dt className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400 truncate">{c.k}</dt>
+                <dd className="mt-1 text-[13px] font-semibold text-neutral-800 min-h-[22px] flex items-center min-w-0 whitespace-nowrap">{c.v}</dd>
+              </div>
+            ))}
+          </dl>
+
+          {/* Row 4 — project · PR amount */}
+          <div className="mt-3 grid grid-cols-1 @[560px]:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 flex items-center gap-3 min-w-0">
+              <span className="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center flex-shrink-0"><FolderGlyph className="w-5 h-5" /></span>
+              <div className="min-w-0">
+                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{t('Project', 'المشروع')}</p>
+                <p className="text-[15px] font-bold text-neutral-900 truncate">{task.project ? tb(task.project, isAr) : '—'}</p>
+                <p className="text-[11.5px] text-neutral-500 truncate">{isAr ? task.entity.titleAr : task.entity.titleEn} · <span dir="ltr">{task.entity.ref}</span></p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3 flex items-center gap-3 min-w-0">
+              <span className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center flex-shrink-0 text-[11px] font-bold">SAR</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-brand-700/80">{t('PR amount', 'قيمة طلب الشراء')}</p>
+                <p className="text-[19px] font-bold text-brand-800 tabular-nums leading-tight whitespace-nowrap" dir="ltr">{task.amount != null ? fmtSAR(task.amount) : '—'}</p>
+                {task.amount != null && <p className="text-[11.5px] text-brand-700/80 tabular-nums" dir="ltr">{t('Incl. VAT', 'شامل الضريبة')} {fmtSAR(task.amount * 1.15)}</p>}
+              </div>
+            </div>
           </div>
 
           {/* Pending decision panel */}
@@ -190,11 +202,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 
         {/* Tab content */}
         <div className="p-4 sm:p-6">
-          {tab === 'overview' && (
-            <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <TaskBody task={task} />
-            </div>
-          )}
+          {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} />}
           {tab === 'rfp' && <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />}
           {tab === 'activity' && <ActivityTab task={task} isAr={isAr} t={t} onComment={(x) => addComment(task.id, x)} terminal={terminal} />}
         </div>
@@ -207,17 +215,17 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           slide-over on smaller screens. */}
       {side && (
         <>
-          <div className="md:hidden absolute inset-y-0 start-0 end-12 bg-black/20 z-20" onClick={() => setSide(null)} />
-          <aside className="absolute inset-y-0 end-12 z-30 w-[320px] max-w-[80%] bg-white border-s border-neutral-200 shadow-2xl flex flex-col slide-up
+          <div className="md:hidden absolute inset-y-0 start-0 end-16 bg-black/20 z-20" onClick={() => setSide(null)} />
+          <aside className="absolute inset-y-0 end-16 z-30 w-[320px] max-w-[80%] bg-white border-s border-neutral-200 shadow-2xl flex flex-col slide-up
                             md:static md:z-auto md:w-[320px] md:max-w-none md:shadow-none lg:w-[360px]">
             {/* Pane header — switch between the two panes + collapse */}
-            <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-12 border-b border-neutral-200 flex-shrink-0">
-              <div className="flex items-center gap-0.5 bg-neutral-100 rounded-lg p-0.5">
+            <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-12 bg-[#17233A] flex-shrink-0">
+              <div className="flex items-center gap-0.5 bg-white/10 rounded-lg p-0.5">
                 <PaneTab active={side === 'chat'} onClick={() => setSide('chat')} icon={<ChatGlyph className="w-3.5 h-3.5" />}>{t('Conversation', 'المحادثة')}</PaneTab>
                 <PaneTab active={side === 'history'} onClick={() => setSide('history')} icon={<HistoryGlyph className="w-3.5 h-3.5" />}>{t('Approval flow', 'مسار الاعتماد')}</PaneTab>
               </div>
               <button onClick={() => setSide(null)} title={t('Collapse panel', 'طي اللوحة')}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 flex-shrink-0">
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white flex-shrink-0">
                 <PanelCollapseGlyph className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
               </button>
             </div>
@@ -230,22 +238,24 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
         </>
       )}
 
-      {/* ── Right icon strip (always visible) ───────────────────────── */}
-      <nav className="w-12 flex-shrink-0 border-s border-neutral-200 bg-white flex flex-col items-center py-2 gap-1 z-40">
-        <StripBtn active={side === 'chat'} onClick={() => toggleSide('chat')} label={t('Chat', 'المحادثة')} icon={<ChatGlyph className="w-[18px] h-[18px]" />} />
+      {/* ── Right icon rail (always visible) — dark navy to anchor the workspace ── */}
+      <nav className="w-16 flex-shrink-0 bg-[#17233A] flex flex-col items-center pt-3 pb-3 gap-1.5 z-40" aria-label={t('Task tools', 'أدوات المهمة')}>
+        <StripBtn active={side === 'chat'} onClick={() => toggleSide('chat')} label={t('Chat', 'محادثة')} count={task.activity.filter((a) => a.kind === 'comment').length} icon={<ChatGlyph className="w-[18px] h-[18px]" />} />
         <StripBtn active={side === 'history'} onClick={() => toggleSide('history')} label={t('History', 'السجل')} icon={<HistoryGlyph className="w-[18px] h-[18px]" />} />
-        <div className="w-6 h-px bg-neutral-200 my-1" />
-        <StripBtn onClick={() => downloadTaskPdf(task)} label={t('Download', 'تنزيل')} icon={<DownloadIcon className="w-[18px] h-[18px]" />} />
+        <div className="w-8 h-px bg-white/10 my-1.5" />
+        <StripBtn onClick={() => downloadTaskPdf(task)} label={t('PDF', 'PDF')} icon={<DownloadIcon className="w-[18px] h-[18px]" />} />
       </nav>
     </div>
   );
 }
 
-function StripBtn({ active, onClick, label, icon }: { active?: boolean; onClick: () => void; label: string; icon: React.ReactNode }) {
+function StripBtn({ active, onClick, label, icon, count }: { active?: boolean; onClick: () => void; label: string; icon: React.ReactNode; count?: number }) {
   return (
-    <button type="button" onClick={onClick} title={label} aria-label={label}
-      className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${active ? 'bg-brand-50 text-brand-700' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800'}`}>
+    <button type="button" onClick={onClick} title={label} aria-label={label} aria-pressed={active}
+      className={`relative w-12 py-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${active ? 'bg-white text-[#17233A] shadow-sm' : 'text-white/65 hover:bg-white/10 hover:text-white'}`}>
       {icon}
+      <span className="text-[10px] font-semibold leading-none">{label}</span>
+      {!!count && <span className="absolute top-1 end-1.5 min-w-[16px] h-4 px-1 rounded-full bg-brand-500 text-white text-[9.5px] font-bold flex items-center justify-center">{count}</span>}
     </button>
   );
 }
@@ -253,7 +263,7 @@ function StripBtn({ active, onClick, label, icon }: { active?: boolean; onClick:
 function PaneTab({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <button type="button" onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${active ? 'bg-white text-brand-700 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${active ? 'bg-white text-[#17233A] shadow-sm' : 'text-white/70 hover:text-white'}`}>
       {icon}{children}
     </button>
   );
@@ -277,10 +287,14 @@ function SummaryBand({ cells }: { cells: BandCell[] }) {
   );
 }
 
-function SlaPill({ sla, t }: { sla: ReturnType<typeof slaInfo>; t: T }) {
-  const cls = sla.breached ? 'bg-error-50 text-error-700 border-error-100' : sla.tight ? 'bg-warning-50 text-warning-700 border-warning-100' : 'bg-neutral-100 text-neutral-600 border-neutral-200';
-  const label = sla.breached ? t(`SLA breached · ${Math.abs(sla.remH)}h over`, `تجاوز اتفاقية الخدمة · ${Math.abs(sla.remH)} ساعة`) : t(`SLA · ${sla.remH}h left`, `اتفاقية الخدمة · ${sla.remH} ساعة متبقية`);
-  return <span className={`inline-flex items-center gap-1 text-[11px] font-semibold rounded-full border px-2 py-0.5 ${cls}`}><ClockIcon className="w-3 h-3" />{label}</span>;
+function SlaValue({ sla, t, terminal }: { sla: ReturnType<typeof slaInfo>; t: T; terminal: boolean }) {
+  if (terminal) return <span className="text-neutral-400">—</span>;
+  const cls = sla.breached ? 'text-error-700' : sla.tight ? 'text-warning-700' : 'text-neutral-800';
+  const h = Math.abs(sla.remH); const txt = h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h`;
+  return <span className={`inline-flex items-center gap-1 tabular-nums ${cls}`}><ClockIcon className="w-3.5 h-3.5" />{sla.breached ? t(`${txt} over`, `متأخرة ${txt}`) : t(`${txt} left`, `متبقٍ ${txt}`)}</span>;
+}
+function FolderGlyph({ className = '' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>;
 }
 
 const PALETTE = ['#699843', '#2A6193', '#6A47D6', '#E08E00', '#C22C18', '#3378B5', '#517632', '#868D80'];
@@ -825,39 +839,213 @@ function JumpFab({ sections, isAr, t }: { sections: { id: string; en: string; ar
   );
 }
 
-function ActivityTab({ task, isAr, t, onComment, terminal }: { task: Task; isAr: boolean; t: T; onComment: (x: string) => void; terminal: boolean }) {
-  const [c, setC] = useState('');
-  const items = [...task.activity].reverse();
+// ── Required action tab ────────────────────────────────────────────────────────
+const TONE: Record<'success' | 'warning' | 'danger' | 'info', { pill: string; dot: string }> = {
+  success: { pill: 'bg-success-50 text-success-700 border-success-100', dot: 'bg-success-500' },
+  warning: { pill: 'bg-warning-50 text-warning-700 border-warning-100', dot: 'bg-warning-500' },
+  danger:  { pill: 'bg-error-50 text-error-700 border-error-100', dot: 'bg-error-500' },
+  info:    { pill: 'bg-blue-50 text-blue-700 border-blue-100', dot: 'bg-blue-500' },
+};
+
+function RequiredAction({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
+  const [officer, setOfficer] = useState(task.assignTo?.[0]?.id ?? '');
+  const lines = task.rfp?.boq ?? [];
+  const budgets = Array.from(new Set(lines.map((l) => l.budgetEn ?? '')));
+  const sub = lines.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
   return (
-    <div className="max-w-2xl">
-      {!terminal && (
-        <div className="mb-5">
-          <textarea value={c} onChange={(e) => setC(e.target.value)} rows={2} placeholder={t('Add a comment…', 'أضف تعليقاً…')}
-            className="w-full text-[13px] rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
-          <div className="mt-1.5 flex justify-end"><Button size="sm" variant="secondary" disabled={!c.trim()} onClick={() => { onComment(c); setC(''); }}>{t('Comment', 'تعليق')}</Button></div>
+    <div className="space-y-4">
+      {/* Your step + what each decision leads to */}
+      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <div className="flex items-start gap-3">
+          <span className="w-10 h-10 rounded-xl bg-[#17233A] text-white flex items-center justify-center flex-shrink-0"><TaskGlyph className="w-5 h-5" /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{t('Your step', 'خطوتك')}</p>
+            <p className="text-[15px] font-bold text-neutral-900">{isAr ? task.stageAr : task.stageEn}</p>
+            <p className="text-[12px] text-neutral-500 mt-0.5">{personName(task.assignee, isAr)} · {isAr ? task.assignee.roleAr : task.assignee.role} · {t('due', 'الاستحقاق')} {fmtDate(task.dueAt, isAr)}</p>
+          </div>
+        </div>
+        {task.outcomes?.length ? (
+          <div className={`mt-4 grid grid-cols-1 gap-2.5 ${task.outcomes.length >= 3 ? 'md:grid-cols-3' : task.outcomes.length === 2 ? 'md:grid-cols-2' : ''}`}>
+            {task.outcomes.map((o, i) => (
+              <div key={i} className="rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
+                <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-full border px-2 py-0.5 ${TONE[o.tone].pill}`}><span className={`w-1.5 h-1.5 rounded-full ${TONE[o.tone].dot}`} />{tb(o.action, isAr)}</span>
+                <p className="mt-2 text-[12.5px] text-neutral-700 leading-snug flex items-start gap-1.5"><span className="text-neutral-400">{isAr ? '←' : '→'}</span>{tb(o.next, isAr)}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      {/* Team Lead: pick the officer */}
+      {task.assignTo?.length ? (
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <p className="text-[13px] font-bold text-neutral-800">{t('Assign to officer', 'الإسناد إلى أخصائي')}</p>
+          <p className="text-[12px] text-neutral-500 mt-0.5">{t('Used when the request is new or has comments. Pick who reviews it.', 'يُستخدم عندما يكون الطلب جديداً أو عليه ملاحظات. اختر من يراجعه.')}</p>
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+            {task.assignTo.map((p, i) => (
+              <label key={p.id} className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${officer === p.id ? 'border-brand-500 bg-brand-50/60 ring-2 ring-brand-500/15' : 'border-neutral-200 hover:bg-neutral-50'}`}>
+                <input type="radio" name="officer" className="accent-brand-600" checked={officer === p.id} onChange={() => setOfficer(p.id)} />
+                <Avatar name={p.name} id={p.id} className="w-7 h-7" />
+                <span className="min-w-0">
+                  <span className="block text-[12.5px] font-semibold text-neutral-800 truncate">{personName(p, isAr)}</span>
+                  <span className="block text-[11px] text-neutral-500">{t(`${3 + i * 2} open requests`, `${3 + i * 2} طلبات مفتوحة`)}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* DOA approval: authority check */}
+      {task.doaInfo?.length ? (
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[13px] font-bold text-neutral-800">{t('Delegation of authority', 'تفويض الصلاحيات')}</p>
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold rounded-full border px-2 py-0.5 bg-success-50 text-success-700 border-success-100"><CheckCircleIcon className="w-3 h-3" />{t('Within your limit', 'ضمن حد صلاحيتك')}</span>
+          </div>
+          <dl className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-px bg-neutral-200 rounded-lg border border-neutral-200 overflow-hidden">
+            {task.doaInfo.map((r, i) => (
+              <div key={i} className="bg-neutral-50 px-3 py-2.5 min-w-0">
+                <dt className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{tb(r.label, isAr)}</dt>
+                <dd className="mt-1 text-[13px] font-semibold text-neutral-800 truncate" dir={/SAR|\d/.test(r.value) ? 'ltr' : undefined}>{r.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ) : null}
+
+      {/* Director: estimated price by budget item */}
+      {task.priceBreakdown && lines.length > 0 && (
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <p className="text-[13px] font-bold text-neutral-800">{t('Estimated price by budget item', 'السعر التقديري حسب بند الميزانية')}</p>
+          <div className="mt-3 space-y-2.5">
+            {budgets.map((b, i) => {
+              const ls = lines.filter((l) => (l.budgetEn ?? '') === b);
+              const v = ls.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
+              return (
+                <div key={b}>
+                  <div className="flex items-center justify-between gap-3 text-[12.5px]">
+                    <span className="flex items-center gap-2 min-w-0"><span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} /><span className="text-neutral-700 truncate">{isAr ? ls[0].budgetAr : ls[0].budgetEn}</span><span className="text-neutral-400 whitespace-nowrap">· {ls.length} {ls.length === 1 ? t('item', 'بند') : t('items', 'بنود')}</span></span>
+                    <span className="font-semibold text-neutral-800 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(v)}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 rounded-full bg-neutral-100 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(v / (sub || 1)) * 100}%`, background: PALETTE[i % PALETTE.length] }} /></div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 pt-3 border-t border-neutral-100 grid grid-cols-3 gap-3 text-[12px]">
+            <div><p className="text-neutral-400">{t('Subtotal', 'المجموع الفرعي')}</p><p className="font-semibold text-neutral-800 tabular-nums" dir="ltr">{fmtSAR(sub)}</p></div>
+            <div><p className="text-neutral-400">{t('VAT (15%)', 'الضريبة (15%)')}</p><p className="font-semibold text-neutral-800 tabular-nums" dir="ltr">{fmtSAR(sub * 0.15)}</p></div>
+            <div><p className="text-neutral-400">{t('Total (incl. VAT)', 'الإجمالي شامل الضريبة')}</p><p className="font-bold text-brand-700 tabular-nums" dir="ltr">{fmtSAR(sub * 1.15)}</p></div>
+          </div>
         </div>
       )}
-      <ol className="space-y-3">
-        {items.map((a) => (
-          <li key={a.id} className="flex gap-3">
-            <Avatar name={a.actor.name} id={a.actor.id} className="w-7 h-7" />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[13px] font-medium text-neutral-800">{personName(a.actor, isAr)}</span>
-                <span className="text-[11px] text-neutral-400">{fmtDateTime(a.at, isAr)}</span>
-                {a.kind === 'decision' && <span className="text-[10.5px] font-semibold text-brand-700 bg-brand-50 rounded-full px-1.5">{t('Decision', 'قرار')}</span>}
-              </div>
-              <p className={`text-[13px] mt-0.5 ${a.kind === 'decision' ? 'font-semibold text-neutral-800' : 'text-neutral-600'}`}>
-                {a.kind === 'decision' && a.decision ? tb(a.decision, isAr) : a.system ? tb(a.system, isAr) : a.text}
-              </p>
-              {a.kind === 'decision' && a.text && <p className="text-[12px] text-neutral-500 mt-0.5">“{a.text}”</p>}
-            </div>
-          </li>
-        ))}
-      </ol>
+
+      {/* Task form / record */}
+      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <TaskBody task={task} />
+      </div>
     </div>
   );
 }
+
+// ── Activity tab — schedule-style timeline ─────────────────────────────────────
+type TLStatus = 'done' | 'approved' | 'comment' | 'current' | 'upcoming' | 'returned' | 'rejected';
+const TL_META: Record<TLStatus, { en: string; ar: string; pill: string; dot: string; tile: string }> = {
+  done:     { en: 'Done', ar: 'تم', pill: 'bg-success-50 text-success-700', dot: 'bg-success-500', tile: 'bg-success-50 text-success-700 border-success-100' },
+  approved: { en: 'Approved', ar: 'معتمد', pill: 'bg-success-50 text-success-700', dot: 'bg-success-500', tile: 'bg-success-50 text-success-700 border-success-100' },
+  comment:  { en: 'Comment', ar: 'تعليق', pill: 'bg-warning-50 text-warning-700', dot: 'bg-warning-500', tile: 'bg-warning-50 text-warning-700 border-warning-100' },
+  current:  { en: 'In progress', ar: 'قيد التنفيذ', pill: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500', tile: 'bg-blue-50 text-blue-700 border-blue-100' },
+  upcoming: { en: 'Upcoming', ar: 'قادمة', pill: 'bg-white text-neutral-700 border border-neutral-200', dot: 'bg-neutral-800', tile: 'bg-neutral-50 text-neutral-600 border-neutral-200' },
+  returned: { en: 'Returned', ar: 'مُعاد', pill: 'bg-warning-50 text-warning-700', dot: 'bg-warning-500', tile: 'bg-warning-50 text-warning-700 border-warning-100' },
+  rejected: { en: 'Rejected', ar: 'مرفوض', pill: 'bg-error-50 text-error-700', dot: 'bg-error-500', tile: 'bg-error-50 text-error-700 border-error-100' },
+};
+const fmtTime = (iso: string, isAr: boolean) => new Date(iso).toLocaleTimeString(isAr ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+
+function ActivityTab({ task, isAr, t, onComment, terminal }: { task: Task; isAr: boolean; t: T; onComment: (x: string) => void; terminal: boolean }) {
+  const [c, setC] = useState('');
+  type Row = { key: string; at?: string; status: TLStatus; icon: React.ReactNode; title: string; sub: string; quote?: string; bubble?: string };
+  const rows: Row[] = task.activity.map((a) => {
+    const who = `${personName(a.actor, isAr)}${a.actor.role ? ` · ${isAr ? a.actor.roleAr ?? a.actor.role : a.actor.role}` : ''}`;
+    if (a.kind === 'comment') return { key: a.id, at: a.at, status: 'comment', icon: <ChatGlyph className="w-[18px] h-[18px]" />, title: t('Comment added', 'تمت إضافة تعليق'), sub: who, bubble: a.text };
+    if (a.kind === 'decision') {
+      const lbl = a.decision ? tb(a.decision, isAr) : '';
+      const st: TLStatus = /reject|رفض/i.test(lbl) ? 'rejected' : /return|إعاد|مُعاد/i.test(lbl) ? 'returned' : 'approved';
+      return { key: a.id, at: a.at, status: st, icon: <CheckCircleIcon className="w-[18px] h-[18px]" />, title: a.system ? `${tb(a.system, isAr)} — ${lbl}` : lbl, sub: who, quote: a.text };
+    }
+    const sys = a.system ? tb(a.system, isAr) : '';
+    const assigned = /assign|أُسند|إسناد/i.test(sys);
+    return { key: a.id, at: a.at, status: 'done', icon: assigned ? <UserGlyph className="w-[18px] h-[18px]" /> : <DocGlyph className="w-[18px] h-[18px]" />, title: sys, sub: who, quote: a.text };
+  });
+  if (!terminal) rows.push({ key: 'cur', status: 'current', icon: <HourglassGlyph className="w-[18px] h-[18px]" />, title: isAr ? task.stageAr : task.stageEn, sub: `${personName(task.assignee, isAr)} · ${t('due', 'الاستحقاق')} ${fmtDate(task.dueAt, isAr)}` });
+  const steps = task.trail ?? [];
+  const curIdx = steps.findIndex((s) => s.state === 'current');
+  const upcoming = curIdx >= 0 ? steps.slice(curIdx + 1) : [];
+  for (const s of upcoming) rows.push({ key: s.id, status: 'upcoming', icon: <ClockIcon className="w-[18px] h-[18px]" />, title: isAr ? s.titleAr : s.titleEn, sub: isAr ? s.actorAr : s.actorEn });
+  const doneSteps = curIdx >= 0 ? curIdx : steps.length;
+
+  return (
+    <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3">
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-[16px] font-semibold text-neutral-900">{t('Activity', 'النشاط')}</h3>
+          <span title={t('Everything that happened on this request, and what comes next', 'كل ما حدث على هذا الطلب وما هو قادم')} className="text-neutral-400"><InfoGlyph className="w-3.5 h-3.5" /></span>
+        </div>
+        <span className="text-[11.5px] font-medium text-neutral-500">{t(`${doneSteps} of ${steps.length} steps complete`, `${doneSteps} من ${steps.length} خطوات مكتملة`)}</span>
+      </div>
+
+      <ol className="px-5 pb-2">
+        {rows.map((r, i) => {
+          const m = TL_META[r.status]; const last = i === rows.length - 1;
+          return (
+            <li key={r.key} className="grid grid-cols-[72px_20px_1fr] sm:grid-cols-[92px_24px_1fr] gap-x-2 sm:gap-x-3">
+              <div className="pt-2.5 text-end">
+                {r.at ? (<><p className="text-[12.5px] font-medium text-neutral-600 tabular-nums whitespace-nowrap">{fmtTime(r.at, isAr)}</p><p className="text-[10.5px] text-neutral-400 whitespace-nowrap">{fmtDate(r.at, isAr)}</p></>)
+                  : <p className="text-[11.5px] text-neutral-400">{r.status === 'current' ? t('Now', 'الآن') : '—'}</p>}
+              </div>
+              <div className="relative flex justify-center">
+                <span className={`absolute top-0 bottom-0 w-px ${i === 0 ? 'top-4' : ''} ${last ? 'bottom-auto h-4' : ''} bg-neutral-200`} />
+                <span className={`relative mt-[13px] w-2.5 h-2.5 rounded-full ${m.dot} ${r.status === 'current' ? 'ring-4 ring-blue-100' : 'ring-4 ring-white'}`} />
+              </div>
+              <div className={`flex items-start gap-3 py-2 ${r.status === 'upcoming' ? 'opacity-80' : ''}`}>
+                <span className={`w-10 h-10 rounded-full border flex items-center justify-center flex-shrink-0 ${m.tile}`}>{r.icon}</span>
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <p className="text-[14px] font-semibold text-neutral-900 leading-snug">{r.title}</p>
+                  <p className="text-[12.5px] text-neutral-500 truncate">{r.sub}</p>
+                  {r.quote && <p className="mt-1.5 text-[12.5px] text-neutral-600 border-s-2 border-neutral-200 ps-2.5 italic">“{r.quote}”</p>}
+                  {r.bubble && <div className="mt-1.5 rounded-xl rounded-ss-sm bg-neutral-50 border border-neutral-200 px-3 py-2 text-[12.5px] text-neutral-700">{r.bubble}</div>}
+                </div>
+                <span className={`mt-0.5 flex-shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${m.pill}`}>{isAr ? m.ar : m.en}</span>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+
+      {/* Insight strip */}
+      <div className="mx-5 mb-4 mt-1 rounded-xl border border-neutral-200 bg-neutral-50/70 px-4 py-3 flex items-center gap-2.5 flex-wrap">
+        <SparkGlyph className="w-4 h-4 text-blue-600 flex-shrink-0" />
+        <span className="text-[13px] font-semibold text-neutral-800">{t(`${upcoming.length} steps left after yours`, `${upcoming.length} خطوات متبقية بعد خطوتك`)}</span>
+        {upcoming[0] && <span className="text-[12.5px] text-neutral-500">{t('Next', 'التالي')}: {isAr ? upcoming[0].titleAr : upcoming[0].titleEn} · {isAr ? upcoming[0].actorAr : upcoming[0].actorEn}</span>}
+      </div>
+
+      {!terminal && (
+        <div className="border-t border-neutral-100 px-5 py-3 flex items-end gap-2">
+          <textarea value={c} onChange={(e) => setC(e.target.value)} rows={1} placeholder={t('Add a comment to the timeline…', 'أضف تعليقاً إلى السجل الزمني…')}
+            className="flex-1 resize-none text-[13px] rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" />
+          <Button size="sm" variant="secondary" disabled={!c.trim()} onClick={() => { onComment(c); setC(''); }}>{t('Comment', 'تعليق')}</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+const G = (d: React.ReactNode) => ({ className = '' }: { className?: string }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>{d}</svg>;
+const UserGlyph = G(<><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6" /></>);
+const DocGlyph = G(<><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></>);
+const HourglassGlyph = G(<><path d="M6 3h12M6 21h12" /><path d="M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9" /></>);
+const InfoGlyph = G(<><circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.01" /></>);
+const SparkGlyph = G(<><path d="M12 3v4M12 17v4M3 12h4M17 12h4" /><path d="M12 8l1.5 2.5L16 12l-2.5 1.5L12 16l-1.5-2.5L8 12l2.5-1.5z" /></>);
+const TaskGlyph = G(<><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8 12l3 3 5-6" /></>);
 
 function ChatPanel({ task, isAr, t, onSend, disabled }: { task: Task; isAr: boolean; t: T; onSend: (x: string) => void; disabled: boolean }) {
   const [msg, setMsg] = useState('');

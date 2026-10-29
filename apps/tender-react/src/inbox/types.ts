@@ -170,6 +170,11 @@ export interface Task {
   joinNote?: Bilingual;         // next-stage join condition, for display
 
   actions?: TaskActionDef[];    // CTAs for this task (falls back to defaults by type)
+  /** What each decision leads to (shown on the Required action tab). */
+  outcomes?: { action: Bilingual; next: Bilingual; tone: 'success' | 'warning' | 'danger' | 'info' }[];
+  assignTo?: Person[];          // officers the TL can assign to
+  doaInfo?: { label: Bilingual; value: string }[];
+  priceBreakdown?: boolean;     // show the estimated price by budget item
 
   // Type-specific payloads (only the one matching `type` is populated, plus
   // an optional generic completion checklist on some types).

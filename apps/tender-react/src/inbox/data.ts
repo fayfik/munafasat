@@ -191,7 +191,7 @@ const SPECS: Spec[] = [
       { id: 'approve', labelEn: 'Submit for DOA approval', labelAr: 'إرسال لاعتماد الصلاحيات', variant: 'primary', decision: sup('Submitted for DOA approval', 'أُرسل لاعتماد الصلاحيات') },
       { id: 'complete', labelEn: 'Assign to officer', labelAr: 'إسناد إلى أخصائي', variant: 'secondary', decision: sup('Assigned to officer', 'أُسند إلى أخصائي') },
     ],
-    extra: { approvalRecord } },
+    extra: { approvalRecord, assignTo: [P.officer, person('u-yousef', 'Yousef Al-Harthi', 'يوسف الحارثي', 'Procurement Officer', 'أخصائي مشتريات', 'Procurement', 'المشتريات'), person('u-amal', 'Amal Al-Qahtani', 'أمل القحطاني', 'Procurement Officer', 'أخصائي مشتريات', 'Procurement', 'المشتريات')] } },
   { n: 12, type: 'review', title: TITLE.reviewFromDept(),
     summary: sup('Officer review of the RFP before DOA approval. Return it with comments if anything below needs correcting.', 'مراجعة الأخصائي للمنافسة قبل اعتماد الصلاحيات. أعدها مع ملاحظات إن احتاج أي بند أدناه إلى تصحيح.'),
     stage: sup('Procurement review — Officer', 'مراجعة المشتريات — الأخصائي'), assignee: P.officer, sla: 2, priority: 'high', received: 0,
@@ -210,37 +210,86 @@ const SPECS: Spec[] = [
     summary: sup('Approve the request per the delegation of authority (DOA).', 'اعتمد الطلب وفق مصفوفة تفويض الصلاحيات.'),
     stage: sup('DOA approval', 'اعتماد تفويض الصلاحيات'), assignee: P.tl, sla: 2, priority: 'high', received: 0,
     actions: [{ id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary' }],
-    extra: { approvalRecord } },
+    extra: { approvalRecord, doaInfo: [
+      { label: sup('Authority level', 'مستوى الصلاحية'), value: 'Level 3 — Procurement Team Lead' },
+      { label: sup('Approval limit', 'حد الاعتماد'), value: 'Up to SAR 10,000,000.00' },
+      { label: sup('Request value', 'قيمة الطلب'), value: amountStr },
+      { label: sup('DOA reference', 'مرجع تفويض الصلاحيات'), value: 'DOA Matrix 2026 · Procurement §4.2' },
+      { label: sup('Prior reviews', 'المراجعات السابقة'), value: '12 of 12 complete' },
+      { label: sup('Officer review', 'مراجعة الأخصائي'), value: 'No comments' },
+    ] } },
   { n: 14, type: 'approval', title: TITLE.priceFromDept(),
     summary: sup('Approve the estimated price. Request approval completes here and hands off to PR creation in SAP ECC.', 'اعتمد السعر التقديري. يكتمل اعتماد الطلب هنا وينتقل إلى إنشاء طلب الشراء في SAP ECC.'),
     stage: sup('Estimated price approval', 'اعتماد السعر التقديري'), assignee: P.director, sla: 2, priority: 'medium', received: 0,
     actions: [{ id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary' }],
-    extra: { approvalRecord: [{ label: sup('Estimated price', 'السعر التقديري'), value: amountStr, emphasis: true }, ...approvalRecord.slice(1)] } },
+    extra: { priceBreakdown: true, approvalRecord: [{ label: sup('Estimated price', 'السعر التقديري'), value: amountStr, emphasis: true }, ...approvalRecord.slice(1)] } },
 ];
 
-const iso2 = (days: number, hour = 10) => iso(days, hour);
-export const SEED_TASKS: Task[] = SPECS.map((s) => ({
-  id: `TSK-${REQ.no}-${String(s.n).padStart(2, '0')}`,
-  type: s.type,
-  titleEn: s.title.en, titleAr: s.title.ar,
-  summaryEn: s.summary.en, summaryAr: s.summary.ar,
-  state: 'available', priority: s.priority,
-  entity: { kind: 'PR', ref: REQ.ref, titleEn: REQ.titleEn, titleAr: REQ.titleAr },
-  project: REQ.project,
-  amount: REQ.amount,
-  requester: REQ.requester, assignee: s.assignee,
-  department: sup(reqDept(), reqDept(true)),
-  stageEn: s.stage.en, stageAr: s.stage.ar,
-  receivedAt: iso2(s.received, 9 + (s.n % 6)), dueAt: iso2(s.received + s.sla, 17),
-  mineAction: true,
-  actions: s.actions,
-  slaHours: s.sla * 24,
-  activity: [
-    { id: 'a1', kind: 'system', actor: REQ.requester, at: iso2(-1, 9), system: sup(`Purchase request #${REQ.no} submitted`, `تم تقديم طلب الشراء رقم ${REQ.no}`) },
-    { id: 'a2', kind: 'system', actor: s.assignee, at: iso2(s.received, 9 + (s.n % 6)), system: sup(`Assigned to ${s.assignee.name}`, `أُسند إلى ${s.assignee.nameAr}`) },
-  ],
-  ...s.extra,
-}));
+
+const toRequester = { action: sup('Return', 'إعادة'), next: sup('Back to the requester to update the form (with your comments)', 'يعود إلى مقدّم الطلب لتحديث النموذج (مع ملاحظاتك)'), tone: 'warning' as const };
+const OUTCOMES: Record<number, NonNullable<Task['outcomes']>> = {
+  1: [{ action: sup('Approve', 'اعتماد'), next: sup('Specialist and finance reviews start in parallel', 'تبدأ المراجعات التخصصية والمالية بالتوازي'), tone: 'success' }, toRequester,
+      { action: sup('Reject', 'رفض'), next: sup('Request is closed with your rejection reason', 'يُغلق الطلب مع سبب الرفض'), tone: 'danger' }],
+  2: [{ action: sup('Approve', 'اعتماد'), next: sup('Technical evaluation verified — moves to risk review', 'تم التحقق من التقييم الفني — ينتقل إلى مراجعة المخاطر'), tone: 'success' }, toRequester],
+  3: [{ action: sup('Approve', 'اعتماد'), next: sup('Waits for the other parallel reviewers, then triggers Finance and Procurement qualification', 'ينتظر بقية المراجعين بالتوازي ثم يبدأ تأهيل المالية والمشتريات'), tone: 'success' }, toRequester],
+  7: [{ action: sup('Approve', 'اعتماد'), next: sup('Finance qualification + Procurement qualification', 'التأهيل المالي + تأهيل المشتريات'), tone: 'success' }, toRequester],
+  9: [{ action: sup('Complete', 'إكمال'), next: sup('Procurement qualification', 'تأهيل المشتريات'), tone: 'success' }],
+  10: [{ action: sup('Complete', 'إكمال'), next: sup('Procurement Team Lead — review request', 'رئيس فريق المشتريات — مراجعة الطلب'), tone: 'success' }],
+  11: [{ action: sup('Submit for DOA approval', 'إرسال لاعتماد الصلاحيات'), next: sup('No comments — goes to DOA approval', 'لا توجد ملاحظات — ينتقل لاعتماد الصلاحيات'), tone: 'success' },
+       { action: sup('Assign to officer', 'إسناد إلى أخصائي'), next: sup('New request or has comments — the officer reviews it', 'طلب جديد أو عليه ملاحظات — يراجعه الأخصائي'), tone: 'info' }],
+  12: [{ action: sup('Submit for DOA approval', 'إرسال لاعتماد الصلاحيات'), next: sup('Back to the Team Lead for DOA approval', 'يعود إلى رئيس الفريق لاعتماد الصلاحيات'), tone: 'success' }, { ...toRequester, action: sup('Return with comments', 'إعادة مع ملاحظات') }],
+  13: [{ action: sup('Approve', 'اعتماد'), next: sup('Director — approve estimated price', 'المدير — اعتماد السعر التقديري'), tone: 'success' }],
+  14: [{ action: sup('Approve', 'اعتماد'), next: sup('Request approval complete — PR is created in SAP ECC (PR & Etimad stage)', 'يكتمل اعتماد الطلب — يُنشأ طلب الشراء في SAP ECC (مرحلة طلب الشراء واعتماد)'), tone: 'success' }],
+};
+const outcomesFor = (n: number) => OUTCOMES[n] ?? (n >= 3 && n <= 6 ? OUTCOMES[3] : n === 8 ? OUTCOMES[7] : []);
+// Steps completed before each task (parallel reviewers only follow steps 1–2).
+const priorSteps = (n: number) => (n <= 2 ? SPECS.filter((x) => x.n < n) : n <= 8 ? SPECS.filter((x) => x.n <= 2) : SPECS.filter((x) => x.n < n));
+const HOUR = 3600000;
+const at = (ms: number) => new Date(ms).toISOString();
+const PRIOR_NOTE: Record<number, string> = {
+  1: 'Budget confirmed against the IT & Digital CAPEX line. Approved.',
+  2: 'Technical criteria and weights verified.',
+  11: 'New request — assigning to the officer for a full RFP check.',
+};
+export const SEED_TASKS: Task[] = SPECS.map((s) => {
+  // Working-hour timestamps: two steps per working day (10:00, 14:00), newest = today.
+  const prior = priorSteps(s.n);
+  const slot = (back: number) => { const d = new Date(base); d.setDate(d.getDate() - Math.ceil(back / 2)); d.setHours(back % 2 ? 10 : 14, 0, 0, 0); if (back === 0) d.setHours(9, 0, 0, 0); return d.getTime(); };
+  const received = Math.min(slot(0) + (s.n % 4) * 25 * 60000, base - 30 * 60000);
+  const t0 = slot(prior.length + 1) - 60 * 60000;
+  const stepAt = (i: number) => slot(prior.length - i);
+  const activity: Task['activity'] = [
+    { id: 'a0', kind: 'system', actor: REQ.requester, at: at(t0), system: sup(`Purchase request #${REQ.no} submitted`, `تم تقديم طلب الشراء رقم ${REQ.no}`) },
+    { id: 'a0c', kind: 'comment', actor: REQ.requester, at: at(t0 + 15 * 60000), text: 'Requesting approval for the ERP upgrade — the current ECC 6.0 support ends in 2027.' },
+    ...prior.map((p, i) => ({
+      id: `a${p.n}`, kind: 'decision' as const, actor: p.assignee, at: at(stepAt(i)),
+      decision: p.n === 11 ? sup('Assigned to officer', 'أُسند إلى أخصائي') : p.n === 12 ? sup('Submitted for DOA approval', 'أُرسل لاعتماد الصلاحيات') : p.type === 'data-collection' ? sup('Qualification criteria added', 'تمت إضافة معايير التأهيل') : sup('Approved', 'تم الاعتماد'),
+      text: PRIOR_NOTE[p.n],
+      system: sup(p.stage.en, p.stage.ar),
+    })),
+    { id: 'aN', kind: 'system', actor: s.assignee, at: at(received), system: sup(`Assigned to ${s.assignee.name} — ${s.stage.en}`, `أُسند إلى ${s.assignee.nameAr} — ${s.stage.ar}`) },
+  ];
+  return {
+    id: `TSK-${REQ.no}-${String(s.n).padStart(2, '0')}`,
+    type: s.type,
+    titleEn: s.title.en, titleAr: s.title.ar,
+    summaryEn: s.summary.en, summaryAr: s.summary.ar,
+    state: 'available', priority: s.priority,
+    entity: { kind: 'PR', ref: REQ.ref, titleEn: REQ.titleEn, titleAr: REQ.titleAr },
+    project: REQ.project,
+    amount: REQ.amount,
+    requester: REQ.requester, assignee: s.assignee,
+    department: sup(reqDept(), reqDept(true)),
+    stageEn: s.stage.en, stageAr: s.stage.ar,
+    receivedAt: at(received), dueAt: at(received + s.sla * 24 * HOUR),
+    mineAction: true,
+    actions: s.actions,
+    outcomes: outcomesFor(s.n),
+    slaHours: s.sla * 24,
+    activity,
+    ...s.extra,
+  };
+});
 
 // ── RFP / request detail + workflow trail ─────────────────────────────────────
 
