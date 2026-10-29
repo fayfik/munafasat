@@ -38,9 +38,6 @@ function ApprovalBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
           </ul>
         </Section>
       )}
-      {task.requireReasonOnReject && (
-        <InfoBanner variant="info">{t('A reason is required when you reject or return this request.', 'يلزم إدخال سبب عند رفض هذا الطلب أو إعادته.')}</InfoBanner>
-      )}
     </div>
   );
 }

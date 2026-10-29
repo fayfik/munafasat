@@ -139,7 +139,7 @@ export function buildCommentResponseTask(src: Task, note?: string): Task {
       { id: 'submit', labelEn: 'Resubmit for approval', labelAr: 'إعادة التقديم للاعتماد', variant: 'primary', gated: true, decision: sup('Resubmitted for approval', 'أُعيد التقديم للاعتماد') },
       { id: 'save-draft', labelEn: 'Save draft', labelAr: 'حفظ مسودة', variant: 'secondary' },
     ],
-    outcomes: [{ action: sup('Resubmit for approval', 'إعادة التقديم للاعتماد'), next: sup(`Back to ${mgr.name} — ${src.stageEn}`, `يعود إلى ${mgr.nameAr ?? mgr.name} — ${src.stageAr}`), tone: 'success' }],
+    outcomes: [{ action: sup('Resubmit for approval', 'إعادة التقديم للاعتماد'), next: sup(`it goes back to ${mgr.name} (${src.stageEn})`, `يعود إلى ${mgr.nameAr ?? mgr.name} (${src.stageAr})`), tone: 'success' }],
     decisionSteps: {
       submit: [
         step(`Back to ${mgr.name}`, `العودة إلى ${mgr.nameAr ?? mgr.name}`, `${mgr.name} reviews your replies and edits — ${src.stageEn}.`, `يراجع ${mgr.nameAr ?? mgr.name} ردودك وتعديلاتك — ${src.stageAr}.`),
@@ -326,20 +326,20 @@ const SPECS: Spec[] = [
 ];
 
 
-const toRequester = { action: sup('Return', 'إعادة'), next: sup('Back to the requester to update the form (with your comments)', 'يعود إلى مقدّم الطلب لتحديث النموذج (مع ملاحظاتك)'), tone: 'warning' as const };
+const toRequester = { action: sup('Return', 'إعادة'), next: sup('the request goes back to the requester to update, with your comments', 'يعود الطلب إلى مقدّم الطلب لتحديثه مع ملاحظاتك'), tone: 'warning' as const };
 const OUTCOMES: Record<number, NonNullable<Task['outcomes']>> = {
-  1: [{ action: sup('Approve', 'اعتماد'), next: sup('Specialist and finance reviews start in parallel', 'تبدأ المراجعات التخصصية والمالية بالتوازي'), tone: 'success' }, toRequester,
-      { action: sup('Reject', 'رفض'), next: sup('Request is closed with your rejection reason', 'يُغلق الطلب مع سبب الرفض'), tone: 'danger' }],
-  2: [{ action: sup('Approve', 'اعتماد'), next: sup('Technical evaluation verified — moves to risk review', 'تم التحقق من التقييم الفني — ينتقل إلى مراجعة المخاطر'), tone: 'success' }, toRequester],
-  3: [{ action: sup('Approve', 'اعتماد'), next: sup('Waits for the other parallel reviewers, then triggers Finance and Procurement qualification', 'ينتظر بقية المراجعين بالتوازي ثم يبدأ تأهيل المالية والمشتريات'), tone: 'success' }, toRequester],
-  7: [{ action: sup('Approve', 'اعتماد'), next: sup('Finance qualification + Procurement qualification', 'التأهيل المالي + تأهيل المشتريات'), tone: 'success' }, toRequester],
-  9: [{ action: sup('Complete', 'إكمال'), next: sup('Procurement qualification', 'تأهيل المشتريات'), tone: 'success' }],
-  10: [{ action: sup('Complete', 'إكمال'), next: sup('Procurement Team Lead — review request', 'رئيس فريق المشتريات — مراجعة الطلب'), tone: 'success' }],
-  11: [{ action: sup('Submit for DOA approval', 'إرسال لاعتماد الصلاحيات'), next: sup('No comments — goes to DOA approval', 'لا توجد ملاحظات — ينتقل لاعتماد الصلاحيات'), tone: 'success' },
-       { action: sup('Assign to officer', 'إسناد إلى أخصائي'), next: sup('New request or has comments — the officer reviews it', 'طلب جديد أو عليه ملاحظات — يراجعه الأخصائي'), tone: 'info' }],
-  12: [{ action: sup('Submit for DOA approval', 'إرسال لاعتماد الصلاحيات'), next: sup('Back to the Team Lead for DOA approval', 'يعود إلى رئيس الفريق لاعتماد الصلاحيات'), tone: 'success' }, { ...toRequester, action: sup('Return with comments', 'إعادة مع ملاحظات') }],
-  13: [{ action: sup('Approve', 'اعتماد'), next: sup('Director — approve estimated price', 'المدير — اعتماد السعر التقديري'), tone: 'success' }],
-  14: [{ action: sup('Approve', 'اعتماد'), next: sup('Request approval complete — PR is created in SAP ECC (PR & Etimad stage)', 'يكتمل اعتماد الطلب — يُنشأ طلب الشراء في SAP ECC (مرحلة طلب الشراء واعتماد)'), tone: 'success' }],
+  1: [{ action: sup('Approve', 'اعتماد'), next: sup('specialist and finance reviews start in parallel', 'تبدأ المراجعات التخصصية والمالية بالتوازي'), tone: 'success' }, toRequester,
+      { action: sup('Reject', 'رفض'), next: sup('the request is closed and the requester sees your reason', 'يُغلق الطلب ويطّلع مقدّم الطلب على السبب'), tone: 'danger' }],
+  2: [{ action: sup('Approve', 'اعتماد'), next: sup('the technical evaluation is marked verified and the request moves to risk review', 'يُعتمد التقييم الفني وينتقل الطلب إلى مراجعة المخاطر'), tone: 'success' }, toRequester],
+  3: [{ action: sup('Approve', 'اعتماد'), next: sup('it waits for the other parallel reviewers, then Finance and Procurement qualification starts', 'ينتظر بقية المراجعين بالتوازي ثم يبدأ تأهيل المالية والمشتريات'), tone: 'success' }, toRequester],
+  7: [{ action: sup('Approve', 'اعتماد'), next: sup('Finance and Procurement qualification starts', 'يبدأ التأهيل المالي وتأهيل المشتريات'), tone: 'success' }, toRequester],
+  9: [{ action: sup('Complete', 'إكمال'), next: sup('Procurement qualification starts', 'يبدأ تأهيل المشتريات'), tone: 'success' }],
+  10: [{ action: sup('Complete', 'إكمال'), next: sup('it goes to the Procurement Team Lead for review', 'ينتقل إلى رئيس فريق المشتريات للمراجعة'), tone: 'success' }],
+  11: [{ action: sup('Submit for DOA approval', 'إرسال لاعتماد الصلاحيات'), next: sup('the DOA approver receives it (use this when there are no comments)', 'يصل إلى معتمد الصلاحيات (عند عدم وجود ملاحظات)'), tone: 'success' },
+       { action: sup('Assign to officer', 'إسناد إلى أخصائي'), next: sup('the officer reviews it (use this for new requests or when there are comments)', 'يراجعه الأخصائي (للطلبات الجديدة أو عند وجود ملاحظات)'), tone: 'info' }],
+  12: [{ action: sup('Submit for DOA approval', 'إرسال لاعتماد الصلاحيات'), next: sup('it goes back to the Team Lead for DOA approval', 'يعود إلى رئيس الفريق لاعتماد الصلاحيات'), tone: 'success' }, { ...toRequester, action: sup('Return with comments', 'إعادة مع ملاحظات') }],
+  13: [{ action: sup('Approve', 'اعتماد'), next: sup('it goes to the Director to approve the estimated price', 'ينتقل إلى المدير لاعتماد السعر التقديري'), tone: 'success' }],
+  14: [{ action: sup('Approve', 'اعتماد'), next: sup('request approval is complete and the PR is created in SAP ECC', 'يكتمل اعتماد الطلب ويُنشأ طلب الشراء في SAP ECC'), tone: 'success' }],
 };
 const outcomesFor = (n: number) => OUTCOMES[n] ?? (n >= 3 && n <= 6 ? OUTCOMES[3] : n === 8 ? OUTCOMES[7] : []);
 // Steps completed before each task (parallel reviewers only follow steps 1–2).

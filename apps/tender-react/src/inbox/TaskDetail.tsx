@@ -1079,25 +1079,26 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
   const sub = lines.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
   return (
     <div className="space-y-4">
-      {/* Your step + what each decision leads to */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-        <div className="flex items-start gap-3">
-          <span className="w-10 h-10 rounded-xl bg-[#17233A] text-white flex items-center justify-center flex-shrink-0"><TaskGlyph className="w-5 h-5" /></span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{t('Your step', 'خطوتك')}</p>
-            <p className="text-[15px] font-bold text-neutral-900">{isAr ? task.stageAr : task.stageEn}</p>
-            <p className="text-[12px] text-neutral-500 mt-0.5">{personName(task.assignee, isAr)} · {isAr ? task.assignee.roleAr : task.assignee.role} · {t('due', 'الاستحقاق')} {fmtDate(task.dueAt, isAr)}</p>
-          </div>
-        </div>
+      {/* Context note: where this task sits and what each decision leads to (information, not a call to action) */}
+      <div className="rounded-xl border border-neutral-200 bg-neutral-50/70 px-4 py-3.5">
+        <p className="flex items-start gap-2 text-[12.5px] text-neutral-600 leading-relaxed">
+          <InfoGlyph className="w-4 h-4 text-neutral-400 flex-shrink-0 mt-0.5" />
+          <span>
+            {t('This task is at the', 'هذه المهمة في مرحلة')} <span className="font-semibold text-neutral-800">{isAr ? task.stageAr : task.stageEn}</span> {t('stage, assigned to', '، ومسندة إلى')} {personName(task.assignee, isAr)} ({isAr ? task.assignee.roleAr : task.assignee.role}) · {t('due', 'تستحق في')} {fmtDate(task.dueAt, isAr)}.
+          </span>
+        </p>
         {task.outcomes?.length ? (
-          <div className={`mt-4 grid grid-cols-1 gap-2.5 ${task.outcomes.length >= 3 ? 'md:grid-cols-3' : task.outcomes.length === 2 ? 'md:grid-cols-2' : ''}`}>
-            {task.outcomes.map((o, i) => (
-              <div key={i} className="rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
-                <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-full border px-2 py-0.5 ${TONE[o.tone].pill}`}><span className={`w-1.5 h-1.5 rounded-full ${TONE[o.tone].dot}`} />{tb(o.action, isAr)}</span>
-                <p className="mt-2 text-[12.5px] text-neutral-700 leading-snug flex items-start gap-1.5"><span className="text-neutral-400">{isAr ? '←' : '→'}</span>{tb(o.next, isAr)}</p>
-              </div>
-            ))}
-          </div>
+          <ul className="mt-2.5 ms-6 space-y-1.5">
+            {task.outcomes.map((o, i) => {
+              const next = tb(o.next, isAr);
+              return (
+                <li key={i} className="flex items-start gap-2 text-[12.5px] text-neutral-500 leading-relaxed">
+                  <span className={`w-1.5 h-1.5 rounded-full mt-[7px] flex-shrink-0 ${TONE[o.tone].dot}`} />
+                  <span>{t('If you', 'عند')} <span className="font-medium text-neutral-700">{isAr ? tb(o.action, isAr) : tb(o.action, isAr).toLowerCase()}</span>{t(', ', '، ')}{next}.</span>
+                </li>
+              );
+            })}
+          </ul>
         ) : null}
       </div>
 
