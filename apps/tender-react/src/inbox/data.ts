@@ -81,6 +81,37 @@ const MANAGER_STEPS: NonNullable<Task['decisionSteps']> = {
   ],
 };
 
+const returnSteps = (who: Person) => [
+  step('Back to the requester', 'العودة إلى مقدّم الطلب', `A "Review comments for the RFP #${REQ.no}" task is created for ${reqUser()}.`, `تُنشأ مهمة "مراجعة التعليقات على المنافسة رقم ${REQ.no}" لـ ${reqUser(true)}.`),
+  step('Requester responds', 'رد مقدّم الطلب', 'They reply to and resolve each comment, and edit only the commented fields.', 'يرد على كل تعليق ويحله، ويعدّل الحقول التي عليها تعليقات فقط.'),
+  step(`Back to ${who.name}`, `العودة إلى ${who.nameAr ?? who.name}`, 'Once every comment is resolved the request is resubmitted to you.', 'بعد حل جميع التعليقات يُعاد تقديم الطلب إليك.'),
+];
+const S = {
+  specialist: step('Specialist & finance reviews', 'المراجعات التخصصية والمالية', 'Cyber Security, Enterprise Risk (BCM), Operational Risk, EA, GL and Assets review in parallel.', 'تراجع الأمن السيبراني والمخاطر المؤسسية والتشغيلية والبنية المؤسسية ودفتر الأستاذ والأصول بالتوازي.'),
+  waitParallel: step('Wait for parallel reviewers', 'انتظار بقية المراجعين', 'Your approval is held until every other specialist and finance reviewer completes.', 'يُحتفظ باعتمادك حتى يكمل جميع المراجعين الآخرين.'),
+  finQual: step('Finance qualification', 'التأهيل المالي', 'Finance adds the financial qualification criteria (cash ratio, quick ratio, passing %).', 'تضيف المالية معايير التأهيل المالي (نسبة النقدية والسيولة السريعة ونسبة الاجتياز).'),
+  procQual: step('Procurement qualification', 'تأهيل المشتريات', 'Procurement completes the qualification criteria ranges and weights.', 'تكمل المشتريات نطاقات وأوزان معايير التأهيل.'),
+  tl: step('Procurement Team Lead review', 'مراجعة رئيس فريق المشتريات', 'No comments → DOA approval; new request or comments → assigned to an officer.', 'لا ملاحظات ← اعتماد الصلاحيات؛ طلب جديد أو ملاحظات ← إسناد إلى أخصائي.'),
+  officer: step('Procurement Officer review', 'مراجعة أخصائي المشتريات', 'The officer checks the RFP and either submits it for DOA approval or returns it with comments.', 'يراجع الأخصائي المنافسة ثم يرسلها لاعتماد الصلاحيات أو يعيدها مع ملاحظات.'),
+  backTl: step('Back to the Team Lead', 'العودة إلى رئيس الفريق', 'The Team Lead takes the officer-checked request to DOA approval.', 'يحيل رئيس الفريق الطلب بعد مراجعة الأخصائي لاعتماد الصلاحيات.'),
+  doa: step('DOA approval', 'اعتماد تفويض الصلاحيات', 'Approved per the delegation of authority matrix.', 'يُعتمد وفق مصفوفة تفويض الصلاحيات.'),
+  price: step('Estimated price approval', 'اعتماد السعر التقديري', 'The Director approves the estimated price.', 'يعتمد المدير السعر التقديري.'),
+  pr: step('Create PR in SAP ECC', 'إنشاء طلب الشراء في SAP ECC', 'Hands off to PR approval DOA (5 levels) and the Etimad stage.', 'ينتقل إلى اعتماد طلب الشراء (5 مستويات) ومرحلة اعتماد.'),
+};
+/** "What's next?" steps per task (n) and action, from the process task list. */
+const STEPS_BY_TASK: Record<number, (who: Person) => NonNullable<Task['decisionSteps']>> = {
+  2: (w) => ({ approve: [step('Risk review', 'مراجعة المخاطر', 'Technical evaluation verified — the request moves to the specialist reviews.', 'تم التحقق من التقييم الفني — ينتقل الطلب إلى المراجعات التخصصية.'), S.specialist, S.finQual], return: returnSteps(w) }),
+  3: (w) => ({ approve: [S.waitParallel, S.finQual, S.procQual], return: returnSteps(w) }),
+  7: (w) => ({ approve: [S.waitParallel, S.finQual, S.procQual], return: returnSteps(w) }),
+  9: () => ({ complete: [S.procQual, S.tl] }),
+  10: () => ({ complete: [S.tl, S.doa] }),
+  11: () => ({ approve: [S.doa, S.price, S.pr], complete: [S.officer, S.backTl, S.doa] }),
+  12: (w) => ({ submit: [S.backTl, S.doa, S.price], return: returnSteps(w) }),
+  13: () => ({ approve: [S.price, S.pr] }),
+  14: () => ({ approve: [S.pr, step('PR approval DOA', 'اعتماد طلب الشراء', 'Five approval levels in SAP ECC.', 'خمسة مستويات اعتماد في SAP ECC.'), step('Etimad', 'اعتماد', 'Estimated prices request and publishing on Etimad.', 'طلب الأسعار التقديرية والنشر في منصة اعتماد.')] }),
+};
+const stepsFor = (n: number, who: Person) => (STEPS_BY_TASK[n] ?? (n >= 3 && n <= 6 ? STEPS_BY_TASK[3] : n === 8 ? STEPS_BY_TASK[7] : undefined))?.(who);
+
 /** Created when the manager returns a reviewed request: the requester answers each comment. */
 export function buildCommentResponseTask(src: Task, note?: string): Task {
   const now = Date.now();
@@ -108,23 +139,23 @@ export function buildCommentResponseTask(src: Task, note?: string): Task {
       { id: 'submit', labelEn: 'Resubmit for approval', labelAr: 'إعادة التقديم للاعتماد', variant: 'primary', gated: true, decision: sup('Resubmitted for approval', 'أُعيد التقديم للاعتماد') },
       { id: 'save-draft', labelEn: 'Save draft', labelAr: 'حفظ مسودة', variant: 'secondary' },
     ],
-    outcomes: [{ action: sup('Resubmit for approval', 'إعادة التقديم للاعتماد'), next: sup(`Back to ${mgr.name} for department approval`, `يعود إلى ${mgr.nameAr ?? mgr.name} لاعتماد الإدارة`), tone: 'success' }],
+    outcomes: [{ action: sup('Resubmit for approval', 'إعادة التقديم للاعتماد'), next: sup(`Back to ${mgr.name} — ${src.stageEn}`, `يعود إلى ${mgr.nameAr ?? mgr.name} — ${src.stageAr}`), tone: 'success' }],
     decisionSteps: {
       submit: [
-        step('Back to your manager', 'العودة إلى مديرك', `${mgr.name} reviews your replies and edits.`, `يراجع ${mgr.nameAr ?? mgr.name} ردودك وتعديلاتك.`),
-        step('Department approval', 'اعتماد الإدارة', 'On approval, specialist and finance reviews start in parallel.', 'عند الاعتماد تبدأ المراجعات التخصصية والمالية بالتوازي.'),
+        step(`Back to ${mgr.name}`, `العودة إلى ${mgr.nameAr ?? mgr.name}`, `${mgr.name} reviews your replies and edits — ${src.stageEn}.`, `يراجع ${mgr.nameAr ?? mgr.name} ردودك وتعديلاتك — ${src.stageAr}.`),
+        ...((src.decisionSteps?.approve ?? src.decisionSteps?.submit ?? []).slice(0, 2)),
       ],
     },
     rfp: src.rfp ? structuredClone(src.rfp) : undefined,
     trail: [
       { id: 't0', titleEn: 'Request submitted', titleAr: 'تقديم الطلب', actorEn: src.requester.name, actorAr: src.requester.nameAr ?? src.requester.name, state: 'done', at: src.activity[0]?.at },
-      { id: 't1', titleEn: 'Department approval — returned', titleAr: 'اعتماد الإدارة — أُعيد', actorEn: mgr.name, actorAr: mgr.nameAr ?? mgr.name, state: 'done', at: new Date(now).toISOString() },
+      { id: 't1', titleEn: `${src.stageEn} — returned`, titleAr: `${src.stageAr} — أُعيد`, actorEn: mgr.name, actorAr: mgr.nameAr ?? mgr.name, state: 'done', at: new Date(now).toISOString() },
       { id: 't2', titleEn: 'Address review comments', titleAr: 'معالجة تعليقات المراجعة', actorEn: src.requester.name, actorAr: src.requester.nameAr ?? src.requester.name, state: 'current', note: { en: 'Awaiting your replies.', ar: 'بانتظار ردودك.' } },
-      { id: 't3', titleEn: 'Department approval', titleAr: 'اعتماد الإدارة', actorEn: mgr.name, actorAr: mgr.nameAr ?? mgr.name, state: 'upcoming' },
-      { id: 't4', titleEn: 'Specialist & finance reviews', titleAr: 'المراجعات التخصصية والمالية', actorEn: 'Cyber · Risk · EA · Finance', actorAr: 'الأمن · المخاطر · البنية · المالية', state: 'upcoming' },
+      { id: 't3', titleEn: src.stageEn, titleAr: src.stageAr, actorEn: mgr.name, actorAr: mgr.nameAr ?? mgr.name, state: 'upcoming' },
+      ...((src.decisionSteps?.approve ?? src.decisionSteps?.submit ?? []).slice(0, 2).map((x, i) => ({ id: `t4${i}`, titleEn: x.titleEn, titleAr: x.titleAr, actorEn: x.descEn, actorAr: x.descAr, state: 'upcoming' as const }))),
     ],
     activity: [
-      { id: 'r0', kind: 'decision', actor: mgr, at: new Date(now).toISOString(), decision: sup('Returned for correction', 'مُعاد للتصحيح'), system: sup('Department approval', 'اعتماد الإدارة'), text: note },
+      { id: 'r0', kind: 'decision', actor: mgr, at: new Date(now).toISOString(), decision: sup('Returned for correction', 'مُعاد للتصحيح'), system: sup(src.stageEn, src.stageAr), text: note },
       ...roots.map((r) => ({ ...r, id: `R-${r.id}`, resolved: false })),
       ...replies.map((r) => ({ ...r, id: `R-${r.id}`, replyTo: `R-${r.replyTo}` })),
     ],
@@ -354,6 +385,8 @@ export const SEED_TASKS: Task[] = SPECS.map((s) => {
     mineAction: true,
     actions: s.actions,
     outcomes: outcomesFor(s.n),
+    reviewComments: true,
+    decisionSteps: stepsFor(s.n, s.assignee),
     slaHours: s.sla * 24,
     activity,
     ...s.extra,
