@@ -66,6 +66,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const t = useT();
   const { decide, addComment, resolveComment, updateRfp } = useInbox();
   const [tab, setTab] = useState<'overview' | 'rfp' | 'activity'>('overview');
+  const [showInfo, setShowInfo] = useState(false); // stage / outcomes note — hidden by default
   const [side, setSide] = useState<'comments' | 'history' | null>(null);
   const [commentMode, setCommentMode] = useState(false);
   useEffect(() => { setCommentMode(false); }, [task.id]);
@@ -222,11 +223,17 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
                 {isAr ? tb2.ar : tb2.en}
               </button>
             ))}
+            <button type="button" onClick={() => setShowInfo((v) => !v)} aria-pressed={showInfo}
+              title={showInfo ? t('Hide task info', 'إخفاء معلومات المهمة') : t('Task stage & what happens next', 'مرحلة المهمة وما يحدث بعد ذلك')}
+              className={`ms-auto w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${showInfo ? 'bg-brand-50 text-brand-700' : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'}`}>
+              <InfoGlyph className="w-[18px] h-[18px]" />
+            </button>
           </div>
         </div>
 
         {/* Tab content */}
         <div className="p-4 sm:p-6">
+          {showInfo && <ContextNote task={task} isAr={isAr} t={t} onClose={() => setShowInfo(false)} />}
           {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length} />}
           {tab === 'rfp' && (
             <div className="flex items-center justify-between gap-3 mb-3">
@@ -1076,15 +1083,11 @@ const TONE: Record<'success' | 'warning' | 'danger' | 'info', { pill: string; do
   info:    { pill: 'bg-blue-50 text-blue-700 border-blue-100', dot: 'bg-blue-500' },
 };
 
-function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCount = 0 }: { task: Task; isAr: boolean; t: T; onReview?: () => void; commentCount?: number; resolvedCount?: number }) {
-  const [officer, setOfficer] = useState(task.assignTo?.[0]?.id ?? '');
-  const lines = task.rfp?.boq ?? [];
-  const budgets = Array.from(new Set(lines.map((l) => l.budgetEn ?? '')));
-  const sub = lines.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
+/** Where this task sits and what each decision leads to — information only, opened from the tab-bar info icon. */
+function ContextNote({ task, isAr, t, onClose }: { task: Task; isAr: boolean; t: T; onClose: () => void }) {
   return (
-    <div className="space-y-4">
-      {/* Context note: where this task sits and what each decision leads to (information, not a call to action) */}
-      <div className="rounded-xl border border-neutral-200 bg-neutral-50/70 px-4 py-3.5">
+      <div className="relative rounded-xl border border-neutral-200 bg-neutral-50/70 ps-4 pe-10 py-3.5 mb-4 cm-fade-in">
+        <button type="button" onClick={onClose} title={t('Hide', 'إخفاء')} className="absolute top-2.5 end-2.5 w-6 h-6 rounded-md flex items-center justify-center text-neutral-400 hover:bg-neutral-200/60 hover:text-neutral-700">×</button>
         <p className="flex items-start gap-2 text-[12.5px] text-neutral-600 leading-relaxed">
           <InfoGlyph className="w-4 h-4 text-neutral-400 flex-shrink-0 mt-0.5" />
           <span>
@@ -1105,7 +1108,16 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
           </ul>
         ) : null}
       </div>
+  );
+}
 
+function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCount = 0 }: { task: Task; isAr: boolean; t: T; onReview?: () => void; commentCount?: number; resolvedCount?: number }) {
+  const [officer, setOfficer] = useState(task.assignTo?.[0]?.id ?? '');
+  const lines = task.rfp?.boq ?? [];
+  const budgets = Array.from(new Set(lines.map((l) => l.budgetEn ?? '')));
+  const sub = lines.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
+  return (
+    <div className="space-y-4">
       {/* Approver: review the RFP and pin comments */}
       {onReview && (
         <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white p-5 shadow-sm flex items-center gap-4 flex-wrap">
