@@ -187,7 +187,8 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   latest.current = { formData, status };
 
   const persist = useCallback(async (form: TenderFormData, st: TenderStatus, extra?: Record<string, unknown>) => {
-    if (store.mode !== 'live') { setSaveState('unavailable'); return false; }
+    // Sample mode: kept for this session only (My Requests), so the header still says changes aren't saved.
+    if (store.mode !== 'live') { await store.save(requestId, form, st, extra); setSaveState('unavailable'); return false; }
     setSaveState('saving');
     const ok = await store.save(requestId, form, st, extra);
     setSaveState(ok ? 'saved' : 'error');
@@ -513,9 +514,10 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
     setIsSubmitting(true);
     const d = new Date();
     const requestNo = `TEN-${d.getFullYear()}-${requestId.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+    const extra = { requestNo, submittedAt: d.toISOString(), ...(latest.current.formData.sourceType === 'tendering' ? { etimadReview: { outcome: 'pending' as const } } : {}) };
     const ok = store.mode === 'live'
-      ? await persist(latest.current.formData, 'submitted', { requestNo, submittedAt: d.toISOString() })
-      : true;
+      ? await persist(latest.current.formData, 'submitted', extra)
+      : (await store.save(requestId, latest.current.formData, 'submitted', extra), true);
     setIsSubmitting(false);
     if (ok) { setStatus('submitted'); setSubmitted({ requestNo, at: d.toISOString() }); }
   }, [readyToSubmit, isSubmitting, requestId, store.mode, persist]);

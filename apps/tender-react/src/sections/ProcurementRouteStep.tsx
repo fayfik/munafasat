@@ -359,6 +359,7 @@ export default function ProcurementRouteStep() {
       type: sourceType,
       department: cc?.name ?? '—',
       budget: '—',
+      linkedFrom: { id: requestId, title: project?.name ?? 'Request', why: 'route-split' },
     }, form);
     return { id, route: sourceType, items: vs.map((v) => v.name) };
   }

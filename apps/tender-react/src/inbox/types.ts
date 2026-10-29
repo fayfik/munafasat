@@ -234,7 +234,7 @@ export interface Task {
   /** Procurement's covering note when they reply or ask for more detail. */
   replyNote?: string;
   /** The request being reviewed (used to create an eMarket draft from flagged items). */
-  sourceRequest?: { projectId: string; costCenterId: string; purpose: string; requestNo: string; title: string };
+  sourceRequest?: { id?: string; projectId: string; costCenterId: string; purpose: string; requestNo: string; title: string };
 
   // Full RFP / request context (shown in the detail tabs) and the workflow trail.
   slaHours?: number;            // total SLA window from receivedAt

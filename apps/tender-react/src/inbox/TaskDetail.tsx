@@ -79,14 +79,15 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const { isAr } = useLanguage();
   const t = useT();
   const { decide, addComment, finishEtimadReview, finishRouteCheck } = useInbox();
-  const { addSessionDraft, updateSessionDraft } = useRequests();
+  const { addSessionDraft, updateSessionDraft, get: getRequest } = useRequests();
   // Etimad review outcomes: confirm all, return to the requester, or move flagged lines to an eMarket draft.
   function finishEtimad(id: TaskAction, n?: string) {
     if (id === 'move-emarket') {
       const flagged = (task.etimadItems ?? []).filter((i) => i.verdict === 'on-etimad');
       const src = task.sourceRequest;
       if (src && flagged.length) {
-        addSessionDraft({ title: `${src.title} — Etimad eMarket (${flagged.length} item${flagged.length > 1 ? 's' : ''})`, type: 'souq-etimad', department: tb(task.department, false), budget: '—' }, {
+        addSessionDraft({ title: `${src.title} — Etimad eMarket (${flagged.length} item${flagged.length > 1 ? 's' : ''})`, type: 'souq-etimad', department: tb(task.department, false), budget: '—',
+          ...(src.id ? { linkedFrom: { id: src.id, title: src.title, why: 'etimad-review' as const } } : {}) }, {
           sourceType: 'souq-etimad', projectId: src.projectId, costCenterId: src.costCenterId, tenderingPurpose: src.purpose,
           selectedProjectItemIds: [], scopeIncludes: [],
           boqItems: flagged.map((f) => ({ id: crypto.randomUUID(), projectItem: '', itemName: f.name, itemDescription: f.note ?? '', unitOfMeasure: f.unit || 'Each',
@@ -95,7 +96,23 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
         } as never);
       }
       finishEtimadReview(task.id, 'move', n);
-    } else finishEtimadReview(task.id, id === 'complete' ? 'accept' : 'return', n);
+      if (src?.id) {
+        // The moved lines leave the tender — kept as etimadMovedItems for the record.
+        const srcForm = getRequest(src.id)?.form;
+        const ids = new Set(flagged.map((f) => f.id));
+        updateSessionDraft(src.id, {
+          status: 'under-review', etimadReview: { outcome: 'moved', at: new Date().toISOString(), note: n, movedCount: flagged.length },
+          ...(srcForm ? { form: { ...srcForm, boqItems: srcForm.boqItems.filter((r) => !ids.has(r.id)), etimadMovedItems: [...(srcForm.etimadMovedItems ?? []), ...srcForm.boqItems.filter((r) => ids.has(r.id))] } } : {}),
+        });
+      }
+    } else {
+      finishEtimadReview(task.id, id === 'complete' ? 'accept' : 'return', n);
+      // The requester's request shows Procurement's outcome (and comes back to them when returned).
+      const src = task.sourceRequest;
+      if (src?.id) updateSessionDraft(src.id, id === 'complete'
+        ? { status: 'under-review', etimadReview: { outcome: 'confirmed', at: new Date().toISOString(), note: n } }
+        : { status: 'returned', etimadReview: { outcome: 'returned', at: new Date().toISOString(), note: n } });
+    }
   }
   const [tab, setTab] = useState<'overview' | 'rfp' | 'activity'>('overview');
   const [side, setSide] = useState<'chat' | 'history' | null>(null);

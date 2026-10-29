@@ -33,7 +33,7 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
   const inboxCount = useInbox().countsByView['needs-action'];
 
   // 'tender-form' counts as child of 'my-requests' for nav highlight purposes
-  const activePage: AppPage = currentPage === 'tender-form' || currentPage === 'procure-intake' ? 'my-requests' : currentPage;
+  const activePage: AppPage = currentPage === 'tender-form' || currentPage === 'procure-intake' || currentPage === 'request-detail' ? 'my-requests' : currentPage;
 
   const NAV_ITEMS = [
     { page: 'dashboard' as AppPage, label: t('Dashboard', 'الرئيسية'), Icon: NavDashboardIcon },

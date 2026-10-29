@@ -9,10 +9,11 @@ import AppShell, { type AppPage } from './components/AppShell';
 import Dashboard from './pages/Dashboard';
 import MyRequests from './pages/MyRequests';
 import TenderForm from './pages/TenderForm';
+import RequestDetail from './pages/RequestDetail';
 import type { SourceType, TenderFormData } from './types/tender';
 import { onAppNav } from './lib/appNav';
 
-export type FullPage = AppPage | 'tender-form' | 'procure-intake';
+export type FullPage = AppPage | 'tender-form' | 'procure-intake' | 'request-detail';
 
 /** What the tender form should open: a new request, or a saved one. */
 export type OpenTarget =
@@ -33,6 +34,7 @@ function AppRoot() {
   const [page, setPage] = useState<FullPage>('dashboard');
   const [target, setTarget] = useState<OpenTarget>({ kind: 'new' });
   const [formKey, setFormKey] = useState(0);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [reqFilter, setReqFilter] = useState<import('./types/tender').TenderStatus | 'all'>('all');
   // A linked Etimad E-Market draft opened in a new tab ("View draft request") — seeded via localStorage.
   const [externalForm, setExternalForm] = useState<TenderFormData | null>(null);
@@ -60,10 +62,15 @@ function AppRoot() {
   // Every new request opens the wizard on its Procurement Route step (Step 1),
   // which determines the channel; the dashboard quick actions land here too.
   const newRequest = (_sourceType?: SourceType) => open({ kind: 'new' });
+  // Drafts and returned requests open in the wizard to keep working on them; anything already
+  // submitted opens its detail page (where it stands, what's in it, linked requests).
+  const editRequest = (id: string) => open({ kind: 'existing', id });
   const openRequest = (id: string) => {
-    // Sample rows (no saved form) open a fresh form, as in the original prototype.
     const r = store.get(id);
-    if (r?.form) open({ kind: 'existing', id });
+    const editable = r?.status === 'draft' || r?.status === 'returned' || !!r?.form?.routeCheck;
+    if (r && !editable) { setDetailId(id); setPage('request-detail'); return; }
+    // Sample rows (no saved form) open a fresh form, as in the original prototype.
+    if (r?.form) editRequest(id);
     else newRequest(r?.type);
   };
 
@@ -91,6 +98,9 @@ function AppRoot() {
       )}
       {page === 'inbox' && <InboxPage key={focusTask ? `${focusTask.id}-${focusTask.n}` : 'inbox'} focusTaskId={focusTask?.id} />}
       {page === 'reports' && <EmptyPage page="reports" />}
+      {page === 'request-detail' && detailId && (
+        <RequestDetail key={detailId} id={detailId} onBack={() => setPage('my-requests')} onEdit={editRequest} onOpen={openRequest} />
+      )}
       {page === 'my-requests' && (
         <MyRequests key={reqFilter} initialFilter={reqFilter} onNewRequest={() => newRequest()} onOpenRequest={openRequest} />
       )}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useRequests } from '../context/RequestStore';
+import { useRequests, type SavedRequest } from '../context/RequestStore';
 import { Badge, Button } from '../components/ui';
 import { PlusIcon, SearchIcon, DocumentIcon, AlertTriangleIcon, ChevronRightIcon, XIcon } from '../components/Icons';
 import { useT, useLanguage } from '../context/LanguageContext';
@@ -177,7 +177,8 @@ export default function MyRequests({ onNewRequest, onOpenRequest, initialFilter 
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {filtered.map((tender) => (
-                <RequestRow key={tender.id} tender={tender} onOpen={() => onOpenRequest(tender.id)} />
+                <RequestRow key={tender.id} tender={tender} onOpen={() => onOpenRequest(tender.id)} onOpenLinked={onOpenRequest}
+                  linked={MOCK_TENDERS.filter((x) => (x as SavedRequest).linkedFrom?.id === tender.id)} />
               ))}
               {filtered.length === 0 && (
                 <tr>
@@ -224,14 +225,16 @@ export default function MyRequests({ onNewRequest, onOpenRequest, initialFilter 
   );
 }
 
-function RequestRow({ tender, onOpen }: { tender: TenderDraft; onOpen: () => void }) {
+function RequestRow({ tender, onOpen, onOpenLinked, linked }: { tender: TenderDraft; onOpen: () => void; onOpenLinked: (id: string) => void; linked: TenderDraft[] }) {
   const { isAr } = useLanguage();
   const t = useT();
   const sc         = STATUS_CONFIG[tender.status];
   const label      = isAr ? sc.ar : sc.en;
   const isReturned = tender.status === 'returned';
   const isDraft    = tender.status === 'draft';
-  const rcs = (tender as { routeCheckStatus?: 'with-procurement' | 'replied' | 'needs-detail' }).routeCheckStatus;
+  const rcs = (tender as SavedRequest).routeCheckStatus;
+  const from = (tender as SavedRequest).linkedFrom;
+  const review = (tender as SavedRequest).etimadReview;
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(isAr ? 'ar-SA' : 'en-SA', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -253,10 +256,26 @@ function RequestRow({ tender, onOpen }: { tender: TenderDraft; onOpen: () => voi
               {tender.title}
             </p>
             <p className="text-[10px] text-neutral-400 mt-0.5 font-mono" dir="ltr">{(tender as { requestNo?: string }).requestNo || (tender.status === 'draft' ? t('Draft', 'مسودة') : tender.id)}</p>
+            {(from || linked.length > 0) && (
+              <div className="mt-1 flex items-center gap-1.5 flex-wrap" data-testid="linked-line">
+                {from && (
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onOpenLinked(from.id); }}
+                    className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-full px-2 py-0.5">
+                    ↳ {t(`Split from ${from.title}`, `مقسوم من ${from.title}`)}
+                  </button>
+                )}
+                {linked.map((c) => (
+                  <button key={c.id} type="button" onClick={(e) => { e.stopPropagation(); onOpenLinked(c.id); }}
+                    className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-full px-2 py-0.5">
+                    + {c.type === 'souq-etimad' ? t('Linked Etimad E-Market request', 'طلب سوق اعتماد مرتبط') : t('Linked tender request', 'طلب منافسة مرتبط')}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </td>
-      <td className="px-4 py-3.5">
+      <td className="px-4 py-3.5 whitespace-nowrap">
         {rcs ? <Badge variant="default">{t('Route not decided', 'المسار لم يُحدد')}</Badge> : (
         <Badge variant={tender.type === 'tendering' ? 'info' : 'default'}>
           {tender.type === 'tendering' ? t('Tender', 'منافسة') : t('Etimad E-Market', 'سوق اعتماد')}
@@ -268,6 +287,11 @@ function RequestRow({ tender, onOpen }: { tender: TenderDraft; onOpen: () => voi
         <div>
           <Badge variant={sc.variant}>{label}</Badge>
           {isReturned && <p className="text-[10px] text-error-600 font-semibold mt-1">{t('Action required', 'إجراء مطلوب')}</p>}
+          {!rcs && review && tender.status !== 'draft' && (
+            <p className={`text-[10px] font-semibold mt-1 ${review.outcome === 'pending' ? 'text-warning-700' : review.outcome === 'returned' ? 'text-error-600' : 'text-success-700'}`} data-testid="review-status">
+              {review.outcome === 'pending' ? t('Etimad check by Procurement', 'فحص اعتماد لدى المشتريات') : review.outcome === 'returned' ? t('Returned by Procurement — Etimad answers', 'أعادته المشتريات — إجابات اعتماد') : review.outcome === 'moved' ? t('Etimad checked · lines moved to E-Market', 'تم الفحص · نُقلت بنود إلى السوق') : t('Etimad answers confirmed', 'تم تأكيد إجابات اعتماد')}
+            </p>
+          )}
           {rcs && (
             <p className={`text-[10px] font-semibold mt-1 ${rcs === 'with-procurement' ? 'text-warning-700' : rcs === 'replied' ? 'text-success-700' : 'text-error-600'}`} data-testid="route-check-status">
               {rcs === 'with-procurement' ? t('With Procurement — Etimad check', 'لدى المشتريات — فحص اعتماد') : rcs === 'replied' ? t('Procurement replied — choose the route', 'ردّت المشتريات — اختر المسار') : t('Procurement needs more detail', 'تحتاج المشتريات تفاصيل أكثر')}

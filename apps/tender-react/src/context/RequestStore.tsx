@@ -12,6 +12,11 @@ export interface SavedRequest extends TenderDraft {
   requestNo?: string;
   /** Help me decide (manual): where the Procurement route check stands. */
   routeCheckStatus?: 'with-procurement' | 'replied' | 'needs-detail';
+  /** Set on a request that was split out of another one (route check or Etimad review). */
+  linkedFrom?: { id: string; title: string; why: 'route-split' | 'etimad-review' };
+  submittedAt?: string;
+  /** Procurement's Etimad E-Market review of a submitted tender (manual build). */
+  etimadReview?: { outcome: 'pending' | 'confirmed' | 'moved' | 'returned'; at?: string; note?: string; movedCount?: number };
 }
 
 interface StoreCtx {
@@ -23,7 +28,7 @@ interface StoreCtx {
   save: (id: string, form: TenderFormData, status: TenderStatus, extra?: Partial<SavedRequest>) => Promise<boolean>;
   get: (id: string) => SavedRequest | undefined;
   /** Adds a draft request for this browser session only (e.g. items moved out of a request in step 1). */
-  addSessionDraft: (draft: Omit<TenderDraft, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { routeCheckStatus?: SavedRequest['routeCheckStatus'] }, form?: TenderFormData, id?: string) => string;
+  addSessionDraft: (draft: Omit<TenderDraft, 'id' | 'createdAt' | 'updatedAt' | 'status'> & Pick<SavedRequest, 'routeCheckStatus' | 'linkedFrom'>, form?: TenderFormData, id?: string) => string;
   /** Changes a session draft in place (e.g. its route-check status or saved form). */
   updateSessionDraft: (id: string, patch: Partial<SavedRequest>) => void;
   removeSessionDraft: (id: string) => void;
@@ -51,6 +56,8 @@ export function RequestStoreProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [canWrite, setCanWrite] = useState(true);
   const [sessionDrafts, setSessionDrafts] = useState<SavedRequest[]>([]);
+  const sessionDraftsRef = useRef<SavedRequest[]>([]);
+  sessionDraftsRef.current = sessionDrafts;
 
   useEffect(() => {
     let unsub: (() => void) | undefined;
@@ -79,8 +86,16 @@ export function RequestStoreProvider({ children }: { children: ReactNode }) {
 
   const save = useCallback<StoreCtx['save']>(async (id, form, status, extra = {}) => {
     const db = await getDb();
-    if (!db) return false;
     const now = new Date().toISOString();
+    if (!db) {
+      // Sample mode (no shared database): keep the request for this browser session so it shows in My Requests.
+      const prev = justAdded.current.find((r) => r.id === id) ?? sessionDraftsRef.current.find((r) => r.id === id);
+      const rec = { ...(prev ?? {}), ...summarize(form), id, status, form, createdAt: prev?.createdAt ?? now, updatedAt: now, ...extra } as SavedRequest;
+      if (form.routeCheck == null) delete rec.routeCheckStatus;
+      justAdded.current = [rec, ...justAdded.current.filter((r) => r.id !== id)];
+      setSessionDrafts((xs) => [rec, ...xs.filter((r) => r.id !== id)]);
+      return true;
+    }
     const existing = requests.find((r) => r.id === id);
     const body = {
       ...summarize(form),
@@ -117,8 +132,9 @@ export function RequestStoreProvider({ children }: { children: ReactNode }) {
   }, []);
   const updateSessionDraft = useCallback<StoreCtx['updateSessionDraft']>((id, p) => {
     const now = new Date().toISOString();
-    justAdded.current = justAdded.current.map((r) => (r.id === id ? { ...r, ...p, updatedAt: now } : r));
-    setSessionDrafts((xs) => xs.map((r) => (r.id === id ? { ...r, ...p, updatedAt: now } : r)));
+    const withBudget = (r: SavedRequest) => ({ ...r, ...p, ...(p.form ? { budget: summarize(p.form).budget } : {}), updatedAt: now });
+    justAdded.current = justAdded.current.map((r) => (r.id === id ? withBudget(r) : r));
+    setSessionDrafts((xs) => xs.map((r) => (r.id === id ? withBudget(r) : r)));
   }, []);
   const removeSessionDraft = useCallback((id: string) => {
     justAdded.current = justAdded.current.filter((r) => r.id !== id);

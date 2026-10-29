@@ -48,11 +48,15 @@ export default function TenderForm({ onBack, onOpenRequest }: Props) {
   // Manual mode: a submitted tender goes to Procurement's Inbox for the Etimad E-Market check.
   const { addTask } = useInbox();
   const { userName } = useRequests();
-  const { boqTotal } = useTender();
+  const { boqTotal, requestId } = useTender();
+  const { get: getRequest } = useRequests();
+  // Procurement's reason when they returned this request after the Etimad review.
+  const rec = getRequest(requestId);
+  const returnedNote = rec?.etimadReview?.outcome === 'returned' ? (rec.etimadReview.note ?? '') : undefined;
   const taskSent = useRef(false);
   useEffect(() => {
     if (!submitted || taskSent.current) return;
-    const task = buildEtimadReviewTask(formData, submitted.requestNo, userName, boqTotal);
+    const task = buildEtimadReviewTask(formData, submitted.requestNo, userName, boqTotal, requestId);
     if (task) { addTask(task); taskSent.current = true; }
   }, [submitted, formData, userName, boqTotal, addTask]);
 
@@ -277,6 +281,12 @@ export default function TenderForm({ onBack, onOpenRequest }: Props) {
               </h2>
             </div>
 
+            {status === 'returned' && returnedNote !== undefined && (
+              <div className="mb-5 rounded-xl border border-error-200 bg-error-50 px-5 py-3.5 text-[13px] text-error-900" data-testid="returned-note">
+                <span className="font-semibold">{t('Returned by Procurement', 'أعادته المشتريات')}:</span>{' '}
+                {returnedNote || t('check the Etimad E-Market answers on your BOQ lines, then resubmit.', 'راجع إجابات اعتماد في بنود الجدول ثم أعد التقديم.')}
+              </div>
+            )}
             <div className="space-y-5">
               {CurrentSection === ReviewConfirm ? <ReviewConfirm onExit={onBack} onOpenRequest={onOpenRequest} /> : <CurrentSection />}
             </div>

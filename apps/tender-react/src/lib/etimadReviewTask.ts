@@ -7,7 +7,7 @@ import type { TenderFormData } from '../types/tender';
 import { etimadAnswerOf } from './etimadCheck';
 import { effectiveQty } from './boqManpower';
 
-export function buildEtimadReviewTask(form: TenderFormData, requestNo: string, userName: string, total: number): Task | null {
+export function buildEtimadReviewTask(form: TenderFormData, requestNo: string, userName: string, total: number, requestId?: string): Task | null {
   if (form.sourceType !== 'tendering' || form.boqItems.length === 0) return null;
   const p = PROJECTS.find((x) => x.id === form.projectId);
   const cc = ALL_COST_CENTERS.find((x) => x.id === form.costCenterId);
@@ -36,7 +36,7 @@ export function buildEtimadReviewTask(form: TenderFormData, requestNo: string, u
     stageEn: 'Etimad E-Market review', stageAr: 'مراجعة سوق اعتماد',
     receivedAt: now.toISOString(), dueAt: due.toISOString(), mineAction: true,
     etimadItems: items,
-    sourceRequest: { projectId: form.projectId, costCenterId: form.costCenterId, purpose: form.tenderingPurpose, requestNo, title },
+    sourceRequest: { id: requestId, projectId: form.projectId, costCenterId: form.costCenterId, purpose: form.tenderingPurpose, requestNo, title },
     activity: [
       { id: `${requestNo}-a1`, kind: 'system', actor: requester, at: now.toISOString(), system: { en: 'Tender request submitted', ar: 'تم تقديم طلب المنافسة' } },
       { id: `${requestNo}-a2`, kind: 'system', actor: ME, at: now.toISOString(), system: { en: 'Assigned to Procurement for the Etimad E-Market check', ar: 'أُسند إلى المشتريات لفحص سوق اعتماد' } },
