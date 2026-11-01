@@ -530,7 +530,7 @@ function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grand
   const steps = [
     { icon: <ClockIcon className="w-4 h-4" />, tone: 'bg-blue-50 text-blue-600', en: 'Procurement Committee Review', ar: 'مراجعة لجنة المشتريات', metaEn: '2–5 business days', metaAr: '2–5 أيام عمل' },
     { icon: <CheckCircleIcon className="w-4 h-4" />, tone: 'bg-brand-50 text-brand-600', en: 'Budget & Policy Approval', ar: 'اعتماد الميزانية والسياسات', metaEn: '3–7 business days', metaAr: '3–7 أيام عمل' },
-    { icon: <EyeGlyph />, tone: 'bg-warning-50 text-warning-600', en: 'RFP Published to Vendor Portal', ar: 'نشر الطلب في بوابة الموردين', metaEn: 'Upon approval', metaAr: 'عند الاعتماد' },
+    { icon: <EyeGlyph />, tone: 'bg-warning-50 text-warning-600', en: 'Request Published to Vendor Portal', ar: 'نشر الطلب في بوابة الموردين', metaEn: 'Upon approval', metaAr: 'عند الاعتماد' },
     { icon: <PeopleGlyph />, tone: 'bg-success-50 text-success-600', en: 'Vendor Submission Period', ar: 'فترة تقديم الموردين', metaEn: '30 days open window', metaAr: 'نافذة مفتوحة 30 يوماً' },
   ];
 
@@ -600,7 +600,7 @@ function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grand
 
       {/* CTAs */}
       <div className="success-copy mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ animationDelay: '1s' }}>
-        <CtaCard primary icon={<ExternalGlyph />} title={t('View RFP', 'عرض الطلب')} sub={t('Open full document', 'فتح المستند الكامل')} onClick={() => setShowRfp(true)} />
+        <CtaCard primary icon={<ExternalGlyph />} title={t('View Request', 'عرض الطلب')} sub={t('Open full document', 'فتح المستند الكامل')} onClick={() => setShowRfp(true)} />
         <CtaCard icon={<DownloadIcon className="w-[18px] h-[18px]" />} title={t('Download PDF', 'تنزيل PDF')} sub={t('Save a local copy', 'حفظ نسخة محلية')} onClick={downloadPdf} />
         <CtaCard icon={<ShareGlyph />} title={copied ? t('Link copied', 'تم نسخ الرابط') : t('Share', 'مشاركة')} sub={t('Send link to colleagues', 'إرسال رابط للزملاء')} onClick={share} />
         <CtaCard icon={<DocumentIcon className="w-[18px] h-[18px]" />} title={t('Return to Requests', 'العودة إلى الطلبات')} sub={t('Back to your dashboard', 'العودة إلى لوحتك')} onClick={() => onExit?.()} />
@@ -613,7 +613,7 @@ function SubmittedScreen({ requestNo, at, projectName, deptName, subtotal, grand
   );
 }
 
-function isEsouqTitle(t: (en: string, ar: string) => string) { return t('RFP Submitted Successfully', 'تم تقديم الطلب بنجاح'); }
+function isEsouqTitle(t: (en: string, ar: string) => string) { return t('Request Submitted Successfully', 'تم تقديم الطلب بنجاح'); }
 
 function RfpModal({ onClose, requestNo, projectName, deptName, subtotal, grandTotal, formData, selectedProject, isAr, t }: {
   onClose: () => void; requestNo: string; projectName: string; deptName: string; subtotal: number; grandTotal: number;

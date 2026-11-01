@@ -43,7 +43,7 @@ const sup = (en: string, ar: string) => ({ en, ar });
 // ── The RFP every task in this inbox relates to ────────────────
 const REQ = {
   no: '4433',
-  ref: 'RFP-4433',
+  ref: 'REQ-4433',
   titleEn: 'Enterprise ERP System Upgrade', titleAr: 'ترقية نظام تخطيط موارد المؤسسة',
   project: sup('Core ERP Modernization', 'تحديث نظام ERP الأساسي'),
   amount: 9940000,
@@ -54,12 +54,12 @@ const reqUser = (isAr = false) => (isAr ? REQ.requester.nameAr : REQ.requester.n
 
 /** Task titles from the process task list — names/departments are resolved, never hard-coded. */
 const TITLE = {
-  reviewFromUser: () => sup(`Review RFP #${REQ.no} from ${reqUser()}`, `مراجعة المنافسة رقم ${REQ.no} من ${reqUser(true)}`),
-  techEvalFromUser: () => sup(`Review technical evaluation criteria for RFP #${REQ.no} from ${reqUser()}`, `مراجعة معايير التقييم الفني للمنافسة رقم ${REQ.no} من ${reqUser(true)}`),
-  reviewFromDept: () => sup(`Review RFP #${REQ.no} from ${reqDept()}`, `مراجعة المنافسة رقم ${REQ.no} من ${reqDept(true)}`),
-  qualFromDept: () => sup(`Review request & add qualification criteria for RFP #${REQ.no} from ${reqDept()}`, `مراجعة الطلب وإضافة معايير التأهيل للمنافسة رقم ${REQ.no} من ${reqDept(true)}`),
+  reviewFromUser: () => sup(`Review & approve request #${REQ.no} from ${reqUser()}`, `مراجعة واعتماد الطلب رقم ${REQ.no} من ${reqUser(true)}`),
+  techEvalFromUser: () => sup(`Review technical evaluation criteria for request #${REQ.no} from ${reqUser()}`, `مراجعة معايير التقييم الفني للطلب رقم ${REQ.no} من ${reqUser(true)}`),
+  reviewFromDept: () => sup(`Review request #${REQ.no} from ${reqDept()}`, `مراجعة الطلب رقم ${REQ.no} من ${reqDept(true)}`),
+  qualFromDept: () => sup(`Review request & add qualification criteria for request #${REQ.no} from ${reqDept()}`, `مراجعة الطلب وإضافة معايير التأهيل للطلب رقم ${REQ.no} من ${reqDept(true)}`),
   doaFromDept: () => sup('Approval DOA', 'اعتماد تفويض الصلاحيات'),
-  priceFromDept: () => sup(`Approve estimated price for RFP #${REQ.no} from ${reqDept()}`, `اعتماد السعر التقديري للمنافسة رقم ${REQ.no} من ${reqDept(true)}`),
+  priceFromDept: () => sup(`Approve estimated price for request #${REQ.no} from ${reqDept()}`, `اعتماد السعر التقديري للطلب رقم ${REQ.no} من ${reqDept(true)}`),
 };
 
 const step = (titleEn: string, titleAr: string, descEn: string, descAr: string) => ({ titleEn, titleAr, descEn, descAr });
@@ -67,22 +67,22 @@ const MANAGER_STEPS: NonNullable<Task['decisionSteps']> = {
   approve: [
     step('Specialist & finance reviews', 'المراجعات التخصصية والمالية', 'Cyber Security, Risk, Enterprise Architecture and Finance review the request in parallel.', 'تراجع الأمن السيبراني والمخاطر والبنية المؤسسية والمالية الطلب بالتوازي.'),
     step('Qualification', 'التأهيل', 'Finance and Procurement add the qualification criteria.', 'تضيف المالية والمشتريات معايير التأهيل.'),
-    step('Procurement review & DOA', 'مراجعة المشتريات والصلاحيات', 'The procurement Team Lead and Officer review the RFP, then it goes for DOA approval.', 'يراجع رئيس فريق المشتريات والأخصائي المنافسة ثم تُرسل لاعتماد الصلاحيات.'),
+    step('Procurement review & DOA', 'مراجعة المشتريات والصلاحيات', 'The procurement Team Lead and Officer review the request, then it goes for DOA approval.', 'يراجع رئيس فريق المشتريات والأخصائي الطلب ثم تُرسل لاعتماد الصلاحيات.'),
     step('Estimated price approval', 'اعتماد السعر التقديري', 'The Director approves the estimated price and the PR is created in SAP ECC.', 'يعتمد المدير السعر التقديري ويُنشأ طلب الشراء في SAP ECC.'),
   ],
   return: [
-    step('Back to the requester', 'العودة إلى مقدّم الطلب', `A "Review comments for the RFP #${REQ.no}" task is created for ${reqUser()}.`, `تُنشأ مهمة "مراجعة التعليقات على المنافسة رقم ${REQ.no}" لـ ${reqUser(true)}.`),
+    step('Back to the requester', 'العودة إلى مقدّم الطلب', `A "Review comments for request #${REQ.no}" task is created for ${reqUser()}.`, `تُنشأ مهمة "مراجعة التعليقات على المنافسة رقم ${REQ.no}" لـ ${reqUser(true)}.`),
     step('Requester responds', 'رد مقدّم الطلب', 'They reply to and resolve each comment, and edit only the commented fields.', 'يرد على كل تعليق ويحله، ويعدّل الحقول التي عليها تعليقات فقط.'),
     step('Back to you for approval', 'العودة إليك للاعتماد', 'Once every comment is resolved the request is resubmitted to you.', 'بعد حل جميع التعليقات يُعاد تقديم الطلب إليك.'),
   ],
   reject: [
-    step('Request closed', 'إغلاق الطلب', `RFP #${REQ.no} is rejected and closed.`, `تُرفض المنافسة رقم ${REQ.no} وتُغلق.`),
+    step('Request closed', 'إغلاق الطلب', `Request #${REQ.no} is rejected and closed.`, `يُرفض الطلب رقم ${REQ.no} ويُغلق.`),
     step('Requester notified', 'إشعار مقدّم الطلب', `${reqUser()} receives your rejection reason.`, `يتلقى ${reqUser(true)} سبب الرفض.`),
   ],
 };
 
 const returnSteps = (who: Person) => [
-  step('Back to the requester', 'العودة إلى مقدّم الطلب', `A "Review comments for the RFP #${REQ.no}" task is created for ${reqUser()}.`, `تُنشأ مهمة "مراجعة التعليقات على المنافسة رقم ${REQ.no}" لـ ${reqUser(true)}.`),
+  step('Back to the requester', 'العودة إلى مقدّم الطلب', `A "Review comments for request #${REQ.no}" task is created for ${reqUser()}.`, `تُنشأ مهمة "مراجعة التعليقات على المنافسة رقم ${REQ.no}" لـ ${reqUser(true)}.`),
   step('Requester responds', 'رد مقدّم الطلب', 'They reply to and resolve each comment, and edit only the commented fields.', 'يرد على كل تعليق ويحله، ويعدّل الحقول التي عليها تعليقات فقط.'),
   step(`Back to ${who.name}`, `العودة إلى ${who.nameAr ?? who.name}`, 'Once every comment is resolved the request is resubmitted to you.', 'بعد حل جميع التعليقات يُعاد تقديم الطلب إليك.'),
 ];
@@ -92,7 +92,7 @@ const S = {
   finQual: step('Finance qualification', 'التأهيل المالي', 'Finance adds the financial qualification criteria (cash ratio, quick ratio, passing %).', 'تضيف المالية معايير التأهيل المالي (نسبة النقدية والسيولة السريعة ونسبة الاجتياز).'),
   procQual: step('Procurement qualification', 'تأهيل المشتريات', 'Procurement completes the qualification criteria ranges and weights.', 'تكمل المشتريات نطاقات وأوزان معايير التأهيل.'),
   tl: step('Procurement Team Lead review', 'مراجعة رئيس فريق المشتريات', 'No comments → DOA approval; new request or comments → assigned to an officer.', 'لا ملاحظات ← اعتماد الصلاحيات؛ طلب جديد أو ملاحظات ← إسناد إلى أخصائي.'),
-  officer: step('Procurement Officer review', 'مراجعة أخصائي المشتريات', 'The officer checks the RFP and either submits it for DOA approval or returns it with comments.', 'يراجع الأخصائي المنافسة ثم يرسلها لاعتماد الصلاحيات أو يعيدها مع ملاحظات.'),
+  officer: step('Procurement Officer review', 'مراجعة أخصائي المشتريات', 'The officer checks the request and either submits it for DOA approval or returns it with comments.', 'يراجع الأخصائي الطلب ثم يرسلها لاعتماد الصلاحيات أو يعيدها مع ملاحظات.'),
   backTl: step('Back to the Team Lead', 'العودة إلى رئيس الفريق', 'The Team Lead takes the officer-checked request to DOA approval.', 'يحيل رئيس الفريق الطلب بعد مراجعة الأخصائي لاعتماد الصلاحيات.'),
   doa: step('DOA approval', 'اعتماد تفويض الصلاحيات', 'Approved per the delegation of authority matrix.', 'يُعتمد وفق مصفوفة تفويض الصلاحيات.'),
   price: step('Estimated price approval', 'اعتماد السعر التقديري', 'The Director approves the estimated price.', 'يعتمد المدير السعر التقديري.'),
@@ -118,13 +118,14 @@ export function buildCommentResponseTask(src: Task, note?: string): Task {
   const mgr = src.assignee;
   const roots = src.activity.filter((a) => a.kind === 'comment' && a.anchor && !a.replyTo);
   const replies = src.activity.filter((a) => a.kind === 'comment' && a.replyTo);
-  const title = sup(`Review comments for the RFP #${REQ.no} added by ${mgr.name}`, `مراجعة التعليقات على المنافسة رقم ${REQ.no} المضافة من ${mgr.nameAr ?? mgr.name}`);
+  const no = src.entity.ref.replace(/^[A-Z]+-/, ''); // the request this task belongs to
+  const title = sup(`Review comments for request #${no} added by ${mgr.name}`, `مراجعة التعليقات على الطلب رقم ${no} المضافة من ${mgr.nameAr ?? mgr.name}`);
   return {
     id: `${src.id}-R`,
     type: 'clarification',
     titleEn: title.en, titleAr: title.ar,
-    summaryEn: `${mgr.name} returned the request with ${roots.length} comment${roots.length === 1 ? '' : 's'} on the RFP. Reply to and resolve each one, edit the commented fields, then resubmit.`,
-    summaryAr: `أعاد ${mgr.nameAr ?? mgr.name} الطلب مع ${roots.length} تعليق على المنافسة. رد على كل تعليق وحله، وعدّل الحقول المعنية، ثم أعد التقديم.`,
+    summaryEn: `${mgr.name} returned the request with ${roots.length} comment${roots.length === 1 ? '' : 's'} on the request. Reply to and resolve each one, edit the commented fields, then resubmit.`,
+    summaryAr: `أعاد ${mgr.nameAr ?? mgr.name} الطلب مع ${roots.length} تعليق على الطلب. رد على كل تعليق وحله، وعدّل الحقول المعنية، ثم أعد التقديم.`,
     state: 'returned', priority: 'high',
     entity: src.entity, project: src.project, amount: src.amount,
     requester: src.requester, assignee: src.requester, department: src.department,
@@ -133,7 +134,7 @@ export function buildCommentResponseTask(src: Task, note?: string): Task {
     mineAction: true, initiatedByMe: false, slaHours: 48,
     respondComments: true, reviewComments: true,
     returnedBy: mgr,
-    returnReason: note ? sup(note, note) : sup('Please address the review comments on the RFP.', 'يرجى معالجة تعليقات المراجعة على المنافسة.'),
+    returnReason: note ? sup(note, note) : sup('Please address the review comments on the request.', 'يرجى معالجة تعليقات المراجعة على الطلب.'),
     returnIssues: roots.map((r) => sup(`${r.anchor!.label.en}: ${r.text ?? ''}`, `${r.anchor!.label.ar}: ${r.text ?? ''}`)),
     actions: [
       { id: 'submit', labelEn: 'Resubmit for approval', labelAr: 'إعادة التقديم للاعتماد', variant: 'primary', gated: true, decision: sup('Resubmitted for approval', 'أُعيد التقديم للاعتماد') },
@@ -191,7 +192,7 @@ const approvalRecord = [
 
 const SPECS: Spec[] = [
   { n: 1, type: 'approval', title: TITLE.reviewFromUser(),
-    summary: sup(`${reqUser()} submitted this RFP. Review the request details, add comments on any section or field, then approve, return or reject.`, `قدّم ${reqUser(true)} هذه المنافسة. راجع تفاصيل الطلب وأضف ملاحظاتك على أي قسم أو حقل، ثم اعتمد الطلب أو أعده أو ارفضه.`),
+    summary: sup(`${reqUser()} submitted this request. Review the request details, add comments on any section or field, then approve, return or reject.`, `قدّم ${reqUser(true)} هذا الطلب. راجع تفاصيل الطلب وأضف ملاحظاتك على أي قسم أو حقل، ثم اعتمد الطلب أو أعده أو ارفضه.`),
     stage: sup('Department approval', 'اعتماد الإدارة'), assignee: P.manager, sla: 1, priority: 'high', received: -1,
     actions: [
       { id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary' },
@@ -291,16 +292,16 @@ const SPECS: Spec[] = [
     ],
     extra: { approvalRecord, assignTo: [P.officer, person('u-yousef', 'Yousef Al-Harthi', 'يوسف الحارثي', 'Procurement Officer', 'أخصائي مشتريات', 'Procurement', 'المشتريات'), person('u-amal', 'Amal Al-Qahtani', 'أمل القحطاني', 'Procurement Officer', 'أخصائي مشتريات', 'Procurement', 'المشتريات')] } },
   { n: 12, type: 'review', title: TITLE.qualFromDept(),
-    summary: sup('Officer review of the RFP before DOA approval. Return it with comments if anything below needs correcting.', 'مراجعة الأخصائي للمنافسة قبل اعتماد الصلاحيات. أعدها مع ملاحظات إن احتاج أي بند أدناه إلى تصحيح.'),
+    summary: sup('Officer review of the request before DOA approval. Return it with comments if anything below needs correcting.', 'مراجعة الأخصائي للطلب قبل اعتماد الصلاحيات. أعدها مع ملاحظات إن احتاج أي بند أدناه إلى تصحيح.'),
     stage: sup('Procurement review — Officer', 'مراجعة المشتريات — الأخصائي'), assignee: P.officer, sla: 2, priority: 'high', received: 0,
     actions: [
       { id: 'submit', labelEn: 'Submit for DOA approval', labelAr: 'إرسال لاعتماد الصلاحيات', variant: 'primary', decision: sup('Submitted for DOA approval', 'أُرسل لاعتماد الصلاحيات') },
       { id: 'return', labelEn: 'Return with comments', labelAr: 'إعادة مع ملاحظات', variant: 'secondary', needsNote: true },
     ],
     extra: { findingsLabel: sup('Officer comments', 'ملاحظات الأخصائي'), checklist: reviewChecklist([
-      ['RFP comments addressed', 'تمت معالجة ملاحظات المنافسة'],
+      ['Request comments addressed', 'تمت معالجة ملاحظات الطلب'],
       ['Brand name details provided (if a brand is named)', 'تم تقديم تفاصيل العلامة التجارية (إن وُجدت)'],
-      ['RFP is clear and its sections are linked', 'المنافسة واضحة وأقسامها مترابطة'],
+      ['Request is clear and its sections are linked', 'الطلب واضح وأقسامه مترابطة'],
       ['No formal violations (unclear words or text)', 'لا توجد مخالفات شكلية (كلمات أو نصوص غير واضحة)'],
       ['No systemic violations (mandatory list, brand names)', 'لا توجد مخالفات نظامية (القائمة الإلزامية، العلامات التجارية)'],
     ]) } },
@@ -347,7 +348,7 @@ const at = (ms: number) => new Date(ms).toISOString();
 const PRIOR_NOTE: Record<number, string> = {
   1: 'Budget confirmed against the IT & Digital CAPEX line. Approved.',
   2: 'Technical criteria and weights verified.',
-  11: 'New request — assigning to the officer for a full RFP check.',
+  11: 'New request — assigning to the officer for a full request check.',
 };
 export const SEED_TASKS: Task[] = SPECS.map((s) => {
   // Working-hour timestamps: two steps per working day (10:00, 14:00), newest = today.
@@ -357,7 +358,7 @@ export const SEED_TASKS: Task[] = SPECS.map((s) => {
   const t0 = slot(prior.length + 1) - 60 * 60000;
   const stepAt = (i: number) => slot(prior.length - i);
   const activity: Task['activity'] = [
-    { id: 'a0', kind: 'system', actor: REQ.requester, at: at(t0), system: sup(`RFP #${REQ.no} submitted`, `تم تقديم المنافسة رقم ${REQ.no}`) },
+    { id: 'a0', kind: 'system', actor: REQ.requester, at: at(t0), system: sup(`Request #${REQ.no} submitted`, `تم تقديم الطلب رقم ${REQ.no}`) },
     { id: 'a0c', kind: 'comment', actor: REQ.requester, at: at(t0 + 15 * 60000), text: 'Requesting approval for the ERP upgrade — the current ECC 6.0 support ends in 2027.' },
     ...prior.map((p, i) => ({
       id: `a${p.n}`, kind: 'decision' as const, actor: p.assignee, at: at(stepAt(i)),
@@ -395,7 +396,7 @@ export const SEED_TASKS: Task[] = SPECS.map((s) => {
 
 // Large tender request, reused by the RFP-2026-041 tasks.
 const RFP_S4HANA: RfpDetail = {
-  refId: 'RFP-2026-041',
+  refId: 'REQ-2026-041',
   titleEn: 'SAP S/4HANA Implementation', titleAr: 'تطبيق SAP S/4HANA',
   summaryEn: 'Full S/4HANA implementation with Embedded EWM, data migration, training and hypercare for the entity.',
   summaryAr: 'تطبيق كامل لـ S/4HANA مع إدارة المستودعات المدمجة وترحيل البيانات والتدريب والدعم بعد التشغيل.',
@@ -420,8 +421,8 @@ const RFP_S4HANA: RfpDetail = {
       itemsEn: ['FI, CO, MM, FM and Embedded EWM design and build', 'Integration with Etimad, SADAD and the HR system via SAP CPI', 'Migration of open items, masters and 3 years of history', 'Fiori launchpad with 40 standard and 12 custom apps'],
       itemsAr: ['تصميم وبناء المالية والتحكم والمشتريات وإدارة الأموال والمستودعات', 'التكامل مع اعتماد وسداد ونظام الموارد البشرية عبر CPI', 'ترحيل البنود المفتوحة والبيانات الرئيسية و3 سنوات من البيانات التاريخية', 'منصة Fiori مع 40 تطبيقاً قياسياً و12 تطبيقاً مخصصاً'] },
     { headEn: 'Out of scope', headAr: 'خارج النطاق',
-      itemsEn: ['SuccessFactors / HR payroll', 'Hardware and hosting (covered by RFP-2026-037)'],
-      itemsAr: ['نظام SuccessFactors والرواتب', 'الأجهزة والاستضافة (مشمولة في RFP-2026-037)'] },
+      itemsEn: ['SuccessFactors / HR payroll', 'Hardware and hosting (covered by REQ-2026-037)'],
+      itemsAr: ['نظام SuccessFactors والرواتب', 'الأجهزة والاستضافة (مشمولة في REQ-2026-037)'] },
     { headEn: 'Deliverables & timeline', headAr: 'المخرجات والجدول الزمني',
       itemsEn: ['Blueprint & solution design — Month 3', 'Build & unit test — Month 9', 'SIT & UAT sign-off — Month 13', 'Go-live — Month 15, hypercare to Month 18'],
       itemsAr: ['التصميم والمخطط — الشهر 3', 'البناء واختبار الوحدات — الشهر 9', 'اعتماد اختبار التكامل والقبول — الشهر 13', 'التشغيل — الشهر 15 والدعم حتى الشهر 18'] },
@@ -715,11 +716,11 @@ function managerApprovalFor(o: {
   tk.approvalRecord = (tk.approvalRecord ?? []).map((r) => r.label.en === 'Request value' ? { ...r, value: fmtSARPlain(o.amount) } : r.label.en === 'Project' ? { ...r, value: o.titleEn } : r);
   tk.project = { en: o.titleEn, ar: o.titleAr };
   tk.activity = [
-    { id: 'a0', kind: 'system', actor: o.requester, at: new Date(+received - 20 * 60000).toISOString(), system: { en: `RFP #${o.no} submitted`, ar: `تم تقديم المنافسة رقم ${o.no}` } },
+    { id: 'a0', kind: 'system', actor: o.requester, at: new Date(+received - 20 * 60000).toISOString(), system: { en: `Request #${o.no} submitted`, ar: `تم تقديم الطلب رقم ${o.no}` } },
     { id: 'a0c', kind: 'comment', actor: o.requester, at: new Date(+received - 15 * 60000).toISOString(), text: o.note },
     { id: 'aN', kind: 'system', actor: tk.assignee, at: received.toISOString(), system: { en: `Assigned to ${tk.assignee.name} — Department approval`, ar: `أُسند إلى ${tk.assignee.nameAr} — اعتماد الإدارة` } },
   ];
-  tk.rfp = requestRfpFor({ refId: `RFP-${o.no}`, titleEn: o.titleEn, titleAr: o.titleAr, deptEn: o.requester.dept ?? '', deptAr: o.requester.deptAr ?? '', amount: o.amount, type: 'tendering', costCenter: o.budget.fundCenter });
+  tk.rfp = requestRfpFor({ refId: `REQ-${o.no}`, titleEn: o.titleEn, titleAr: o.titleAr, deptEn: o.requester.dept ?? '', deptAr: o.requester.deptAr ?? '', amount: o.amount, type: 'tendering', costCenter: o.budget.fundCenter });
   tk.trail = trailFor(tk).map((st) => st.titleEn === 'Department approval' ? { ...st, actorEn: tk.assignee.name, actorAr: tk.assignee.nameAr ?? tk.assignee.name } : st);
   return tk;
 }
@@ -740,3 +741,9 @@ SEED_TASKS.unshift(
     note: 'Migration of the remaining on-prem workloads to the sovereign cloud region.',
   }),
 );
+
+// Keep the manager's "Review & approve" tasks at the top of the inbox (soonest due).
+[['TSK-4478-01', 4], ['TSK-4471-01', 5], ['TSK-4433-01', 6]].forEach(([id, h]) => {
+  const tk = SEED_TASKS.find((x) => x.id === id);
+  if (tk) tk.dueAt = new Date(Date.now() + (h as number) * 3600000).toISOString();
+});

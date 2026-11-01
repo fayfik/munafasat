@@ -156,7 +156,7 @@ function DataCollectionBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T
   const visible = (f: typeof fields[number]) => !f.showIf || fields.find((x) => x.id === f.showIf!.field)?.value === f.showIf!.equals;
   return (
     <div className="space-y-4">
-      <InfoBanner variant="info">{t('Existing procurement data is shown greyed; fields you complete are saved to the RFP record.', 'تظهر بيانات الشراء الحالية بلون باهت؛ وتُحفظ الحقول التي تكملها في سجل المنافسة.')}</InfoBanner>
+      <InfoBanner variant="info">{t('Existing procurement data is shown greyed; fields you complete are saved to the request record.', 'تظهر بيانات الشراء الحالية بلون باهت؛ وتُحفظ الحقول التي تكملها في سجل المنافسة.')}</InfoBanner>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {fields.filter(visible).map((f) => (
           <div key={f.id} className={f.kind === 'longtext' ? 'sm:col-span-2' : ''}>

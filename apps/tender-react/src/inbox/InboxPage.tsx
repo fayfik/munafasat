@@ -30,7 +30,8 @@ export default function InboxPage() {
     const ql = q.trim().toLowerCase();
     return tasksForView(view)
       .filter((x) => !ql || [x.titleEn, x.titleAr, x.entity.ref, x.requester.name, x.supplier?.en].filter(Boolean).join(' ').toLowerCase().includes(ql))
-      .sort((a, b) => +new Date(a.dueAt) - +new Date(b.dueAt));
+      // Returned-to-me tasks first (e.g. review comments to answer), then by due date.
+      .sort((a, b) => (Number(b.state === 'returned') - Number(a.state === 'returned')) || +new Date(a.dueAt) - +new Date(b.dueAt));
   }, [tasksForView, view, q]);
 
   const selected = selectedId ? getTask(selectedId) : undefined;

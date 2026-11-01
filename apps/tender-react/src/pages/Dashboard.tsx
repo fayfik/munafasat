@@ -56,22 +56,22 @@ interface Props {
    Demo content (design-review data that mirrors the mock-ups)
 ──────────────────────────────────────────────────────────────────────── */
 const DRAFT_ROWS = [
-  { id: 'RFP-2026-041', title: 'SAP S/4HANA Implementation', titleAr: 'تطبيق SAP S/4HANA', updated: 'Today, 10:32 AM', updatedAr: 'اليوم، 10:32 ص' },
-  { id: 'RFP-2026-038', title: 'IT Infrastructure Services', titleAr: 'خدمات البنية التحتية التقنية', updated: 'Today, 09:15 AM', updatedAr: 'اليوم، 09:15 ص' },
-  { id: 'RFP-2026-035', title: 'Office Equipment', titleAr: 'معدات مكتبية', updated: 'Yesterday', updatedAr: 'أمس' },
-  { id: 'RFP-2026-029', title: 'Consulting Services', titleAr: 'خدمات استشارية', updated: '2 days ago', updatedAr: 'قبل يومين' },
+  { id: 'REQ-2026-041', title: 'SAP S/4HANA Implementation', titleAr: 'تطبيق SAP S/4HANA', updated: 'Today, 10:32 AM', updatedAr: 'اليوم، 10:32 ص' },
+  { id: 'REQ-2026-038', title: 'IT Infrastructure Services', titleAr: 'خدمات البنية التحتية التقنية', updated: 'Today, 09:15 AM', updatedAr: 'اليوم، 09:15 ص' },
+  { id: 'REQ-2026-035', title: 'Office Equipment', titleAr: 'معدات مكتبية', updated: 'Yesterday', updatedAr: 'أمس' },
+  { id: 'REQ-2026-029', title: 'Consulting Services', titleAr: 'خدمات استشارية', updated: '2 days ago', updatedAr: 'قبل يومين' },
 ];
 const SUBMISSION_ROWS = [
-  { id: 'RFP-2026-041', title: 'SAP S/4HANA Implementation', titleAr: 'تطبيق SAP S/4HANA', updated: '16 Sep 2026', state: 'Awaiting Approval', stateAr: 'بانتظار الموافقة', variant: 'submitted' as const },
-  { id: 'RFP-2026-038', title: 'IT Infrastructure Services', titleAr: 'خدمات البنية التحتية التقنية', updated: '15 Sep 2026', state: 'Under Review', stateAr: 'قيد المراجعة', variant: 'submitted' as const },
-  { id: 'RFP-2026-035', title: 'Office Equipment', titleAr: 'معدات مكتبية', updated: '14 Sep 2026', state: 'Approved', stateAr: 'معتمد', variant: 'approved' as const },
-  { id: 'RFP-2026-029', title: 'Consulting Services', titleAr: 'خدمات استشارية', updated: '12 Sep 2026', state: 'Procurement Review', stateAr: 'مراجعة المشتريات', variant: 'info' as const },
+  { id: 'REQ-2026-041', title: 'SAP S/4HANA Implementation', titleAr: 'تطبيق SAP S/4HANA', updated: '16 Sep 2026', state: 'Awaiting Approval', stateAr: 'بانتظار الموافقة', variant: 'submitted' as const },
+  { id: 'REQ-2026-038', title: 'IT Infrastructure Services', titleAr: 'خدمات البنية التحتية التقنية', updated: '15 Sep 2026', state: 'Under Review', stateAr: 'قيد المراجعة', variant: 'submitted' as const },
+  { id: 'REQ-2026-035', title: 'Office Equipment', titleAr: 'معدات مكتبية', updated: '14 Sep 2026', state: 'Approved', stateAr: 'معتمد', variant: 'approved' as const },
+  { id: 'REQ-2026-029', title: 'Consulting Services', titleAr: 'خدمات استشارية', updated: '12 Sep 2026', state: 'Procurement Review', stateAr: 'مراجعة المشتريات', variant: 'info' as const },
 ];
 const APPROVAL_ROWS = [
-  { id: 'RFP-2026-041', title: 'SAP Implementation', titleAr: 'تطبيق SAP', by: 'Ahmed Al-Salem', byAr: 'أحمد السالم', since: 'Today', sinceAr: 'اليوم' },
-  { id: 'RFP-2026-038', title: 'IT Managed Services', titleAr: 'خدمات تقنية مُدارة', by: 'Sara Ahmed', byAr: 'سارة أحمد', since: 'Yesterday', sinceAr: 'أمس' },
-  { id: 'RFP-2026-035', title: 'Data Center Services', titleAr: 'خدمات مركز البيانات', by: 'Mohammed Ali', byAr: 'محمد علي', since: 'Yesterday', sinceAr: 'أمس' },
-  { id: 'RFP-2026-029', title: 'Consulting Services', titleAr: 'خدمات استشارية', by: 'Mohammed Ali', byAr: 'محمد علي', since: '2 days ago', sinceAr: 'قبل يومين' },
+  { id: 'REQ-2026-041', title: 'SAP Implementation', titleAr: 'تطبيق SAP', by: 'Ahmed Al-Salem', byAr: 'أحمد السالم', since: 'Today', sinceAr: 'اليوم' },
+  { id: 'REQ-2026-038', title: 'IT Managed Services', titleAr: 'خدمات تقنية مُدارة', by: 'Sara Ahmed', byAr: 'سارة أحمد', since: 'Yesterday', sinceAr: 'أمس' },
+  { id: 'REQ-2026-035', title: 'Data Center Services', titleAr: 'خدمات مركز البيانات', by: 'Mohammed Ali', byAr: 'محمد علي', since: 'Yesterday', sinceAr: 'أمس' },
+  { id: 'REQ-2026-029', title: 'Consulting Services', titleAr: 'خدمات استشارية', by: 'Mohammed Ali', byAr: 'محمد علي', since: '2 days ago', sinceAr: 'قبل يومين' },
 ];
 
 interface StatusSeg { key: string; status: FilterKey; labelEn: string; labelAr: string; count: number; pct: number; color: string; }
@@ -79,46 +79,46 @@ const SEGMENTS: StatusSeg[] = [
   { key: 'draft',        status: 'draft',        labelEn: 'Draft',        labelAr: 'مسودة',        count: 6, pct: 18, color: '#9ca3af' },
   { key: 'submitted',    status: 'submitted',    labelEn: 'Submitted',    labelAr: 'مُقدَّم',       count: 8, pct: 24, color: '#3b6fd4' },
   { key: 'under-review', status: 'under-review', labelEn: 'Under Review', labelAr: 'قيد المراجعة', count: 9, pct: 27, color: '#c8912f' },
-  { key: 'active-rfp',   status: 'approved',     labelEn: 'Active RFP',   labelAr: 'منافسة نشطة',  count: 9, pct: 27, color: '#4f8a3d' },
+  { key: 'active-rfp',   status: 'approved',     labelEn: 'Active request', labelAr: 'طلب نشط',  count: 9, pct: 27, color: '#4f8a3d' },
   { key: 'awarded',      status: 'all',          labelEn: 'Awarded',      labelAr: 'تمت الترسية',  count: 1, pct: 3,  color: '#86b562' },
 ];
 
 interface StatusReq { id: string; descEn: string; descAr: string; projectEn: string; projectAr: string; created: string; }
 const STATUS_REQUESTS: Record<string, StatusReq[]> = {
   draft: [
-    { id: 'RFP-2026-041', descEn: 'End-to-end SAP S/4HANA implementation', descAr: 'تطبيق SAP S/4HANA متكامل', projectEn: 'Digital Transformation Program', projectAr: 'برنامج التحول الرقمي', created: '03 Sept 2026' },
-    { id: 'RFP-2026-038', descEn: 'Managed IT infrastructure services', descAr: 'خدمات بنية تحتية تقنية مُدارة', projectEn: 'IT Operations FY26', projectAr: 'عمليات تقنية المعلومات 2026', created: '05 Sept 2026' },
-    { id: 'RFP-2026-035', descEn: 'Office equipment refresh for HQ', descAr: 'تحديث معدات المكتب الرئيسي', projectEn: 'Facilities Operations FY26', projectAr: 'عمليات المرافق 2026', created: '06 Sept 2026' },
+    { id: 'REQ-2026-041', descEn: 'End-to-end SAP S/4HANA implementation', descAr: 'تطبيق SAP S/4HANA متكامل', projectEn: 'Digital Transformation Program', projectAr: 'برنامج التحول الرقمي', created: '03 Sept 2026' },
+    { id: 'REQ-2026-038', descEn: 'Managed IT infrastructure services', descAr: 'خدمات بنية تحتية تقنية مُدارة', projectEn: 'IT Operations FY26', projectAr: 'عمليات تقنية المعلومات 2026', created: '05 Sept 2026' },
+    { id: 'REQ-2026-035', descEn: 'Office equipment refresh for HQ', descAr: 'تحديث معدات المكتب الرئيسي', projectEn: 'Facilities Operations FY26', projectAr: 'عمليات المرافق 2026', created: '06 Sept 2026' },
   ],
   submitted: [
-    { id: 'RFP-2024-049', descEn: 'Enroll and manage staff mobile devices centrally', descAr: 'إدارة أجهزة الموظفين المحمولة مركزياً', projectEn: 'Workplace Mobility', projectAr: 'تنقل بيئة العمل', created: '12 Nov 2024' },
+    { id: 'REQ-2024-049', descEn: 'Enroll and manage staff mobile devices centrally', descAr: 'إدارة أجهزة الموظفين المحمولة مركزياً', projectEn: 'Workplace Mobility', projectAr: 'تنقل بيئة العمل', created: '12 Nov 2024' },
     { id: 'PR-2024-126',  descEn: 'Ergonomic seating for the new onboarding team', descAr: 'مقاعد مريحة لفريق التهيئة الجديد', projectEn: 'Facilities Operations FY24', projectAr: 'عمليات المرافق 2024', created: '09 Nov 2024' },
-    { id: 'RFP-2024-040', descEn: 'Annual software license renewal', descAr: 'تجديد تراخيص البرمجيات السنوية', projectEn: 'IT Operations FY24', projectAr: 'عمليات تقنية المعلومات 2024', created: '02 Nov 2024' },
+    { id: 'REQ-2024-040', descEn: 'Annual software license renewal', descAr: 'تجديد تراخيص البرمجيات السنوية', projectEn: 'IT Operations FY24', projectAr: 'عمليات تقنية المعلومات 2024', created: '02 Nov 2024' },
   ],
   'under-review': [
-    { id: 'RFP-2024-031', descEn: 'Migrate core workloads to a managed cloud subscription', descAr: 'ترحيل الأحمال الأساسية إلى اشتراك سحابي مُدار', projectEn: 'Digital Transformation Program', projectAr: 'برنامج التحول الرقمي', created: '25 Aug 2024' },
-    { id: 'RFP-2024-032', descEn: 'Ongoing support and configuration for the ERP platform', descAr: 'دعم وتهيئة مستمرة لمنصة تخطيط الموارد', projectEn: 'Digital Transformation Program', projectAr: 'برنامج التحول الرقمي', created: '28 Aug 2024' },
-    { id: 'RFP-2024-033', descEn: 'Contracted security personnel for HQ premises', descAr: 'أفراد أمن متعاقدون لمقر الإدارة', projectEn: 'Corporate Security Program', projectAr: 'برنامج الأمن المؤسسي', created: '01 Sept 2024' },
-    { id: 'RFP-2024-034', descEn: 'External training curriculum for staff development', descAr: 'منهج تدريب خارجي لتطوير الموظفين', projectEn: 'Corporate Services Program', projectAr: 'برنامج الخدمات المؤسسية', created: '04 Sept 2024' },
-    { id: 'RFP-2024-035', descEn: 'Catering vendor for recurring corporate events', descAr: 'مورّد تموين للفعاليات المؤسسية المتكررة', projectEn: 'Facilities Operations FY24', projectAr: 'عمليات المرافق 2024', created: '08 Sept 2024' },
+    { id: 'REQ-2024-031', descEn: 'Migrate core workloads to a managed cloud subscription', descAr: 'ترحيل الأحمال الأساسية إلى اشتراك سحابي مُدار', projectEn: 'Digital Transformation Program', projectAr: 'برنامج التحول الرقمي', created: '25 Aug 2024' },
+    { id: 'REQ-2024-032', descEn: 'Ongoing support and configuration for the ERP platform', descAr: 'دعم وتهيئة مستمرة لمنصة تخطيط الموارد', projectEn: 'Digital Transformation Program', projectAr: 'برنامج التحول الرقمي', created: '28 Aug 2024' },
+    { id: 'REQ-2024-033', descEn: 'Contracted security personnel for HQ premises', descAr: 'أفراد أمن متعاقدون لمقر الإدارة', projectEn: 'Corporate Security Program', projectAr: 'برنامج الأمن المؤسسي', created: '01 Sept 2024' },
+    { id: 'REQ-2024-034', descEn: 'External training curriculum for staff development', descAr: 'منهج تدريب خارجي لتطوير الموظفين', projectEn: 'Corporate Services Program', projectAr: 'برنامج الخدمات المؤسسية', created: '04 Sept 2024' },
+    { id: 'REQ-2024-035', descEn: 'Catering vendor for recurring corporate events', descAr: 'مورّد تموين للفعاليات المؤسسية المتكررة', projectEn: 'Facilities Operations FY24', projectAr: 'عمليات المرافق 2024', created: '08 Sept 2024' },
   ],
   'active-rfp': [
-    { id: 'RFP-2024-050', descEn: 'Off-site backup and DR services for core systems', descAr: 'نسخ احتياطي خارجي وتعافٍ من الكوارث', projectEn: 'Business Continuity FY24', projectAr: 'استمرارية الأعمال 2024', created: '14 Nov 2024' },
-    { id: 'RFP-2024-046', descEn: 'Network switches and access points for HQ', descAr: 'محولات شبكة ونقاط وصول للمقر', projectEn: 'IT Infrastructure FY24', projectAr: 'البنية التحتية 2024', created: '13 Nov 2024' },
+    { id: 'REQ-2024-050', descEn: 'Off-site backup and DR services for core systems', descAr: 'نسخ احتياطي خارجي وتعافٍ من الكوارث', projectEn: 'Business Continuity FY24', projectAr: 'استمرارية الأعمال 2024', created: '14 Nov 2024' },
+    { id: 'REQ-2024-046', descEn: 'Network switches and access points for HQ', descAr: 'محولات شبكة ونقاط وصول للمقر', projectEn: 'IT Infrastructure FY24', projectAr: 'البنية التحتية 2024', created: '13 Nov 2024' },
   ],
   awarded: [
-    { id: 'RFP-2024-021', descEn: 'Annual facilities maintenance contract', descAr: 'عقد صيانة المرافق السنوي', projectEn: 'Facilities Operations FY24', projectAr: 'عمليات المرافق 2024', created: '20 Jun 2024' },
+    { id: 'REQ-2024-021', descEn: 'Annual facilities maintenance contract', descAr: 'عقد صيانة المرافق السنوي', projectEn: 'Facilities Operations FY24', projectAr: 'عمليات المرافق 2024', created: '20 Jun 2024' },
   ],
 };
 
 const RECENT_ROWS: { id: string; descEn: string; descAr: string; type: 'RFP' | 'PR'; stageEn: string; stageAr: string; status: TenderStatus; updated: string }[] = [
-  { id: 'RFP-2024-053', descEn: 'End-to-end SAP S/4HANA implementation across finance, procurement, and materials management', descAr: 'تطبيق SAP S/4HANA متكامل عبر المالية والمشتريات والمواد', type: 'RFP', stageEn: 'Technical Evaluation in Progress', stageAr: 'التقييم الفني جارٍ', status: 'under-review', updated: '23 Sept 2026' },
-  { id: 'RFP-2024-049', descEn: 'Enroll and manage staff mobile devices centrally', descAr: 'إدارة أجهزة الموظفين المحمولة مركزياً', type: 'RFP', stageEn: 'Pending Manager Approval', stageAr: 'بانتظار موافقة المدير', status: 'submitted', updated: '17 Nov 2024' },
-  { id: 'RFP-2024-048', descEn: 'Interactive security awareness training for all staff', descAr: 'تدريب تفاعلي للتوعية الأمنية لجميع الموظفين', type: 'RFP', stageEn: 'Draft Preparation', stageAr: 'إعداد المسودة', status: 'draft', updated: '16 Nov 2024' },
-  { id: 'RFP-2024-050', descEn: 'Off-site backup and DR services for core systems', descAr: 'نسخ احتياطي خارجي وتعافٍ من الكوارث للأنظمة الأساسية', type: 'RFP', stageEn: 'Vendor Proposals Open', stageAr: 'عروض الموردين مفتوحة', status: 'approved', updated: '14 Nov 2024' },
-  { id: 'RFP-2024-045', descEn: 'Network switches and access points for HQ floors 3-5', descAr: 'محولات شبكة ونقاط وصول لطوابق المقر 3-5', type: 'RFP', stageEn: 'Draft Preparation', stageAr: 'إعداد المسودة', status: 'draft', updated: '13 Nov 2024' },
-  { id: 'RFP-2024-044', descEn: 'Refresh employee laptops for the IT division', descAr: 'تحديث حواسيب موظفي قسم تقنية المعلومات', type: 'RFP', stageEn: 'Draft Preparation', stageAr: 'إعداد المسودة', status: 'draft', updated: '12 Nov 2024' },
-  { id: 'RFP-2024-047', descEn: 'AV upgrade for executive meeting rooms', descAr: 'ترقية الصوتيات والمرئيات لقاعات الاجتماعات', type: 'RFP', stageEn: 'Draft Preparation', stageAr: 'إعداد المسودة', status: 'draft', updated: '12 Nov 2024' },
+  { id: 'REQ-2024-053', descEn: 'End-to-end SAP S/4HANA implementation across finance, procurement, and materials management', descAr: 'تطبيق SAP S/4HANA متكامل عبر المالية والمشتريات والمواد', type: 'RFP', stageEn: 'Technical Evaluation in Progress', stageAr: 'التقييم الفني جارٍ', status: 'under-review', updated: '23 Sept 2026' },
+  { id: 'REQ-2024-049', descEn: 'Enroll and manage staff mobile devices centrally', descAr: 'إدارة أجهزة الموظفين المحمولة مركزياً', type: 'RFP', stageEn: 'Pending Manager Approval', stageAr: 'بانتظار موافقة المدير', status: 'submitted', updated: '17 Nov 2024' },
+  { id: 'REQ-2024-048', descEn: 'Interactive security awareness training for all staff', descAr: 'تدريب تفاعلي للتوعية الأمنية لجميع الموظفين', type: 'RFP', stageEn: 'Draft Preparation', stageAr: 'إعداد المسودة', status: 'draft', updated: '16 Nov 2024' },
+  { id: 'REQ-2024-050', descEn: 'Off-site backup and DR services for core systems', descAr: 'نسخ احتياطي خارجي وتعافٍ من الكوارث للأنظمة الأساسية', type: 'RFP', stageEn: 'Vendor Proposals Open', stageAr: 'عروض الموردين مفتوحة', status: 'approved', updated: '14 Nov 2024' },
+  { id: 'REQ-2024-045', descEn: 'Network switches and access points for HQ floors 3-5', descAr: 'محولات شبكة ونقاط وصول لطوابق المقر 3-5', type: 'RFP', stageEn: 'Draft Preparation', stageAr: 'إعداد المسودة', status: 'draft', updated: '13 Nov 2024' },
+  { id: 'REQ-2024-044', descEn: 'Refresh employee laptops for the IT division', descAr: 'تحديث حواسيب موظفي قسم تقنية المعلومات', type: 'RFP', stageEn: 'Draft Preparation', stageAr: 'إعداد المسودة', status: 'draft', updated: '12 Nov 2024' },
+  { id: 'REQ-2024-047', descEn: 'AV upgrade for executive meeting rooms', descAr: 'ترقية الصوتيات والمرئيات لقاعات الاجتماعات', type: 'RFP', stageEn: 'Draft Preparation', stageAr: 'إعداد المسودة', status: 'draft', updated: '12 Nov 2024' },
   { id: 'PR-2024-127',  descEn: 'Branded giveaways for the annual industry conference', descAr: 'هدايا دعائية للمؤتمر السنوي', type: 'PR', stageEn: 'Draft Preparation', stageAr: 'إعداد المسودة', status: 'draft', updated: '12 Nov 2024' },
   { id: 'PR-2024-126',  descEn: 'Ergonomic seating for the new onboarding team', descAr: 'مقاعد مريحة لفريق التهيئة الجديد', type: 'PR', stageEn: 'Pending Director Approval', stageAr: 'بانتظار موافقة المدير', status: 'submitted', updated: '11 Nov 2024' },
   { id: 'PR-2024-125',  descEn: 'Catering services for the quarterly town hall', descAr: 'خدمات تموين للقاء الربعي', type: 'PR', stageEn: 'Awarded', stageAr: 'تمت الترسية', status: 'approved', updated: '10 Nov 2024' },
@@ -160,10 +160,10 @@ export default function Dashboard({ onNewRequest, onOpenRequest, onViewRequests 
         <KpiCard idx={2} tone="warning" active={drill === 'approvals'} onClick={() => toggle('approvals')}
           icon={<ClockIcon className="w-4 h-4" />} label={t('Awaiting your Approvals', 'بانتظار موافقتك')} value={4}
           sub={t('Requires your attention', 'يتطلب انتباهك')} subTone="danger" />
-        <ValueCard idx={3} label={t('Total RFP Value', 'إجمالي قيمة المنافسات')} amount={500000}
-          sub={t('10 RFPs', '10 منافسات')} isAr={isAr} />
+        <ValueCard idx={3} label={t('Total request value', 'إجمالي قيمة الطلبات')} amount={500000}
+          sub={t('10 requests', '10 طلبات')} isAr={isAr} />
         <ValueCard idx={4} label={t('Total PO Value', 'إجمالي قيمة أوامر الشراء')} amount={300000}
-          sub={t('200K optimized for 10 RFPs', 'توفير 200 ألف عبر 10 منافسات')} isAr={isAr} tone="success" />
+          sub={t('200K optimized for 10 requests', 'توفير 200 ألف عبر 10 طلبات')} isAr={isAr} tone="success" />
       </div>
 
       {/* ── KPI drill-down table (toggled by card click) ─────────────────── */}
@@ -292,7 +292,7 @@ function DrillPanel({ kind, onClose, onAction, onNew, isAr, t }: {
           {kind === 'drafts' && (
             <>
               <thead><tr className="border-b border-neutral-100">
-                <th className={th}>{t('RFP ID', 'رقم المنافسة')}</th><th className={th}>{t('RFP Title', 'عنوان المنافسة')}</th>
+                <th className={th}>{t('Request ID', 'رقم الطلب')}</th><th className={th}>{t('Request Title', 'عنوان الطلب')}</th>
                 <th className={th}>{t('Last Updated', 'آخر تحديث')}</th><th className={`${th} text-end`}>{t('Action', 'إجراء')}</th>
               </tr></thead>
               <tbody className="divide-y divide-neutral-100">
@@ -310,7 +310,7 @@ function DrillPanel({ kind, onClose, onAction, onNew, isAr, t }: {
           {kind === 'submissions' && (
             <>
               <thead><tr className="border-b border-neutral-100">
-                <th className={th}>{t('RFP ID', 'رقم المنافسة')}</th><th className={th}>{t('RFP Title', 'عنوان المنافسة')}</th>
+                <th className={th}>{t('Request ID', 'رقم الطلب')}</th><th className={th}>{t('Request Title', 'عنوان الطلب')}</th>
                 <th className={th}>{t('Last Updated', 'آخر تحديث')}</th><th className={`${th} text-end`}>{t('Action', 'إجراء')}</th>
               </tr></thead>
               <tbody className="divide-y divide-neutral-100">
@@ -328,7 +328,7 @@ function DrillPanel({ kind, onClose, onAction, onNew, isAr, t }: {
           {kind === 'approvals' && (
             <>
               <thead><tr className="border-b border-neutral-100">
-                <th className={th}>{t('RFP ID', 'رقم المنافسة')}</th><th className={th}>{t('RFP Title', 'عنوان المنافسة')}</th>
+                <th className={th}>{t('Request ID', 'رقم الطلب')}</th><th className={th}>{t('Request Title', 'عنوان الطلب')}</th>
                 <th className={th}>{t('Submitted By', 'مقدَّم من')}</th><th className={th}>{t('Pending Since', 'معلّق منذ')}</th>
                 <th className={`${th} text-end`}>{t('Action', 'إجراء')}</th>
               </tr></thead>
@@ -471,19 +471,19 @@ function ChartModal({ seg, onClose, onOpenList, isAr, t }: {
 }
 
 /* ────────────────────────────────────────────────────────────────────────
-   RFPs Closing Soon
+   Requests Closing Soon
 ──────────────────────────────────────────────────────────────────────── */
 function ClosingSoon({ onViewAll, isAr, t }: { onViewAll: () => void; isAr: boolean; t: (en: string, ar: string) => string; }) {
   const items = [
-    { id: 'RFP-2024-045', titleEn: 'IT Hardware & Networking', titleAr: 'أجهزة تقنية وشبكات', due: 'Due 22 May 2024', dueAr: 'تستحق 22 مايو 2024', left: 2 },
-    { id: 'RFP-2024-038', titleEn: 'Annual Office Maintenance', titleAr: 'الصيانة السنوية للمكاتب', due: 'Due 25 May 2024', dueAr: 'تستحق 25 مايو 2024', left: 5 },
-    { id: 'RFP-2024-031', titleEn: 'Cloud Services Subscription', titleAr: 'اشتراك الخدمات السحابية', due: 'Due 26 May 2024', dueAr: 'تستحق 26 مايو 2024', left: 6 },
+    { id: 'REQ-2024-045', titleEn: 'IT Hardware & Networking', titleAr: 'أجهزة تقنية وشبكات', due: 'Due 22 May 2024', dueAr: 'تستحق 22 مايو 2024', left: 2 },
+    { id: 'REQ-2024-038', titleEn: 'Annual Office Maintenance', titleAr: 'الصيانة السنوية للمكاتب', due: 'Due 25 May 2024', dueAr: 'تستحق 25 مايو 2024', left: 5 },
+    { id: 'REQ-2024-031', titleEn: 'Cloud Services Subscription', titleAr: 'اشتراك الخدمات السحابية', due: 'Due 26 May 2024', dueAr: 'تستحق 26 مايو 2024', left: 6 },
   ];
   const pill = (n: number) => n <= 2 ? 'bg-error-50 text-error-700' : n <= 5 ? 'bg-warning-50 text-warning-700' : 'bg-success-50 text-success-700';
   return (
     <div className="rise-in bg-white rounded-xl border border-neutral-200 shadow-sm p-5" style={{ animationDelay: '200ms' }}>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-[14px] font-semibold text-neutral-900">{t('RFPs Closing Soon', 'منافسات تُغلق قريباً')}</h2>
+        <h2 className="text-[14px] font-semibold text-neutral-900">{t('Requests Closing Soon', 'طلبات تُغلق قريباً')}</h2>
         <button onClick={onViewAll} className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1">
           {t('View all', 'عرض الكل')} <ChevronRightIcon className={`w-3 h-3 ${isAr ? 'rotate-180' : ''}`} />
         </button>
@@ -509,11 +509,11 @@ function ClosingSoon({ onViewAll, isAr, t }: { onViewAll: () => void; isAr: bool
 ──────────────────────────────────────────────────────────────────────── */
 function RecentActivity({ isAr, t }: { isAr: boolean; t: (en: string, ar: string) => string; }) {
   const items = [
-    { id: 'RFP-2024-044', en: 'Approved by Mohammed Al-Drees', ar: 'تمت الموافقة من محمد الدريس', when: '10 mins ago', whenAr: 'قبل 10 دقائق', kind: 'ok' },
-    { id: 'RFP-2024-041', en: 'approved by Finance – Mohammed Fuzan', ar: 'اعتُمد من المالية – محمد فوزان', when: '1 hour ago', whenAr: 'قبل ساعة', kind: 'ok' },
-    { id: 'RFP-2024-037', en: 'approved by Finance – Mohammed Fuzan', ar: 'اعتُمد من المالية – محمد فوزان', when: '1 hour ago', whenAr: 'قبل ساعة', kind: 'ok' },
-    { id: 'RFP-2024-038', en: 'received a new vendor proposal', ar: 'استلم عرضاً جديداً من مورّد', when: '3 hours ago', whenAr: 'قبل 3 ساعات', kind: 'doc' },
-    { id: 'RFP-2024-031', en: 'moved to Under Review', ar: 'انتقل إلى قيد المراجعة', when: '5 hours ago', whenAr: 'قبل 5 ساعات', kind: 'move' },
+    { id: 'REQ-2024-044', en: 'Approved by Mohammed Al-Drees', ar: 'تمت الموافقة من محمد الدريس', when: '10 mins ago', whenAr: 'قبل 10 دقائق', kind: 'ok' },
+    { id: 'REQ-2024-041', en: 'approved by Finance – Mohammed Fuzan', ar: 'اعتُمد من المالية – محمد فوزان', when: '1 hour ago', whenAr: 'قبل ساعة', kind: 'ok' },
+    { id: 'REQ-2024-037', en: 'approved by Finance – Mohammed Fuzan', ar: 'اعتُمد من المالية – محمد فوزان', when: '1 hour ago', whenAr: 'قبل ساعة', kind: 'ok' },
+    { id: 'REQ-2024-038', en: 'received a new vendor proposal', ar: 'استلم عرضاً جديداً من مورّد', when: '3 hours ago', whenAr: 'قبل 3 ساعات', kind: 'doc' },
+    { id: 'REQ-2024-031', en: 'moved to Under Review', ar: 'انتقل إلى قيد المراجعة', when: '5 hours ago', whenAr: 'قبل 5 ساعات', kind: 'move' },
     { id: 'PR-2024-112', en: 'submitted for approval', ar: 'قُدّم للموافقة', when: 'Yesterday', whenAr: 'أمس', kind: 'send' },
   ];
   const dot = (k: string) =>
@@ -552,8 +552,8 @@ function QuickActions({ onNewRequest, onViewRequests, isAr, t }: {
   isAr: boolean; t: (en: string, ar: string) => string;
 }) {
   const actions = [
-    { en: 'Create New RFP', ar: 'إنشاء منافسة جديدة', icon: <PlusIcon className="w-4 h-4" />, onClick: () => onNewRequest('tendering') },
-    { en: 'View Overdue RFPs', ar: 'المنافسات المتأخرة', icon: <ClockIcon className="w-4 h-4" />, onClick: () => onViewRequests('under-review') },
+    { en: 'Create New Request', ar: 'إنشاء طلب جديد', icon: <PlusIcon className="w-4 h-4" />, onClick: () => onNewRequest('tendering') },
+    { en: 'View Overdue Requests', ar: 'الطلبات المتأخرة', icon: <ClockIcon className="w-4 h-4" />, onClick: () => onViewRequests('under-review') },
     { en: 'View New Vendors', ar: 'الموردون الجدد', icon: <GroupIcon className="w-4 h-4" />, onClick: () => onViewRequests('all') },
   ];
   return (
@@ -589,7 +589,7 @@ function AiSuggestions({ onNewRequest, isAr, t }: {
           <div className="flex items-start gap-2.5">
             <WandIcon className="w-4 h-4 text-ai-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-[12px] text-ai-900 leading-snug">{t('Based on your past activity, you can create this RFP 40% faster using AI.', 'بناءً على نشاطك السابق، يمكنك إنشاء هذه المنافسة أسرع بنسبة 40٪ باستخدام الذكاء الاصطناعي.')}</p>
+              <p className="text-[12px] text-ai-900 leading-snug">{t('Based on your past activity, you can create this request 40% faster using AI.', 'بناءً على نشاطك السابق، يمكنك إنشاء هذا الطلب أسرع بنسبة 40٪ باستخدام الذكاء الاصطناعي.')}</p>
               <button onClick={() => onNewRequest('tendering')} className="text-[11px] font-semibold text-ai-700 hover:text-ai-900 mt-1.5 flex items-center gap-1">
                 {t('Try AI Draft', 'جرّب المسودة الذكية')} <ChevronRightIcon className={`w-3 h-3 ${isAr ? 'rotate-180' : ''}`} />
               </button>
@@ -600,7 +600,7 @@ function AiSuggestions({ onNewRequest, isAr, t }: {
           <div className="flex items-start gap-2.5">
             <DocumentIcon className="w-4 h-4 text-ai-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-[12px] text-ai-900 leading-snug">{t('3 similar RFPs found. Reuse details to save time.', 'تم العثور على 3 منافسات مشابهة. أعد استخدام التفاصيل لتوفير الوقت.')}</p>
+              <p className="text-[12px] text-ai-900 leading-snug">{t('3 similar requests found. Reuse details to save time.', 'تم العثور على 3 طلبات مشابهة. أعد استخدام التفاصيل لتوفير الوقت.')}</p>
               <button onClick={() => onNewRequest('tendering')} className="text-[11px] font-semibold text-ai-700 hover:text-ai-900 mt-1.5 flex items-center gap-1">
                 {t('Reuse details', 'إعادة استخدام التفاصيل')} <ChevronRightIcon className={`w-3 h-3 ${isAr ? 'rotate-180' : ''}`} />
               </button>
@@ -619,7 +619,7 @@ const STATUS_BADGE: Record<TenderStatus, { en: string; ar: string; variant: 'dra
   draft:          { en: 'Draft',        ar: 'مسودة',        variant: 'draft' },
   submitted:      { en: 'Submitted',    ar: 'مُقدَّم',       variant: 'submitted' },
   'under-review': { en: 'Under Review', ar: 'قيد المراجعة', variant: 'submitted' },
-  approved:       { en: 'Active RFP',   ar: 'منافسة نشطة',  variant: 'success' },
+  approved:       { en: 'Active request', ar: 'طلب نشط',  variant: 'success' },
   returned:       { en: 'Returned',     ar: 'مرتجع',        variant: 'rejected' },
 };
 
@@ -652,7 +652,7 @@ function RecentTable({ onOpen, onViewAll, isAr, t }: {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px]">
           <thead><tr className="border-y border-neutral-100 bg-neutral-50/40">
-            <th className={th}>{t('Request / RFP ID', 'رقم الطلب')}</th><th className={th}>{t('Description', 'الوصف')}</th>
+            <th className={th}>{t('Request ID', 'رقم الطلب')}</th><th className={th}>{t('Description', 'الوصف')}</th>
             <th className={th}>{t('Type', 'النوع')}</th><th className={th}>{t('Stage', 'المرحلة')}</th>
             <th className={th}>{t('Status', 'الحالة')}</th><th className={th}>{t('Last Updated', 'آخر تحديث')}</th><th className="px-4 py-2.5" />
           </tr></thead>
@@ -663,7 +663,7 @@ function RecentTable({ onOpen, onViewAll, isAr, t }: {
                 <tr key={r.id} onClick={() => onOpen('all')} className="hover:bg-neutral-50/70 transition-colors cursor-pointer group">
                   <td className="px-4 py-3.5"><span className="text-[12px] font-semibold text-brand-700" dir="ltr">{r.id}</span></td>
                   <td className="px-4 py-3.5"><p className="text-[13px] text-neutral-800 truncate max-w-[300px]">{isAr ? r.descAr : r.descEn}</p></td>
-                  <td className="px-4 py-3.5"><Badge variant={r.type === 'RFP' ? 'info' : 'default'}>{r.type}</Badge></td>
+                  <td className="px-4 py-3.5"><Badge variant={r.type === 'RFP' ? 'info' : 'default'}>{r.type === 'RFP' ? t('Request', 'طلب') : r.type}</Badge></td>
                   <td className="px-4 py-3.5"><span className="text-[12px] text-neutral-600">{isAr ? r.stageAr : r.stageEn}</span></td>
                   <td className="px-4 py-3.5"><Badge variant={sb.variant}>{isAr ? sb.ar : sb.en}</Badge></td>
                   <td className="px-4 py-3.5 text-[11px] text-neutral-400 whitespace-nowrap">{r.updated}</td>

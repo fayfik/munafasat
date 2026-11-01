@@ -262,10 +262,10 @@ async function openRequest(title) {
     await nav('Inbox'); await wait(80);
     expect(await count('.ld-shimmer') > 0, 'no inbox skeleton');
     await wait(LOAD);
-    expect(await page.locator('ul li > button:visible', { hasText: 'RFP-4433' }).count() >= 10, 'tasks missing');
+    expect(await page.locator('ul li > button:visible', { hasText: 'REQ-4433' }).count() >= 10, 'tasks missing');
   });
   await test('Inbox: task opens with loader, info toggle, request details', async () => {
-    await page.locator('ul li > button:visible', { hasText: 'RFP-4433' }).first().click(); await wait(80);
+    await page.locator('ul li > button:visible', { hasText: 'REQ-4433' }).first().click(); await wait(80);
     expect(await count('.ld-shimmer') > 0, 'no task skeleton');
     await wait(LOAD);
     expect(await text('This task is at the').count() === 0, 'stage note should be hidden by default');
@@ -300,11 +300,11 @@ async function openRequest(title) {
   const openTask = async (ref) => { await page.locator('ul li > button:visible', { hasText: ref }).first().click(); await wait(LOAD); };
   await test('Budget checker: loads on open, approve blocked while checking', async () => {
     await nav('Dashboard').catch(() => {}); await nav('Inbox'); await wait(LOAD);
-    await openTask('RFP-4471');
+    await openTask('REQ-4471');
     expect(await page.locator('[data-budget-state="checking"]').count() === 1, 'not checking on open');
     expect(await page.getByRole('button', { name: 'Approve', exact: true }).isDisabled(), 'approve enabled while checking');
   });
-  await test('Budget checker: sufficient budget enables approve (RFP-4471)', async () => {
+  await test('Budget checker: sufficient budget enables approve (REQ-4471)', async () => {
     await page.waitForSelector('[data-budget-state="ok"]', { timeout: 4000 });
     for (const s of ['Total budget available', 'Request estimated value', 'Remaining if approved', 'of annual budget left'])
       expect(await text(s).count() > 0, `missing ${s}`);
@@ -319,8 +319,8 @@ async function openRequest(title) {
     expect(await page.getByRole('button', { name: 'Approve', exact: true }).isDisabled(), 'approve not blocked during refresh');
     await page.waitForSelector('[data-budget-state="ok"]', { timeout: 4000 });
   });
-  await test('Budget checker: insufficient budget blocks approve (RFP-4478)', async () => {
-    await openTask('RFP-4478');
+  await test('Budget checker: insufficient budget blocks approve (REQ-4478)', async () => {
+    await openTask('REQ-4478');
     await page.waitForSelector('[data-budget-state="short"]', { timeout: 4000 });
     expect(await text('Insufficient budget').count() > 0, 'status chip missing');
     expect(await text('Shortfall').count() > 0 && await text('SAR 2,360,000.00').count() > 0, 'shortfall wrong');
@@ -338,15 +338,35 @@ async function openRequest(title) {
     });
     expect(order === true, `budget widget not below review card (${order})`);
   });
-  await test('Inbox: task names match the Tasks-list PDF', async () => {
+  await test('Inbox: task names match the Tasks-list PDF (RFP → request)', async () => {
     await page.getByRole('button', { name: /^All\s*16/ }).click(); await wait(300);
     const titles = await page.locator('ul li > button:visible p:first-child, ul li > button:visible h3').allInnerTexts().catch(() => []);
     const body = (await page.locator('ul li > button:visible').allInnerTexts()).join('\n').replace(/\s+/g, ' ');
-    for (const want of ['Review RFP #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for RFP #4433 from Ibrahim Al-Rashid', 'Review RFP #4433 from IT & Digital', 'Review request & add qualification criteria for RFP #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for RFP #4433 from IT & Digital', 'Review RFP #4471 from Fatima Al-Zahrani', 'Review RFP #4478 from Khalid Al-Qahtani'])
+    for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Review request & add qualification criteria for request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
       expect(body.includes(want), `missing task "${want}"`);
-    expect(!body.includes('Review & approve'), 'old "Review & approve" title still listed');
-    expect((body.match(/RFP-44\d\d/g) || []).length === 16, `expected 16 tasks, got ${(body.match(/RFP-44\d\d/g) || []).length}`);
+    expect(!/\bRFP\b/.test(body), 'the word RFP is still listed');
+    const top3 = (await page.locator('ul li > button:visible', { hasText: 'REQ-' }).allInnerTexts()).slice(0, 3).join(' | ');
+    expect(['#4478', '#4471', '#4433'].every((n) => top3.includes(`Review & approve request ${n}`)), `manager tasks not on top: ${top3.slice(0, 160)}`);
+    expect((body.match(/REQ-44\d\d/g) || []).length === 16, `expected 16 tasks, got ${(body.match(/REQ-44\d\d/g) || []).length}`);
     void titles;
+  });
+
+  await test('Inbox: manager return creates the requester task dynamically', async () => {
+    await page.getByRole('button', { name: /^All\s*\d+/ }).click(); await wait(300);
+    await openTask('REQ-4471');
+    await page.waitForSelector('[data-budget-state="ok"]', { timeout: 4000 });
+    await page.getByRole('button', { name: 'Return', exact: true }).click(); await wait(300);
+    const dlg = page.getByRole('dialog');
+    await dlg.getByText('Yes', { exact: true }).first().click();
+    await dlg.locator('textarea').fill('Please split the hosting line by environment.');
+    await dlg.getByRole('button', { name: 'Complete', exact: true }).click(); await wait(500);
+    const row = page.locator('ul li > button:visible', { hasText: 'Review comments for request #4471 added by Faisal Al-Dossari' });
+    expect(await row.count() === 1, 'requester task not created');
+    const first = await page.locator('ul li > button:visible', { hasText: 'REQ-' }).first().innerText();
+    expect(first.includes('Review comments for request #4471'), 'returned task should be listed first');
+    await row.click(); await wait(LOAD);
+    expect(await page.getByRole('button', { name: 'Resubmit for approval' }).count() === 1, 'resubmit CTA missing');
+    expect(await text('Please split the hosting line by environment.').count() > 0, 'return note not carried over');
   });
 
   // ── Arabic / RTL ───────────────────────────────────────────────────────────

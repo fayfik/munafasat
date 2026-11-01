@@ -313,8 +313,8 @@ function Overview({ r, esouq, amount, proc, isAr, t, onTab }: { r: SavedRequest;
       <Card title={t('PR details', 'تفاصيل طلب الشراء')}>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
           <Field label={t('PR number', 'رقم طلب الشراء')}>{r.prNumber ? <span className="font-mono" dir="ltr">{r.prNumber}</span> : <span className="text-neutral-400 font-normal italic">{t('Created in SAP ECC after final approval', 'يُنشأ في SAP ECC بعد الاعتماد النهائي')}</span>}</Field>
-          <Field label={t('RFP number', 'رقم المنافسة')}>{r.requestNo ? <span className="font-mono" dir="ltr">{r.requestNo.replace('TEN', esouq ? 'EMK' : 'RFP')}</span> : <span className="text-neutral-300 font-normal">—</span>}</Field>
-          <Field label={t('Purchase type', 'نوع الشراء')}>{esouq ? t('Etimad E-Market order', 'طلب سوق اعتماد') : t('RFP — competitive tender', 'منافسة عامة')}</Field>
+          <Field label={t('Etimad reference', 'مرجع اعتماد')}>{r.requestNo ? <span className="font-mono" dir="ltr">{r.requestNo.replace('TEN', esouq ? 'EMK' : 'ETM')}</span> : <span className="text-neutral-300 font-normal">—</span>}</Field>
+          <Field label={t('Purchase type', 'نوع الشراء')}>{esouq ? t('Etimad E-Market order', 'طلب سوق اعتماد') : t('Competitive tender', 'منافسة عامة')}</Field>
           <Field label={t('PR type', 'نوع طلب الشراء')}>{/Services|Consult|Support|Audit|Testing|Program|Agency|Cleaning|Leasing/i.test(r.title) ? t('Service', 'خدمة') : t('Material', 'مواد')}</Field>
           <Field label={t('Urgency', 'الأولوية')}>{amount > 3_000_000 ? t('High', 'عالية') : t('Normal', 'عادية')}</Field>
           <Field label={t('Delivery location', 'موقع التسليم')}>{t('Riyadh — Head office', 'الرياض — المقر الرئيسي')}</Field>
@@ -358,7 +358,7 @@ function Details({ rfp, amount, isAr, t }: { rfp: ReturnType<typeof requestRfpFo
   return (
     <RfpOpenCtx.Provider value={ctl}>
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-        <p className="text-[12px] text-neutral-500 truncate">{t('RFP', 'المنافسة')} <span className="font-semibold text-neutral-700" dir="ltr">{rfp.refId}</span> · {isAr ? rfp.titleAr : rfp.titleEn}</p>
+        <p className="text-[12px] text-neutral-500 truncate">{t('Request', 'الطلب')} <span className="font-semibold text-neutral-700" dir="ltr">{rfp.refId}</span> · {isAr ? rfp.titleAr : rfp.titleEn}</p>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="secondary" onClick={() => setCtl((c) => ({ open: !c.open, rev: c.rev + 1 }))}>
             <ChevronRightIcon className={`w-4 h-4 transition-transform ${ctl.open ? '-rotate-90' : 'rotate-90'}`} />

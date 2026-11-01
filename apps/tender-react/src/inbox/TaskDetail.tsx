@@ -198,7 +198,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             <div className="rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3 flex items-center gap-3 min-w-0">
               <span className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center flex-shrink-0 text-[11px] font-bold">SAR</span>
               <div className="min-w-0 flex-1">
-                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-brand-700/80">{t('RFP amount', 'قيمة المنافسة')}</p>
+                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-brand-700/80">{t('Request amount', 'قيمة الطلب')}</p>
                 <p className="text-[19px] font-bold text-brand-800 tabular-nums leading-tight whitespace-nowrap" dir="ltr">{task.amount != null ? fmtSAR(task.amount) : '—'}</p>
                 {task.amount != null && <p className="text-[11.5px] text-brand-700/80 tabular-nums" dir="ltr">{t('Incl. VAT', 'شامل الضريبة')} {fmtSAR(task.amount * 1.15)}</p>}
               </div>
@@ -243,7 +243,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined} />}
           {tab === 'rfp' && (
             <div className="flex items-center justify-between gap-3 mb-3">
-              <p className="text-[12px] text-neutral-500 truncate">{t('RFP', 'المنافسة')} <span className="font-semibold text-neutral-700" dir="ltr">#{task.entity.ref.replace(/^RFP-/, '')}</span> · {isAr ? task.entity.titleAr : task.entity.titleEn}</p>
+              <p className="text-[12px] text-neutral-500 truncate">{t('Request', 'الطلب')} <span className="font-semibold text-neutral-700" dir="ltr">#{task.entity.ref.replace(/^(RFP|REQ)-/, '')}</span> · {isAr ? task.entity.titleAr : task.entity.titleEn}</p>
               <Button size="sm" variant="secondary" onClick={() => downloadTaskPdf(task)}><DownloadIcon className="w-4 h-4" />{t('Download PDF', 'تنزيل PDF')}</Button>
             </div>
           )}
@@ -453,7 +453,7 @@ function CommitteeChips({ members, isAr }: { members?: RfpDetail['evalCommittee'
 
 export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T }) {
   const [preview, setPreview] = useState<PreviewDoc | null>(null);
-  if (!rfp) return <div className="rounded-xl border border-neutral-200 bg-white p-6 text-[13px] text-neutral-500 shadow-sm">{t('No RFP record linked to this task.', 'لا يوجد سجل منافسة مرتبط بهذه المهمة.')}</div>;
+  if (!rfp) return <div className="rounded-xl border border-neutral-200 bg-white p-6 text-[13px] text-neutral-500 shadow-sm">{t('No request record linked to this task.', 'لا يوجد سجل منافسة مرتبط بهذه المهمة.')}</div>;
   const boqTotal = rfp.boq.reduce((s, l) => s + lineTotalOf(l), 0);
   const estValue = boqTotal > 0 ? boqTotal : (amount ?? 0);
   const costSegs = rfp.boq.map((l, i) => ({ value: lineTotalOf(l), color: PALETTE[i % PALETTE.length], label: isAr ? l.itemAr : l.itemEn }));
@@ -1161,7 +1161,7 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
               {commentCount > 0 && <p className="text-[12px] font-semibold text-[#21507A] mt-1">{t(`${commentCount} comment${commentCount > 1 ? 's' : ''} added`, `${commentCount} تعليق مضاف`)}{resolvedCount > 0 && <span className="text-success-700"> · {t(`${resolvedCount} resolved by ${task.requester.name}`, `${resolvedCount} تم حلها من ${task.requester.nameAr ?? task.requester.name}`)}</span>}</p>}
             </>)}
           </div>
-          <Button size="md" variant="primary" onClick={onReview}>{task.respondComments ? t('Open request details', 'فتح تفاصيل الطلب') : t('Review RFP & add comments', 'مراجعة المنافسة وإضافة تعليقات')}</Button>
+          <Button size="md" variant="primary" onClick={onReview}>{task.respondComments ? t('Open request details', 'فتح تفاصيل الطلب') : t('Review request & add comments', 'مراجعة الطلب وإضافة تعليقات')}</Button>
         </div>
       )}
 
@@ -1356,7 +1356,7 @@ function CommentsPanel({ task, isAr, t, onSend, disabled, onJump, threads, respo
     <>
       {review > 0 && (
         <div className="px-3 py-2 border-b border-neutral-200 bg-[#F3F8FC] text-[11.5px] text-[#21507A] font-semibold flex items-center gap-1.5">
-          <BubbleIcon className="w-3.5 h-3.5" />{t(`${review} review comment${review > 1 ? 's' : ''} on the RFP`, `${review} تعليق مراجعة على المنافسة`)}<span className="ms-auto font-medium text-neutral-500">{open ? t(`${open} open`, `${open} مفتوح`) : t('All resolved', 'تم حل الكل')}</span>
+          <BubbleIcon className="w-3.5 h-3.5" />{t(`${review} review comment${review > 1 ? 's' : ''} on the request`, `${review} تعليق مراجعة على الطلب`)}<span className="ms-auto font-medium text-neutral-500">{open ? t(`${open} open`, `${open} مفتوح`) : t('All resolved', 'تم حل الكل')}</span>
         </div>
       )}
       <div ref={listRef} data-comment-dock="pane" className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -1432,7 +1432,7 @@ function ReviewBar({ on, onToggle, count, isAr, t, disabled, onOpenComments }: {
     <div className={`mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 flex-wrap transition-colors ${on ? 'border-[#2A6193] bg-[#F3F8FC] shadow-[0_0_0_3px_rgba(42,97,147,0.08)]' : 'border-neutral-200 bg-white shadow-sm'}`}>
       <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${on ? 'bg-[#2A6193] text-white' : 'bg-[#EAF1F8] text-[#2A6193]'}`}><BubbleIcon className="w-[18px] h-[18px]" /></span>
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-bold text-neutral-900">{on ? t('Commenting is on', 'وضع التعليق مفعّل') : t('Review the RFP', 'مراجعة المنافسة')}</p>
+        <p className="text-[13px] font-bold text-neutral-900">{on ? t('Commenting is on', 'وضع التعليق مفعّل') : t('Review the request', 'مراجعة الطلب')}</p>
         <p className="text-[12px] text-neutral-500">
           {on ? t('Hover any section, row or field and click Comment. Press Esc to close a comment.', 'مرّر المؤشر على أي قسم أو صف أو حقل ثم اضغط تعليق. اضغط Esc للإغلاق.')
               : t('Add comments to any section or field — they are posted to Comments with the section name.', 'أضف تعليقات على أي قسم أو حقل — تُنشر في التعليقات مع اسم القسم.')}
@@ -1513,7 +1513,7 @@ function downloadTaskPdf(task: Task) {
   gap(4); rule();
   const rfp = task.rfp;
   if (rfp) {
-    line('RFP / REQUEST', 9, true, '#699843'); gap(2);
+    line('REQUEST', 9, true, '#699843'); gap(2);
     line(`${rfp.refId} — ${rfp.titleEn}`, 12, true);
     line(rfp.scopeEn, 10, false, '#474D43'); gap(4);
     if (rfp.boq.length) {

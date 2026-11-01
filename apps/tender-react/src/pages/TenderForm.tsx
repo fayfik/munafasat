@@ -72,7 +72,7 @@ export default function TenderForm({ onBack }: Props) {
   }
 
   const sourceLabelEn = formData.sourceType === 'souq-etimad' ? 'Etimad E-Market' : 'Tender';
-  const sourceLabelAr = formData.sourceType === 'souq-etimad' ? 'سوق اعتماد' : 'منافسة RFP';
+  const sourceLabelAr = formData.sourceType === 'souq-etimad' ? 'سوق اعتماد' : 'منافسة';
   const sourceLabel = isAr ? sourceLabelAr : sourceLabelEn;
 
   const newLabel = formData.sourceType === 'souq-etimad' ? t('New Purchase Request', 'طلب شراء جديد') : t('New Tender Request', 'طلب منافسة جديد');
