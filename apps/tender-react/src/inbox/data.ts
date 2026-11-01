@@ -627,3 +627,56 @@ export function requestRfpFor(o: { refId: string; titleEn: string; titleAr: stri
     ...(esouq ? { payment: [], evaluation: [], qualification: [], qualCriteria: [], techRequirements: [], techDocs: [], evalCommittee: [], qualCommittee: [] } : {}),
   };
 }
+
+// ── Budget checker use cases (manager "Review & approve" tasks) ──────────────
+// RFP #4433: fits the budget. Two more manager approvals show both outcomes:
+// RFP #4471 fits (approve enabled), RFP #4478 exceeds the budget (approve blocked).
+SEED_TASKS[0].budgetCheck = { fundCenter: 'FC-IT-1000', commitmentItem: 'CAPEX-ERP', fiscalYear: 2026, total: 14_500_000, consumed: 2_180_000 };
+
+function managerApprovalFor(o: {
+  no: string; titleEn: string; titleAr: string; amount: number; requester: Person; minutesAgo: number; priority: Task['priority'];
+  budget: NonNullable<Task['budgetCheck']>; note: string;
+}): Task {
+  const src = SEED_TASKS[0];
+  const swap = (x: string) => x
+    .split(REQ.no).join(o.no)
+    .split(REQ.titleEn).join(o.titleEn).split(REQ.titleAr).join(o.titleAr)
+    .split(REQ.requester.name).join(o.requester.name).split(REQ.requester.nameAr ?? '§').join(o.requester.nameAr ?? o.requester.name)
+    .split(REQ.requester.dept ?? '§').join(o.requester.dept ?? '').split(REQ.requester.deptAr ?? '§').join(o.requester.deptAr ?? '');
+  const { rfp: _r, trail: _t, ...rest } = src;
+  const tk = JSON.parse(swap(JSON.stringify(rest))) as Task;
+  const received = new Date(Date.now() - o.minutesAgo * 60000);
+  tk.id = `TSK-${o.no}-01`;
+  tk.amount = o.amount;
+  tk.priority = o.priority;
+  tk.requester = o.requester;
+  tk.receivedAt = received.toISOString();
+  tk.dueAt = new Date(+received + 24 * 3600000).toISOString();
+  tk.budgetCheck = o.budget;
+  tk.approvalRecord = (tk.approvalRecord ?? []).map((r) => r.label.en === 'Request value' ? { ...r, value: fmtSARPlain(o.amount) } : r.label.en === 'Project' ? { ...r, value: o.titleEn } : r);
+  tk.project = { en: o.titleEn, ar: o.titleAr };
+  tk.activity = [
+    { id: 'a0', kind: 'system', actor: o.requester, at: new Date(+received - 20 * 60000).toISOString(), system: { en: `RFP #${o.no} submitted`, ar: `تم تقديم المنافسة رقم ${o.no}` } },
+    { id: 'a0c', kind: 'comment', actor: o.requester, at: new Date(+received - 15 * 60000).toISOString(), text: o.note },
+    { id: 'aN', kind: 'system', actor: tk.assignee, at: received.toISOString(), system: { en: `Assigned to ${tk.assignee.name} — Department approval`, ar: `أُسند إلى ${tk.assignee.nameAr} — اعتماد الإدارة` } },
+  ];
+  tk.rfp = requestRfpFor({ refId: `RFP-${o.no}`, titleEn: o.titleEn, titleAr: o.titleAr, deptEn: o.requester.dept ?? '', deptAr: o.requester.deptAr ?? '', amount: o.amount, type: 'tendering', costCenter: o.budget.fundCenter });
+  tk.trail = trailFor(tk);
+  return tk;
+}
+function fmtSARPlain(n: number) { return 'SAR ' + n.toLocaleString('en-US', { minimumFractionDigits: 2 }); }
+
+SEED_TASKS.unshift(
+  managerApprovalFor({
+    no: '4478', titleEn: 'SIEM & SOC Managed Services', titleAr: 'خدمات مُدارة لمركز العمليات الأمنية', amount: 5_400_000, priority: 'urgent', minutesAgo: 25,
+    requester: person('u-khalidq', 'Khalid Al-Qahtani', 'خالد القحطاني', 'Requester', 'مقدّم الطلب', 'Information Security', 'أمن المعلومات'),
+    budget: { fundCenter: 'FC-SEC-2200', commitmentItem: 'OPEX-MANAGED-SVC', fiscalYear: 2026, total: 6_000_000, consumed: 2_150_000 },
+    note: 'SOC coverage must start before the current contract ends in Q1 — please prioritise.',
+  }),
+  managerApprovalFor({
+    no: '4471', titleEn: 'Cloud Infrastructure Migration', titleAr: 'ترحيل البنية التحتية السحابية', amount: 1_800_000, priority: 'high', minutesAgo: 70,
+    requester: person('u-fatimaz', 'Fatima Al-Zahrani', 'فاطمة الزهراني', 'Requester', 'مقدّم الطلب', 'IT & Digital', 'تقنية المعلومات والتحول الرقمي'),
+    budget: { fundCenter: 'FC-IT-1000', commitmentItem: 'CAPEX-CLOUD', fiscalYear: 2026, total: 3_200_000, consumed: 620_000 },
+    note: 'Migration of the remaining on-prem workloads to the sovereign cloud region.',
+  }),
+);

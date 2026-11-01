@@ -254,6 +254,7 @@ async function openRequest(title) {
   });
   await test('Inbox: approve via decision dialog', async () => {
     await tab('Required action'); await wait(200);
+    if (await count('[data-budget-state]')) await page.waitForSelector('[data-budget-state="ok"], [data-budget-state="short"]');
     const approve = page.getByRole('button', { name: /^Approve/ }).first();
     if (await approve.isDisabled()) {
       for (const cb of await page.locator('input[type="checkbox"]:visible').all()) await cb.check().catch(() => {});
@@ -263,6 +264,41 @@ async function openRequest(title) {
     await page.getByRole('dialog').getByRole('radio', { name: /Yes/ }).first().click().catch(async () => { await page.getByRole('dialog').getByText('Yes', { exact: true }).first().click(); });
     await page.getByRole('dialog').getByRole('button', { name: 'Complete', exact: true }).click(); await wait(400);
     expect(await text("What's next?").count() === 0, 'dialog did not close');
+  });
+
+
+  // ── Budget checker (manager approval) ─────────────────────────────────────
+  const openTask = async (ref) => { await page.locator('ul li > button:visible', { hasText: ref }).first().click(); await wait(LOAD); };
+  await test('Budget checker: loads on open, approve blocked while checking', async () => {
+    await nav('Dashboard').catch(() => {}); await nav('Inbox'); await wait(LOAD);
+    await openTask('RFP-4471');
+    expect(await page.locator('[data-budget-state="checking"]').count() === 1, 'not checking on open');
+    expect(await page.getByRole('button', { name: 'Approve', exact: true }).isDisabled(), 'approve enabled while checking');
+  });
+  await test('Budget checker: sufficient budget enables approve (RFP-4471)', async () => {
+    await page.waitForSelector('[data-budget-state="ok"]', { timeout: 4000 });
+    for (const s of ['Total budget available', 'Request estimated value', 'Remaining if approved', 'of annual budget left'])
+      expect(await text(s).count() > 0, `missing ${s}`);
+    expect(await text('SAR 2,070,000.00').count() > 0, 'VAT-inclusive value not shown');
+    expect(await text('SAR 510,000.00').count() > 0, 'remaining amount wrong');
+    expect(await text('15.9% of annual budget left').count() > 0, 'remaining % wrong');
+    expect(!(await page.getByRole('button', { name: 'Approve', exact: true }).isDisabled()), 'approve should be enabled');
+  });
+  await test('Budget checker: refresh re-runs the check', async () => {
+    await page.locator('button[title="Refresh budget check"]').click(); await wait(100);
+    expect(await page.locator('[data-budget-state="checking"]').count() === 1, 'refresh did not reload');
+    expect(await page.getByRole('button', { name: 'Approve', exact: true }).isDisabled(), 'approve not blocked during refresh');
+    await page.waitForSelector('[data-budget-state="ok"]', { timeout: 4000 });
+  });
+  await test('Budget checker: insufficient budget blocks approve (RFP-4478)', async () => {
+    await openTask('RFP-4478');
+    await page.waitForSelector('[data-budget-state="short"]', { timeout: 4000 });
+    expect(await text('Insufficient budget').count() > 0, 'status chip missing');
+    expect(await text('Shortfall').count() > 0 && await text('SAR 2,360,000.00').count() > 0, 'shortfall wrong');
+    const approve = page.getByRole('button', { name: 'Approve', exact: true });
+    expect(await approve.isDisabled(), 'approve should be blocked');
+    expect((await approve.getAttribute('title') || '').includes('Insufficient budget'), 'blocked reason tooltip missing');
+    expect(!(await page.getByRole('button', { name: 'Return', exact: true }).isDisabled()), 'return should stay available');
   });
 
   // ── Arabic / RTL ───────────────────────────────────────────────────────────

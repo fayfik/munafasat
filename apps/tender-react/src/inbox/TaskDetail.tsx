@@ -13,6 +13,7 @@ import type { Bilingual, Task, TaskAction, Person, RfpDetail } from './types';
 import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
 import { TaskBody } from './renderers';
 import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
+import { BudgetChecker, useBudgetCheck } from './BudgetCheck';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
 
 type T = (en: string, ar: string) => string;
@@ -104,6 +105,8 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const [note, setNote] = useState('');
 
   const comp = useMemo(() => completionStatus(task), [task]);
+  const budget = useBudgetCheck(task);
+  const budgetBlocked = !!task.budgetCheck && budget.state !== 'ok';
   const d = dueInfo(task);
   const sla = slaInfo(task);
   const awaiting = task.state === 'waiting' && !!task.reviewComments && !task.respondComments; // returned, waiting on the requester
@@ -152,7 +155,8 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
                 {acts.map((a) => (
                   <Button key={a.id} size="md"
                     variant={a.variant === 'danger' ? 'danger' : a.variant === 'primary' ? 'primary' : 'secondary'}
-                    disabled={a.gated && !comp.canComplete}
+                    disabled={(a.gated && !comp.canComplete) || (a.id === 'approve' && budgetBlocked)}
+                    title={a.id === 'approve' && budgetBlocked ? (budget.state === 'checking' ? t('Checking budget…', 'جارٍ فحص الميزانية…') : t('Insufficient budget — approval is blocked', 'الميزانية غير كافية — الاعتماد غير متاح')) : undefined}
                     onClick={() => run(a)}>
                     {t(a.label[0], a.label[1])}
                   </Button>
@@ -235,7 +239,8 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
         {/* Tab content */}
         <div className="p-4 sm:p-6">
           {showInfo && <ContextNote task={task} isAr={isAr} t={t} onClose={() => setShowInfo(false)} />}
-          {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length} />}
+          {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
+            budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined} />}
           {tab === 'rfp' && (
             <div className="flex items-center justify-between gap-3 mb-3">
               <p className="text-[12px] text-neutral-500 truncate">{t('RFP', 'المنافسة')} <span className="font-semibold text-neutral-700" dir="ltr">#{task.entity.ref.replace(/^RFP-/, '')}</span> · {isAr ? task.entity.titleAr : task.entity.titleEn}</p>
@@ -1131,13 +1136,14 @@ function ContextNote({ task, isAr, t, onClose }: { task: Task; isAr: boolean; t:
   );
 }
 
-function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCount = 0 }: { task: Task; isAr: boolean; t: T; onReview?: () => void; commentCount?: number; resolvedCount?: number }) {
+function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCount = 0, budgetWidget }: { task: Task; isAr: boolean; t: T; onReview?: () => void; commentCount?: number; resolvedCount?: number; budgetWidget?: React.ReactNode }) {
   const [officer, setOfficer] = useState(task.assignTo?.[0]?.id ?? '');
   const lines = task.rfp?.boq ?? [];
   const budgets = Array.from(new Set(lines.map((l) => l.budgetEn ?? '')));
   const sub = lines.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
   return (
     <div className="space-y-4">
+      {budgetWidget}
       {/* Approver: review the RFP and pin comments */}
       {onReview && (
         <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white p-5 shadow-sm flex items-center gap-4 flex-wrap">

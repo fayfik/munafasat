@@ -179,6 +179,8 @@ export interface Task {
   assignTo?: Person[];          // officers the TL can assign to
   doaInfo?: { label: Bilingual; value: string }[];
   priceBreakdown?: boolean;     // show the estimated price by budget item
+  /** Budget check against SAP Funds Management (manager approval). Approve is blocked when short. */
+  budgetCheck?: { fundCenter: string; commitmentItem: string; fiscalYear: number; total: number; consumed: number };
   reviewComments?: boolean;     // reviewer can pin comments to RFP sections/fields
   respondComments?: boolean;    // requester replies to / resolves review comments and edits commented fields
   /** Steps shown in the decision dialog ("What's next?") per action id. */

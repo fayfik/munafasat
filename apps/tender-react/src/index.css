@@ -439,3 +439,14 @@ section[data-cm-has] { background-color: #fff; outline: 2px solid rgba(42, 97, 1
   animation: ld-shimmer 1.2s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) { .ld-bar, .ld-shimmer { animation: none; } }
+
+/* ── Budget checker illustration ─────────────────────────── */
+.bc-orbit { transform-box: fill-box; transform-origin: center; animation: bc-spin 6s linear infinite; }
+@keyframes bc-spin { to { transform: rotate(360deg); } }
+.bc-glass { animation: bc-scan 1.6s ease-in-out infinite; }
+@keyframes bc-scan { 0%,100% { transform: translate(0,0); } 25% { transform: translate(-10px,6px); } 50% { transform: translate(-4px,14px); } 75% { transform: translate(4px,6px); } }
+.bc-coin { animation: bc-bob 1.2s ease-in-out infinite; }
+@keyframes bc-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+.bc-pop { transform-box: fill-box; transform-origin: center; animation: bc-pop .45s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes bc-pop { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .bc-orbit, .bc-glass, .bc-coin, .bc-pop { animation: none; } }
