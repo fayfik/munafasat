@@ -428,3 +428,7 @@ section[data-cm-has] { background-color: #fff; outline: 2px solid rgba(42, 97, 1
 @keyframes cm-fade { from { opacity: 0; } to { opacity: 1; } }
 .cm-dialog-in { animation: cm-dialog .26s cubic-bezier(.2, .9, .3, 1.1); }
 @keyframes cm-dialog { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+
+/* Inbox: a gated CTA was clicked — outline what's still missing. */
+@keyframes missing-pulse { 0%, 100% { box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.55); } 50% { box-shadow: 0 0 0 5px rgba(217, 119, 6, 0.18); } }
+.missing-flash { border-radius: 0.5rem; animation: missing-pulse 0.65s ease-in-out 4; }

@@ -155,6 +155,32 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const [note, setNote] = useState('');
 
   const comp = useMemo(() => completionStatus(task), [task]);
+  // Gated CTAs stay inactive until the required checks are done — but they explain why:
+  // a "N left" hint beside them, and clicking either one points at what's missing.
+  const left = comp.missing.length;
+  const leftLabel = task.type === 'data-collection' ? t(`${left} field${left === 1 ? '' : 's'} left`, `${left} حقول متبقية`)
+    : task.type === 'review' ? t(`${left} check${left === 1 ? '' : 's'} left`, `${left} فحوص متبقية`)
+    : t(`${left} item${left === 1 ? '' : 's'} left`, `${left} بنود متبقية`);
+  const showMissing = () => {
+    setTab('overview');
+    window.setTimeout(() => {
+      const els = Array.from(document.querySelectorAll<HTMLElement>('[data-testid=task-detail-root] [data-missing]'));
+      els[0]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      els.forEach((el) => { el.classList.remove('missing-flash'); void el.offsetWidth; el.classList.add('missing-flash'); });
+      window.setTimeout(() => els.forEach((el) => el.classList.remove('missing-flash')), 2600);
+    }, 120);
+  };
+  const blocked = (a: ActionDef) => !!a.gated && !comp.canComplete;
+  const ctaProps = (a: ActionDef) => blocked(a)
+    ? { 'aria-disabled': true, className: 'opacity-50 cursor-not-allowed', title: t(`Complete the required checks first — ${leftLabel}`, `أكمل الفحوص المطلوبة أولاً — ${leftLabel}`), onClick: showMissing }
+    : { onClick: () => run(a) };
+  const hasBlocked = left > 0 && actionsFor(task).some(blocked);
+  const leftHint = hasBlocked ? (
+    <button type="button" onClick={showMissing} data-testid="checks-left"
+      className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-warning-700 hover:text-warning-800 underline-offset-2 hover:underline">
+      <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />{leftLabel}<span className="font-medium text-neutral-500">· {t('show me', 'أرني')}</span>
+    </button>
+  ) : null;
   const d = dueInfo(task);
   const sla = slaInfo(task);
   const awaiting = task.state === 'waiting' && !!task.reviewComments && !task.respondComments; // returned, waiting on the requester
@@ -164,11 +190,11 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const actionsAtBottom = task.type === 'route-check';
   const bottomActions = actionsAtBottom && !terminal ? (
     <div className="mt-5 pt-4 border-t border-neutral-100 flex items-center justify-end gap-2 flex-wrap" data-testid="task-actions-bottom">
+      {leftHint && <span className="me-auto">{leftHint}</span>}
       {acts.map((a) => (
         <Button key={a.id} size="md"
           variant={a.variant === 'danger' ? 'danger' : a.variant === 'primary' ? 'primary' : 'secondary'}
-          disabled={a.gated && !comp.canComplete}
-          onClick={() => run(a)}>
+          {...ctaProps(a)}>
           {t(a.label[0], a.label[1])}
         </Button>
       ))}
@@ -202,7 +228,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   ];
 
   return (
-    <div className="relative flex h-full min-h-0 bg-neutral-50">
+    <div className="relative flex h-full min-h-0 bg-neutral-50" data-testid="task-detail-root">
       {/* ── Detail column ─────────────────────────────────────────── */}
       <div className="relative flex-1 min-w-0 flex flex-col">
       {/* Top bar — record id + mobile back */}
@@ -221,15 +247,17 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <h2 className="min-w-0 flex-1 text-[20px] font-bold text-neutral-900 leading-snug">{isAr ? task.titleAr : task.titleEn}</h2>
             {!terminal && !actionsAtBottom && (
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {acts.map((a) => (
-                  <Button key={a.id} size="md"
-                    variant={a.variant === 'danger' ? 'danger' : a.variant === 'primary' ? 'primary' : 'secondary'}
-                    disabled={a.gated && !comp.canComplete}
-                    onClick={() => run(a)}>
-                    {t(a.label[0], a.label[1])}
-                  </Button>
-                ))}
+              <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  {acts.map((a) => (
+                    <Button key={a.id} size="md"
+                      variant={a.variant === 'danger' ? 'danger' : a.variant === 'primary' ? 'primary' : 'secondary'}
+                      {...ctaProps(a)}>
+                      {t(a.label[0], a.label[1])}
+                    </Button>
+                  ))}
+                </div>
+                {leftHint}
               </div>
             )}
           </div>

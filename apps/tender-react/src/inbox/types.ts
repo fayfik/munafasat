@@ -72,6 +72,8 @@ export interface ChecklistItem {
   options?: Bilingual[];        // for 'decision'
   value?: string | boolean | number | null;
   evidence?: string[];          // uploaded file names (mock)
+  /** The reviewer may mark this check "Not applicable" (value 'n/a') instead of answering it. */
+  allowNA?: boolean;
   done: boolean;
 }
 

@@ -211,20 +211,20 @@ function stageDefs({ form, requestNo, total }: FlowInput, requester: Person): Re
         confirm('c1', `Technical requirements are complete and clear (${form.technicalRequirements.length} listed)`, `المتطلبات الفنية مكتملة وواضحة (${form.technicalRequirements.length})`),
         confirm('c2', `Evaluation criteria weights total 100% (currently ${evalTotal}%)`, `مجموع أوزان معايير التقييم 100% (حالياً ${evalTotal}%)`),
         text('c3', 'Technical passing score (%) confirmed', 'درجة الاجتياز الفنية (%)'),
-        confirm('c4', `Evaluation committee is set (${form.technicalCommitteeMembers.length} members)`, `تم تحديد لجنة التقييم (${form.technicalCommitteeMembers.length})`),
+        { ...confirm('c4', `Evaluation committee is set (${form.technicalCommitteeMembers.length} members)`, `تم تحديد لجنة التقييم (${form.technicalCommitteeMembers.length})`), allowNA: false },
       ].map((c) => (c.id === 'c3' ? { ...c, kind: 'number' as const, value: form.technicalPassingPercentage || '' } : c)) },
     },
     cyber: review('cyber', P.cyber, 'Specialist review — Cyber Security', 'مراجعة تخصصية — الأمن السيبراني',
       sup('Confirm NCA requirements are captured and classify the data this purchase touches.', 'تأكد من تضمين متطلبات الهيئة الوطنية للأمن السيبراني وصنّف البيانات.'), [
         pick('c1', 'Data classification', 'تصنيف البيانات', [['Public', 'عام'], ['Internal', 'داخلي'], ['Confidential', 'سري'], ['Top secret', 'سري للغاية']]),
         confirm('c2', 'NCA Essential Cybersecurity Controls captured', 'تم تضمين الضوابط الأساسية للأمن السيبراني'),
-        confirm('c3', 'Hosting stays inside the Kingdom', 'الاستضافة داخل المملكة'),
+        { ...confirm('c3', 'Hosting stays inside the Kingdom', 'الاستضافة داخل المملكة'), allowNA: true },
         confirm('c4', 'Cyber security section and criteria added', 'تمت إضافة قسم ومعايير الأمن السيبراني'),
       ], 2),
     bcm: review('bcm', P.bcm, 'Specialist review — Enterprise Risk (BCM)', 'مراجعة تخصصية — المخاطر المؤسسية',
       sup('Classify how critical the system is and confirm the SLA covers recovery targets.', 'صنّف مدى حرجية النظام وتأكد من أن مستوى الخدمة يغطي أهداف الاستعادة.'), [
         pick('c1', 'Criticality tier', 'مستوى الحرجية', [['Tier 1 — critical', 'المستوى 1 — حرج'], ['Tier 2 — important', 'المستوى 2 — مهم'], ['Tier 3 — standard', 'المستوى 3 — عادي']]),
-        text('c2', 'Required RTO / RPO', 'زمن الاستعادة / نقطة الاستعادة المطلوبة'),
+        { ...text('c2', 'Required RTO / RPO', 'زمن الاستعادة / نقطة الاستعادة المطلوبة'), allowNA: true },
         confirm('c3', 'Compliance with SLA confirmed', 'تم تأكيد الامتثال لمستوى الخدمة'),
       ]),
     oprisk: review('oprisk', P.opRisk, 'Specialist review — Operational Risk', 'مراجعة تخصصية — المخاطر التشغيلية',
@@ -247,8 +247,8 @@ function stageDefs({ form, requestNo, total }: FlowInput, requester: Person): Re
     assets: review('assets', P.assets, 'Finance review — Assets', 'مراجعة مالية — الأصول',
       sup(`${assetLines} BOQ line${assetLines === 1 ? ' is' : 's are'} equipment or material. Create the asset item in ECC and map it to the PR.`, `${assetLines} من البنود معدات أو مواد. أنشئ بند الأصل في ECC واربطه بطلب الشراء.`), [
         pick('c1', 'Asset class', 'فئة الأصل', [['IT hardware', 'أجهزة تقنية'], ['Software licences', 'تراخيص برمجيات'], ['Furniture & equipment', 'أثاث ومعدات'], ['Vehicles', 'مركبات']]),
-        text('c2', 'Asset reference (ECC)', 'مرجع الأصل (ECC)'),
-        confirm('c3', 'Asset-to-PR mapping prepared', 'تم إعداد ربط الأصل بطلب الشراء'),
+        { ...text('c2', 'Asset reference (ECC)', 'مرجع الأصل (ECC)'), allowNA: true },
+        { ...confirm('c3', 'Asset-to-PR mapping prepared', 'تم إعداد ربط الأصل بطلب الشراء'), allowNA: true },
       ]),
     finq: {
       key: 'finq', type: 'data-collection', assignee: P.finQual, sla: 1, priority: 'medium',
@@ -295,7 +295,7 @@ function stageDefs({ form, requestNo, total }: FlowInput, requester: Person): Re
       ],
       extra: { findingsLabel: sup('Officer comments', 'ملاحظات الأخصائي'), checklist: [
         confirm('c1', 'Reviewer comments addressed', 'تمت معالجة ملاحظات المراجعين'),
-        confirm('c2', form.hasBrandName ? 'Brand name justified' : 'No brand names in the BOQ', form.hasBrandName ? 'تم تبرير العلامة التجارية' : 'لا توجد علامات تجارية'),
+        { ...confirm('c2', form.hasBrandName ? 'Brand name justified' : 'No brand names in the BOQ', form.hasBrandName ? 'تم تبرير العلامة التجارية' : 'لا توجد علامات تجارية'), allowNA: true },
         confirm('c3', 'RFP is clear and its sections are linked', 'المنافسة واضحة وأقسامها مترابطة'),
         confirm('c4', 'No formal or systemic violations', 'لا توجد مخالفات شكلية أو نظامية'),
       ] },

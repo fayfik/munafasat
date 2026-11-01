@@ -44,6 +44,7 @@ export function completionStatus(task: Task): Completion {
   const missing: Bilingual[] = [];
   let done = 0, total = 0;
   const checkItemDone = (c: ChecklistItem) => {
+    if (c.value === 'n/a') return true;
     if (c.kind === 'decision') return c.value != null && c.value !== '';
     if (c.kind === 'text' || c.kind === 'number') return c.value != null && String(c.value).trim() !== '';
     return c.done === true;

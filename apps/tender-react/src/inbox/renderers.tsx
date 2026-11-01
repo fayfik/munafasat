@@ -288,6 +288,7 @@ function ReviewBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
 }
 
 const itemDone = (c: ChecklistItem) => {
+  if (c.value === 'n/a') return true;
   if (c.kind === 'decision') return c.value != null && c.value !== '';
   if (c.kind === 'text' || c.kind === 'number') return c.value != null && String(c.value).trim() !== '';
   return c.done === true;
@@ -296,11 +297,12 @@ const itemDone = (c: ChecklistItem) => {
 function ChecklistRow({ task, c, isAr, t, onChange }: { task: Task; c: ChecklistItem; isAr: boolean; t: T; onChange: (p: Partial<ChecklistItem>) => void }) {
   const { uploadDocToChecklist } = useChecklistEvidence();
   const done = itemDone(c);
+  const na = c.value === 'n/a';
   return (
-    <div className={`rounded-lg border px-3 py-2.5 ${done ? 'border-success-200 bg-success-50/40' : 'border-neutral-200 bg-white'}`}>
+    <div data-missing={c.mandatory && !done ? 'true' : undefined} className={`rounded-lg border px-3 py-2.5 ${na ? 'border-neutral-200 bg-neutral-50' : done ? 'border-success-200 bg-success-50/40' : 'border-neutral-200 bg-white'}`}>
       <div className="flex items-start gap-2.5">
         <div className="mt-0.5">
-          {c.kind === 'confirm' && (
+          {c.kind === 'confirm' && !na && (
             <button type="button" onClick={() => onChange({ done: !c.done })}
               className={`w-5 h-5 rounded-md border flex items-center justify-center ${c.done ? 'bg-brand-600 border-brand-600 text-white' : 'border-neutral-300 bg-white'}`}>
               {c.done && <CheckCircleIcon className="w-3.5 h-3.5" />}
@@ -308,11 +310,16 @@ function ChecklistRow({ task, c, isAr, t, onChange }: { task: Task; c: Checklist
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-medium text-neutral-800">
-            {tb(c.label, isAr)}
-            
-          </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <div className="flex items-start justify-between gap-3">
+            <p className={`text-[13px] font-medium ${na ? 'text-neutral-500' : 'text-neutral-800'}`}>{tb(c.label, isAr)}</p>
+            {c.allowNA && (
+              <button type="button" onClick={() => onChange(na ? { value: c.kind === 'confirm' ? null : '', done: false } : { value: 'n/a', done: false })} data-testid="check-na"
+                className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${na ? 'bg-neutral-700 text-white border-neutral-700' : 'bg-white text-neutral-500 border-neutral-300 hover:bg-neutral-50'}`}>
+                {t('Not applicable', 'لا ينطبق')}
+              </button>
+            )}
+          </div>
+          {!na && <div className="mt-1.5 flex flex-wrap items-center gap-2">
             {c.kind === 'yesno' && ['yes', 'no'].map((v) => (
               <button key={v} type="button" onClick={() => onChange({ done: true, value: v })}
                 className={`px-2.5 py-1 rounded-md text-[12px] font-medium border ${c.value === v ? 'bg-brand-600 text-white border-brand-600' : 'bg-white border-neutral-300 text-neutral-600'}`}>
@@ -341,7 +348,7 @@ function ChecklistRow({ task, c, isAr, t, onChange }: { task: Task; c: Checklist
                 {(c.evidence?.length ?? 0) > 0 ? t('Evidence attached', 'تم إرفاق الدليل') : t('Attach evidence', 'إرفاق دليل')}
               </button>
             )}
-          </div>
+          </div>}
           {c.evidenceRequired && (c.evidence?.length ?? 0) > 0 && (
             <p className="mt-1 text-[11px] text-success-700 inline-flex items-center gap-1"><DocumentIcon className="w-3 h-3" />{c.evidence![0]}</p>
           )}
@@ -383,7 +390,7 @@ function DataCollectionBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T
       <InfoBanner variant="info">{t('Existing procurement data is shown greyed; fields you complete are saved to the RFP record.', 'تظهر بيانات الشراء الحالية بلون باهت؛ وتُحفظ الحقول التي تكملها في سجل المنافسة.')}</InfoBanner>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {fields.filter(visible).map((f) => (
-          <div key={f.id} className={f.kind === 'longtext' ? 'sm:col-span-2' : ''}>
+          <div key={f.id} className={f.kind === 'longtext' ? 'sm:col-span-2' : ''} data-missing={f.required && !f.existing && (f.value == null || String(f.value).trim() === '') ? 'true' : undefined}>
             <label className="block text-[12.5px] font-medium text-neutral-700 mb-1">
               {tb(f.label, isAr)}
               {f.existing && <span className="ms-2 text-[10px] uppercase tracking-wide text-neutral-400">{t('existing', 'حالي')}</span>}
