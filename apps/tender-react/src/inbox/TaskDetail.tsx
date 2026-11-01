@@ -1143,7 +1143,6 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
   const sub = lines.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
   return (
     <div className="space-y-4">
-      {budgetWidget}
       {/* Approver: review the RFP and pin comments */}
       {onReview && (
         <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white p-5 shadow-sm flex items-center gap-4 flex-wrap">
@@ -1165,6 +1164,9 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
           <Button size="md" variant="primary" onClick={onReview}>{task.respondComments ? t('Open request details', 'فتح تفاصيل الطلب') : t('Review RFP & add comments', 'مراجعة المنافسة وإضافة تعليقات')}</Button>
         </div>
       )}
+
+      {/* Budget checker sits below the review card */}
+      {budgetWidget}
 
       {/* Team Lead: pick the officer */}
       {task.assignTo?.length ? (

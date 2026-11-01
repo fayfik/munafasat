@@ -1,4 +1,4 @@
-// Budget checker for the manager's "Review & approve" task: checks the request's
+// Budget checker for the manager's Department approval task: checks the request's
 // estimated value against the available budget (SAP Funds Management, simulated)
 // on task open and on refresh. Approval is blocked when the budget is insufficient.
 import { useCallback, useEffect, useState } from 'react';

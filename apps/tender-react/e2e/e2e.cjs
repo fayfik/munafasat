@@ -301,6 +301,25 @@ async function openRequest(title) {
     expect(!(await page.getByRole('button', { name: 'Return', exact: true }).isDisabled()), 'return should stay available');
   });
 
+  await test('Budget checker: sits below "Review the request details"', async () => {
+    const order = await page.evaluate(() => {
+      const review = [...document.querySelectorAll('p')].find((p) => p.textContent === 'Review the request details');
+      const budget = document.querySelector('[data-budget-state]');
+      return review && budget ? !!(review.compareDocumentPosition(budget) & Node.DOCUMENT_POSITION_FOLLOWING) : null;
+    });
+    expect(order === true, `budget widget not below review card (${order})`);
+  });
+  await test('Inbox: task names match the Tasks-list PDF', async () => {
+    await page.getByRole('button', { name: /^All\s*16/ }).click(); await wait(300);
+    const titles = await page.locator('ul li > button:visible p:first-child, ul li > button:visible h3').allInnerTexts().catch(() => []);
+    const body = (await page.locator('ul li > button:visible').allInnerTexts()).join('\n').replace(/\s+/g, ' ');
+    for (const want of ['Review RFP #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for RFP #4433 from Ibrahim Al-Rashid', 'Review RFP #4433 from IT & Digital', 'Review request & add qualification criteria for RFP #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for RFP #4433 from IT & Digital', 'Review RFP #4471 from Fatima Al-Zahrani', 'Review RFP #4478 from Khalid Al-Qahtani'])
+      expect(body.includes(want), `missing task "${want}"`);
+    expect(!body.includes('Review & approve'), 'old "Review & approve" title still listed');
+    expect((body.match(/RFP-44\d\d/g) || []).length === 16, `expected 16 tasks, got ${(body.match(/RFP-44\d\d/g) || []).length}`);
+    void titles;
+  });
+
   // ── Arabic / RTL ───────────────────────────────────────────────────────────
   await test('Arabic: RTL layout on My Requests and detail', async () => {
     await page.click('button[title="التبديل إلى العربية"]'); await wait(200);

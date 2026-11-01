@@ -54,11 +54,11 @@ const reqUser = (isAr = false) => (isAr ? REQ.requester.nameAr : REQ.requester.n
 
 /** Task titles from the process task list — names/departments are resolved, never hard-coded. */
 const TITLE = {
-  reviewFromUser: () => sup(`Review & approve RFP #${REQ.no} from ${reqUser()}`, `مراجعة واعتماد المنافسة رقم ${REQ.no} من ${reqUser(true)}`),
+  reviewFromUser: () => sup(`Review RFP #${REQ.no} from ${reqUser()}`, `مراجعة المنافسة رقم ${REQ.no} من ${reqUser(true)}`),
   techEvalFromUser: () => sup(`Review technical evaluation criteria for RFP #${REQ.no} from ${reqUser()}`, `مراجعة معايير التقييم الفني للمنافسة رقم ${REQ.no} من ${reqUser(true)}`),
   reviewFromDept: () => sup(`Review RFP #${REQ.no} from ${reqDept()}`, `مراجعة المنافسة رقم ${REQ.no} من ${reqDept(true)}`),
   qualFromDept: () => sup(`Review request & add qualification criteria for RFP #${REQ.no} from ${reqDept()}`, `مراجعة الطلب وإضافة معايير التأهيل للمنافسة رقم ${REQ.no} من ${reqDept(true)}`),
-  doaFromDept: () => sup(`DOA approval for RFP #${REQ.no} from ${reqDept()}`, `اعتماد تفويض الصلاحيات للمنافسة رقم ${REQ.no} من ${reqDept(true)}`),
+  doaFromDept: () => sup('Approval DOA', 'اعتماد تفويض الصلاحيات'),
   priceFromDept: () => sup(`Approve estimated price for RFP #${REQ.no} from ${reqDept()}`, `اعتماد السعر التقديري للمنافسة رقم ${REQ.no} من ${reqDept(true)}`),
 };
 
@@ -262,7 +262,6 @@ const SPECS: Spec[] = [
     stage: sup('Qualification — Finance', 'التأهيل — المالية'), assignee: P.finQual, sla: 1, priority: 'medium', received: 0,
     actions: [
       { id: 'complete', labelEn: 'Complete', labelAr: 'إكمال', variant: 'primary', gated: true },
-      { id: 'save-draft', labelEn: 'Save draft', labelAr: 'حفظ مسودة', variant: 'secondary' },
     ],
     extra: { fields: [
       { id: 'f1', label: sup('Cash ratio (latest fiscal year) — range', 'نسبة النقدية (آخر سنة مالية) — النطاق'), kind: 'text', required: true, value: null, placeholder: sup('e.g. ≥ 1.2', 'مثال: ≥ 1.2') },
@@ -276,7 +275,6 @@ const SPECS: Spec[] = [
     stage: sup('Qualification — Procurement', 'التأهيل — المشتريات'), assignee: P.procQual, sla: 1, priority: 'medium', received: 0,
     actions: [
       { id: 'complete', labelEn: 'Complete', labelAr: 'إكمال', variant: 'primary', gated: true },
-      { id: 'save-draft', labelEn: 'Save draft', labelAr: 'حفظ مسودة', variant: 'secondary' },
     ],
     extra: { fields: [
       { id: 'f1', label: sup('Previous Experience — weight (%)', 'الخبرة السابقة — الوزن (%)'), kind: 'number', required: true, value: null },
@@ -284,7 +282,7 @@ const SPECS: Spec[] = [
       { id: 'f3', label: sup('Human Resources — weight (%)', 'الموارد البشرية — الوزن (%)'), kind: 'number', required: true, value: null },
       { id: 'f4', label: sup('Qualification passing percentage', 'نسبة الاجتياز للتأهيل'), kind: 'number', required: true, value: null },
     ] } },
-  { n: 11, type: 'approval', title: TITLE.reviewFromDept(),
+  { n: 11, type: 'approval', title: TITLE.qualFromDept(),
     summary: sup('Review the request. With no comments, send it for DOA approval; if it is new or has comments, assign it to an officer.', 'راجع الطلب. إن لم توجد ملاحظات أرسله لاعتماد تفويض الصلاحيات، وإن كان جديداً أو عليه ملاحظات أسنده إلى أخصائي.'),
     stage: sup('Procurement review — Team Lead', 'مراجعة المشتريات — رئيس الفريق'), assignee: P.tl, sla: 4, priority: 'high', received: 0,
     actions: [
@@ -292,7 +290,7 @@ const SPECS: Spec[] = [
       { id: 'complete', labelEn: 'Assign to officer', labelAr: 'إسناد إلى أخصائي', variant: 'secondary', decision: sup('Assigned to officer', 'أُسند إلى أخصائي') },
     ],
     extra: { approvalRecord, assignTo: [P.officer, person('u-yousef', 'Yousef Al-Harthi', 'يوسف الحارثي', 'Procurement Officer', 'أخصائي مشتريات', 'Procurement', 'المشتريات'), person('u-amal', 'Amal Al-Qahtani', 'أمل القحطاني', 'Procurement Officer', 'أخصائي مشتريات', 'Procurement', 'المشتريات')] } },
-  { n: 12, type: 'review', title: TITLE.reviewFromDept(),
+  { n: 12, type: 'review', title: TITLE.qualFromDept(),
     summary: sup('Officer review of the RFP before DOA approval. Return it with comments if anything below needs correcting.', 'مراجعة الأخصائي للمنافسة قبل اعتماد الصلاحيات. أعدها مع ملاحظات إن احتاج أي بند أدناه إلى تصحيح.'),
     stage: sup('Procurement review — Officer', 'مراجعة المشتريات — الأخصائي'), assignee: P.officer, sla: 2, priority: 'high', received: 0,
     actions: [
@@ -628,13 +626,13 @@ export function requestRfpFor(o: { refId: string; titleEn: string; titleAr: stri
   };
 }
 
-// ── Budget checker use cases (manager "Review & approve" tasks) ──────────────
+// ── Budget checker use cases (manager "Department approval" tasks) ──────────────
 // RFP #4433: fits the budget. Two more manager approvals show both outcomes:
 // RFP #4471 fits (approve enabled), RFP #4478 exceeds the budget (approve blocked).
 SEED_TASKS[0].budgetCheck = { fundCenter: 'FC-IT-1000', commitmentItem: 'CAPEX-ERP', fiscalYear: 2026, total: 14_500_000, consumed: 2_180_000 };
 
 function managerApprovalFor(o: {
-  no: string; titleEn: string; titleAr: string; amount: number; requester: Person; minutesAgo: number; priority: Task['priority'];
+  no: string; titleEn: string; titleAr: string; amount: number; requester: Person; minutesAgo: number; priority: Task['priority']; manager?: Person;
   budget: NonNullable<Task['budgetCheck']>; note: string;
 }): Task {
   const src = SEED_TASKS[0];
@@ -653,6 +651,7 @@ function managerApprovalFor(o: {
   tk.receivedAt = received.toISOString();
   tk.dueAt = new Date(+received + 24 * 3600000).toISOString();
   tk.budgetCheck = o.budget;
+  if (o.manager) tk.assignee = o.manager;
   tk.approvalRecord = (tk.approvalRecord ?? []).map((r) => r.label.en === 'Request value' ? { ...r, value: fmtSARPlain(o.amount) } : r.label.en === 'Project' ? { ...r, value: o.titleEn } : r);
   tk.project = { en: o.titleEn, ar: o.titleAr };
   tk.activity = [
@@ -661,7 +660,7 @@ function managerApprovalFor(o: {
     { id: 'aN', kind: 'system', actor: tk.assignee, at: received.toISOString(), system: { en: `Assigned to ${tk.assignee.name} — Department approval`, ar: `أُسند إلى ${tk.assignee.nameAr} — اعتماد الإدارة` } },
   ];
   tk.rfp = requestRfpFor({ refId: `RFP-${o.no}`, titleEn: o.titleEn, titleAr: o.titleAr, deptEn: o.requester.dept ?? '', deptAr: o.requester.deptAr ?? '', amount: o.amount, type: 'tendering', costCenter: o.budget.fundCenter });
-  tk.trail = trailFor(tk);
+  tk.trail = trailFor(tk).map((st) => st.titleEn === 'Department approval' ? { ...st, actorEn: tk.assignee.name, actorAr: tk.assignee.nameAr ?? tk.assignee.name } : st);
   return tk;
 }
 function fmtSARPlain(n: number) { return 'SAR ' + n.toLocaleString('en-US', { minimumFractionDigits: 2 }); }
@@ -670,6 +669,7 @@ SEED_TASKS.unshift(
   managerApprovalFor({
     no: '4478', titleEn: 'SIEM & SOC Managed Services', titleAr: 'خدمات مُدارة لمركز العمليات الأمنية', amount: 5_400_000, priority: 'urgent', minutesAgo: 25,
     requester: person('u-khalidq', 'Khalid Al-Qahtani', 'خالد القحطاني', 'Requester', 'مقدّم الطلب', 'Information Security', 'أمن المعلومات'),
+    manager: person('u-nasser', 'Nasser Al-Harthi', 'ناصر الحارثي', 'Department Manager', 'مدير الإدارة', 'Information Security', 'أمن المعلومات'),
     budget: { fundCenter: 'FC-SEC-2200', commitmentItem: 'OPEX-MANAGED-SVC', fiscalYear: 2026, total: 6_000_000, consumed: 2_150_000 },
     note: 'SOC coverage must start before the current contract ends in Q1 — please prioritise.',
   }),
