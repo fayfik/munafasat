@@ -585,12 +585,72 @@ export const APPROVAL_STAGES: { stage: Bilingual; assignee: Person; sla: number 
 export const REQUESTER = P.requester;
 
 /** Full RFP record for any request, so the detail page shows every create-request section. */
-export function requestRfpFor(o: { refId: string; titleEn: string; titleAr: string; deptEn: string; deptAr: string; amount: number; type: 'tendering' | 'souq-etimad'; costCenter: string }): RfpDetail {
+
+// ── BOQ templates: realistic line items per request kind (scaled to the request value) ──
+type BoqRow = RfpDetail['boq'][number];
+const B = (itemEn: string, itemAr: string, descEn: string, descAr: string, qty: number, unit: string, unitPrice: number, budgetEn: string, budgetAr: string, category: 'Service' | 'Material', months: number): Omit<BoqRow, 'delivery'> & { months: number } =>
+  ({ itemEn, itemAr, descEn, descAr, qty: String(qty), unit, unitPrice, budgetEn, budgetAr, category, months });
+const BOQ_TEMPLATES: Record<'goods' | 'it' | 'services', ReturnType<typeof B>[]> = {
+  goods: [
+    B('Primary units', 'الوحدات الرئيسية', 'Main items as per the technical specification', 'البنود الرئيسية حسب المواصفات الفنية', 120, 'Each', 4200, 'Equipment & Furniture', 'المعدات والأثاث', 'Material', 1),
+    B('Accessories kit', 'طقم الملحقات', 'Chargers, cables, adapters and protective cases', 'الشواحن والكابلات والمحولات والأغطية الواقية', 120, 'Set', 380, 'Equipment & Furniture', 'المعدات والأثاث', 'Material', 1),
+    B('Spare units (5%)', 'وحدات احتياطية (5٪)', 'Hot spares held by the service desk', 'وحدات احتياطية لدى مكتب الخدمة', 6, 'Each', 4200, 'Equipment & Furniture', 'المعدات والأثاث', 'Material', 1),
+    B('Delivery & installation', 'التوصيل والتركيب', 'Delivery to Riyadh HQ, unpacking, placement and disposal of packaging', 'التوصيل للمقر الرئيسي بالرياض وفك التغليف والتركيب والتخلص من مواد التغليف', 1, 'LS', 38000, 'Logistics & Installation', 'الخدمات اللوجستية والتركيب', 'Service', 2),
+    B('Asset tagging & registration', 'ترميز وتسجيل الأصول', 'Barcode tags and registration in the asset register', 'ملصقات الباركود والتسجيل في سجل الأصول', 126, 'Each', 25, 'Logistics & Installation', 'الخدمات اللوجستية والتركيب', 'Service', 2),
+    B('Imaging & configuration', 'التهيئة والإعداد', 'Standard build, security baseline and enrolment', 'الإعداد القياسي وخط الأساس الأمني والتسجيل', 120, 'Each', 150, 'Logistics & Installation', 'الخدمات اللوجستية والتركيب', 'Service', 2),
+    B('Extended warranty (3 years)', 'ضمان ممتد (3 سنوات)', 'Next-business-day on-site replacement', 'استبدال في الموقع في يوم العمل التالي', 120, 'Each', 290, 'Warranty & Support', 'الضمان والدعم', 'Service', 3),
+    B('User guides & training', 'أدلة المستخدم والتدريب', 'Quick-start guides (Arabic/English) and 2 sessions', 'أدلة البدء السريع (عربي/إنجليزي) وجلستان تدريبيتان', 2, 'Session', 6500, 'Training', 'التدريب', 'Service', 3),
+  ],
+  it: [
+    B('Software subscription', 'اشتراك البرمجيات', 'Annual subscription — enterprise tier', 'اشتراك سنوي — فئة المؤسسات', 3, 'Year', 420000, 'Software Licenses', 'تراخيص البرمجيات', 'Material', 1),
+    B('Named user licences', 'تراخيص المستخدمين', 'Professional user licences', 'تراخيص مستخدمين احترافية', 250, 'License', 1800, 'Software Licenses', 'تراخيص البرمجيات', 'Material', 1),
+    B('Infrastructure & hosting', 'البنية التحتية والاستضافة', 'Production, DR and non-production environments in-Kingdom', 'بيئات الإنتاج والتعافي والاختبار داخل المملكة', 36, 'Month', 22000, 'Cloud & Hosting', 'السحابة والاستضافة', 'Service', 2),
+    B('Solution design', 'تصميم الحل', 'Requirements, blueprint and solution architecture', 'المتطلبات والتصميم وبنية الحل', 1, 'LS', 260000, 'Implementation Services', 'خدمات التنفيذ', 'Service', 3),
+    B('Build & configuration', 'البناء والتهيئة', 'Configuration, integrations and custom development', 'التهيئة والتكامل والتطوير المخصص', 1, 'LS', 640000, 'Implementation Services', 'خدمات التنفيذ', 'Service', 7),
+    B('Integration (SAP CPI)', 'التكامل (SAP CPI)', 'Interfaces with SAP, HR and Etimad via CPI', 'واجهات التكامل مع SAP والموارد البشرية واعتماد عبر CPI', 6, 'Interface', 48000, 'Implementation Services', 'خدمات التنفيذ', 'Service', 7),
+    B('Data migration', 'ترحيل البيانات', 'Extraction, cleansing, mock loads and reconciliation', 'الاستخراج والتنقية والتحميل التجريبي والتسوية', 1, 'LS', 180000, 'Implementation Services', 'خدمات التنفيذ', 'Service', 8),
+    B('Testing (SIT & UAT)', 'الاختبارات (التكامل والقبول)', 'Test scripts, defect management and sign-off', 'سيناريوهات الاختبار وإدارة العيوب والاعتماد', 1, 'LS', 120000, 'Implementation Services', 'خدمات التنفيذ', 'Service', 9),
+    B('Security assessment', 'التقييم الأمني', 'Penetration test and NCA ECC compliance review', 'اختبار الاختراق ومراجعة الامتثال لضوابط الأمن السيبراني', 1, 'LS', 75000, 'Security & Compliance', 'الأمن والامتثال', 'Service', 9),
+    B('Training & knowledge transfer', 'التدريب ونقل المعرفة', 'Key-user and admin training, Arabic materials', 'تدريب المستخدمين الرئيسيين والمشرفين بمواد عربية', 4, 'Batch', 28000, 'Training', 'التدريب', 'Service', 10),
+    B('Hypercare', 'الدعم بعد التشغيل', 'On-site stabilisation after go-live', 'فريق استقرار في الموقع بعد التشغيل', 3, 'Month', 55000, 'Support & Maintenance', 'الدعم والصيانة', 'Service', 12),
+    B('Support & maintenance', 'الدعم والصيانة', 'Helpdesk Sun–Thu, 4-hour SLA, updates and patches', 'مكتب مساعدة الأحد–الخميس، استجابة 4 ساعات، تحديثات وتصحيحات', 2, 'Year', 140000, 'Support & Maintenance', 'الدعم والصيانة', 'Service', 24),
+  ],
+  services: [
+    B('Service mobilisation', 'تجهيز الخدمة', 'Team onboarding, site survey and service plan', 'تجهيز الفريق ومسح الموقع وخطة الخدمة', 1, 'LS', 45000, 'Professional Services', 'الخدمات المهنية', 'Service', 1),
+    B('Senior consultant', 'استشاري أول', 'Lead consultant — full time', 'استشاري رئيسي — دوام كامل', 12, 'Month', 68000, 'Professional Services', 'الخدمات المهنية', 'Service', 12),
+    B('Consultant', 'استشاري', 'Delivery consultants — 2 FTE', 'استشاريون للتنفيذ — موظفان بدوام كامل', 24, 'Month', 42000, 'Professional Services', 'الخدمات المهنية', 'Service', 12),
+    B('Specialist days (on demand)', 'أيام عمل تخصصية (عند الطلب)', 'Subject-matter experts called off as needed', 'خبراء متخصصون عند الحاجة', 60, 'Day', 5200, 'Professional Services', 'الخدمات المهنية', 'Service', 12),
+    B('Reports & deliverables', 'التقارير والمخرجات', 'Monthly reports and final report in Arabic & English', 'تقارير شهرية وتقرير نهائي بالعربية والإنجليزية', 12, 'Report', 6000, 'Reporting', 'التقارير', 'Service', 12),
+    B('Tools & consumables', 'الأدوات والمستهلكات', 'Materials and consumables used to deliver the service', 'المواد والمستهلكات المستخدمة لتقديم الخدمة', 12, 'Month', 8500, 'Materials & Consumables', 'المواد والمستهلكات', 'Material', 12),
+    B('Quality assurance', 'ضمان الجودة', 'Quarterly quality audits and KPI dashboard', 'تدقيق جودة ربع سنوي ولوحة مؤشرات الأداء', 4, 'Quarter', 18000, 'Quality & Compliance', 'الجودة والامتثال', 'Service', 12),
+    B('Workshops', 'ورش العمل', 'Stakeholder workshops and awareness sessions', 'ورش عمل لأصحاب المصلحة وجلسات توعية', 6, 'Session', 9500, 'Training', 'التدريب', 'Service', 6),
+    B('Contingency (call-off)', 'بند احتياطي (عند الطلب)', 'Additional services approved by the contract manager', 'خدمات إضافية يعتمدها مدير العقد', 1, 'LS', 60000, 'Professional Services', 'الخدمات المهنية', 'Service', 12),
+  ],
+};
+function boqKind(title: string): 'goods' | 'it' | 'services' {
+  if (/laptop|chair|toner|supplies|stationery|UPS|equipment|furniture|AV|vehicle/i.test(title)) return 'goods';
+  if (/cleaning|audit|recruit|consult|testing|wellness|leasing|program|agency|managed services|research|legal/i.test(title)) return 'services';
+  return 'it';
+}
+function boqFor(title: string, amount: number, start: Date): BoqRow[] {
+  const rows = BOQ_TEMPLATES[boqKind(title)];
+  const sub = rows.reduce((s, r) => s + Number(r.qty) * r.unitPrice, 0) || 1;
+  const k = amount / 1.15 / sub;
+  return rows.map(({ months, ...r }) => {
+    const d = new Date(start); d.setMonth(d.getMonth() + months);
+    return { ...r, unitPrice: Math.max(1, Math.round(r.unitPrice * k)), delivery: d.toISOString().slice(0, 10) };
+  });
+}
+
+export function requestRfpFor(o: { refId: string; titleEn: string; titleAr: string; deptEn: string; deptAr: string; amount: number; type: 'tendering' | 'souq-etimad'; costCenter: string; start?: Date }): RfpDetail {
   const base = completeRfp(RFP_S4HANA);
   // Scale the sample BOQ so it adds up to the request's estimated value (excl. VAT).
   const sub = base.boq.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0) || 1;
   const k = o.amount / 1.15 / sub;
-  const boq = base.boq.map((l) => ({ ...l, unitPrice: Math.round(l.unitPrice * k) }));
+  // The ERP upgrade keeps the detailed S/4HANA BOQ; other requests get a BOQ for their kind.
+  const boq = /ERP System Upgrade/.test(o.titleEn)
+    ? base.boq.map((l) => ({ ...l, unitPrice: Math.round(l.unitPrice * k) }))
+    : boqFor(o.titleEn, o.amount, o.start ?? new Date());
   const esouq = o.type === 'souq-etimad';
   return {
     ...base,

@@ -228,6 +228,35 @@ async function openRequest(title) {
     expect(await text('Returned').count() > 0, 'returned state missing');
   });
 
+  await test('BOQ items tab: summary, charts, views, search & filter, item drawer', async () => {
+    await openRequest('Cloud Infrastructure Migration');
+    await tab('BOQ items'); await wait(LOAD);
+    for (const s of ['Line items', 'Total value (excl. VAT)', 'Materials', 'Services', 'First delivery', 'Value by budget line', 'Top items by value', 'Delivery schedule'])
+      expect(await text(s).count() > 0, `missing ${s}`);
+    const cnt = async () => Number(await page.locator('[data-boq-count]').getAttribute('data-boq-count'));
+    expect(await cnt() === 12, `expected 12 items, got ${await cnt()}`);
+    expect(await count('tbody tr') === 12, 'table rows');
+    await page.getByRole('button', { name: /Cards/ }).click();
+    expect(await page.locator('button:has(> span.absolute.inset-y-0)').count() === 12, 'cards view');
+    await page.getByRole('button', { name: /^List/ }).click();
+    expect(await text('Software Licenses').count() > 0, 'list grouped by budget line');
+    await page.getByRole('button', { name: 'Materials', exact: true }).click();
+    expect(await cnt() === 2, 'material filter');
+    await page.getByRole('button', { name: 'All', exact: true }).click();
+    await page.fill('input[placeholder^="Search items"]', 'migration');
+    expect(await cnt() === 1, 'search');
+    await page.fill('input[placeholder^="Search items"]', 'zzz');
+    expect(await text('No items match').count() === 1, 'empty state');
+    await page.getByRole('button', { name: 'Clear search & filters' }).click();
+    await page.locator('select[aria-label="Budget line"]').selectOption({ label: 'Implementation Services' });
+    expect(await cnt() === 5, 'budget line filter');
+    await page.getByRole('button', { name: 'Clear filters' }).click();
+    await page.getByRole('button', { name: /^Table/ }).click();
+    await page.locator('tbody tr').first().click(); await wait(300);
+    expect(await page.getByRole('dialog', { name: 'Software subscription' }).isVisible(), 'item drawer');
+    await page.keyboard.press('Escape'); await wait(200);
+  });
+
   // ── Inbox ──────────────────────────────────────────────────────────────────
   await test('Inbox: list skeleton then tasks', async () => {
     await nav('Inbox'); await wait(80);

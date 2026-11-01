@@ -7,15 +7,17 @@ import { ArrowLeftIcon, CheckIcon, DownloadIcon, PencilIcon, XIcon, UploadIcon, 
 import { RfpTab, rfpSections, JumpFab, RfpOpenCtx, EyeGlyph } from '../inbox/TaskDetail';
 import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
 import { useLoading, SkeletonCards, Sk } from '../components/Loader';
+import BoqItems from './BoqItems';
 import { APPROVAL_STAGES, REQUESTER, requestRfpFor } from '../inbox/data';
 import { STATUS, TYPE } from './MyRequests';
 
 type T = (en: string, ar: string) => string;
-type TabKey = 'overview' | 'details' | 'documents' | 'process';
+type TabKey = 'overview' | 'details' | 'boq' | 'documents' | 'process';
 
 const TABS: { key: TabKey; en: string; ar: string }[] = [
   { key: 'overview',  en: 'Overview',        ar: 'نظرة عامة' },
   { key: 'details',   en: 'Request details', ar: 'تفاصيل الطلب' },
+  { key: 'boq',       en: 'BOQ items',       ar: 'بنود جدول الكميات' },
   { key: 'documents', en: 'Documents',       ar: 'المستندات' },
   { key: 'process',   en: 'Process',         ar: 'سير العمل' },
 ];
@@ -118,7 +120,7 @@ export default function RequestDetail({ id, onBack, onEdit }: { id: string; onBa
   const amount = r ? parseAmount(r.budget) : 0;
   const rfp = useMemo(() => r ? requestRfpFor({
     refId: r.requestNo || 'Draft', titleEn: r.title, titleAr: r.titleAr || r.title,
-    deptEn: r.department, deptAr: r.departmentAr || r.department, amount, type: r.type, costCenter: costCenterOf(r.department),
+    deptEn: r.department, deptAr: r.departmentAr || r.department, amount, type: r.type, costCenter: costCenterOf(r.department), start: new Date(+new Date(r.createdAt) + 45 * 864e5),
   }) : undefined, [r, amount]);
   const proc = useMemo(() => r ? buildProcess(r) : [], [r]);
 
@@ -195,6 +197,7 @@ export default function RequestDetail({ id, onBack, onEdit }: { id: string; onBa
         {busy && (tab === 'details' ? <div className="space-y-3">{Array.from({ length: 7 }, (_, i) => <div key={i} className="bg-white rounded-xl border border-neutral-200 px-5 py-4 flex items-center gap-3"><Sk className="w-4 h-4" /><Sk className="h-3.5 w-48" /></div>)}</div> : <SkeletonCards cards={tab === 'overview' ? 3 : 2} />)}
         {!busy && tab === 'overview' && <Overview r={r} esouq={esouq} amount={amount} proc={proc} isAr={isAr} t={t} onTab={setTab} />}
         {!busy && tab === 'details' && <Details rfp={rfp} amount={amount} isAr={isAr} t={t} />}
+        {!busy && tab === 'boq' && <BoqItems rfp={rfp} isAr={isAr} t={t} />}
         {!busy && tab === 'documents' && <Documents r={r} rfp={rfp} amount={amount} editable={editable && !cancelled} isAr={isAr} t={t} />}
         {!busy && tab === 'process' && <Process steps={proc} r={r} isAr={isAr} t={t} />}
       </div>
