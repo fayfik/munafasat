@@ -8,10 +8,11 @@ import InboxPage from './inbox/InboxPage';
 import AppShell, { type AppPage } from './components/AppShell';
 import Dashboard from './pages/Dashboard';
 import MyRequests from './pages/MyRequests';
+import RequestDetail from './pages/RequestDetail';
 import TenderForm from './pages/TenderForm';
 import type { SourceType, TenderFormData } from './types/tender';
 
-export type FullPage = AppPage | 'tender-form' | 'procure-intake';
+export type FullPage = AppPage | 'tender-form' | 'procure-intake' | 'request-detail';
 
 /** What the tender form should open: a new request, or a saved one. */
 export type OpenTarget =
@@ -57,6 +58,9 @@ function AppRoot() {
   // Every new request opens the wizard on its Procurement Route step (Step 1),
   // which determines the channel; the dashboard quick actions land here too.
   const newRequest = (_sourceType?: SourceType) => open({ kind: 'new' });
+  const [detailId, setDetailId] = useState<string | null>(null);
+  // Clicking a request opens its detail page; editing (draft / returned) opens the form.
+  const viewRequest = (id: string) => { setDetailId(id); setPage('request-detail'); };
   const openRequest = (id: string) => {
     // Sample rows (no saved form) open a fresh form, as in the original prototype.
     const r = store.get(id);
@@ -76,14 +80,17 @@ function AppRoot() {
       {page === 'dashboard' && (
         <Dashboard
           onNewRequest={newRequest}
-          onOpenRequest={openRequest}
+          onOpenRequest={viewRequest}
           onViewRequests={(f) => { setReqFilter(f ?? 'all'); setPage('my-requests'); }}
         />
       )}
       {page === 'inbox' && <InboxPage />}
       {page === 'reports' && <EmptyPage page="reports" />}
       {page === 'my-requests' && (
-        <MyRequests key={reqFilter} initialFilter={reqFilter} onNewRequest={() => newRequest()} onOpenRequest={openRequest} />
+        <MyRequests key={reqFilter} initialFilter={reqFilter} onNewRequest={() => newRequest()} onOpenRequest={viewRequest} />
+      )}
+      {page === 'request-detail' && detailId && (
+        <RequestDetail key={detailId} id={detailId} onBack={() => setPage('my-requests')} onEdit={openRequest} />
       )}
       {page === 'tender-form' && (
         <TenderProvider

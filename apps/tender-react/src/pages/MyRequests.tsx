@@ -14,13 +14,13 @@ const STATUSES: { key: TenderStatus; en: string; ar: string; chip: string; dot: 
   { key: 'approved',     en: 'Approved',     ar: 'معتمد',        chip: 'bg-success-50 text-success-700',    dot: 'bg-success-500' },
   { key: 'returned',     en: 'Returned',     ar: 'مرتجع',        chip: 'bg-error-50 text-error-700',        dot: 'bg-error-500' },
 ];
-const STATUS = Object.fromEntries(STATUSES.map((s) => [s.key, s])) as Record<TenderStatus, (typeof STATUSES)[number]>;
+export const STATUS = Object.fromEntries(STATUSES.map((s) => [s.key, s])) as Record<TenderStatus, (typeof STATUSES)[number]>;
 
 const TYPES: { key: SourceType; en: string; ar: string; chip: string }[] = [
   { key: 'tendering',   en: 'Tender',          ar: 'منافسة',       chip: 'bg-[#EEF4FB] text-[#2A6193] border-[#D5E3F2]' },
   { key: 'souq-etimad', en: 'Etimad E-Market', ar: 'سوق اعتماد',   chip: 'bg-[#FBF5EA] text-[#8A5A12] border-[#F0E0BF]' },
 ];
-const TYPE = Object.fromEntries(TYPES.map((x) => [x.key, x])) as Record<SourceType, (typeof TYPES)[number]>;
+export const TYPE = Object.fromEntries(TYPES.map((x) => [x.key, x])) as Record<SourceType, (typeof TYPES)[number]>;
 
 const DATE_PRESETS = [
   { key: 'any',  en: 'Any time',      ar: 'أي وقت' },
@@ -116,7 +116,7 @@ export default function MyRequests({ onNewRequest, onOpenRequest, initialFilter 
   })), [requests, userName]);
 
   const [search, setSearch] = useState('');
-  const [f, setF] = useState<Filters>(initialFilter === 'all' ? EMPTY : { ...EMPTY, status: [initialFilter] });
+  const [f, setF] = useState<Filters>(initialFilter === 'all' || initialFilter === 'approved' ? EMPTY : { ...EMPTY, status: [initialFilter] });
   const [viewId, setViewId] = useState<string>('all');
   const [views, setViews] = useState<View[]>(BUILT_IN_VIEWS);
   const [panel, setPanel] = useState(false);
@@ -124,21 +124,21 @@ export default function MyRequests({ onNewRequest, onOpenRequest, initialFilter 
   const [page, setPage] = useState(1);
   const [sel, setSel] = useState<Set<string>>(new Set());
 
+  // Two tabs only: everything, or closed (approved — PR created / handed to procurement)
+  const [tab, setTab] = useState<'all' | 'closed'>(initialFilter === 'approved' ? 'closed' : 'all');
+  const isClosed = (r: Row) => r.status === 'approved';
+
   const q = search.trim().toLowerCase();
   const searched = rows.filter((r) => !q || [r.requestNo, r.title, r.titleAr, r.dept, r.deptAr, r.pr, r.by, r.byAr].some((v) => v.toLowerCase().includes(q)));
   const filtered = searched.filter((r) => matches(r, f));
-  const sorted = [...filtered].sort((a, b) => {
+  const tabbed = filtered.filter((r) => tab === 'all' || isClosed(r));
+  const sorted = [...tabbed].sort((a, b) => {
     const va = a[sort.key] || '', vb = b[sort.key] || '';
     return va < vb ? -sort.dir : va > vb ? sort.dir : 0;
   });
   const pages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  useEffect(() => { setPage(1); }, [search, f]);
+  useEffect(() => { setPage(1); }, [search, f, tab]);
   const shown = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  // Status tabs are a shortcut onto the status filter
-  const tabStatus = f.status.length === 1 ? f.status[0] : f.status.length === 0 ? 'all' : null;
-  const tabBase = searched.filter((r) => matches(r, f, 'status'));
-  const setTab = (k: TenderStatus | 'all') => { setF({ ...f, status: k === 'all' ? [] : [k] }); setViewId(''); };
 
   const toggleSort = (key: SortKey) => setSort((s) => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : 1 }));
   const fmt = (iso: string) => new Date(iso).toLocaleDateString(isAr ? 'ar-SA' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -171,7 +171,7 @@ export default function MyRequests({ onNewRequest, onOpenRequest, initialFilter 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">{t('My Requests', 'طلباتي')}</h1>
+          <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight flex items-center gap-2.5">{t('My Requests', 'طلباتي')}<span className="text-[13px] font-semibold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 tabular-nums" title={t('Total requests', 'إجمالي الطلبات')}>{rows.length}</span></h1>
           <p className="text-[13px] text-neutral-500 mt-1">{t('Track every request you have raised — from draft to purchase requisition.', 'تابع كل طلب أنشأته — من المسودة حتى طلب الشراء.')}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -180,16 +180,15 @@ export default function MyRequests({ onNewRequest, onOpenRequest, initialFilter 
         </div>
       </div>
 
-      {/* Status tabs */}
-      <div className="mt-5 border-b border-neutral-200 flex items-center gap-1 overflow-x-auto">
-        {[{ key: 'all' as const, en: 'All requests', ar: 'كل الطلبات' }, ...STATUSES].map((s) => {
-          const active = tabStatus === s.key;
-          const count = s.key === 'all' ? tabBase.length : tabBase.filter((r) => r.status === s.key).length;
+      {/* Tabs */}
+      <div className="mt-5 border-b border-neutral-200 flex items-center gap-1">
+        {([['all', 'All requests', 'كل الطلبات', filtered.length], ['closed', 'Closed requests', 'الطلبات المغلقة', filtered.filter(isClosed).length]] as const).map(([k, en, ar, count]) => {
+          const active = tab === k;
           return (
-            <button key={s.key} type="button" onClick={() => setTab(s.key)}
+            <button key={k} type="button" onClick={() => setTab(k)}
               className={`flex items-center gap-2 px-3 py-2.5 text-[13px] font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${active ? 'border-brand-600 text-brand-700' : 'border-transparent text-neutral-500 hover:text-neutral-800'}`}>
-              {isAr ? s.ar : s.en}
-              <span className={`text-[11px] font-semibold px-1.5 py-px rounded-md tabular-nums ${active ? 'bg-brand-50 text-brand-700' : s.key === 'returned' && count ? 'bg-error-50 text-error-700' : 'bg-neutral-100 text-neutral-500'}`}>{count}</span>
+              {t(en, ar)}
+              <span className={`text-[11px] font-semibold px-1.5 py-px rounded-md tabular-nums ${active ? 'bg-brand-50 text-brand-700' : 'bg-neutral-100 text-neutral-500'}`}>{count}</span>
             </button>
           );
         })}

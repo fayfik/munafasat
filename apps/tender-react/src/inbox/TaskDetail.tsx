@@ -398,7 +398,7 @@ function RfpSection({ id, title, meta, views, children, label }: { id: string; t
   );
 }
 
-function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: string }[] {
+export function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: string }[] {
   return [
     { id: 'overview', en: 'Overview', ar: 'نظرة عامة' },
     { id: 'scope', en: 'Scope', ar: 'النطاق' },
@@ -434,7 +434,7 @@ function CommitteeChips({ members, isAr }: { members?: RfpDetail['evalCommittee'
   );
 }
 
-function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T }) {
+export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T }) {
   if (!rfp) return <div className="rounded-xl border border-neutral-200 bg-white p-6 text-[13px] text-neutral-500 shadow-sm">{t('No RFP record linked to this task.', 'لا يوجد سجل منافسة مرتبط بهذه المهمة.')}</div>;
   const boqTotal = rfp.boq.reduce((s, l) => s + lineTotalOf(l), 0);
   const estValue = boqTotal > 0 ? boqTotal : (amount ?? 0);
@@ -1048,7 +1048,7 @@ function ChartGlyph({ className = '' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 11-9-9v9z" /><path d="M15 3.5A9 9 0 0120.5 9H15z" /></svg>;
 }
 
-function JumpFab({ sections, isAr, t }: { sections: { id: string; en: string; ar: string }[]; isAr: boolean; t: T }) {
+export function JumpFab({ sections, isAr, t }: { sections: { id: string; en: string; ar: string }[]; isAr: boolean; t: T }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="absolute bottom-5 end-5 z-20">

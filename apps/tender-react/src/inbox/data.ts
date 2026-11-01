@@ -578,3 +578,52 @@ for (const tk of SEED_TASKS) {
   tk.trail = trailFor(tk);
   tk.rfp = REQ_RFP;
 }
+
+// ── Request detail page (My Requests) ────────────────────────────────────────
+
+/** The approval stages a request passes through, in order (same as the Inbox tasks). */
+export const APPROVAL_STAGES: { stage: Bilingual; assignee: Person; sla: number }[] =
+  SPECS.map((s) => ({ stage: s.stage, assignee: s.assignee, sla: s.sla }));
+export const REQUESTER = P.requester;
+
+/** Full RFP record for any request, so the detail page shows every create-request section. */
+export function requestRfpFor(o: { refId: string; titleEn: string; titleAr: string; deptEn: string; deptAr: string; amount: number; type: 'tendering' | 'souq-etimad'; costCenter: string }): RfpDetail {
+  const base = completeRfp(RFP_S4HANA);
+  // Scale the sample BOQ so it adds up to the request's estimated value (excl. VAT).
+  const sub = base.boq.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0) || 1;
+  const k = o.amount / 1.15 / sub;
+  const boq = base.boq.map((l) => ({ ...l, unitPrice: Math.round(l.unitPrice * k) }));
+  const esouq = o.type === 'souq-etimad';
+  return {
+    ...base,
+    refId: o.refId, titleEn: o.titleEn, titleAr: o.titleAr,
+    summaryEn: `${o.titleEn} for ${o.deptEn} — supply, delivery and support against the approved bill of quantities.`,
+    summaryAr: `${o.titleAr} لصالح ${o.deptAr} — التوريد والتسليم والدعم وفق جدول الكميات المعتمد.`,
+    scopeEn: `Deliver ${o.titleEn.toLowerCase()} for ${o.deptEn}, covering supply, implementation, testing and handover, with training, warranty and post-delivery support as defined in the bill of quantities and the technical specification.`,
+    scopeAr: `تنفيذ «${o.titleAr}» لصالح ${o.deptAr}، ويشمل التوريد والتنفيذ والاختبار والتسليم، مع التدريب والضمان والدعم بعد التسليم وفق جدول الكميات والمواصفات الفنية.`,
+    scopeBlocks: [
+      { headEn: 'Objectives', headAr: 'الأهداف', itemsEn: ['Meet the department’s operational requirement on time', 'Comply with the technical specification and NCA controls', 'Achieve best value within the approved budget'], itemsAr: ['تلبية الاحتياج التشغيلي للإدارة في الوقت المحدد', 'الالتزام بالمواصفات الفنية وضوابط الهيئة الوطنية للأمن السيبراني', 'تحقيق أفضل قيمة ضمن الميزانية المعتمدة'] },
+      { headEn: 'In scope', headAr: 'ضمن النطاق', itemsEn: ['Supply and delivery of all BOQ items', 'Installation, configuration and testing', 'Training and knowledge transfer'], itemsAr: ['توريد وتسليم جميع بنود جدول الكميات', 'التركيب والإعداد والاختبار', 'التدريب ونقل المعرفة'] },
+      { headEn: 'Out of scope', headAr: 'خارج النطاق', itemsEn: ['Civil works and building modifications', 'Items already covered by existing contracts'], itemsAr: ['الأعمال المدنية وتعديلات المباني', 'البنود المشمولة بعقود قائمة'] },
+      { headEn: 'Deliverables & timeline', headAr: 'المخرجات والجدول الزمني', itemsEn: ['Kick-off and delivery plan — Week 2', 'Delivery and installation — Week 8', 'Final acceptance — Week 12'], itemsAr: ['الانطلاق وخطة التسليم — الأسبوع 2', 'التسليم والتركيب — الأسبوع 8', 'القبول النهائي — الأسبوع 12'] },
+    ],
+    documents: [
+      { en: 'Scope of work', ar: 'نطاق العمل', type: 'PDF', size: '1.2 MB', by: o.deptEn },
+      { en: 'Technical specification', ar: 'المواصفات الفنية', type: 'PDF', size: '860 KB', by: o.deptEn },
+      { en: 'Bill of quantities', ar: 'جدول الكميات', type: 'XLSX', size: '74 KB', by: o.deptEn },
+      { en: 'Budget confirmation', ar: 'تأكيد الميزانية', type: 'PDF', size: '140 KB', by: 'Finance' },
+      { en: 'Market price survey', ar: 'دراسة أسعار السوق', type: 'DOCX', size: '210 KB', by: o.deptEn },
+    ],
+    meta: base.meta.map((m) =>
+      m.label.en === 'Project' ? { ...m, value: o.titleEn } :
+      m.label.en === 'Cost center' ? { ...m, value: o.costCenter } :
+      m.label.en === 'Contract duration' ? { ...m, value: esouq ? 'One-off purchase' : '12 months' } :
+      m.label.en === 'Requesting department' ? { ...m, value: o.deptEn } :
+      m.label.en === 'Estimated value' ? { ...m, value: `SAR ${o.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` } :
+      m.label.en === 'Procurement route' ? { ...m, value: esouq ? 'Etimad E-Market' : 'Competitive Tender' } : m)
+      .filter((m) => !esouq || !['Evaluation split', 'Suppliers invited', 'Planned award'].includes(m.label.en)),
+    boq,
+    // Etimad E-Market requests skip payment, evaluation and qualification (shorter flow).
+    ...(esouq ? { payment: [], evaluation: [], qualification: [], qualCriteria: [], techRequirements: [], techDocs: [], evalCommittee: [], qualCommittee: [] } : {}),
+  };
+}
