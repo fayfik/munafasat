@@ -2,6 +2,8 @@
 // and the requests linked to it (split out at the route check or by Procurement's Etimad review).
 import { useRequests, type SavedRequest } from '../context/RequestStore';
 import { useInbox } from '../inbox/store';
+import { flowStatus, requesterPerson } from '../inbox/flow';
+import { openInboxTask } from '../lib/appNav';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { Badge, Button } from '../components/ui';
 import { ArrowLeftIcon, CheckIcon, DocumentIcon, ChevronRightIcon } from '../components/Icons';
@@ -29,8 +31,8 @@ interface Props { id: string; onBack: () => void; onEdit: (id: string) => void; 
 export default function RequestDetail({ id, onBack, onEdit, onOpen }: Props) {
   const { isAr } = useLanguage();
   const t = useT();
-  const { get, requests } = useRequests();
-  const { getTask } = useInbox();
+  const { get, requests, userName } = useRequests();
+  const { getTask, tasks, setViewer } = useInbox();
   const r = get(id);
   if (!r) {
     return (
@@ -61,7 +63,34 @@ export default function RequestDetail({ id, onBack, onEdit, onOpen }: Props) {
   // Older/sample requests predate the Etimad review — their approvals are simply in progress.
   const hasReview = !!review;
   const afterReview: StepState = !hasReview || reviewStep.state === 'done' ? (r.status === 'approved' ? 'done' : 'current') : 'upcoming';
-  const steps: Step[] = isEmarket ? [
+  // Live approval flow (manual build): every stage with who has it and where it stands.
+  const fs = flowStatus(tasks, r.requestNo);
+  const flowSteps: Step[] = [];
+  if (fs) {
+    const par = fs.stages.filter((x) => x.parallelGroup);
+    fs.stages.forEach((x) => {
+      if (x.parallelGroup && x !== par[0]) return;
+      if (x.parallelGroup) {
+        const doneN = par.filter((y) => y.state === 'completed').length;
+        const anyLive = par.some((y) => y.flow?.activated && y.state !== 'completed');
+        flowSteps.push({ en: `Specialist & finance reviews — in parallel (${doneN}/${par.length})`, ar: `المراجعات التخصصية والمالية بالتوازي (${doneN}/${par.length})`,
+          state: doneN === par.length ? 'done' : par.some((y) => y.state === 'waiting') ? 'returned' : anyLive ? 'current' : 'upcoming',
+          noteEn: par.map((y) => `${y.state === 'completed' ? '✓' : '○'} ${y.stageEn.replace(/^(Specialist|Finance) review — /, '')} (${y.assignee.name})`).join('  ·  '),
+          noteAr: par.map((y) => `${y.state === 'completed' ? '✓' : '○'} ${y.stageAr}`).join('  ·  ') });
+        return;
+      }
+      flowSteps.push({ en: x.stageEn, ar: x.stageAr,
+        state: x.state === 'completed' ? 'done' : x.state === 'waiting' || x.state === 'rejected' ? 'returned' : x.flow?.activated ? 'current' : 'upcoming',
+        noteEn: x.state === 'rejected' ? `${x.assignee.name} rejected the request.` : x.state === 'waiting' ? `${x.assignee.name} returned it with comments for you.` : x.assignee.name,
+        noteAr: x.assignee.nameAr ?? x.assignee.name, at: x.completedAt });
+    });
+  }
+  const steps: Step[] = fs ? [
+    { en: 'Submitted', ar: 'تم التقديم', state: 'done', at: r.submittedAt ?? r.updatedAt },
+    ...(hasReview ? [reviewStep] : []),
+    ...flowSteps,
+    { en: 'PR created in SAP ECC · published on Etimad', ar: 'إنشاء طلب الشراء ونشره في اعتماد', state: fs.state === 'approved' ? 'current' : 'upcoming' },
+  ] : isEmarket ? [
     { en: 'Submitted', ar: 'تم التقديم', state: 'done', at: r.submittedAt ?? r.updatedAt },
     { en: 'Procurement places the order on Etimad E-Market', ar: 'تطلب المشتريات من سوق اعتماد', state: 'current', noteEn: 'Procurement checks the listings and prices, then orders from the suppliers.', noteAr: 'تتحقق المشتريات من المنتجات والأسعار ثم تطلب من الموردين.' },
     { en: 'Delivery & receipt', ar: 'التسليم والاستلام', state: 'upcoming' },
@@ -95,12 +124,22 @@ export default function RequestDetail({ id, onBack, onEdit, onOpen }: Props) {
           <p className="text-[12.5px] text-neutral-500 mt-0.5">{cc?.name ?? r.department}{r.submittedAt ? ` · ${t('Submitted', 'قُدِّم')} ${fmt(r.submittedAt)}` : ''}</p>
         </div>
         <div className="flex items-center gap-2">
-          {r.status === 'returned' && <Button variant="primary" onClick={() => onEdit(r.id)}>{t('Edit & resubmit', 'تعديل وإعادة التقديم')}</Button>}
-          {r.form && r.status !== 'returned' && <Button variant="secondary" onClick={() => onEdit(r.id)}>{t('Open request', 'فتح الطلب')}</Button>}
+          {fs?.respondTask && <Button variant="primary" data-testid="answer-comments" onClick={() => { setViewer(requesterPerson(userName)); openInboxTask(fs.respondTask!.id); }}>{t('Answer comments', 'الرد على الملاحظات')}</Button>}
+          {!fs && r.status === 'returned' && <Button variant="primary" onClick={() => onEdit(r.id)}>{t('Edit & resubmit', 'تعديل وإعادة التقديم')}</Button>}
+          {r.form && (fs || r.status !== 'returned') && <Button variant="secondary" onClick={() => onEdit(r.id)}>{t('Open request', 'فتح الطلب')}</Button>}
         </div>
       </div>
 
-      {r.status === 'returned' && (
+      {fs?.respondTask && (
+        <div className="rounded-xl border border-error-200 bg-error-50 px-5 py-3.5 text-[13px] text-error-900" data-testid="flow-returned-banner">
+          <span className="font-semibold">{t(`${fs.respondTask.returnedBy?.name ?? 'A reviewer'} returned this request with comments.`, `أعاد ${fs.respondTask.returnedBy?.nameAr ?? 'أحد المراجعين'} هذا الطلب مع ملاحظات.`)}</span>{' '}
+          {fs.respondTask.returnReason ? <>“{isAr ? fs.respondTask.returnReason.ar : fs.respondTask.returnReason.en}”</> : null} {t('Answer each comment, then resubmit — it goes back to them.', 'رد على كل ملاحظة ثم أعد التقديم — يعود إليهم.')}
+        </div>
+      )}
+      {fs?.state === 'rejected' && (
+        <div className="rounded-xl border border-error-200 bg-error-50 px-5 py-3.5 text-[13px] text-error-900">{t('The department manager rejected this request. It is closed.', 'رفض مدير الإدارة هذا الطلب وأُغلق.')}</div>
+      )}
+      {!fs && r.status === 'returned' && (
         <div className="rounded-xl border border-error-200 bg-error-50 px-5 py-3.5 text-[13px] text-error-900" data-testid="returned-banner">
           <span className="font-semibold">{t('Procurement returned this request.', 'أعادت المشتريات هذا الطلب.')}</span>{' '}
           {review?.note ? <>“{review.note}”</> : t('Check the Etimad E-Market answers on your BOQ lines, then resubmit.', 'راجع إجابات اعتماد في بنود الجدول ثم أعد التقديم.')}

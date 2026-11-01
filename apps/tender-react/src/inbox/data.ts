@@ -578,3 +578,6 @@ for (const tk of SEED_TASKS) {
   tk.trail = trailFor(tk);
   tk.rfp = REQ_RFP;
 }
+
+/** The people behind each process role — used by the live request flow and the "View as" switcher. */
+export const PEOPLE = P;

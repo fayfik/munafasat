@@ -2,6 +2,7 @@
 // Header with meta + Approve/Reject/Return CTAs, tabbed body (Overview / RFP /
 // Activity), and top actions: Comments (side pane), History (task trail), Download PDF.
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { chooseOfficer } from './flow';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { LOCKED_TECH_DOCS } from '../sections/TechnicalEvaluation';
@@ -1228,7 +1229,7 @@ function RequiredAction({ task, isAr, t, footer, onReview, commentCount = 0, res
           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
             {task.assignTo.map((p, i) => (
               <label key={p.id} className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${officer === p.id ? 'border-brand-500 bg-brand-50/60 ring-2 ring-brand-500/15' : 'border-neutral-200 hover:bg-neutral-50'}`}>
-                <input type="radio" name="officer" className="accent-brand-600" checked={officer === p.id} onChange={() => setOfficer(p.id)} />
+                <input type="radio" name="officer" className="accent-brand-600" checked={officer === p.id} onChange={() => { setOfficer(p.id); chooseOfficer(task.id, p.id); }} />
                 <Avatar name={p.name} id={p.id} className="w-7 h-7" />
                 <span className="min-w-0">
                   <span className="block text-[12.5px] font-semibold text-neutral-800 truncate">{personName(p, isAr)}</span>

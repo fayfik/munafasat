@@ -3,9 +3,10 @@
 // activity; nothing is persisted or sent to SAP. A real deployment would back
 // these with the Task Command / Workflow / Audit services.
 
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { SEED_TASKS, ME, buildCommentResponseTask } from './data';
-import type { RfpDetail, Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry, EtimadReviewItem, RouteCheckItem } from './types';
+import type { RfpDetail, Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry, EtimadReviewItem, RouteCheckItem, Person } from './types';
+import { advanceFlow, hiddenFromInbox } from './flow';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
 export const fmtSAR = (n: number) =>
@@ -101,7 +102,24 @@ export function completionStatus(task: Task): Completion {
 }
 
 // ── View routing ───────────────────────────────────────────────────────────────
-export function viewOf(task: Task, all: Task[]): InboxView[] {
+export function viewOf(task: Task, all: Task[], viewer?: Person | null): InboxView[] {
+  // Live request flow (manual build): stages not reached yet stay out of every inbox.
+  if (hiddenFromInbox(task, all)) return [];
+  // "View as" a person: only their own tasks, plus what they're waiting on as requester.
+  if (viewer) {
+    const terminal = task.state === 'completed' || task.state === 'rejected' || task.state === 'cancelled';
+    const mine = task.assignee.id === viewer.id;
+    const asRequester = !mine && task.requester.id === viewer.id;
+    if (!mine && !asRequester) return [];
+    const v: InboxView[] = ['all'];
+    if (mine) {
+      if (dueInfo(task).overdue) v.push('overdue');
+      if (task.state === 'completed') v.push('completed');
+      if (task.state === 'in-progress') v.push('in-progress');
+      if ((task.state === 'available' || task.state === 'returned' || task.state === 'in-progress') && !isBlocked(task, all)) v.push('needs-action');
+    } else if (!terminal) v.push('sent-waiting');
+    return v;
+  }
   const views: InboxView[] = ['all'];
   const { overdue } = dueInfo(task);
   const blocked = isBlocked(task, all);
@@ -118,6 +136,9 @@ export function viewOf(task: Task, all: Task[]): InboxView[] {
 interface InboxCtx {
   tasks: Task[];
   me: typeof ME;
+  /** "View as": whose inbox is shown (null = every role, the original demo view). */
+  viewer: Person | null;
+  setViewer: (p: Person | null) => void;
   countsByView: Record<InboxView, number>;
   tasksForView: (v: InboxView) => Task[];
   getTask: (id: string) => Task | undefined;
@@ -149,6 +170,11 @@ const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : `a_${Math.random()
 
 export function InboxProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>(() => SEED_TASKS.map((t) => ({ ...t })));
+  const [viewer, setViewer] = useState<Person | null>(null);
+  // Who acts: the person being viewed as, otherwise the signed-in officer (as before).
+  const actorRef = useRef<Person>(ME);
+  actorRef.current = viewer ?? ME;
+  const actor = () => actorRef.current;
 
   const patch = useCallback((id: string, fn: (t: Task) => Task) => {
     setTasks((xs) => xs.map((t) => (t.id === id ? fn({ ...t }) : t)));
@@ -159,7 +185,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   const addComment = useCallback((id: string, text: string, anchor?: ActivityEntry['anchor'], replyTo?: string, editNote?: boolean) => {
     if (!text.trim()) return;
-    patch(id, (t) => logActivity(t, { kind: 'comment', actor: (anchor || replyTo || t.respondComments) ? t.assignee : ME, text: text.trim(), anchor, replyTo, editNote }));
+    patch(id, (t) => logActivity(t, { kind: 'comment', actor: (anchor || replyTo || t.respondComments) ? t.assignee : actor(), text: text.trim(), anchor, replyTo, editNote }));
   }, [patch]);
 
   const resolveComment = useCallback((id: string, commentId: string, resolved: boolean) => {
@@ -203,7 +229,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   const resolveCheck = useCallback((id: string, checkId: string) => {
     patch(id, (t) => {
-      const next = logActivity(t, { kind: 'system', actor: ME, system: { en: 'Validation issue resolved', ar: 'تمت معالجة مشكلة التحقق' } });
+      const next = logActivity(t, { kind: 'system', actor: actor(), system: { en: 'Validation issue resolved', ar: 'تمت معالجة مشكلة التحقق' } });
       return { ...next, state: next.state === 'available' ? 'in-progress' : next.state,
         validationChecks: next.validationChecks?.map((v) => (v.id === checkId ? { ...v, outcome: 'pass' as const } : v)) };
     });
@@ -230,7 +256,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     };
     patch(id, (t) => {
       const now = new Date().toISOString();
-      const entry: ActivityEntry = { id: uid(), at: now, kind: 'decision', actor: ME, decision: label[outcome], text: note?.trim() || undefined };
+      const entry: ActivityEntry = { id: uid(), at: now, kind: 'decision', actor: actor(), decision: label[outcome], text: note?.trim() || undefined };
       if (outcome === 'return') {
         // Back with the requester: it leaves my queue and waits for their correction.
         return { ...t, state: 'waiting', mineAction: false, initiatedByMe: true, decision: label[outcome], activity: [...t.activity, entry],
@@ -255,7 +281,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       : { en: 'Asked the requester for more detail', ar: 'طُلب من مقدم الطلب مزيد من التفاصيل' };
     patch(id, (t) => {
       const now = new Date().toISOString();
-      const entry: ActivityEntry = { id: uid(), at: now, kind: 'decision', actor: ME, decision: label, text: note?.trim() || undefined };
+      const entry: ActivityEntry = { id: uid(), at: now, kind: 'decision', actor: actor(), decision: label, text: note?.trim() || undefined };
       const base = { ...t, decision: label, replyNote: note?.trim() || undefined, activity: [...t.activity, entry] };
       if (outcome === 'ask') {
         return { ...base, state: 'waiting', mineAction: false, initiatedByMe: true, stageEn: 'With the requester — more detail needed', stageAr: 'لدى مقدم الطلب — مطلوب مزيد من التفاصيل' };
@@ -290,7 +316,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
         else if (action === 'request-clarification') state = 'waiting';
         else if (action === 'save-draft') state = 'in-progress';
         const kind: ActivityEntry['kind'] = action === 'save-draft' ? 'system' : 'decision';
-        const entry: ActivityEntry = { id: uid(), at: new Date().toISOString(), kind, actor: ME,
+        const entry: ActivityEntry = { id: uid(), at: new Date().toISOString(), kind, actor: actor(),
           ...(kind === 'decision' ? { decision: decisionLabel ?? label[action] } : { system: label[action] }), text: note?.trim() || undefined };
         const done = action === 'approve' || action === 'complete' || action === 'submit';
         return { ...t, state, activity: [...t.activity, entry],
@@ -300,13 +326,13 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       // Manager returned a reviewed request → the requester gets a task to answer the comments.
       const src = next.find((t) => t.id === id);
       if (action === 'return' && src?.reviewComments && !src.respondComments) {
-        return [buildCommentResponseTask(src, note), ...next.filter((t) => t.id !== `${id}-R`)];
+        return advanceFlow([buildCommentResponseTask(src, note), ...next.filter((t) => t.id !== `${id}-R`)], id, action);
       }
       // Requester resubmitted → the manager's task comes back with replies, resolutions and edits.
       if (action === 'submit' && src?.respondComments && id.endsWith('-R')) {
         const origId = id.slice(0, -2);
         const strip = (x: string) => (x.startsWith('R-') ? x.slice(2) : x);
-        return next.map((t) => {
+        return advanceFlow(next.map((t) => {
           if (t.id !== origId) return t;
           const byId = new Map(src.activity.filter((a) => a.kind === 'comment').map((a) => [strip(a.id), a]));
           const kept = t.activity.map((a) => (byId.has(a.id) ? { ...a, resolved: byId.get(a.id)!.resolved } : a));
@@ -314,33 +340,33 @@ export function InboxProvider({ children }: { children: ReactNode }) {
             .map((a) => ({ ...a, id: strip(a.id), replyTo: a.replyTo ? strip(a.replyTo) : undefined }));
           const back: ActivityEntry = { id: uid(), at: new Date().toISOString(), kind: 'decision', actor: src.assignee, decision: { en: 'Resubmitted for approval', ar: 'أُعيد التقديم للاعتماد' }, system: { en: 'Address review comments', ar: 'معالجة تعليقات المراجعة' }, text: note?.trim() || undefined };
           return { ...t, state: 'available', rfp: src.rfp ?? t.rfp, activity: [...kept, ...added, back], receivedAt: new Date().toISOString() };
-        });
+        }), origId, 'resubmit');
       }
       // Serial workflow: unlock dependents whose dependencies are now all completed.
       if (completedDepId) {
-        return next.map((t) => {
+        return advanceFlow(next.map((t) => {
           if (t.dependsOn?.includes(completedDepId!) && t.dependsOn.every((d) => next.find((x) => x.id === d)?.state === 'completed')) {
-            return { ...t, activity: [...t.activity, { id: uid(), at: new Date().toISOString(), kind: 'system' as const, actor: ME, system: { en: 'Prior step complete — task is now actionable', ar: 'اكتملت الخطوة السابقة — المهمة الآن قابلة للتنفيذ' } }] };
+            return { ...t, activity: [...t.activity, { id: uid(), at: new Date().toISOString(), kind: 'system' as const, actor: actor(), system: { en: 'Prior step complete — task is now actionable', ar: 'اكتملت الخطوة السابقة — المهمة الآن قابلة للتنفيذ' } }] };
           }
           return t;
-        });
+        }), id, action);
       }
-      return next;
+      return advanceFlow(next, id, action);
     });
   }, []);
 
   const api = useMemo<InboxCtx>(() => {
     const countsByView = { 'needs-action': 0, 'in-progress': 0, 'sent-waiting': 0, completed: 0, overdue: 0, all: 0 } as Record<InboxView, number>;
-    for (const t of tasks) for (const v of viewOf(t, tasks)) countsByView[v]++;
+    for (const t of tasks) for (const v of viewOf(t, tasks, viewer)) countsByView[v]++;
     return {
-      tasks, me: ME, countsByView,
-      tasksForView: (v) => tasks.filter((t) => viewOf(t, tasks).includes(v)),
+      tasks, me: viewer ?? ME, viewer, setViewer, countsByView,
+      tasksForView: (v) => tasks.filter((t) => viewOf(t, tasks, viewer).includes(v)),
       getTask: (id) => tasks.find((t) => t.id === id),
       blocked: (t) => isBlocked(t, tasks),
       addComment, resolveComment, updateRfp, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
       addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask,
     };
-  }, [tasks, addComment, resolveComment, updateRfp, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask]);
+  }, [tasks, viewer, addComment, resolveComment, updateRfp, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

@@ -235,6 +235,7 @@ function RequestRow({ tender, onOpen, onOpenLinked, linked }: { tender: TenderDr
   const rcs = (tender as SavedRequest).routeCheckStatus;
   const from = (tender as SavedRequest).linkedFrom;
   const review = (tender as SavedRequest).etimadReview;
+  const flow = (tender as SavedRequest).flow;
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(isAr ? 'ar-SA' : 'en-SA', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -287,7 +288,15 @@ function RequestRow({ tender, onOpen, onOpenLinked, linked }: { tender: TenderDr
         <div>
           <Badge variant={sc.variant}>{label}</Badge>
           {isReturned && <p className="text-[10px] text-error-600 font-semibold mt-1">{t('Action required', 'إجراء مطلوب')}</p>}
-          {!rcs && review && tender.status !== 'draft' && (
+          {flow && (
+            <p className={`text-[10px] font-semibold mt-1 ${flow.state === 'returned' || flow.state === 'rejected' ? 'text-error-600' : flow.state === 'approved' ? 'text-success-700' : 'text-warning-700'}`} data-testid="flow-status">
+              {flow.state === 'approved' ? t('All approvals done', 'اكتملت جميع الموافقات')
+                : flow.state === 'rejected' ? t('Rejected by the manager', 'رفضه المدير')
+                : flow.state === 'returned' ? t('Comments to answer', 'ملاحظات بانتظار ردك')
+                : t(`${isAr ? flow.stageAr : flow.stageEn} · ${flow.done}/${flow.total}`, `${flow.stageAr} · ${flow.done}/${flow.total}`)}
+            </p>
+          )}
+          {!flow && !rcs && review && tender.status !== 'draft' && (
             <p className={`text-[10px] font-semibold mt-1 ${review.outcome === 'pending' ? 'text-warning-700' : review.outcome === 'returned' ? 'text-error-600' : 'text-success-700'}`} data-testid="review-status">
               {review.outcome === 'pending' ? t('Etimad check by Procurement', 'فحص اعتماد لدى المشتريات') : review.outcome === 'returned' ? t('Returned by Procurement — Etimad answers', 'أعادته المشتريات — إجابات اعتماد') : review.outcome === 'moved' ? t('Etimad checked · lines moved to E-Market', 'تم الفحص · نُقلت بنود إلى السوق') : t('Etimad answers confirmed', 'تم تأكيد إجابات اعتماد')}
             </p>
@@ -302,7 +311,7 @@ function RequestRow({ tender, onOpen, onOpenLinked, linked }: { tender: TenderDr
       <td className="px-4 py-3.5 text-[11px] text-neutral-400">{formatDate(tender.updatedAt)}</td>
       <td className="px-4 py-3.5">
         <span className="opacity-0 group-hover:opacity-100 text-[11px] font-semibold text-brand-600 transition-all flex items-center gap-0.5 whitespace-nowrap">
-          {isDraft || isReturned ? t('Edit', 'تعديل') : t('View', 'عرض')}
+          {(isDraft || isReturned) && !flow ? t('Edit', 'تعديل') : t('View', 'عرض')}
           <ChevronRightIcon className={`w-3.5 h-3.5 ${isAr ? 'rotate-180' : ''}`} />
         </span>
       </td>

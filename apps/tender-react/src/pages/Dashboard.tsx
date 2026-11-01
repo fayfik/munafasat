@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useRequests } from '../context/RequestStore';
+import { useInbox } from '../inbox/store';
+import { REQUESTER_ID } from '../inbox/flow';
+import ApproverDashboard from './ApproverDashboard';
 import { Badge } from '../components/ui';
 import {
   PlusIcon, ClockIcon, DocumentIcon, CheckCircleIcon,
@@ -127,7 +130,14 @@ const RECENT_ROWS: { id: string; descEn: string; descAr: string; type: 'RFP' | '
 /* ────────────────────────────────────────────────────────────────────────
    Dashboard
 ──────────────────────────────────────────────────────────────────────── */
-export default function Dashboard({ onNewRequest, onOpenRequest, onViewRequests }: Props) {
+export default function Dashboard(props: Props) {
+  // "View as" an approver: their own dashboard (queue + SLA, role checks, team workload).
+  const { viewer } = useInbox();
+  if (viewer && viewer.id !== REQUESTER_ID) return <ApproverDashboard viewer={viewer} />;
+  return <RequesterDashboard {...props} />;
+}
+
+function RequesterDashboard({ onNewRequest, onOpenRequest, onViewRequests }: Props) {
   const { isAr } = useLanguage();
   const t = useT();
   const { userName } = useRequests();

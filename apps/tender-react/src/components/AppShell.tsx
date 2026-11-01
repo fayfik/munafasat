@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import ViewAsSwitcher from './ViewAsSwitcher';
 import { useRequests } from '../context/RequestStore';
 import { useInbox } from '../inbox/store';
 import logoUrl from '../imports/Color_Full_color__Size_Large__Type_Full_logo.png';
@@ -76,18 +77,8 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
             )}
           </button>
 
-          {/* User pill */}
-          <div className="flex items-center gap-2 ps-3 ms-1 border-s border-white/25">
-            <div className="w-7 h-7 rounded-full bg-white text-brand-700 flex items-center justify-center text-[11px] font-bold select-none">
-              {initials}
-            </div>
-            <div className="hidden sm:block leading-tight">
-              <p className="text-[12px] font-semibold text-white">{displayName}</p>
-              <p className="text-[10px] text-white/75">
-                {t('Requester', 'مقدم الطلب')} · IT &amp; Digital
-              </p>
-            </div>
-          </div>
+          {/* User pill — doubles as the "View as" switcher */}
+          <ViewAsSwitcher />
         </div>
       </header>
 

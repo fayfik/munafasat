@@ -202,6 +202,8 @@ export interface Task {
   // Workflow shape (demonstrated deterministically in the mock)
   dependsOn?: string[];         // serial: these task ids must complete first
   parallelGroup?: string;       // tasks sharing a group run in parallel
+  /** Manual build: this task is one stage of a submitted request's live approval flow (see flow.ts). */
+  flow?: { requestNo: string; requestId?: string; stage: string; activated?: boolean };
   joinNote?: Bilingual;         // next-stage join condition, for display
 
   actions?: TaskActionDef[];    // CTAs for this task (falls back to defaults by type)

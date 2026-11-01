@@ -9,6 +9,7 @@ import { PROJECTS } from '../data/mockData';
 import { useInbox } from '../inbox/store';
 import { useRequests } from '../context/RequestStore';
 import { buildEtimadReviewTask } from '../lib/etimadReviewTask';
+import { buildFlowTasks } from '../inbox/flow';
 import stepperWatermark from '../assets/figma/stepper-watermark.svg';
 import type { SectionStatus } from '../types/tender';
 
@@ -58,6 +59,11 @@ export default function TenderForm({ onBack, onOpenRequest }: Props) {
     if (!submitted || taskSent.current) return;
     const task = buildEtimadReviewTask(formData, submitted.requestNo, userName, boqTotal, requestId);
     if (task) { addTask(task); taskSent.current = true; }
+    // The live approval flow: one task per stage, starting with the department manager.
+    if (formData.sourceType === 'tendering') {
+      buildFlowTasks({ form: formData, requestNo: submitted.requestNo, requestId, userName, total: boqTotal }).reverse().forEach(addTask);
+      taskSent.current = true;
+    }
   }, [submitted, formData, userName, boqTotal, addTask]);
 
   const mainRef = useRef<HTMLElement>(null);

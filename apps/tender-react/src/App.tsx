@@ -12,6 +12,7 @@ import TenderForm from './pages/TenderForm';
 import RequestDetail from './pages/RequestDetail';
 import type { SourceType, TenderFormData } from './types/tender';
 import { onAppNav } from './lib/appNav';
+import FlowSync from './inbox/FlowSync';
 
 export type FullPage = AppPage | 'tender-form' | 'procure-intake' | 'request-detail';
 
@@ -67,7 +68,8 @@ function AppRoot() {
   const editRequest = (id: string) => open({ kind: 'existing', id });
   const openRequest = (id: string) => {
     const r = store.get(id);
-    const editable = r?.status === 'draft' || r?.status === 'returned' || !!r?.form?.routeCheck;
+    // A request in the live approval flow always opens its detail page (comments are answered from there).
+    const editable = !r?.flow && (r?.status === 'draft' || r?.status === 'returned' || !!r?.form?.routeCheck);
     if (r && !editable) { setDetailId(id); setPage('request-detail'); return; }
     // Sample rows (no saved form) open a fresh form, as in the original prototype.
     if (r?.form) editRequest(id);
@@ -84,6 +86,7 @@ function AppRoot() {
 
   return (
     <InboxProvider>
+    <FlowSync />
     <AppShell
       currentPage={page}
       onNavigate={(p) => setPage(p)}

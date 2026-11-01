@@ -17,6 +17,8 @@ export interface SavedRequest extends TenderDraft {
   submittedAt?: string;
   /** Procurement's Etimad E-Market review of a submitted tender (manual build). */
   etimadReview?: { outcome: 'pending' | 'confirmed' | 'moved' | 'returned'; at?: string; note?: string; movedCount?: number };
+  /** Manual build: where the live approval flow stands (kept in sync from the Inbox). */
+  flow?: { state: 'in-review' | 'returned' | 'rejected' | 'approved'; stageEn: string; stageAr: string; who: string; done: number; total: number; respondTaskId?: string };
 }
 
 interface StoreCtx {
