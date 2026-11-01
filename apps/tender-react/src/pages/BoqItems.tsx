@@ -50,7 +50,6 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
   const shownTotal = shown.reduce((s, i) => s + i.total, 0);
   const mat = items.filter((i) => i.category === 'Material'), svc = items.filter((i) => i.category === 'Service');
   const sum = (xs: Item[]) => xs.reduce((s, i) => s + i.total, 0);
-  const nextDelivery = items.map((i) => i.delivery).filter(Boolean).sort()[0];
   const fmtD = (iso?: string) => iso ? new Date(iso).toLocaleDateString(isAr ? 'ar-SA' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
   const byBudget = budgets.map((b) => ({ label: b, value: sum(items.filter((i) => i.budget === b)), n: items.filter((i) => i.budget === b).length, color: color(b) })).sort((a, b) => b.value - a.value);
@@ -60,12 +59,11 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
   return (
     <div className="space-y-5">
       {/* Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Kpi label={t('Line items', 'البنود')} value={String(items.length)} sub={t(`${budgets.length} budget lines`, `${budgets.length} بنود ميزانية`)} />
         <Kpi label={t('Total value (excl. VAT)', 'القيمة الإجمالية (قبل الضريبة)')} value={sar(total)} sub={t(`${sar(total * 1.15)} incl. VAT`, `${sar(total * 1.15)} شامل الضريبة`)} wide ltr />
         <Kpi label={t('Materials', 'المواد')} value={String(mat.length)} sub={`SAR ${compact(sum(mat))} · ${total ? Math.round((sum(mat) / total) * 100) : 0}%`} dot="bg-[#699843]" />
         <Kpi label={t('Services', 'الخدمات')} value={String(svc.length)} sub={`SAR ${compact(sum(svc))} · ${total ? Math.round((sum(svc) / total) * 100) : 0}%`} dot="bg-[#2A6193]" />
-        <Kpi label={t('First delivery', 'أول تسليم')} value={fmtD(nextDelivery)} sub={t(`${quarters.length} delivery quarters`, `${quarters.length} أرباع تسليم`)} />
       </div>
 
       {/* Charts */}
