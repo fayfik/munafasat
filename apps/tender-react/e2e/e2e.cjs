@@ -231,8 +231,7 @@ async function openRequest(title) {
   await test('BOQ items tab: summary, charts, table/list, search & filter, accordion details', async () => {
     await openRequest('Cloud Infrastructure Migration');
     await tab('BOQ items'); await wait(LOAD);
-    expect(await text('First delivery').count() === 0, 'First delivery card should be removed');
-    for (const s of ['Line items', 'Total value (excl. VAT)', 'Materials', 'Services', 'Value by budget line', 'Top items by value', 'Delivery schedule'])
+    for (const s of ['Line items', 'Total value (excl. VAT)', 'Materials', 'Services', 'First delivery', 'Value by budget line', 'Top items by value', 'Delivery schedule'])
       expect(await text(s).count() > 0, `missing ${s}`);
     const cnt = async () => Number(await page.locator('[data-boq-count]').getAttribute('data-boq-count'));
     expect(await cnt() === 12, `expected 12 items, got ${await cnt()}`);
