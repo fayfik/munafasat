@@ -228,7 +228,7 @@ async function openRequest(title) {
     expect(await text('Returned').count() > 0, 'returned state missing');
   });
 
-  await test('BOQ items tab: summary, charts, views, search & filter, item drawer', async () => {
+  await test('BOQ items tab: summary, charts, table/list, search & filter, accordion details', async () => {
     await openRequest('Cloud Infrastructure Migration');
     await tab('BOQ items'); await wait(LOAD);
     for (const s of ['Line items', 'Total value (excl. VAT)', 'Materials', 'Services', 'First delivery', 'Value by budget line', 'Top items by value', 'Delivery schedule'])
@@ -236,8 +236,7 @@ async function openRequest(title) {
     const cnt = async () => Number(await page.locator('[data-boq-count]').getAttribute('data-boq-count'));
     expect(await cnt() === 12, `expected 12 items, got ${await cnt()}`);
     expect(await count('tbody tr') === 12, 'table rows');
-    await page.getByRole('button', { name: /Cards/ }).click();
-    expect(await page.locator('button:has(> span.absolute.inset-y-0)').count() === 12, 'cards view');
+    expect(await page.getByRole('button', { name: /Cards/ }).count() === 0, 'cards view should be removed');
     await page.getByRole('button', { name: /^List/ }).click();
     expect(await text('Software Licenses').count() > 0, 'list grouped by budget line');
     await page.getByRole('button', { name: 'Materials', exact: true }).click();
@@ -252,9 +251,20 @@ async function openRequest(title) {
     expect(await cnt() === 5, 'budget line filter');
     await page.getByRole('button', { name: 'Clear filters' }).click();
     await page.getByRole('button', { name: /^Table/ }).click();
-    await page.locator('tbody tr').first().click(); await wait(300);
-    expect(await page.getByRole('dialog', { name: 'Software subscription' }).isVisible(), 'item drawer');
-    await page.keyboard.press('Escape'); await wait(200);
+    await page.locator('tbody tr').first().click(); await wait(200);
+    expect(await count('[data-boq-details]') === 1, 'row did not expand inline');
+    expect(await page.getByRole('dialog').count() === 0, 'no popup expected');
+    expect(await text('Line total (incl. VAT)').count() > 0, 'details content missing');
+    await page.locator('tbody tr').first().click(); await wait(150);
+    expect(await count('[data-boq-details]') === 0, 'row did not collapse');
+    await page.getByRole('button', { name: 'Expand all', exact: true }).last().click(); await wait(150);
+    expect(await count('[data-boq-details]') === 12, 'expand all');
+    await page.getByRole('button', { name: /^List/ }).click();
+    expect(await count('[data-boq-details]') === 12, 'list keeps expanded items');
+    await page.getByRole('button', { name: 'Collapse all', exact: true }).last().click();
+    expect(await count('[data-boq-details]') === 0, 'collapse all');
+    await page.locator('#boq-item-2 > button').click();
+    expect(await count('[data-boq-details]') === 1, 'list row accordion');
   });
 
   // ── Inbox ──────────────────────────────────────────────────────────────────

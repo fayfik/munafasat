@@ -1,14 +1,13 @@
 // "BOQ items" tab on the request detail page: summary counts, charts, and the
 // full item list with search, filters, sort and Table / Cards / List views.
-import { useMemo, useState, useEffect, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import type { RfpDetail } from '../inbox/types';
-import { SearchIcon, XIcon, ChevronDownIcon } from '../components/Icons';
+import { SearchIcon, XIcon, ChevronDownIcon, ChevronRightIcon } from '../components/Icons';
 
 type T = (en: string, ar: string) => string;
 type Line = RfpDetail['boq'][number];
 interface Item extends Line { idx: number; total: number; name: string; desc: string; budget: string; quarter: string }
-type View = 'table' | 'cards' | 'list';
+type View = 'table' | 'list';
 type Sort = 'value-desc' | 'value-asc' | 'name' | 'delivery';
 
 const PALETTE = ['#2A6193', '#699843', '#6A47D6', '#E08E00', '#C22C18', '#0E8C8C', '#B5487A', '#868D80'];
@@ -31,7 +30,10 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
   const [quarter, setQuarter] = useState<string>('all');
   const [sort, setSort] = useState<Sort>('value-desc');
   const [view, setView] = useState<View>('table');
-  const [open, setOpen] = useState<Item | null>(null);
+  // Expanded items (accordion): click a row to see its details inline.
+  const [open, setOpen] = useState<Set<number>>(new Set());
+  const toggle = (idx: number) => setOpen((o) => { const x = new Set(o); if (x.has(idx)) x.delete(idx); else x.add(idx); return x; });
+  const reveal = (idx: number) => { setOpen((o) => new Set(o).add(idx)); setTimeout(() => document.getElementById(`boq-item-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); };
 
   const quarters = useMemo(() => Array.from(new Set(items.map((i) => i.quarter))).sort((a, b) => a.slice(3).localeCompare(b.slice(3)) || a.localeCompare(b)), [items]);
   const ql = q.trim().toLowerCase();
@@ -89,7 +91,7 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
           <ul className="space-y-2.5">
             {top.map((i) => (
               <li key={i.idx}>
-                <button type="button" onClick={() => setOpen(i)} className="w-full text-start group">
+                <button type="button" onClick={() => { clear(); reveal(i.idx); }} className="w-full text-start group">
                   <div className="flex items-center justify-between gap-2 text-[12px]">
                     <span className="truncate text-neutral-700 group-hover:text-brand-700">{i.name}</span>
                     <span className="font-semibold text-neutral-800 tabular-nums" dir="ltr">{compact(i.total)}</span>
@@ -135,17 +137,22 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
           <Select value={quarter} onChange={setQuarter} label={t('Delivery', 'التسليم')} options={[['all', t('Any delivery', 'أي موعد تسليم')], ...quarters.map((x) => [x, x] as [string, string])]} />
           <Select value={sort} onChange={(v) => setSort(v as Sort)} label={t('Sort', 'الترتيب')} options={[['value-desc', t('Value: high → low', 'القيمة: الأعلى أولًا')], ['value-asc', t('Value: low → high', 'القيمة: الأقل أولًا')], ['name', t('Name A → Z', 'الاسم أ ← ي')], ['delivery', t('Delivery date', 'تاريخ التسليم')]]} />
           <div className="ms-auto inline-flex items-center rounded-lg border border-neutral-200 p-0.5" role="group" aria-label={t('View', 'العرض')}>
-            {(['table', 'cards', 'list'] as View[]).map((v) => (
-              <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} title={v === 'table' ? t('Table view', 'عرض الجدول') : v === 'cards' ? t('Cards view', 'عرض البطاقات') : t('List view', 'عرض القائمة')}
+            {(['table', 'list'] as View[]).map((v) => (
+              <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} title={v === 'table' ? t('Table view', 'عرض الجدول') : t('List view', 'عرض القائمة')}
                 className={`h-8 px-2.5 rounded-md inline-flex items-center gap-1.5 text-[12px] font-semibold ${view === v ? 'bg-brand-50 text-brand-700' : 'text-neutral-500 hover:text-neutral-800'}`}>
-                <ViewGlyph v={v} />{v === 'table' ? t('Table', 'جدول') : v === 'cards' ? t('Cards', 'بطاقات') : t('List', 'قائمة')}
+                <ViewGlyph v={v} />{v === 'table' ? t('Table', 'جدول') : t('List', 'قائمة')}
               </button>
             ))}
           </div>
         </div>
         <div className="flex items-center justify-between gap-2 px-4 py-2 text-[12px] text-neutral-500 bg-neutral-50/60 border-b border-neutral-100">
           <span data-boq-count={shown.length}>{t(`Showing ${shown.length} of ${items.length} items`, `عرض ${shown.length} من ${items.length} بنود`)} · <span className="font-semibold text-neutral-700" dir="ltr">{sar(shownTotal)}</span></span>
-          {filtersOn > 0 && <button onClick={clear} className="font-semibold text-brand-700 hover:underline">{t('Clear filters', 'مسح التصفية')}</button>}
+          <span className="flex items-center gap-3">
+            {filtersOn > 0 && <button onClick={clear} className="font-semibold text-brand-700 hover:underline">{t('Clear filters', 'مسح التصفية')}</button>}
+            {shown.length > 0 && (shown.every((i) => open.has(i.idx))
+              ? <button onClick={() => setOpen(new Set())} className="font-semibold text-neutral-600 hover:text-neutral-900">{t('Collapse all', 'طي الكل')}</button>
+              : <button onClick={() => setOpen(new Set(shown.map((i) => i.idx)))} className="font-semibold text-neutral-600 hover:text-neutral-900">{t('Expand all', 'توسيع الكل')}</button>)}
+          </span>
         </div>
 
         {shown.length === 0 ? (
@@ -169,9 +176,10 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
                 <th className="text-start px-3 py-2.5 font-medium w-32">{t('Share', 'الحصة')}</th>
               </tr></thead>
               <tbody className="divide-y divide-neutral-100">
-                {shown.map((i) => (
-                  <tr key={i.idx} onClick={() => setOpen(i)} className="hover:bg-neutral-50 cursor-pointer group">
-                    <td className="text-center px-2 py-3 text-neutral-400 tabular-nums">{i.idx + 1}</td>
+                {shown.map((i) => { const isOpen = open.has(i.idx); return (
+                  <Fragment key={i.idx}>
+                  <tr id={`boq-item-${i.idx}`} onClick={() => toggle(i.idx)} aria-expanded={isOpen} className={`cursor-pointer group ${isOpen ? 'bg-brand-50/40' : 'hover:bg-neutral-50'}`}>
+                    <td className="text-center px-2 py-3 text-neutral-400 tabular-nums"><span className="inline-flex items-center gap-1"><ChevronRightIcon className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-90 text-brand-700' : isAr ? 'rotate-180' : ''}`} />{i.idx + 1}</span></td>
                     <td className="px-3 py-3 max-w-[320px]">
                       <p className="font-semibold text-neutral-900 group-hover:text-brand-700 truncate">{i.name}</p>
                       <p className="text-[11.5px] text-neutral-500 truncate">{i.desc}</p>
@@ -184,7 +192,9 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
                     <td className="px-3 py-3 whitespace-nowrap text-neutral-600">{fmtD(i.delivery)}</td>
                     <td className="px-3 py-3"><Share v={i.total / (total || 1)} color={color(i.budget)} /></td>
                   </tr>
-                ))}
+                  {isOpen && <tr className="bg-brand-50/20"><td colSpan={9} className="p-0"><ItemDetails item={i} total={total} color={color(i.budget)} fmtD={fmtD} t={t} /></td></tr>}
+                  </Fragment>
+                ); })}
               </tbody>
               <tfoot className="bg-neutral-50 border-t-2 border-neutral-200 text-[12.5px]">
                 <tr><td colSpan={6} className="px-3 py-2 text-end text-neutral-500">{t('Subtotal', 'المجموع الفرعي')}</td><td className="px-3 py-2 text-end font-semibold tabular-nums" dir="ltr">{sar(shownTotal)}</td><td colSpan={2} /></tr>
@@ -192,32 +202,6 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
                 <tr className="border-t border-neutral-200"><td colSpan={6} className="px-3 py-2.5 text-end font-bold text-neutral-800">{t('Grand total', 'الإجمالي الكلي')}</td><td className="px-3 py-2.5 text-end font-bold text-brand-700 tabular-nums" dir="ltr">{sar(shownTotal * 1.15)}</td><td colSpan={2} /></tr>
               </tfoot>
             </table>
-          </div>
-        ) : view === 'cards' ? (
-          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3 p-4">
-            {shown.map((i) => (
-              <button key={i.idx} type="button" onClick={() => setOpen(i)} className="text-start rounded-xl border border-neutral-200 bg-white p-4 hover:border-brand-300 hover:shadow-md transition-all group relative overflow-hidden">
-                <span className="absolute inset-y-0 start-0 w-1" style={{ background: color(i.budget) }} />
-                <div className="flex items-center justify-between gap-2">
-                  <Cat c={i.category} t={t} />
-                  <span className="text-[11px] text-neutral-400 tabular-nums">#{i.idx + 1}</span>
-                </div>
-                <p className="mt-2.5 text-[14px] font-semibold text-neutral-900 group-hover:text-brand-700 line-clamp-1">{i.name}</p>
-                <p className="mt-0.5 text-[12px] text-neutral-500 line-clamp-2 min-h-[34px]">{i.desc}</p>
-                <div className="mt-3 flex items-end justify-between gap-2">
-                  <div>
-                    <p className="text-[11px] text-neutral-400 tabular-nums">{i.qty} {i.unit} × <span dir="ltr">{sar(i.unitPrice)}</span></p>
-                    <p className="text-[17px] font-bold text-neutral-900 tabular-nums mt-0.5" dir="ltr">{sar(i.total)}</p>
-                  </div>
-                  <span className="text-[12px] font-semibold text-neutral-600 tabular-nums">{((i.total / (total || 1)) * 100).toFixed(1)}%</span>
-                </div>
-                <div className="mt-2 h-1.5 rounded-full bg-neutral-100 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(i.total / (total || 1)) * 100}%`, background: color(i.budget) }} /></div>
-                <div className="mt-3 pt-3 border-t border-neutral-100 flex items-center justify-between gap-2 text-[11.5px] text-neutral-500">
-                  <span className="truncate">{i.budget}</span>
-                  <span className="whitespace-nowrap">{fmtD(i.delivery)}</span>
-                </div>
-              </button>
-            ))}
           </div>
         ) : (
           <div className="divide-y divide-neutral-100">
@@ -230,8 +214,10 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
                     <p className="text-[12.5px] font-bold text-neutral-800 flex-1">{b} <span className="font-normal text-neutral-400">· {rows.length} {rows.length === 1 ? t('item', 'بند') : t('items', 'بنود')}</span></p>
                     <span className="text-[12.5px] font-semibold text-neutral-700 tabular-nums" dir="ltr">{sar(sum(rows))}</span>
                   </div>
-                  {rows.map((i) => (
-                    <button key={i.idx} type="button" onClick={() => setOpen(i)} className="w-full flex items-center gap-3 px-4 py-2.5 text-start hover:bg-neutral-50 group">
+                  {rows.map((i) => { const isOpen = open.has(i.idx); return (
+                    <div key={i.idx} id={`boq-item-${i.idx}`} className={isOpen ? 'bg-brand-50/20' : ''}>
+                    <button type="button" onClick={() => toggle(i.idx)} aria-expanded={isOpen} className={`w-full flex items-center gap-3 px-4 py-2.5 text-start group ${isOpen ? 'bg-brand-50/40' : 'hover:bg-neutral-50'}`}>
+                      <ChevronRightIcon className={`w-3.5 h-3.5 text-neutral-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-90 text-brand-700' : isAr ? 'rotate-180' : ''}`} />
                       <span className="w-6 text-[11px] text-neutral-400 tabular-nums text-center">{i.idx + 1}</span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-medium text-neutral-900 group-hover:text-brand-700 truncate">{i.name}</p>
@@ -240,7 +226,9 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
                       <Cat c={i.category} t={t} />
                       <span className="w-36 text-end text-[13px] font-semibold text-neutral-900 tabular-nums" dir="ltr">{sar(i.total)}</span>
                     </button>
-                  ))}
+                    {isOpen && <ItemDetails item={i} total={total} color={color(i.budget)} fmtD={fmtD} t={t} />}
+                    </div>
+                  ); })}
                 </div>
               );
             })}
@@ -248,7 +236,6 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
         )}
       </div>
 
-      {open && <ItemDrawer item={open} total={total} color={color(open.budget)} fmtD={fmtD} isAr={isAr} t={t} onClose={() => setOpen(null)} />}
     </div>
   );
 }
@@ -333,46 +320,42 @@ function Select({ value, onChange, label, options }: { value: string; onChange: 
 function ViewGlyph({ v }: { v: View }) {
   const p = { className: 'w-4 h-4', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const };
   if (v === 'table') return <svg {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M3 15h18M9 4v16" /></svg>;
-  if (v === 'cards') return <svg {...p}><rect x="3" y="3" width="8" height="8" rx="2" /><rect x="13" y="3" width="8" height="8" rx="2" /><rect x="3" y="13" width="8" height="8" rx="2" /><rect x="13" y="13" width="8" height="8" rx="2" /></svg>;
   return <svg {...p}><path d="M8 6h13M8 12h13M8 18h13" /><circle cx="4" cy="6" r="1" /><circle cx="4" cy="12" r="1" /><circle cx="4" cy="18" r="1" /></svg>;
 }
 
-function ItemDrawer({ item, total, color, fmtD, isAr, t, onClose }: { item: Item; total: number; color: string; fmtD: (s?: string) => string; isAr: boolean; t: T; onClose: () => void }) {
-  useEffect(() => { const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
-  const rows: [string, ReactNode][] = [
+/** Inline details shown when an item row is expanded. */
+function ItemDetails({ item, total, color, fmtD, t }: { item: Item; total: number; color: string; fmtD: (s?: string) => string; t: T }) {
+  const cells: [string, ReactNode][] = [
     [t('Category', 'التصنيف'), <Cat c={item.category} t={t} />],
     [t('Budget line', 'بند الميزانية'), <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />{item.budget}</span>],
     [t('Quantity', 'الكمية'), `${item.qty} ${item.unit}`],
     [t('Unit price', 'سعر الوحدة'), <span dir="ltr">{sar(item.unitPrice)}</span>],
     [t('Line total (excl. VAT)', 'إجمالي البند (قبل الضريبة)'), <span dir="ltr" className="font-bold">{sar(item.total)}</span>],
-    [t('Line total (incl. VAT)', 'إجمالي البند (شامل الضريبة)'), <span dir="ltr">{sar(item.total * 1.15)}</span>],
-    [t('Share of BOQ', 'الحصة من الجدول'), `${((item.total / (total || 1)) * 100).toFixed(1)}%`],
+    [t('VAT (15%)', 'ضريبة القيمة المضافة (15٪)'), <span dir="ltr">{sar(item.total * 0.15)}</span>],
+    [t('Line total (incl. VAT)', 'إجمالي البند (شامل الضريبة)'), <span dir="ltr" className="font-semibold">{sar(item.total * 1.15)}</span>],
     [t('Delivery date', 'تاريخ التسليم'), `${fmtD(item.delivery)} · ${item.quarter}`],
   ];
-  return createPortal(
-    <>
-      <div className="fixed inset-0 z-[80] bg-neutral-900/25 cm-fade-in" onClick={onClose} />
-      <aside role="dialog" aria-label={item.name} className="fixed inset-y-0 end-0 z-[81] w-full max-w-[420px] bg-white shadow-2xl flex flex-col slide-up" dir={isAr ? 'rtl' : 'ltr'}>
-        <div className="px-5 pt-5 pb-4 border-b border-neutral-200" style={{ boxShadow: `inset 0 4px 0 ${color}` }}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">{t('BOQ item', 'بند الجدول')} #{item.idx + 1}</p>
-              <h2 className="mt-1 text-[17px] font-bold text-neutral-900">{item.name}</h2>
-            </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-lg text-neutral-500 hover:bg-neutral-100 flex items-center justify-center" title={t('Close', 'إغلاق')}><XIcon className="w-4 h-4" /></button>
+  return (
+    <div className="px-4 sm:px-12 py-4 border-t border-brand-100 cm-fade-in" data-boq-details>
+      <div className="flex items-start gap-3">
+        <span className="w-1 self-stretch rounded-full flex-shrink-0" style={{ background: color }} />
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Description', 'الوصف')}</p>
+          <p className="mt-1 text-[13px] text-neutral-700 leading-relaxed">{item.desc || '—'}</p>
+          <dl className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-3">
+            {cells.map(([k, v]) => (
+              <div key={k}>
+                <dt className="text-[11px] text-neutral-500">{k}</dt>
+                <dd className="mt-0.5 text-[13px] text-neutral-900 tabular-nums">{v}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="mt-3 flex items-center gap-3">
+            <span className="text-[11px] text-neutral-500 whitespace-nowrap">{t('Share of BOQ', 'الحصة من الجدول')}</span>
+            <div className="flex-1 max-w-sm"><Share v={item.total / (total || 1)} color={color} /></div>
           </div>
-          <p className="mt-2 text-[13px] text-neutral-600 leading-relaxed">{item.desc}</p>
         </div>
-        <dl className="flex-1 overflow-y-auto px-5 py-3 divide-y divide-neutral-100">
-          {rows.map(([k, v]) => (
-            <div key={k} className="flex items-center justify-between gap-4 py-3">
-              <dt className="text-[12.5px] text-neutral-500">{k}</dt>
-              <dd className="text-[13px] text-neutral-900 text-end">{v}</dd>
-            </div>
-          ))}
-        </dl>
-      </aside>
-    </>,
-    document.body,
+      </div>
+    </div>
   );
 }
