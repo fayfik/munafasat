@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import * as AutoTableMod from 'jspdf-autotable';
 import { useLanguage, useT } from '../context/LanguageContext';
-import { ArrowLeftIcon, SearchIcon, XIcon, ChevronDownIcon, DownloadIcon, CheckIcon, PlusIcon } from '../components/Icons';
+import { ArrowLeftIcon, SearchIcon, XIcon, ChevronDownIcon, DownloadIcon, PlusIcon } from '../components/Icons';
 import { useLoading, Sk, SkeletonCards } from '../components/Loader';
 import { REPORTS, GROUPS, type Report, type Row, type Kpi, type Chart, type GroupKey, type FilterKey, type Col } from './catalogue';
 import { DEPARTMENTS, PROJECTS, CATEGORIES, DEPT_AR, NOW } from './dataset';
@@ -33,7 +33,6 @@ export default function ReportsPage() {
 
 // ═══ Landing ════════════════════════════════════════════════════════════════
 
-const CAPABILITIES: [string, string][] = [['Global filters', 'فلاتر عامة'], ['Drill-down', 'التعمق في البيانات'], ['Export Excel · CSV · PDF', 'تصدير Excel · CSV · PDF'], ['Scheduled delivery', 'إرسال مجدول'], ['Saved views', 'عروض محفوظة'], ['Period & segment comparison', 'مقارنة الفترات والقطاعات'], ['Role-based access', 'وصول حسب الدور'], ['Data freshness', 'حداثة البيانات'], ['KPI definitions', 'تعريفات المؤشرات']];
 
 function ReportsHome({ onOpen }: { onOpen: (id: string) => void }) {
   const { isAr } = useLanguage();
@@ -57,9 +56,6 @@ function ReportsHome({ onOpen }: { onOpen: (id: string) => void }) {
           <div className="max-w-2xl">
             <h1 className="text-[26px] font-bold text-neutral-900 tracking-tight flex items-center gap-3">{t('Reports', 'التقارير')}<span className="text-[13px] font-semibold px-2 py-0.5 rounded-full bg-white border border-neutral-200 text-neutral-600 tabular-nums">{REPORTS.length}</span></h1>
             <p className="text-[13.5px] text-neutral-600 mt-1.5 leading-relaxed">{t('Procurement, approval and contract insight in one place — from executive overviews to the underlying records.', 'رؤى المشتريات والاعتمادات والعقود في مكان واحد — من النظرة التنفيذية حتى السجلات التفصيلية.')}</p>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {CAPABILITIES.map(([en, ar]) => <span key={en} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/80 border border-neutral-200 text-[11.5px] text-neutral-600"><CheckIcon className="w-3 h-3 text-success-600" />{t(en, ar)}</span>)}
-            </div>
           </div>
           <div className="text-[12px] text-neutral-500 flex items-center gap-1.5 bg-white/80 border border-neutral-200 rounded-lg px-3 py-2">
             <span className="w-2 h-2 rounded-full bg-success-500 animate-pulse" />{t('Data refreshed', 'آخر تحديث للبيانات')} <span className="font-semibold text-neutral-700">{fmtTime(new Date(NOW), isAr)}</span>
