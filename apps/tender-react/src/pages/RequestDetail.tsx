@@ -248,6 +248,7 @@ function Overview({ r, esouq, amount, proc, isAr, t, onTab }: { r: SavedRequest;
   const endD = new Date(+new Date(r.createdAt) + (esouq ? 75 : 410) * 864e5).toISOString();
   const approvers = proc.filter((s) => s.id !== 's-sub' && s.id !== 's-pr' && s.id !== 's-pub');
   const doneN = approvers.filter((s) => s.state === 'done').length;
+  const assigned = approvers.filter((s) => s.state !== 'upcoming'); // upcoming approvers aren't assigned yet
   const current = proc.filter((s) => s.state === 'current' || s.state === 'returned');
   const members = committee(esouq);
   const cc = costCenterOf(r.department);
@@ -295,8 +296,8 @@ function Overview({ r, esouq, amount, proc, isAr, t, onTab }: { r: SavedRequest;
           <Field label={t('Approvers', 'المعتمدون')}>
             <button onClick={() => onTab('process')} className="inline-flex items-center gap-2 group">
               <span className="flex -space-x-1.5 rtl:space-x-reverse">
-                {approvers.slice(0, 5).map((s) => <span key={s.id} className={`rounded-full ring-2 ${s.state === 'done' ? 'ring-success-500' : s.state === 'current' ? 'ring-warning-500' : s.state === 'returned' ? 'ring-error-500' : 'ring-white'}`}><Ini name={s.who.en} size="w-8 h-8" /></span>)}
-                {approvers.length > 5 && <span className="w-8 h-8 rounded-full ring-2 ring-white bg-neutral-100 text-neutral-600 text-[10.5px] font-semibold flex items-center justify-center">+{approvers.length - 5}</span>}
+                {assigned.slice(0, 5).map((s) => <span key={s.id} className={`rounded-full ring-2 ${s.state === 'done' ? 'ring-success-500' : s.state === 'current' ? 'ring-warning-500' : s.state === 'returned' ? 'ring-error-500' : 'ring-white'}`}><Ini name={s.who.en} size="w-8 h-8" /></span>)}
+                {assigned.length > 5 && <span className="w-8 h-8 rounded-full ring-2 ring-white bg-neutral-100 text-neutral-600 text-[10.5px] font-semibold flex items-center justify-center">+{assigned.length - 5}</span>}
               </span>
               <span className="text-[12.5px] font-medium text-neutral-500 group-hover:text-brand-700">{doneN}/{approvers.length} {t('approved', 'معتمد')}</span>
             </button>
@@ -589,16 +590,19 @@ function StepCard({ s, fmt, isAr, t, compact }: { s: ProcStep; fmt: (iso: string
     s.state === 'returned' ? <span className="text-[11.5px] font-semibold text-error-700">{t('Returned', 'مرتجع')}</span> :
     <span className="text-[11.5px] font-medium text-neutral-400">{t('Upcoming', 'قادم')}</span>;
   return (
-    <div className={`rounded-xl border px-4 ${compact ? 'py-2.5' : 'py-3'} ${s.state === 'current' ? 'border-warning-200 bg-warning-50/40' : s.state === 'returned' ? 'border-error-200 bg-error-50/40' : 'border-neutral-200 bg-white'} ${s.state === 'upcoming' ? 'opacity-70' : ''}`}>
+    <div data-step-state={s.state} className={`rounded-xl border px-4 ${compact ? 'py-2.5' : 'py-3'} ${s.state === 'current' ? 'border-warning-200 bg-warning-50/40' : s.state === 'returned' ? 'border-error-200 bg-error-50/40' : 'border-neutral-200 bg-white'} ${s.state === 'upcoming' ? 'opacity-70' : ''}`}>
       <div className="flex items-start justify-between gap-3">
         <p className="text-[13.5px] font-semibold text-neutral-900">{isAr ? s.ar : s.en}</p>
         {tag}
       </div>
-      <div className="mt-1.5 flex items-center gap-2 text-[12.5px] text-neutral-600">
-        <Ini name={s.who.en} size="w-5 h-5" text="text-[8.5px]" />
-        <span className="truncate">{isAr ? s.who.ar : s.who.en}{s.who.role && <span className="text-neutral-400"> · {isAr ? s.who.roleAr : s.who.role}</span>}</span>
-        {s.at && <span className="ms-auto text-[11.5px] text-neutral-400 whitespace-nowrap">{fmt(s.at)}</span>}
-      </div>
+      {/* Upcoming steps are not assigned yet — no user shown */}
+      {s.state !== 'upcoming' && (
+        <div className="mt-1.5 flex items-center gap-2 text-[12.5px] text-neutral-600" data-step-user>
+          <Ini name={s.who.en} size="w-5 h-5" text="text-[8.5px]" />
+          <span className="truncate">{isAr ? s.who.ar : s.who.en}{s.who.role && <span className="text-neutral-400"> · {isAr ? s.who.roleAr : s.who.role}</span>}</span>
+          {s.at && <span className="ms-auto text-[11.5px] text-neutral-400 whitespace-nowrap">{fmt(s.at)}</span>}
+        </div>
+      )}
       {s.note && <p className={`mt-2 text-[12.5px] leading-relaxed ${s.state === 'returned' ? 'text-error-700' : 'text-neutral-600'}`}>{isAr ? s.note.ar : s.note.en}</p>}
     </div>
   );
