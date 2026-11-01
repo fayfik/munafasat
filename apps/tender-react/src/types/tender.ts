@@ -218,4 +218,11 @@ export interface TenderDraft {
   updatedAt: string;
   department: string;
   budget: string;
+  // Optional list-view fields (sample data / saved requests)
+  titleAr?: string;
+  departmentAr?: string;
+  requestNo?: string;
+  prNumber?: string;            // SAP ECC purchase requisition, once created
+  createdByName?: string;
+  createdByNameAr?: string;
 }
