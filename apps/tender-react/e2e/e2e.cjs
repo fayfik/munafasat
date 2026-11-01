@@ -379,6 +379,101 @@ async function openRequest(title) {
     expect(await text('Please split the hosting line by environment.').count() > 0, 'return note not carried over');
   });
 
+  // ── Reports ───────────────────────────────────────────────────────────────
+  const rowCount = async () => Number(await page.locator('[data-row-count]').getAttribute('data-row-count'));
+  await test('Reports landing: 33 report tiles in 5 groups, search, group filter, favourites', async () => {
+    await nav('Reports'); await wait(LOAD);
+    expect(await count('[data-report-tile]') === 33, `expected 33 tiles, got ${await count('[data-report-tile]')}`);
+    for (const g of ['Procurement Overview & Performance', 'Purchase Request Reports', 'RFP & Sourcing Reports', 'Work Engine & Approval Reports', 'Purchase Order & Contract Reports'])
+      expect(await page.locator('h2', { hasText: g }).count() === 1, `missing group ${g}`);
+    await page.fill('input[placeholder="Search reports…"]', 'contract');
+    expect(await count('[data-report-tile]') === 3, `search: ${await count('[data-report-tile]')}`);
+    await page.fill('input[placeholder="Search reports…"]', '');
+    await page.getByRole('button', { name: /Work Engine & approvals/ }).click();
+    expect(await count('[data-report-tile]') === 7, 'group filter D');
+    await page.getByRole('button', { name: /^All$/ }).click();
+    await page.locator('[data-report-tile="savings"] button[title="Add to favourites"]').click();
+    await page.getByRole('button', { name: /Favourites/ }).click();
+    expect(await count('[data-report-tile="savings"]') === 1, 'favourite not listed');
+    await page.getByRole('button', { name: /^All$/ }).click();
+  });
+  await test('Reports: every report opens with KPIs, charts and records (no errors)', async () => {
+    const ids = await page.locator('[data-report-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-report-tile')));
+    for (const id of ids) {
+      await page.locator(`[data-report-tile="${id}"]`).click(); await wait(650);
+      expect(await count('[data-kpi]') >= 4, `${id}: KPIs`);
+      expect(await count('[data-chart]') >= 2, `${id}: charts`);
+      expect(await rowCount() > 0, `${id}: no records`);
+      await page.locator('button[title="Back to reports"]').click(); await wait(150);
+    }
+  });
+  await test('Report: global filters, KPI drill-down, chart drill-down', async () => {
+    await page.locator('[data-report-tile="pr-register"]').click(); await wait(LOAD);
+    const all = await rowCount();
+    await page.locator('select[aria-label="Department"]').selectOption('Finance');
+    const fin = await rowCount();
+    expect(fin > 0 && fin < all, `department filter ${fin}/${all}`);
+    await page.locator('select[aria-label="Department"]').selectOption('all');
+    await page.locator('[data-kpi="Approved"]').click();
+    expect(await count('[data-drill]') === 1, 'KPI drill chip');
+    const approved = await rowCount();
+    const statuses = await page.locator('[data-report-table] tbody tr td:nth-child(7)').allInnerTexts();
+    expect(approved < all && statuses.every((x) => x.includes('Approved')), 'KPI drill did not filter records');
+    await page.locator('[data-drill] button').click();
+    await page.locator('[data-chart="Requests by department"] button', { hasText: 'Legal Affairs' }).first().click();
+    const legal = await page.locator('[data-report-table] tbody tr td:nth-child(4)').allInnerTexts();
+    expect(legal.length > 0 && legal.every((x) => x.includes('Legal Affairs')), 'chart drill did not filter');
+    await page.locator('[data-drill] button').click();
+    expect(await rowCount() === all, 'drill not cleared');
+  });
+  await test('Report: role-based access limits data', async () => {
+    const all = await rowCount();
+    await page.locator('select[aria-label="Viewing as"]').selectOption('it-mgr'); await wait(100);
+    const depts = await page.locator('[data-report-table] tbody tr td:nth-child(4)').allInnerTexts();
+    expect(await rowCount() < all && depts.every((x) => x.includes('IT & Digital')), 'role restriction');
+    expect(await text('limited to IT & Digital').count() === 1, 'access note');
+    await page.locator('select[aria-label="Viewing as"]').selectOption('director');
+  });
+  await test('Report: comparison (previous period and department vs department)', async () => {
+    await page.locator('select[aria-label="Period"]').selectOption('90');
+    await page.locator('select[aria-label="Compare"]').selectOption('period'); await wait(100);
+    expect(await count('[data-delta]') > 0, 'no period deltas');
+    await page.locator('select[aria-label="Compare"]').selectOption('department'); await wait(100);
+    expect(await count('select[aria-label="A"]') === 1 && await count('select[aria-label="B"]') === 1, 'A/B pickers');
+    await page.getByRole('button', { name: 'Reset', exact: true }).click();
+  });
+  await test('Report: saved views', async () => {
+    await page.locator('select[aria-label="Category"]').selectOption('Consulting');
+    await page.getByRole('button', { name: 'Save view' }).click();
+    const opts = await page.locator('select[aria-label="Saved view"] option').allInnerTexts();
+    expect(opts.some((o) => o.includes('Consulting')), 'saved view missing');
+    await page.locator('select[aria-label="Saved view"]').selectOption('default');
+    expect(await page.locator('select[aria-label="Category"]').inputValue() === 'all', 'default view not restored');
+    await page.locator('select[aria-label="Saved view"]').selectOption({ index: 1 });
+    expect(await page.locator('select[aria-label="Category"]').inputValue() === 'Consulting', 'saved view not applied');
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  });
+  await test('Report: export Excel, CSV and PDF', async () => {
+    for (const [label, ext] of [['Excel (.xlsx)', '.xlsx'], ['CSV', '.csv'], ['PDF', '.pdf']]) {
+      await page.getByRole('button', { name: /^Export/ }).click();
+      const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: label }).click()]);
+      expect(dl.suggestedFilename().endsWith(ext), `${label} → ${dl.suggestedFilename()}`);
+    }
+  });
+  await test('Report: schedule, definitions and data freshness', async () => {
+    await page.getByRole('button', { name: /^Schedule/ }).click();
+    await page.fill('input[placeholder^="name@"]', 'cfo@entity.gov.sa');
+    await page.getByRole('button', { name: 'Create schedule' }).click();
+    expect(await page.locator('[data-schedules] li').count() === 1, 'schedule not created');
+    await page.keyboard.press('Escape'); await wait(150);
+    await page.getByRole('button', { name: 'Definitions' }).click();
+    expect(await page.getByRole('dialog', { name: 'Definitions' }).isVisible() && await text('Data source:').count() > 0, 'definitions panel');
+    await page.keyboard.press('Escape'); await wait(150);
+    await page.locator('[data-freshness]').click(); await wait(80);
+    expect(await count('.ld-shimmer') > 0, 'refresh did not reload');
+    await wait(LOAD);
+  });
+
   // ── Arabic / RTL ───────────────────────────────────────────────────────────
   await test('Arabic: RTL layout on My Requests and detail', async () => {
     await page.click('button[title="التبديل إلى العربية"]'); await wait(200);

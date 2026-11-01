@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { LanguageProvider } from './context/LanguageContext';
 import { TenderProvider } from './context/TenderContext';
 import { RequestStoreProvider, useRequests } from './context/RequestStore';
-import EmptyPage from './pages/EmptyPage';
+import ReportsPage from './reports/ReportsPage';
 import { InboxProvider } from './inbox/store';
 import InboxPage from './inbox/InboxPage';
 import AppShell, { type AppPage } from './components/AppShell';
@@ -86,7 +86,7 @@ function AppRoot() {
         /></PageLoad>
       )}
       {page === 'inbox' && <InboxPage />}
-      {page === 'reports' && <PageLoad cards={1}><EmptyPage page="reports" /></PageLoad>}
+      {page === 'reports' && <PageLoad cards={2}><ReportsPage /></PageLoad>}
       {page === 'my-requests' && (
         <MyRequests key={reqFilter} initialFilter={reqFilter} onNewRequest={() => newRequest()} onOpenRequest={viewRequest} />
       )}
