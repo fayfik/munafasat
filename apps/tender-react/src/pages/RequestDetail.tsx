@@ -1,10 +1,12 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, useEffect, type ReactNode } from 'react';
 import { jsPDF } from 'jspdf';
 import { useRequests, type SavedRequest } from '../context/RequestStore';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { Button } from '../components/ui';
-import { ArrowLeftIcon, CheckIcon, DownloadIcon, DocumentIcon, PencilIcon, XIcon, UploadIcon, ClockIcon, AlertTriangleIcon } from '../components/Icons';
-import { RfpTab, rfpSections } from '../inbox/TaskDetail';
+import { ArrowLeftIcon, CheckIcon, DownloadIcon, PencilIcon, XIcon, UploadIcon, ClockIcon, AlertTriangleIcon, ChevronRightIcon } from '../components/Icons';
+import { RfpTab, rfpSections, JumpFab, RfpOpenCtx, EyeGlyph } from '../inbox/TaskDetail';
+import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
+import { useLoading, SkeletonCards, Sk } from '../components/Loader';
 import { APPROVAL_STAGES, REQUESTER, requestRfpFor } from '../inbox/data';
 import { STATUS, TYPE } from './MyRequests';
 
@@ -42,7 +44,6 @@ function buildProcess(r: SavedRequest): ProcStep[] {
       return { id: `s-${i}`, en: s.stage.en, ar: s.stage.ar, who: { en: s.assignee.name, ar: s.assignee.nameAr ?? s.assignee.name, role: s.assignee.role, roleAr: s.assignee.roleAr }, group: groupOf(i) };
     }),
     { id: 's-pr', en: 'Purchase requisition created in SAP ECC', ar: 'إنشاء طلب الشراء في SAP ECC', who: { en: 'SAP ECC', ar: 'SAP ECC', role: 'System', roleAr: 'النظام' } },
-    { id: 's-pub', en: esouq ? 'Order placed on Etimad E-Market' : 'Tender published on Etimad', ar: esouq ? 'إصدار الطلب على سوق اعتماد' : 'طرح المنافسة على منصة اعتماد', who: { en: 'Procurement', ar: 'المشتريات', role: 'Procurement Officer', roleAr: 'أخصائي مشتريات' } },
   ];
   const last = steps.length;
   let cur: number; let returned = false;
@@ -51,7 +52,7 @@ function buildProcess(r: SavedRequest): ProcStep[] {
     case 'submitted': cur = 1; break;
     case 'under-review': cur = 2 + (hash(r.id) % (stages.length - 3)); break;
     case 'returned': cur = 1 + (hash(r.id) % 3); returned = true; break;
-    default: cur = r.prNumber ? last - 1 : last - 2;
+    default: cur = r.prNumber ? last : last - 1;
   }
   // Steps in the same parallel group share the current state.
   const curGroup = steps[cur]?.group?.en;
@@ -112,6 +113,7 @@ export default function RequestDetail({ id, onBack, onEdit }: { id: string; onBa
   const [tab, setTab] = useState<TabKey>('overview');
   const [cancelAsk, setCancelAsk] = useState(false);
   const [cancelled, setCancelled] = useState(false);
+  const busy = useLoading([id, tab], 450);
 
   const amount = r ? parseAmount(r.budget) : 0;
   const rfp = useMemo(() => r ? requestRfpFor({
@@ -190,10 +192,11 @@ export default function RequestDetail({ id, onBack, onEdit }: { id: string; onBa
         {cancelled && (
           <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-[13px] text-neutral-600 flex items-center gap-2"><AlertTriangleIcon className="w-4 h-4 text-neutral-400" />{t('This request was cancelled. Pending approval tasks have been withdrawn.', 'تم إلغاء هذا الطلب وسحب مهام الاعتماد المعلقة.')}</div>
         )}
-        {tab === 'overview' && <Overview r={r} esouq={esouq} amount={amount} proc={proc} isAr={isAr} t={t} onTab={setTab} />}
-        {tab === 'details' && <Details rfp={rfp} amount={amount} isAr={isAr} t={t} />}
-        {tab === 'documents' && <Documents r={r} rfp={rfp} editable={editable && !cancelled} isAr={isAr} t={t} />}
-        {tab === 'process' && <Process steps={proc} r={r} isAr={isAr} t={t} />}
+        {busy && (tab === 'details' ? <div className="space-y-3">{Array.from({ length: 7 }, (_, i) => <div key={i} className="bg-white rounded-xl border border-neutral-200 px-5 py-4 flex items-center gap-3"><Sk className="w-4 h-4" /><Sk className="h-3.5 w-48" /></div>)}</div> : <SkeletonCards cards={tab === 'overview' ? 3 : 2} />)}
+        {!busy && tab === 'overview' && <Overview r={r} esouq={esouq} amount={amount} proc={proc} isAr={isAr} t={t} onTab={setTab} />}
+        {!busy && tab === 'details' && <Details rfp={rfp} amount={amount} isAr={isAr} t={t} />}
+        {!busy && tab === 'documents' && <Documents r={r} rfp={rfp} amount={amount} editable={editable && !cancelled} isAr={isAr} t={t} />}
+        {!busy && tab === 'process' && <Process steps={proc} r={r} isAr={isAr} t={t} />}
       </div>
 
       {cancelAsk && (
@@ -346,18 +349,22 @@ function Overview({ r, esouq, amount, proc, isAr, t, onTab }: { r: SavedRequest;
 // ─── Request details (every create-request section) ──────────────────────────
 
 function Details({ rfp, amount, isAr, t }: { rfp: ReturnType<typeof requestRfpFor>; amount: number; isAr: boolean; t: T }) {
-  const secs = rfpSections(rfp);
+  // Same view as the Inbox "Request details" tab; sections start collapsed here.
+  const [ctl, setCtl] = useState({ open: false, rev: 0 });
   return (
-    <div className="flex gap-6 items-start">
-      <nav className="hidden xl:block w-52 flex-shrink-0 sticky top-4">
-        <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">{t('Sections', 'الأقسام')}</p>
-        {secs.map((s) => (
-          <button key={s.id} onClick={() => document.getElementById(`rfp-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-            className="w-full text-start px-3 py-2 rounded-lg text-[13px] font-medium text-neutral-600 hover:bg-white hover:text-brand-700">{isAr ? s.ar : s.en}</button>
-        ))}
-      </nav>
-      <div className="flex-1 min-w-0"><RfpTab rfp={rfp} amount={amount} isAr={isAr} t={t} /></div>
-    </div>
+    <RfpOpenCtx.Provider value={ctl}>
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <p className="text-[12px] text-neutral-500 truncate">{t('RFP', 'المنافسة')} <span className="font-semibold text-neutral-700" dir="ltr">{rfp.refId}</span> · {isAr ? rfp.titleAr : rfp.titleEn}</p>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="secondary" onClick={() => setCtl((c) => ({ open: !c.open, rev: c.rev + 1 }))}>
+            <ChevronRightIcon className={`w-4 h-4 transition-transform ${ctl.open ? '-rotate-90' : 'rotate-90'}`} />
+            {ctl.open ? t('Collapse all', 'طي الكل') : t('Expand all', 'توسيع الكل')}
+          </Button>
+        </div>
+      </div>
+      <RfpTab rfp={rfp} amount={amount} isAr={isAr} t={t} />
+      <JumpFab sections={rfpSections(rfp)} isAr={isAr} t={t} fixed />
+    </RfpOpenCtx.Provider>
   );
 }
 
@@ -365,8 +372,10 @@ function Details({ rfp, amount, isAr, t }: { rfp: ReturnType<typeof requestRfpFo
 
 interface Doc { name: string; nameAr: string; type: string; size: string; by: string; byAr: string; at: string }
 
-function Documents({ r, rfp, editable, isAr, t }: { r: SavedRequest; rfp: ReturnType<typeof requestRfpFor>; editable: boolean; isAr: boolean; t: T }) {
+function Documents({ r, rfp, amount, editable, isAr, t }: { r: SavedRequest; rfp: ReturnType<typeof requestRfpFor>; amount: number; editable: boolean; isAr: boolean; t: T }) {
   const [added, setAdded] = useState<Doc[]>([]);
+  const [preview, setPreview] = useState<PreviewDoc | null>(null);
+  const pd = (d: Doc): PreviewDoc => ({ name: d.name, nameAr: d.nameAr, type: d.type, size: d.size, by: d.by, ref: r.requestNo || 'Draft', title: r.title, dept: r.department, amount: `SAR ${amount.toLocaleString('en-US')}`, date: d.at.slice(0, 10) });
   const by = r.createdByName || REQUESTER.name, byAr = r.createdByNameAr || by;
   const at = r.createdAt;
   const attachments: Doc[] = [
@@ -405,28 +414,131 @@ function Documents({ r, rfp, editable, isAr, t }: { r: SavedRequest; rfp: Return
           ) : (
             <ul className="divide-y divide-neutral-100">
               {g.docs.map((d, i) => (
-                <li key={i} className="flex items-center gap-3 px-5 py-3.5 hover:bg-neutral-50/70">
+                <li key={i} className="flex items-center gap-3 px-5 py-3.5 hover:bg-neutral-50/70 cursor-pointer" onClick={(e) => { if (!(e.target as HTMLElement).closest('button')) setPreview(pd(d)); }}>
                   <span className={`w-10 h-10 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${d.type === 'PDF' ? 'bg-error-50 text-error-700' : d.type === 'XLSX' ? 'bg-success-50 text-success-700' : 'bg-blue-50 text-blue-700'}`}>{d.type}</span>
                   <div className="min-w-0 flex-1">
                     <p className="text-[13.5px] font-semibold text-neutral-900 truncate">{isAr ? d.nameAr : d.name}</p>
                     <p className="text-[12px] text-neutral-500">{d.size} · {t('by', 'بواسطة')} {isAr ? d.byAr : d.by} · {fmt(d.at)}</p>
                   </div>
-                  <button onClick={() => downloadPlaceholder(d.name, r)} title={t('Download', 'تنزيل')} className="w-9 h-9 rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-brand-700 flex items-center justify-center"><DownloadIcon className="w-4 h-4" /></button>
+                  <button onClick={() => setPreview(pd(d))} className="h-9 px-3 rounded-lg text-[12.5px] font-semibold text-brand-700 hover:bg-brand-50 inline-flex items-center gap-1.5"><EyeGlyph className="w-4 h-4" />{t('Preview', 'معاينة')}</button>
+                  <button onClick={() => downloadDocPdf(pd(d))} title={t('Download', 'تنزيل')} className="w-9 h-9 rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-brand-700 flex items-center justify-center"><DownloadIcon className="w-4 h-4" /></button>
                 </li>
               ))}
             </ul>
           )}
         </section>
       ))}
+      {preview && <DocPreview doc={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }
 
 // ─── Process ─────────────────────────────────────────────────────────────────
 
+interface Phase { key: string; en: string; ar: string; ownerEn: string; ownerAr: string; steps: ProcStep[] }
+
+const W = (en: string, ar: string, role: string, roleAr: string) => ({ en, ar, role, roleAr });
+function laterPhases(r: SavedRequest, approvalDone: boolean): Phase[] {
+  const esouq = r.type === 'souq-etimad';
+  const mk = (id: string, en: string, ar: string, who: ProcStep['who'], group?: ProcStep['group']): Omit<ProcStep, 'state'> => ({ id, en, ar, who, group });
+  const proc = W('Mohammed Al-Harbi', 'محمد الحربي', 'Procurement Officer', 'أخصائي مشتريات');
+  const committee = esouq ? [
+    mk('c1', 'Order placed on Etimad E-Market', 'إصدار الطلب على سوق اعتماد', proc),
+    mk('c2', 'Supplier confirmation', 'تأكيد المورّد', W('Supplier', 'المورّد', 'Etimad E-Market', 'سوق اعتماد')),
+    mk('c3', 'Order acceptance', 'قبول الطلب', W('Abdullah Al-Qahtani', 'عبدالله القحطاني', 'Procurement Team Lead', 'رئيس فريق المشتريات')),
+  ] : [
+    mk('c1', 'Tender published on Etimad', 'طرح المنافسة على منصة اعتماد', proc),
+    mk('c2', 'Bid submission & opening', 'تقديم العروض وفتح المظاريف', W('Hana Al-Ghamdi', 'هناء الغامدي', 'Evaluation committee chair', 'رئيسة لجنة التقييم')),
+    mk('c3', 'Technical evaluation', 'التقييم الفني', W('Sara Al-Zahrani', 'سارة الزهراني', 'Technical Reviewer', 'مراجع فني'), { en: 'Committee evaluation · in parallel', ar: 'تقييم اللجنة · بالتوازي' }),
+    mk('c4', 'Qualification review', 'مراجعة التأهيل', W('Khalid Al-Otaibi', 'خالد العتيبي', 'Qualification committee chair', 'رئيس لجنة التأهيل'), { en: 'Committee evaluation · in parallel', ar: 'تقييم اللجنة · بالتوازي' }),
+    mk('c5', 'Commercial evaluation', 'التقييم التجاري', W('Abdullah Al-Qahtani', 'عبدالله القحطاني', 'Procurement Team Lead', 'رئيس فريق المشتريات')),
+    mk('c6', 'Award recommendation', 'توصية الترسية', W('Hana Al-Ghamdi', 'هناء الغامدي', 'Evaluation committee chair', 'رئيسة لجنة التقييم')),
+    mk('c7', 'Award approval (DOA)', 'اعتماد الترسية (تفويض الصلاحيات)', W('Saad Al-Malki', 'سعد المالكي', 'Department Director', 'مدير عام الإدارة')),
+  ];
+  const contract = [
+    mk('k1', 'Contract drafting', 'إعداد مسودة العقد', proc),
+    mk('k2', 'Legal review', 'المراجعة القانونية', W('Lina Al-Mutairi', 'لينا المطيري', 'Legal Counsel', 'مستشارة قانونية')),
+    mk('k3', 'Performance bond received', 'استلام ضمان حسن التنفيذ', W('Supplier', 'المورّد', 'Awarded supplier', 'المورّد المرسى عليه')),
+    mk('k4', 'Contract signed', 'توقيع العقد', W('Saad Al-Malki', 'سعد المالكي', 'Department Director', 'مدير عام الإدارة')),
+    mk('k5', 'Purchase order created in SAP ECC', 'إنشاء أمر الشراء في SAP ECC', W('SAP ECC', 'SAP ECC', 'System', 'النظام')),
+  ];
+  const coc = [
+    mk('o1', esouq ? 'Goods delivered' : 'Delivery / service performed', esouq ? 'تسليم البضائع' : 'التسليم / تنفيذ الخدمة', W('Supplier', 'المورّد', 'Awarded supplier', 'المورّد المرسى عليه')),
+    mk('o2', 'Inspection & acceptance testing', 'الفحص واختبار القبول', W(r.createdByName || 'Requester', r.createdByNameAr || 'مقدّم الطلب', 'Requester', 'مقدّم الطلب')),
+    mk('o3', 'Certificate of Completion issued', 'إصدار شهادة الإنجاز', W(r.createdByName || 'Requester', r.createdByNameAr || 'مقدّم الطلب', 'Requester', 'مقدّم الطلب')),
+    mk('o4', 'Goods receipt / service entry in SAP', 'إدخال الاستلام / الخدمة في SAP', W('SAP ECC', 'SAP ECC', 'System', 'النظام')),
+  ];
+  const closure = [
+    mk('z1', 'Invoice verified', 'التحقق من الفاتورة', W('Khalid Al-Otaibi', 'خالد العتيبي', 'Accounts Payable', 'الحسابات الدائنة')),
+    mk('z2', 'Final payment released', 'صرف الدفعة النهائية', W('Finance', 'المالية', 'Treasury', 'الخزينة')),
+    ...(esouq ? [] : [mk('z3', 'Bank guarantee released', 'الإفراج عن الضمان البنكي', W('Finance', 'المالية', 'Treasury', 'الخزينة'))]),
+    mk('z4', 'Request closed & archived', 'إغلاق الطلب وأرشفته', proc),
+  ];
+  const withState = (list: Omit<ProcStep, 'state'>[], active: boolean): ProcStep[] => list.map((x, i) => ({ ...x, state: active && (i === 0 || (x.group && list[0].group?.en === x.group.en)) ? 'current' : 'upcoming' }));
+  return [
+    { key: 'committee', en: esouq ? 'E-Market procurement' : 'Committee process', ar: esouq ? 'الشراء عبر سوق اعتماد' : 'أعمال اللجان', ownerEn: esouq ? 'Procurement' : 'Evaluation & qualification committees', ownerAr: esouq ? 'المشتريات' : 'لجنتا التقييم والتأهيل', steps: withState(committee, approvalDone) },
+    { key: 'contract', en: 'Contract', ar: 'العقد', ownerEn: 'Procurement & Legal', ownerAr: 'المشتريات والقانونية', steps: withState(contract, false) },
+    { key: 'coc', en: 'Certificate of Completion (CoC)', ar: 'شهادة الإنجاز', ownerEn: 'Requester', ownerAr: 'مقدّم الطلب', steps: withState(coc, false) },
+    { key: 'closure', en: 'Closure', ar: 'الإغلاق', ownerEn: 'Finance & Procurement', ownerAr: 'المالية والمشتريات', steps: withState(closure, false) },
+  ];
+}
+
 function Process({ steps, r, isAr, t }: { steps: ProcStep[]; r: SavedRequest; isAr: boolean; t: T }) {
-  const done = steps.filter((s) => s.state === 'done').length;
+  const approvalDone = steps.every((s) => s.state === 'done');
+  const phases: Phase[] = [
+    { key: 'approval', en: 'Request approval', ar: 'اعتماد الطلب', ownerEn: 'Department, specialists, finance & procurement', ownerAr: 'الإدارة والمختصون والمالية والمشتريات', steps },
+    ...laterPhases(r, approvalDone),
+  ];
+  const stateOf = (p: Phase) => p.steps.some((s) => s.state === 'returned') ? 'returned' : p.steps.every((s) => s.state === 'done') ? 'done' : p.steps.some((s) => s.state === 'current' || s.state === 'done') ? 'current' : 'upcoming';
+  const [open, setOpen] = useState<Set<string>>(() => new Set(phases.filter((p) => stateOf(p) === 'current' || stateOf(p) === 'returned').map((p) => p.key)));
+  const all = phases.flatMap((p) => p.steps);
+  const done = all.filter((s) => s.state === 'done').length;
+  const allOpen = open.size === phases.length;
   const fmt = (iso: string) => new Date(iso).toLocaleString(isAr ? 'ar-SA' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const toggle = (k: string) => setOpen((o) => { const x = new Set(o); if (x.has(k)) x.delete(k); else x.add(k); return x; });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-4 flex-wrap mb-1">
+        <div className="flex items-center gap-3">
+          <div className="h-2 w-52 rounded-full bg-neutral-200 overflow-hidden"><div className="h-full bg-success-500 rounded-full transition-all" style={{ width: `${(done / all.length) * 100}%` }} /></div>
+          <span className="text-[12.5px] font-semibold text-neutral-700 tabular-nums">{done}/{all.length} {t('steps completed', 'خطوة مكتملة')}</span>
+        </div>
+        <Button size="sm" variant="secondary" onClick={() => setOpen(allOpen ? new Set() : new Set(phases.map((p) => p.key)))}>
+          <ChevronRightIcon className={`w-4 h-4 ${allOpen ? '-rotate-90' : 'rotate-90'}`} />{allOpen ? t('Collapse all', 'طي الكل') : t('Expand all', 'توسيع الكل')}
+        </Button>
+      </div>
+      {phases.map((p, pi) => {
+        const ps = stateOf(p);
+        const isOpen = open.has(p.key);
+        const pd = p.steps.filter((s) => s.state === 'done').length;
+        const pill =
+          ps === 'done' ? <span className="px-2 py-0.5 rounded-full text-[11.5px] font-semibold bg-success-50 text-success-700">{t('Completed', 'مكتمل')}</span> :
+          ps === 'returned' ? <span className="px-2 py-0.5 rounded-full text-[11.5px] font-semibold bg-error-50 text-error-700">{t('Returned', 'مرتجع')}</span> :
+          ps === 'current' ? <span className="px-2 py-0.5 rounded-full text-[11.5px] font-semibold bg-warning-50 text-warning-700">{t('In progress', 'قيد التنفيذ')}</span> :
+          <span className="px-2 py-0.5 rounded-full text-[11.5px] font-semibold bg-neutral-100 text-neutral-500">{t('Not started', 'لم يبدأ')}</span>;
+        return (
+          <section key={p.key} className={`bg-white rounded-xl border shadow-sm overflow-hidden ${ps === 'current' ? 'border-warning-200' : ps === 'returned' ? 'border-error-200' : 'border-neutral-200'}`}>
+            <button type="button" onClick={() => toggle(p.key)} aria-expanded={isOpen} className="w-full flex items-center gap-3 px-5 py-4 text-start hover:bg-neutral-50/70">
+              <Node state={ps} n={pi + 1} />
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-bold text-neutral-900">{isAr ? p.ar : p.en}</p>
+                <p className="text-[12px] text-neutral-500 truncate">{isAr ? p.ownerAr : p.ownerEn} · {pd}/{p.steps.length} {t('steps', 'خطوات')}</p>
+              </div>
+              <div className="hidden sm:block h-1.5 w-28 rounded-full bg-neutral-100 overflow-hidden"><div className="h-full bg-success-500 rounded-full" style={{ width: `${(pd / p.steps.length) * 100}%` }} /></div>
+              {pill}
+              <ChevronRightIcon className={`w-4 h-4 text-neutral-400 transition-transform ${isOpen ? 'rotate-90' : isAr ? 'rotate-180' : ''}`} />
+            </button>
+            {isOpen && <div className="border-t border-neutral-100 cm-fade-in"><Timeline steps={p.steps} fmt={fmt} isAr={isAr} t={t} /></div>}
+          </section>
+        );
+      })}
+      {r.type === 'souq-etimad' && <p className="text-[12px] text-neutral-400 px-1">{t('Etimad E-Market flow — qualification and committee evaluation are not required.', 'مسار سوق اعتماد — لا يتطلب التأهيل وتقييم اللجان.')}</p>}
+    </div>
+  );
+}
+
+function Timeline({ steps, fmt, isAr, t }: { steps: ProcStep[]; fmt: (iso: string) => string; isAr: boolean; t: T }) {
   // Collapse consecutive steps of a parallel group into one block.
   const blocks: { group?: ProcStep['group']; items: ProcStep[] }[] = [];
   steps.forEach((s) => {
@@ -435,50 +547,39 @@ function Process({ steps, r, isAr, t }: { steps: ProcStep[]; r: SavedRequest; is
     else blocks.push({ group: s.group, items: [s] });
   });
   return (
-    <section className="bg-white rounded-xl border border-neutral-200 shadow-sm">
-      <div className="px-6 pt-5 pb-4 border-b border-neutral-100 flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-[17px] font-bold text-brand-700">{t('Approval process', 'مسار الاعتماد')}</h2>
-          <p className="text-[12.5px] text-neutral-500 mt-0.5">{r.type === 'souq-etimad' ? t('Etimad E-Market flow — qualification is not required.', 'مسار سوق اعتماد — لا يتطلب التأهيل.') : t('Tender flow — reviews in the same group run in parallel.', 'مسار المنافسة — المراجعات في المجموعة نفسها تتم بالتوازي.')}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="h-2 w-44 rounded-full bg-neutral-100 overflow-hidden"><div className="h-full bg-success-500 rounded-full" style={{ width: `${(done / steps.length) * 100}%` }} /></div>
-          <span className="text-[12.5px] font-semibold text-neutral-700 tabular-nums">{done}/{steps.length} {t('steps', 'خطوات')}</span>
-        </div>
-      </div>
-      <ol className="px-6 py-5">
-        {blocks.map((b, bi) => {
-          const lastBlock = bi === blocks.length - 1;
-          const bState = b.items.some((s) => s.state === 'returned') ? 'returned' : b.items.some((s) => s.state === 'current') ? 'current' : b.items.every((s) => s.state === 'done') ? 'done' : 'upcoming';
-          return (
-            <li key={bi} className="relative flex gap-4">
-              <div className="flex flex-col items-center">
-                <Node state={bState} n={bi + 1} />
-                {!lastBlock && <span className={`w-0.5 flex-1 my-1 ${bState === 'done' ? 'bg-success-300' : 'bg-neutral-200'}`} />}
-              </div>
-              <div className={`flex-1 min-w-0 ${lastBlock ? '' : 'pb-6'}`}>
-                {b.group ? (
-                  <>
-                    <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-400 pt-1.5 mb-2">{isAr ? b.group.ar : b.group.en}</p>
-                    <div className="grid sm:grid-cols-2 gap-2">
-                      {b.items.map((s) => <StepCard key={s.id} s={s} fmt={fmt} isAr={isAr} t={t} compact />)}
-                    </div>
-                  </>
-                ) : <StepCard s={b.items[0]} fmt={fmt} isAr={isAr} t={t} />}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-    </section>
+    <ol className="px-5 sm:ps-8 py-5">
+      {blocks.map((b, bi) => {
+        const lastBlock = bi === blocks.length - 1;
+        const bState = b.items.some((s) => s.state === 'returned') ? 'returned' : b.items.some((s) => s.state === 'current') ? 'current' : b.items.every((s) => s.state === 'done') ? 'done' : 'upcoming';
+        return (
+          <li key={bi} className="relative flex gap-4">
+            <div className="flex flex-col items-center">
+              <Node state={bState} n={bi + 1} small />
+              {!lastBlock && <span className={`w-0.5 flex-1 my-1 ${bState === 'done' ? 'bg-success-300' : 'bg-neutral-200'}`} />}
+            </div>
+            <div className={`flex-1 min-w-0 ${lastBlock ? '' : 'pb-5'}`}>
+              {b.group ? (
+                <>
+                  <p className="text-[11.5px] font-semibold uppercase tracking-wide text-neutral-400 pt-1 mb-2">{isAr ? b.group.ar : b.group.en}</p>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    {b.items.map((s) => <StepCard key={s.id} s={s} fmt={fmt} isAr={isAr} t={t} compact />)}
+                  </div>
+                </>
+              ) : <StepCard s={b.items[0]} fmt={fmt} isAr={isAr} t={t} />}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
-function Node({ state, n }: { state: ProcStep['state']; n: number }) {
-  if (state === 'done') return <span className="w-8 h-8 rounded-full bg-success-600 text-white flex items-center justify-center flex-shrink-0"><CheckIcon className="w-4 h-4" /></span>;
-  if (state === 'returned') return <span className="w-8 h-8 rounded-full bg-error-600 text-white flex items-center justify-center flex-shrink-0"><ArrowLeftIcon className="w-4 h-4" /></span>;
-  if (state === 'current') return <span className="w-8 h-8 rounded-full bg-white border-2 border-warning-500 text-warning-700 text-[12px] font-bold flex items-center justify-center flex-shrink-0 relative"><span className="absolute inset-0 rounded-full animate-ping bg-warning-400/20" />{n}</span>;
-  return <span className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-400 text-[12px] font-semibold flex items-center justify-center flex-shrink-0">{n}</span>;
+function Node({ state, n, small }: { state: ProcStep['state']; n: number; small?: boolean }) {
+  const sz = small ? 'w-7 h-7' : 'w-9 h-9';
+  if (state === 'done') return <span className={`${sz} rounded-full bg-success-600 text-white flex items-center justify-center flex-shrink-0`}><CheckIcon className="w-4 h-4" /></span>;
+  if (state === 'returned') return <span className={`${sz} rounded-full bg-error-600 text-white flex items-center justify-center flex-shrink-0`}><ArrowLeftIcon className="w-4 h-4" /></span>;
+  if (state === 'current') return <span className={`${sz} rounded-full bg-white border-2 border-warning-500 text-warning-700 text-[12px] font-bold flex items-center justify-center flex-shrink-0 relative`}><span className="absolute inset-0 rounded-full animate-ping bg-warning-400/20" />{n}</span>;
+  return <span className={`${sz} rounded-full bg-neutral-100 text-neutral-400 text-[12px] font-semibold flex items-center justify-center flex-shrink-0`}>{n}</span>;
 }
 
 function StepCard({ s, fmt, isAr, t, compact }: { s: ProcStep; fmt: (iso: string) => string; isAr: boolean; t: T; compact?: boolean }) {
@@ -529,11 +630,4 @@ function downloadRequestPdf(r: SavedRequest) {
   doc.save(`${r.requestNo || r.id}.pdf`);
 }
 
-function downloadPlaceholder(name: string, r: SavedRequest) {
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  doc.setFontSize(14); doc.text(name, 40, 60);
-  doc.setFontSize(10); doc.setTextColor(120); doc.text(`${r.requestNo || 'Draft'} · ${r.title}`, 40, 84);
-  doc.text('Sample document generated by the Munafasat prototype.', 40, 110);
-  doc.save(`${name.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_')}.pdf`);
-}
 

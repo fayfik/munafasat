@@ -1,7 +1,8 @@
 // Munafasat Inbox — Outlook / ClickUp style two-pane workspace.
 // Left: the task list (always visible). Right: the selected task's detail, or an
 // empty state until a task is chosen.
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { useLoading, Sk, SkeletonCards } from '../components/Loader';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { SearchIcon, NavInboxIcon, ClockIcon, AlertTriangleIcon } from '../components/Icons';
 import type { InboxView, Task } from './types';
@@ -33,6 +34,7 @@ export default function InboxPage() {
   }, [tasksForView, view, q]);
 
   const selected = selectedId ? getTask(selectedId) : undefined;
+  const listBusy = useLoading([], 500);
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-neutral-50">
@@ -75,7 +77,7 @@ export default function InboxPage() {
             </div>
           ) : (
             <ul className="divide-y divide-neutral-100">
-              {rows.map((task) => <TaskRow key={task.id} task={task} isAr={isAr} t={t} active={selectedId === task.id} onSelect={() => setSelectedId(task.id)} tasks={tasks} />)}
+              {listBusy ? <TaskRowsSkeleton /> : rows.map((task) => <TaskRow key={task.id} task={task} isAr={isAr} t={t} active={selectedId === task.id} onSelect={() => setSelectedId(task.id)} tasks={tasks} />)}
             </ul>
           )}
         </div>
@@ -84,7 +86,7 @@ export default function InboxPage() {
       {/* ── Right: detail or empty state (single instance) ──────────── */}
       <div className={`${selected ? 'flex' : 'hidden sm:flex'} flex-1 min-w-0 flex-col bg-neutral-50`}>
         {selected
-          ? <TaskDetail key={selected.id} task={selected} onBack={() => setSelectedId(null)} onSideOpenChange={setSideOpen} />
+          ? <LoadedTask key={selected.id}><TaskDetail task={selected} onBack={() => setSelectedId(null)} onSideOpenChange={setSideOpen} /></LoadedTask>
           : <EmptyDetail t={t} />}
       </div>
     </div>
@@ -140,5 +142,29 @@ function EmptyDetail({ t }: { t: (en: string, ar: string) => string }) {
         <p className="mt-1 text-[13px] text-neutral-500 leading-relaxed">{t('Click a task on the left to view its request details and decision options.', 'انقر مهمة على اليسار لعرض تفاصيل الطلب وخيارات القرار.')}</p>
       </div>
     </div>
+  );
+}
+
+function LoadedTask({ children }: { children: ReactNode }) {
+  const loading = useLoading([], 400);
+  if (!loading) return <>{children}</>;
+  return (
+    <div className="flex-1 overflow-hidden p-6 space-y-5">
+      <Sk className="h-3 w-28" /><Sk className="h-6 w-2/3" /><Sk className="h-3.5 w-1/2" />
+      <SkeletonCards cards={2} />
+    </div>
+  );
+}
+
+function TaskRowsSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 7 }, (_, i) => (
+        <li key={i} className="px-4 py-4 border-b border-neutral-100">
+          <div className="flex justify-between gap-4"><Sk className="h-3.5 w-3/4" /><Sk className="h-3 w-10" /></div>
+          <Sk className="h-3 w-32 mt-2.5" /><Sk className="h-3 w-48 mt-2.5" />
+        </li>
+      ))}
+    </>
   );
 }

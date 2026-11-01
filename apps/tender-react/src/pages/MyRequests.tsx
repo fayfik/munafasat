@@ -3,6 +3,7 @@ import { useRequests, type SavedRequest } from '../context/RequestStore';
 import { Button } from '../components/ui';
 import { PlusIcon, SearchIcon, XIcon, ChevronRightIcon, ChevronDownIcon, ChevronUpIcon, DownloadIcon, CheckIcon } from '../components/Icons';
 import { useT, useLanguage } from '../context/LanguageContext';
+import { useLoading, SkeletonRows } from '../components/Loader';
 import type { SourceType, TenderStatus } from '../types/tender';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -102,7 +103,7 @@ interface Props {
 export default function MyRequests({ onNewRequest, onOpenRequest, initialFilter = 'all' }: Props) {
   const { isAr } = useLanguage();
   const t = useT();
-  const { requests, userName } = useRequests();
+  const { requests, userName, mode } = useRequests();
 
   const rows: Row[] = useMemo(() => requests.map((r: SavedRequest) => ({
     id: r.id,
@@ -138,6 +139,7 @@ export default function MyRequests({ onNewRequest, onOpenRequest, initialFilter 
   });
   const pages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   useEffect(() => { setPage(1); }, [search, f, tab]);
+  const busy = useLoading([tab, f, page, sort.key, sort.dir], 420) || mode === 'loading';
   const shown = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const toggleSort = (key: SortKey) => setSort((s) => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : 1 }));
@@ -230,7 +232,7 @@ export default function MyRequests({ onNewRequest, onOpenRequest, initialFilter 
 
       {/* Table */}
       <div className="mt-4 bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        {busy ? <SkeletonRows rows={PAGE_SIZE} cols={7} /> : <div className="overflow-x-auto">
           <table className="w-full min-w-[1080px] text-[13px]">
             <thead>
               <tr className="bg-neutral-50 border-b border-neutral-200">
@@ -306,7 +308,7 @@ export default function MyRequests({ onNewRequest, onOpenRequest, initialFilter 
               )}
             </tbody>
           </table>
-        </div>
+        </div>}
 
         {/* Pagination */}
         {sorted.length > 0 && (

@@ -1,7 +1,7 @@
 // Munafasat Inbox — task detail workspace (right pane).
 // Header with meta + Approve/Reject/Return CTAs, tabbed body (Overview / RFP /
 // Activity), and top actions: Comments (side pane), History (task trail), Download PDF.
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { LOCKED_TECH_DOCS } from '../sections/TechnicalEvaluation';
@@ -12,6 +12,7 @@ import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadI
 import type { Bilingual, Task, TaskAction, Person, RfpDetail } from './types';
 import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
 import { TaskBody } from './renderers';
+import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
 
 type T = (en: string, ar: string) => string;
@@ -366,11 +367,22 @@ function Donut({ segments, size = 128, stroke = 20 }: { segments: { value: numbe
 
 type RfpView = 'table' | 'chart';
 
+/** Lets a host page start every RFP section collapsed and expand/collapse them all. */
+export const RfpOpenCtx = createContext<{ open: boolean; rev: number } | null>(null);
+/** Opens one RFP section (e.g. before jumping to it). */
+export const openRfpSection = (id: string) => window.dispatchEvent(new CustomEvent('rfp-open', { detail: id }));
+
 function RfpSection({ id, title, meta, views, children, label }: { id: string; title: string; label?: Bilingual; meta?: string; views?: { table: React.ReactNode; chart: React.ReactNode }; children?: React.ReactNode }) {
   const { isAr } = useLanguage();
   const t = useT();
-  const [open, setOpen] = useState(true);
+  const ctl = useContext(RfpOpenCtx);
+  const [open, setOpen] = useState(ctl ? ctl.open : true);
   const [view, setView] = useState<RfpView>('table');
+  useEffect(() => { if (ctl) setOpen(ctl.open); }, [ctl?.rev]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const on = (e: Event) => { if ((e as CustomEvent).detail === id) setOpen(true); };
+    window.addEventListener('rfp-open', on); return () => window.removeEventListener('rfp-open', on);
+  }, [id]);
   return (
     <Commentable id={`sec-${id}`} label={label ?? title}><section id={`rfp-${id}`} className="scroll-mt-16 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
       <div className="flex items-center gap-2 pe-3 sm:pe-4 hover:bg-neutral-50/70 transition-colors">
@@ -435,6 +447,7 @@ function CommitteeChips({ members, isAr }: { members?: RfpDetail['evalCommittee'
 }
 
 export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T }) {
+  const [preview, setPreview] = useState<PreviewDoc | null>(null);
   if (!rfp) return <div className="rounded-xl border border-neutral-200 bg-white p-6 text-[13px] text-neutral-500 shadow-sm">{t('No RFP record linked to this task.', 'لا يوجد سجل منافسة مرتبط بهذه المهمة.')}</div>;
   const boqTotal = rfp.boq.reduce((s, l) => s + lineTotalOf(l), 0);
   const estValue = boqTotal > 0 ? boqTotal : (amount ?? 0);
@@ -835,10 +848,17 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
                     <p className="text-[13px] font-medium text-neutral-800 truncate">{isAr ? dc.ar : dc.en}</p>
                     {(dc.size || dc.by) && <p className="text-[11px] text-neutral-400">{[dc.size, dc.by].filter(Boolean).join(' · ')}</p>}
                   </div>
-                  <DownloadIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" />
+                  {(() => {
+                    const pd: PreviewDoc = { name: dc.en, nameAr: dc.ar, type: dc.type ?? 'PDF', size: dc.size, by: dc.by, ref: rfp.refId, title: rfp.titleEn, dept: rfp.meta.find((m) => m.label.en === 'Requesting department')?.value, amount: amount ? fmtSAR(amount) : undefined };
+                    return (<>
+                      <button type="button" onClick={() => setPreview(pd)} title={t('Preview', 'معاينة')} className="h-8 px-2.5 rounded-md text-[12px] font-semibold text-brand-700 hover:bg-brand-50 inline-flex items-center gap-1 flex-shrink-0"><EyeGlyph className="w-4 h-4" />{t('Preview', 'معاينة')}</button>
+                      <button type="button" onClick={() => downloadDocPdf(pd)} title={t('Download', 'تنزيل')} className="w-8 h-8 rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 flex items-center justify-center flex-shrink-0"><DownloadIcon className="w-4 h-4" /></button>
+                    </>);
+                  })()}
                 </li></Commentable>
               ))}
             </ul>
+            {preview && <DocPreview doc={preview} onClose={() => setPreview(null)} />}
           </RfpSection>
         )}
     </div>
@@ -1048,10 +1068,10 @@ function ChartGlyph({ className = '' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 11-9-9v9z" /><path d="M15 3.5A9 9 0 0120.5 9H15z" /></svg>;
 }
 
-export function JumpFab({ sections, isAr, t }: { sections: { id: string; en: string; ar: string }[]; isAr: boolean; t: T }) {
+export function JumpFab({ sections, isAr, t, fixed }: { sections: { id: string; en: string; ar: string }[]; isAr: boolean; t: T; fixed?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="absolute bottom-5 end-5 z-20">
+    <div className={`${fixed ? 'fixed bottom-6 end-6' : 'absolute bottom-5 end-5'} z-20`}>
       {open && (
         <>
           <div className="fixed inset-0 z-0" onClick={() => setOpen(false)} />
@@ -1059,7 +1079,7 @@ export function JumpFab({ sections, isAr, t }: { sections: { id: string; en: str
             <p className="px-2.5 py-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{t('Jump to section', 'الانتقال إلى قسم')}</p>
             {sections.map((s) => (
               <button key={s.id} type="button"
-                onClick={() => { document.getElementById(`rfp-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setOpen(false); }}
+                onClick={() => { openRfpSection(s.id); setTimeout(() => document.getElementById(`rfp-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30); setOpen(false); }}
                 className="w-full text-start px-2.5 py-1.5 rounded-lg text-[13px] font-medium text-neutral-700 hover:bg-brand-50 hover:text-brand-700 transition-colors">
                 {isAr ? s.ar : s.en}
               </button>
@@ -1068,7 +1088,7 @@ export function JumpFab({ sections, isAr, t }: { sections: { id: string; en: str
         </>
       )}
       <button type="button" onClick={() => setOpen((o) => !o)} title={t('Jump to section', 'الانتقال إلى قسم')}
-        className="w-11 h-11 rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700 active:scale-95 transition flex items-center justify-center">
+        className="relative z-10 w-11 h-11 rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700 active:scale-95 transition flex items-center justify-center">
         <JumpGlyph className="w-5 h-5" />
       </button>
     </div>
@@ -1519,4 +1539,8 @@ function PanelCollapseGlyph({ className = '' }: { className?: string }) {
 }
 function JumpGlyph({ className = '' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>;
+}
+
+export function EyeGlyph({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>;
 }

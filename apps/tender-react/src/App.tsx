@@ -9,6 +9,7 @@ import AppShell, { type AppPage } from './components/AppShell';
 import Dashboard from './pages/Dashboard';
 import MyRequests from './pages/MyRequests';
 import RequestDetail from './pages/RequestDetail';
+import { PageLoad } from './components/Loader';
 import TenderForm from './pages/TenderForm';
 import type { SourceType, TenderFormData } from './types/tender';
 
@@ -78,14 +79,14 @@ function AppRoot() {
       onNewRequest={() => newRequest()}
     >
       {page === 'dashboard' && (
-        <Dashboard
+        <PageLoad cards={3}><Dashboard
           onNewRequest={newRequest}
           onOpenRequest={viewRequest}
           onViewRequests={(f) => { setReqFilter(f ?? 'all'); setPage('my-requests'); }}
-        />
+        /></PageLoad>
       )}
       {page === 'inbox' && <InboxPage />}
-      {page === 'reports' && <EmptyPage page="reports" />}
+      {page === 'reports' && <PageLoad cards={1}><EmptyPage page="reports" /></PageLoad>}
       {page === 'my-requests' && (
         <MyRequests key={reqFilter} initialFilter={reqFilter} onNewRequest={() => newRequest()} onOpenRequest={viewRequest} />
       )}
