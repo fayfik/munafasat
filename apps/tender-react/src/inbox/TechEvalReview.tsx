@@ -137,7 +137,7 @@ export default function TechEvalReview({ task, isAr, t, readOnly, onDecide, onUp
 
 interface FieldDef { label: string; value: string; long?: boolean; num?: boolean }
 
-function EditableRow({ k, state, editing, readOnly, t, onAccept, onModify, onUndo, onCancel, onSave, fields, view, cells, grid, index, boxed }: {
+export function EditableRow({ k, state, editing, readOnly, t, onAccept, onModify, onUndo, onCancel, onSave, fields, view, cells, grid, index, boxed }: {
   k: string; state?: Decision; editing: boolean; readOnly?: boolean; t: T;
   onAccept: () => void; onModify: () => void; onUndo: () => void; onCancel: () => void; onSave: (v: string[]) => void;
   fields: FieldDef[]; view?: ReactNode; cells?: ReactNode[]; grid?: string; index?: number; boxed?: boolean;

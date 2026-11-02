@@ -263,14 +263,14 @@ const SPECS: Spec[] = [
     actions: [
       { id: 'complete', labelEn: 'Complete', labelAr: 'إكمال', variant: 'primary', gated: true },
     ],
-    extra: { qualEditor: true } },
+    extra: { qualReview: true, techDecisions: {} } },
   { n: 10, type: 'data-collection', title: TITLE.qualFromDept(),
     summary: sup('Complete the qualification criteria for this request: ranges and weights for each main and sub-criterion, and the qualification member.', 'أكمل معايير التأهيل لهذا الطلب: النطاقات والأوزان لكل معيار رئيسي وفرعي، وعضو التأهيل.'),
     stage: sup('Qualification — Procurement', 'التأهيل — المشتريات'), assignee: P.procQual, sla: 1, priority: 'medium', received: 0,
     actions: [
       { id: 'complete', labelEn: 'Complete', labelAr: 'إكمال', variant: 'primary', gated: true },
     ],
-    extra: { qualEditor: true } },
+    extra: { qualReview: true, techDecisions: {} } },
   { n: 11, type: 'approval', title: TITLE.qualFromDept(),
     summary: sup('Review the request. With no comments, send it for DOA approval; if it is new or has comments, assign it to an officer.', 'راجع الطلب. إن لم توجد ملاحظات أرسله لاعتماد تفويض الصلاحيات، وإن كان جديداً أو عليه ملاحظات أسنده إلى أخصائي.'),
     stage: sup('Procurement review — Team Lead', 'مراجعة المشتريات — رئيس الفريق'), assignee: P.tl, sla: 4, priority: 'high', received: 0,

@@ -405,19 +405,32 @@ async function openRequest(title) {
     expect(await page.locator('[data-weight-total]').getAttribute('data-weight-total') === '100', 'weights back to 100');
     expect(!(await approve.isDisabled()), 'approve should be enabled once everything is reviewed');
   });
-  await test('Qualification task: creation-page Qualification Criteria, Complete gated by 100% totals', async () => {
+  await test('Qualification task: prefilled criteria with Accept / Modify, Complete gated', async () => {
     await page.locator('ul li > button:visible', { hasText: 'Review request & add qualification criteria' }).first().click(); await wait(LOAD);
-    expect(await count('[data-qual-editor]') === 1, 'qualification editor missing');
-    for (const s of ['Qualification Member', 'Qualification Criteria', 'Previous Experience', 'Existing Contractual Obligations', 'Human Resources', 'Main Criteria Total'])
+    expect(await count('[data-qual-review]') === 1, 'qualification review missing');
+    for (const s of ['Qualification Member', 'Qualification Criteria', 'Previous Experience', 'Main Criteria Total: 100%'])
       expect(await text(s).count() > 0, `missing ${s}`);
+    const keys = await page.locator('[data-qual-review] [data-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-row')));
+    expect(keys.length > 3 && keys.includes('qm-0') && keys.includes('qs-0-0'), `rows: ${keys}`);
+    expect(await count('[data-qual-review] [data-accept]') === keys.length, 'each row needs Accept');
+    expect(await count('[data-qual-review] [data-modify]') === keys.length, 'each row needs Modify');
     const complete = page.getByRole('button', { name: 'Complete', exact: true });
-    expect(await complete.isDisabled(), 'complete should be disabled');
-    await page.getByRole('button', { name: /AI Suggest Values/ }).click();
-    await page.waitForFunction(() => !document.querySelector('[data-qual-editor] .ai-loading'), null, { timeout: 15000 });
-    await wait(300);
-    expect(!(await complete.isDisabled()), 'complete should be enabled when totals are 100%');
+    expect(await complete.isDisabled(), 'complete should be disabled before review');
+    await page.click('[data-accept="qm-0"]');
+    expect(await page.getAttribute('[data-row="qm-0"]', 'data-state') === 'accepted', 'accept failed');
+    // Modify opens that row only
+    await page.click('[data-modify="qs-0-0"]');
+    expect(await count('[data-qual-review] [data-editing]') === 1, 'only one row should open');
+    const inputs = page.locator('[data-editing="qs-0-0"] input');
+    await inputs.nth(0).fill('≥ 7 years');
+    await page.click('[data-save="qs-0-0"]'); await wait(150);
+    expect(await page.getAttribute('[data-row="qs-0-0"]', 'data-state') === 'modified', 'modify failed');
+    expect(await text('≥ 7 years').count() > 0, 'modified range not shown');
+    await page.getByRole('button', { name: /Accept all remaining/ }).click(); await wait(150);
+    expect(await page.locator('[data-qual-progress]').getAttribute('data-qual-progress') === `${keys.length}/${keys.length}`, 'progress');
+    expect(!(await complete.isDisabled()), 'complete should be enabled after review');
     await tab('Activity'); await wait(200); await tab('Required action'); await wait(300);
-    expect(await text('Main Criteria Total: 100%').count() === 1, 'values lost after switching tabs');
+    expect(await text('≥ 7 years').count() > 0, 'values lost after switching tabs');
   });
 
   // ── Reports ───────────────────────────────────────────────────────────────

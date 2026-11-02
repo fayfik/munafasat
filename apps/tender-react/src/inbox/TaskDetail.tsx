@@ -15,6 +15,7 @@ import { TaskBody } from './renderers';
 import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
 import { BudgetChecker, useBudgetCheck } from './BudgetCheck';
 import TechEvalReview from './TechEvalReview';
+import QualReview from './QualReview';
 import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
 
@@ -248,6 +249,11 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
                   onDecide={(k, d) => { const next = { ...(task.techDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { techDecisions: next }); }}
                   onUpdate={(rfp, k) => setTaskData(task.id, { rfp, techDecisions: { ...(task.techDecisions ?? {}), [k]: 'modified' } })}
                   onAcceptAll={(keys) => setTaskData(task.id, { techDecisions: { ...(task.techDecisions ?? {}), ...Object.fromEntries(keys.map((k) => [k, 'accepted' as const])) } })} />
+              : task.qualReview && task.rfp
+                ? <QualReview task={task} isAr={isAr} t={t} readOnly={terminal}
+                    onDecide={(k, d) => { const next = { ...(task.techDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { techDecisions: next }); }}
+                    onUpdate={(rfp, k) => setTaskData(task.id, { rfp, techDecisions: { ...(task.techDecisions ?? {}), [k]: 'modified' } })}
+                    onAcceptAll={(keys) => setTaskData(task.id, { techDecisions: { ...(task.techDecisions ?? {}), ...Object.fromEntries(keys.map((k) => [k, 'accepted' as const])) } })} />
               : task.qualEditor
                 ? <QualEditor task={task} readOnly={terminal} onChange={(f) => { if (JSON.stringify(f) !== JSON.stringify(task.qualForm ?? null) && (task.qualForm || f.members.length || f.criteria.some((m) => m.percentage !== '' || m.subCriteria.some((c) => c.range || c.percentage !== '')))) setTaskData(task.id, { qualForm: f }); }} />
                 : undefined} />}

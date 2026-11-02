@@ -183,6 +183,8 @@ export interface Task {
   /** Qualification task: edit the creation-page Qualification Criteria section. */
   qualEditor?: boolean;
   qualForm?: { criteria: import('../types/tender').QualMainCriteria[]; members: import('../types/tender').Person[] };
+  /** Qualification task: prefilled criteria, accept or modify each row. */
+  qualReview?: boolean;
   /** Technical member task: accept or modify each technical evaluation item. */
   techEvalReview?: boolean;
   techDecisions?: Record<string, 'accepted' | 'modified'>;
