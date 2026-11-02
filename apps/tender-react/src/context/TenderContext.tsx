@@ -160,9 +160,11 @@ interface ProviderProps {
   initialSourceType?: TenderFormData['sourceType'];
   /** Seed values from the Procurement Route flow (e.g. items pre-filled into the BOQ). */
   initialSeed?: Partial<TenderFormData>;
+  /** Embedded use (e.g. an Inbox task editing one section): never write to the request store. */
+  noPersist?: boolean;
 }
 
-export function TenderProvider({ children, requestId: givenId, initialForm, initialStatus, initialSourceType, initialSeed }: ProviderProps) {
+export function TenderProvider({ children, requestId: givenId, initialForm, initialStatus, initialSourceType, initialSeed, noPersist }: ProviderProps) {
   const store = useRequests();
   const [requestId] = useState(() => givenId ?? crypto.randomUUID());
   const [formData, setFormData] = useState<TenderFormData>(() =>
@@ -184,13 +186,13 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
   latest.current = { formData, status };
 
   const persist = useCallback(async (form: TenderFormData, st: TenderStatus, extra?: Record<string, unknown>) => {
-    if (store.mode !== 'live') { setSaveState('unavailable'); return false; }
+    if (noPersist || store.mode !== 'live') { setSaveState('unavailable'); return false; }
     setSaveState('saving');
     const ok = await store.save(requestId, form, st, extra);
     setSaveState(ok ? 'saved' : 'error');
     if (ok) setLastSaved(new Date());
     return ok;
-  }, [store, requestId]);
+  }, [store, requestId, noPersist]);
 
   // Mark edits; the debounced effect below does the real save.
   const triggerSave = useCallback(() => { dirty.current = true; }, []);

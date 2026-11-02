@@ -379,6 +379,47 @@ async function openRequest(title) {
     expect(await text('Please split the hosting line by environment.').count() > 0, 'return note not carried over');
   });
 
+  await test('Technical member task: creation-page criteria in view mode with Accept / Modify', async () => {
+    await page.getByRole('button', { name: /^All\s*\d+/ }).click(); await wait(200);
+    await page.locator('ul li > button:visible', { hasText: 'Review technical evaluation criteria' }).first().click(); await wait(LOAD);
+    for (const s of ['Technical Evaluation Member', 'Technical Documents List', 'Technical Requirements', 'Evaluation Criteria', 'Technical Passing Percentage'])
+      expect(await text(s).count() > 0, `missing ${s}`);
+    const approve = page.getByRole('button', { name: 'Approve', exact: true });
+    expect(await approve.isDisabled(), 'approve should be blocked until all items are reviewed');
+    await page.locator('[data-accept="req-0"]').click();
+    expect(await page.locator('[data-row="req-0"]').getAttribute('data-state') === 'accepted', 'accept');
+    await page.locator('[data-modify="eval-0"]').click();
+    expect(await count('[data-editing]') === 1 && await count('[data-row="eval-0"]') === 0, 'modify should open only that row');
+    await page.locator('[data-editing="eval-0"] input[type=number]').fill('40');
+    await page.locator('[data-save="eval-0"]').click();
+    expect(await page.locator('[data-row="eval-0"]').getAttribute('data-state') === 'modified', 'modified state');
+    expect(await page.locator('[data-weight-total]').getAttribute('data-weight-total') !== '100', 'weight total should change');
+    await page.getByRole('button', { name: 'Accept all remaining' }).click();
+    expect(await approve.isDisabled(), 'approve must stay blocked while weights ≠ 100%');
+    await page.locator('[data-row="eval-0"] button', { hasText: 'Undo' }).click();
+    await page.locator('[data-modify="eval-0"]').click();
+    const w = Number(await page.locator('[data-weight-total]').getAttribute('data-weight-total'));
+    const cur = Number(await page.locator('[data-editing="eval-0"] input[type=number]').inputValue());
+    await page.locator('[data-editing="eval-0"] input[type=number]').fill(String(cur - (w - 100)));
+    await page.locator('[data-save="eval-0"]').click();
+    expect(await page.locator('[data-weight-total]').getAttribute('data-weight-total') === '100', 'weights back to 100');
+    expect(!(await approve.isDisabled()), 'approve should be enabled once everything is reviewed');
+  });
+  await test('Qualification task: creation-page Qualification Criteria, Complete gated by 100% totals', async () => {
+    await page.locator('ul li > button:visible', { hasText: 'Review request & add qualification criteria' }).first().click(); await wait(LOAD);
+    expect(await count('[data-qual-editor]') === 1, 'qualification editor missing');
+    for (const s of ['Qualification Member', 'Qualification Criteria', 'Previous Experience', 'Existing Contractual Obligations', 'Human Resources', 'Main Criteria Total'])
+      expect(await text(s).count() > 0, `missing ${s}`);
+    const complete = page.getByRole('button', { name: 'Complete', exact: true });
+    expect(await complete.isDisabled(), 'complete should be disabled');
+    await page.getByRole('button', { name: /AI Suggest Values/ }).click();
+    await page.waitForFunction(() => !document.querySelector('[data-qual-editor] .ai-loading'), null, { timeout: 15000 });
+    await wait(300);
+    expect(!(await complete.isDisabled()), 'complete should be enabled when totals are 100%');
+    await tab('Activity'); await wait(200); await tab('Required action'); await wait(300);
+    expect(await text('Main Criteria Total: 100%').count() === 1, 'values lost after switching tabs');
+  });
+
   // ── Reports ───────────────────────────────────────────────────────────────
   const rowCount = async () => Number(await page.locator('[data-row-count]').getAttribute('data-row-count'));
   await test('Reports landing: 33 report tiles in 5 groups, search, group filter, favourites', async () => {

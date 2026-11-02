@@ -14,6 +14,8 @@ import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } fro
 import { TaskBody } from './renderers';
 import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
 import { BudgetChecker, useBudgetCheck } from './BudgetCheck';
+import TechEvalReview from './TechEvalReview';
+import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
 
 type T = (en: string, ar: string) => string;
@@ -66,7 +68,7 @@ function actionsFor(task: Task): ActionDef[] {
 export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: Task; onBack: () => void; onSideOpenChange?: (open: boolean) => void }) {
   const { isAr } = useLanguage();
   const t = useT();
-  const { decide, addComment, resolveComment, updateRfp } = useInbox();
+  const { decide, addComment, resolveComment, updateRfp, setTaskData } = useInbox();
   const [tab, setTab] = useState<'overview' | 'rfp' | 'activity'>('overview');
   const [showInfo, setShowInfo] = useState(false); // stage / outcomes note — hidden by default
   const [side, setSide] = useState<'comments' | 'history' | null>(null);
@@ -240,7 +242,15 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
         <div className="p-4 sm:p-6">
           {showInfo && <ContextNote task={task} isAr={isAr} t={t} onClose={() => setShowInfo(false)} />}
           {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
-            budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined} />}
+            budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
+            mainWidget={task.techEvalReview && task.rfp
+              ? <TechEvalReview task={task} isAr={isAr} t={t} readOnly={terminal}
+                  onDecide={(k, d) => { const next = { ...(task.techDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { techDecisions: next }); }}
+                  onUpdate={(rfp, k) => setTaskData(task.id, { rfp, techDecisions: { ...(task.techDecisions ?? {}), [k]: 'modified' } })}
+                  onAcceptAll={(keys) => setTaskData(task.id, { techDecisions: { ...(task.techDecisions ?? {}), ...Object.fromEntries(keys.map((k) => [k, 'accepted' as const])) } })} />
+              : task.qualEditor
+                ? <QualEditor task={task} readOnly={terminal} onChange={(f) => { if (JSON.stringify(f) !== JSON.stringify(task.qualForm ?? null) && (task.qualForm || f.members.length || f.criteria.some((m) => m.percentage !== '' || m.subCriteria.some((c) => c.range || c.percentage !== '')))) setTaskData(task.id, { qualForm: f }); }} />
+                : undefined} />}
           {tab === 'rfp' && (
             <div className="flex items-center justify-between gap-3 mb-3">
               <p className="text-[12px] text-neutral-500 truncate">{t('Request', 'الطلب')} <span className="font-semibold text-neutral-700" dir="ltr">#{task.entity.ref.replace(/^(RFP|REQ)-/, '')}</span> · {isAr ? task.entity.titleAr : task.entity.titleEn}</p>
@@ -1136,7 +1146,7 @@ function ContextNote({ task, isAr, t, onClose }: { task: Task; isAr: boolean; t:
   );
 }
 
-function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCount = 0, budgetWidget }: { task: Task; isAr: boolean; t: T; onReview?: () => void; commentCount?: number; resolvedCount?: number; budgetWidget?: React.ReactNode }) {
+function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCount = 0, budgetWidget, mainWidget }: { task: Task; isAr: boolean; t: T; onReview?: () => void; commentCount?: number; resolvedCount?: number; budgetWidget?: React.ReactNode; mainWidget?: React.ReactNode }) {
   const [officer, setOfficer] = useState(task.assignTo?.[0]?.id ?? '');
   const lines = task.rfp?.boq ?? [];
   const budgets = Array.from(new Set(lines.map((l) => l.budgetEn ?? '')));
@@ -1233,10 +1243,12 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
         </div>
       )}
 
-      {/* Task form / record */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-        <TaskBody task={task} />
-      </div>
+      {/* Task form / record — or the creation-page section this task works on */}
+      {mainWidget ?? (
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <TaskBody task={task} />
+        </div>
+      )}
     </div>
   );
 }
