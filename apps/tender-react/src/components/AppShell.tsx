@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import ViewAsSwitcher from './ViewAsSwitcher';
+import { TopProgress, useLoading } from './Loader';
 import { useRequests } from '../context/RequestStore';
 import { useInbox } from '../inbox/store';
 import logoUrl from '../imports/Color_Full_color__Size_Large__Type_Full_logo.png';
@@ -22,6 +23,8 @@ interface AppShellProps {
 export default function AppShell({ currentPage, onNavigate, onNewRequest, children }: AppShellProps) {
   const { lang, setLang, isAr } = useLanguage();
   const t = useT();
+
+  useLoading([currentPage], 350); // top progress bar on every page change
 
   // Collapsed by default; the switch beside "Main Menu" expands it.
   const [collapsed, setCollapsed] = useState(true);
@@ -180,6 +183,7 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
         >
           {children}
         </main>
+        <TopProgress />
       </div>
     </div>
   );

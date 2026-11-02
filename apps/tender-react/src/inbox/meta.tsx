@@ -36,7 +36,7 @@ export const PRIORITY_META: Record<Priority, { en: string; ar: string; dot: stri
 
 export const ENTITY_META: Record<EntityKind, { en: string; ar: string }> = {
   PR:       { en: 'PR',       ar: 'طلب شراء' },
-  RFP:      { en: 'RFP',      ar: 'منافسة' },
+  RFP:      { en: 'Request',  ar: 'طلب' },
   RFQ:      { en: 'RFQ',      ar: 'طلب عرض' },
   PO:       { en: 'PO',       ar: 'أمر شراء' },
   INVOICE:  { en: 'Invoice',  ar: 'فاتورة' },

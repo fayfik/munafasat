@@ -167,8 +167,8 @@ export default function ProjectSetup() {
               <DocumentIcon className="w-4 h-4 text-neutral-500" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold text-neutral-800">{isEsouq ? t(`${similarRfps.length} similar E-Market purchases found`, `تم العثور على ${similarRfps.length} عمليات شراء مشابهة في السوق الإلكتروني`) : t(`${similarRfps.length} similar RFPs found`, `تم العثور على ${similarRfps.length} طلبات عروض مماثلة`)}</p>
-              <p className="text-[12px] text-neutral-600 mt-0.5">{isEsouq ? t(`There are ${similarRfps.length} E-Market purchases created in this project before — import one to pre-fill the purpose and catalogue items, then edit anything you need before submitting.`, `هناك ${similarRfps.length} عمليات شراء عبر السوق الإلكتروني أُنشئت في هذا المشروع سابقاً — استورد إحداها لتعبئة الغرض وبنود الكتالوج، ثم عدّل ما تشاء قبل التقديم.`) : t(`There are ${similarRfps.length} similar RFPs created in this project before — import another RFP's data to fill this request faster, then edit anything you need before submitting.`, `هناك ${similarRfps.length} طلبات عروض مماثلة أُنشئت في هذا المشروع سابقاً — استورد بيانات طلب آخر لتعبئة هذا الطلب بشكل أسرع، ثم عدّل ما تشاء قبل التقديم.`)}</p>
+              <p className="text-[13px] font-semibold text-neutral-800">{isEsouq ? t(`${similarRfps.length} similar E-Market purchases found`, `تم العثور على ${similarRfps.length} عمليات شراء مشابهة في السوق الإلكتروني`) : t(`${similarRfps.length} similar requests found`, `تم العثور على ${similarRfps.length} طلبات مماثلة`)}</p>
+              <p className="text-[12px] text-neutral-600 mt-0.5">{isEsouq ? t(`There are ${similarRfps.length} E-Market purchases created in this project before — import one to pre-fill the purpose and catalogue items, then edit anything you need before submitting.`, `هناك ${similarRfps.length} عمليات شراء عبر السوق الإلكتروني أُنشئت في هذا المشروع سابقاً — استورد إحداها لتعبئة الغرض وبنود الكتالوج، ثم عدّل ما تشاء قبل التقديم.`) : t(`There are ${similarRfps.length} similar requests created in this project before — import another request's data to fill this request faster, then edit anything you need before submitting.`, `هناك ${similarRfps.length} طلبات عروض مماثلة أُنشئت في هذا المشروع سابقاً — استورد بيانات طلب آخر لتعبئة هذا الطلب بشكل أسرع، ثم عدّل ما تشاء قبل التقديم.`)}</p>
             </div>
             <button type="button" onClick={() => setRfpOpen((v) => !v)}
               className="inline-flex items-center gap-1 text-[12px] font-semibold text-ai-700 hover:text-ai-800 flex-shrink-0">
@@ -213,7 +213,7 @@ export default function ProjectSetup() {
 
               {!isEsouq && (
                 <button type="button" onClick={() => setShowRfpDialog(true)} className="mt-2.5 inline-flex items-center gap-1.5 px-0.5 text-[12px] font-semibold text-link hover:underline underline-offset-2">
-                  {t('Browse all RFPs', 'تصفح جميع طلبات العروض')}<ArrowLeftIcon className="w-3.5 h-3.5 ltr:rotate-180" />
+                  {t('Browse all requests', 'تصفح جميع الطلبات')}<ArrowLeftIcon className="w-3.5 h-3.5 ltr:rotate-180" />
                 </button>
               )}
             </div>

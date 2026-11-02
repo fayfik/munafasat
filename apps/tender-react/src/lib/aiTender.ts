@@ -13,7 +13,7 @@ function context(f: TenderFormData, opts: { boq?: boolean; deliverables?: boolea
   const lines: string[] = [
     `Organization: Saudi Industrial Development Fund (SIDF), a Saudi government entity. Procurement follows the Saudi Government Tenders and Procurement Law and uses the Etimad platform.`,
     `Today's date: ${today()}. Every date you propose must be after today.`,
-    `Procurement channel: ${f.sourceType === 'souq-etimad' ? 'Etimad E-Market (e-marketplace)' : 'Public tender (RFP)'}`,
+    `Procurement channel: ${f.sourceType === 'souq-etimad' ? 'Etimad E-Market (e-marketplace)' : 'Public tender'}`,
   ];
   if (cc) lines.push(`Cost center: ${cc.name} (${cc.code})`);
   if (p) {

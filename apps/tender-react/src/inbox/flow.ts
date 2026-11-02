@@ -9,7 +9,7 @@ import type { TenderFormData } from '../types/tender';
 import { reviewDepartments, deriveIncludesFromItems } from '../components/ProjectIncludesSelect';
 import { effectiveQty } from '../lib/boqManpower';
 import { PEOPLE as P } from './data';
-import type { Bilingual, ChecklistItem, CollectField, Person, RfpDetail, Task, TaskActionDef, TrailStep } from './types';
+import type { Bilingual, ChecklistItem, Person, RfpDetail, Task, TaskActionDef, TrailStep } from './types';
 
 const sup = (en: string, ar: string): Bilingual => ({ en, ar });
 const step = (titleEn: string, titleAr: string, descEn: string, descAr: string) => ({ titleEn, titleAr, descEn, descAr });
@@ -125,16 +125,13 @@ export const flowTaskId = (requestNo: string, key: string) => `FLW-${requestNo}-
 const confirm = (id: string, en: string, ar: string): ChecklistItem => ({ id, label: sup(en, ar), mandatory: true, kind: 'confirm', done: false });
 const text = (id: string, en: string, ar: string): ChecklistItem => ({ id, label: sup(en, ar), mandatory: true, kind: 'text', value: '', done: false });
 const pick = (id: string, en: string, ar: string, opts: [string, string][]): ChecklistItem => ({ id, label: sup(en, ar), mandatory: true, kind: 'decision', options: opts.map(([e, a]) => sup(e, a)), value: '', done: false });
-const num = (id: string, en: string, ar: string, required = true, hint?: Bilingual): CollectField => ({ id, label: sup(en, ar), kind: 'number', required, value: null, hint });
-const txt = (id: string, en: string, ar: string, ph?: string): CollectField => ({ id, label: sup(en, ar), kind: 'text', required: true, value: null, placeholder: ph ? sup(ph, ph) : undefined });
 
 const APPROVE_RETURN: TaskActionDef[] = [
   { id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary', gated: true },
   { id: 'return', labelEn: 'Return', labelAr: 'إعادة', variant: 'secondary', needsNote: true },
 ];
-const COMPLETE: TaskActionDef[] = [
+const QUAL_COMPLETE: TaskActionDef[] = [
   { id: 'complete', labelEn: 'Complete', labelAr: 'إكمال', variant: 'primary', gated: true, decision: sup('Qualification criteria added', 'تمت إضافة معايير التأهيل') },
-  { id: 'save-draft', labelEn: 'Save draft', labelAr: 'حفظ مسودة', variant: 'secondary' },
 ];
 
 interface StageDef {
@@ -171,7 +168,6 @@ function stageDefs({ form, requestNo, total }: FlowInput, requester: Person): Re
   const who = requester.name;
   const fromUser = (en: string, ar: string) => sup(`${en} #${requestNo} from ${who}`, `${ar} رقم ${requestNo} من ${requester.nameAr ?? who}`);
   const fromDept = (en: string, ar: string) => sup(`${en} #${requestNo} from ${dept}`, `${ar} رقم ${requestNo} من ${deptAr}`);
-  const evalTotal = form.evaluationCriteria.reduce((s, c) => s + (Number(c.weight) || 0), 0);
   const lines = form.boqItems.length;
   const assetLines = form.boqItems.filter((b) => b.category === 'equipment' || b.category === 'material').length;
   const record = [
@@ -187,13 +183,13 @@ function stageDefs({ form, requestNo, total }: FlowInput, requester: Person): Re
   const doaBy = doaHigh ? P.director : P.tl;
   const review = (key: StageKey, assignee: Person, en: string, ar: string, summary: Bilingual, checklist: ChecklistItem[], sla = 1): StageDef => ({
     key, type: 'review', assignee, sla, priority: 'medium', parallel: true,
-    stage: sup(en, ar), title: fromDept('Review RFP', 'مراجعة المنافسة'), summary, actions: APPROVE_RETURN,
+    stage: sup(en, ar), title: fromDept('Review request', 'مراجعة الطلب'), summary, actions: APPROVE_RETURN,
     extra: { findingsLabel: sup('Review notes', 'ملاحظات المراجعة'), checklist, parallelGroup: `pg-${requestNo}` },
   });
   return {
     mgr: {
       key: 'mgr', type: 'approval', assignee: P.manager, sla: 1, priority: 'high',
-      stage: sup('Department approval', 'اعتماد الإدارة'), title: fromUser('Review & approve RFP', 'مراجعة واعتماد المنافسة'),
+      stage: sup('Department approval', 'اعتماد الإدارة'), title: fromUser('Review & approve request', 'مراجعة واعتماد الطلب'),
       summary: sup(`${who} submitted this tender request. Review the request details, add comments on any section or field, then approve, return or reject.`, `قدّم ${requester.nameAr ?? who} طلب المنافسة هذا. راجع التفاصيل وأضف ملاحظاتك ثم اعتمد أو أعد أو ارفض.`),
       actions: [
         { id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary' },
@@ -204,15 +200,11 @@ function stageDefs({ form, requestNo, total }: FlowInput, requester: Person): Re
     },
     tech: {
       key: 'tech', type: 'review', assignee: P.techMember, sla: 2, priority: 'medium',
-      stage: sup('Technical member review', 'مراجعة العضو الفني'), title: fromUser('Review technical evaluation criteria for RFP', 'مراجعة معايير التقييم الفني للمنافسة'),
-      summary: sup('Verify the technical requirements, evaluation criteria and weights before the specialist and finance reviews.', 'تحقق من المتطلبات الفنية ومعايير التقييم وأوزانها قبل المراجعات التخصصية والمالية.'),
+      stage: sup('Technical member review', 'مراجعة العضو الفني'), title: fromUser('Review technical evaluation criteria for request', 'مراجعة معايير التقييم الفني للطلب'),
+      summary: sup('Go through the technical evaluation set by the requester — documents, requirements, evaluation criteria and the passing score. Accept each item or modify it.', 'راجع التقييم الفني الذي حدده مقدّم الطلب — الوثائق والمتطلبات ومعايير التقييم ودرجة الاجتياز. اقبل كل بند أو عدّله.'),
       actions: APPROVE_RETURN,
-      extra: { findingsLabel: sup('Review notes', 'ملاحظات المراجعة'), checklist: [
-        confirm('c1', `Technical requirements are complete and clear (${form.technicalRequirements.length} listed)`, `المتطلبات الفنية مكتملة وواضحة (${form.technicalRequirements.length})`),
-        confirm('c2', `Evaluation criteria weights total 100% (currently ${evalTotal}%)`, `مجموع أوزان معايير التقييم 100% (حالياً ${evalTotal}%)`),
-        text('c3', 'Technical passing score (%) confirmed', 'درجة الاجتياز الفنية (%)'),
-        { ...confirm('c4', `Evaluation committee is set (${form.technicalCommitteeMembers.length} members)`, `تم تحديد لجنة التقييم (${form.technicalCommitteeMembers.length})`), allowNA: false },
-      ].map((c) => (c.id === 'c3' ? { ...c, kind: 'number' as const, value: form.technicalPassingPercentage || '' } : c)) },
+      // Same as the Inbox's technical member task: accept or modify each creation-page section.
+      extra: { techEvalReview: true, techDecisions: {} },
     },
     cyber: review('cyber', P.cyber, 'Specialist review — Cyber Security', 'مراجعة تخصصية — الأمن السيبراني',
       sup('Confirm NCA requirements are captured and classify the data this purchase touches.', 'تأكد من تضمين متطلبات الهيئة الوطنية للأمن السيبراني وصنّف البيانات.'), [
@@ -252,32 +244,21 @@ function stageDefs({ form, requestNo, total }: FlowInput, requester: Person): Re
       ]),
     finq: {
       key: 'finq', type: 'data-collection', assignee: P.finQual, sla: 1, priority: 'medium',
-      stage: sup('Qualification — Finance', 'التأهيل — المالية'), title: fromDept('Review request & add qualification criteria for RFP', 'مراجعة الطلب وإضافة معايير التأهيل للمنافسة'),
-      summary: sup('Add the financial qualification criteria: cash ratio, quick ratio, ranges, weights and passing %.', 'أضف معايير التأهيل المالي: نسبة النقدية والسيولة السريعة والنطاقات والأوزان ونسبة الاجتياز.'),
-      actions: COMPLETE,
-      extra: { fields: [
-        txt('f1', 'Cash ratio (latest fiscal year) — range', 'نسبة النقدية — النطاق', 'e.g. ≥ 1.2'),
-        num('f2', 'Cash ratio — weight (%)', 'نسبة النقدية — الوزن (%)'),
-        txt('f3', 'Quick ratio (latest fiscal year) — range', 'نسبة السيولة السريعة — النطاق', 'e.g. ≥ 1.0'),
-        num('f4', 'Quick ratio — weight (%)', 'نسبة السيولة السريعة — الوزن (%)'),
-        num('f5', 'Financial qualification passing %', 'نسبة الاجتياز المالي'),
-      ] },
+      stage: sup('Qualification — Finance', 'التأهيل — المالية'), title: fromDept('Review request & add qualification criteria for request', 'مراجعة الطلب وإضافة معايير التأهيل للطلب'),
+      summary: sup('Add the qualification criteria for this request: ranges and weights for each main and sub-criterion, and the qualification member.', 'أضف معايير التأهيل لهذا الطلب: النطاقات والأوزان لكل معيار رئيسي وفرعي، وعضو التأهيل.'),
+      actions: QUAL_COMPLETE,
+      extra: { qualReview: true, techDecisions: {} },
     },
     procq: {
       key: 'procq', type: 'data-collection', assignee: P.procQual, sla: 1, priority: 'medium',
-      stage: sup('Qualification — Procurement', 'التأهيل — المشتريات'), title: fromDept('Review request & add qualification criteria for RFP', 'مراجعة الطلب وإضافة معايير التأهيل للمنافسة'),
-      summary: sup('Complete the procurement qualification criteria weights and the passing percentage.', 'أكمل أوزان معايير تأهيل المشتريات ونسبة الاجتياز.'),
-      actions: COMPLETE,
-      extra: { fields: [
-        num('f1', 'Previous experience — weight (%)', 'الخبرة السابقة — الوزن (%)'),
-        num('f2', 'Existing contractual obligations — weight (%)', 'الالتزامات التعاقدية القائمة — الوزن (%)'),
-        num('f3', 'Human resources — weight (%)', 'الموارد البشرية — الوزن (%)'),
-        num('f4', 'Qualification passing %', 'نسبة الاجتياز للتأهيل'),
-      ] },
+      stage: sup('Qualification — Procurement', 'التأهيل — المشتريات'), title: fromDept('Review request & add qualification criteria for request', 'مراجعة الطلب وإضافة معايير التأهيل للطلب'),
+      summary: sup('Complete the qualification criteria for this request: ranges and weights for each main and sub-criterion, and the qualification member.', 'أكمل معايير التأهيل لهذا الطلب: النطاقات والأوزان لكل معيار رئيسي وفرعي، وعضو التأهيل.'),
+      actions: QUAL_COMPLETE,
+      extra: { qualReview: true, techDecisions: {} },
     },
     tl: {
       key: 'tl', type: 'approval', assignee: P.tl, sla: 4, priority: 'high',
-      stage: sup('Procurement review — Team Lead', 'مراجعة المشتريات — رئيس الفريق'), title: fromDept('Review RFP', 'مراجعة المنافسة'),
+      stage: sup('Procurement review — Team Lead', 'مراجعة المشتريات — رئيس الفريق'), title: fromDept('Review request', 'مراجعة الطلب'),
       summary: sup('With no comments, send it for DOA approval; if it is new or has comments, assign it to an officer.', 'إن لم توجد ملاحظات أرسله لاعتماد الصلاحيات، وإن كان جديداً أو عليه ملاحظات أسنده إلى أخصائي.'),
       actions: [
         { id: 'approve', labelEn: 'Submit for DOA approval', labelAr: 'إرسال لاعتماد الصلاحيات', variant: 'primary', decision: sup('Submitted for DOA approval', 'أُرسل لاعتماد الصلاحيات') },
@@ -287,8 +268,8 @@ function stageDefs({ form, requestNo, total }: FlowInput, requester: Person): Re
     },
     officer: {
       key: 'officer', type: 'review', assignee: P.officer, sla: 2, priority: 'high',
-      stage: sup('Procurement review — Officer', 'مراجعة المشتريات — الأخصائي'), title: fromDept('Review RFP', 'مراجعة المنافسة'),
-      summary: sup('Check the RFP before DOA approval. Return it with comments if anything needs correcting.', 'راجع المنافسة قبل اعتماد الصلاحيات. أعدها مع ملاحظات إن احتاج شيء إلى تصحيح.'),
+      stage: sup('Procurement review — Officer', 'مراجعة المشتريات — الأخصائي'), title: fromDept('Review request', 'مراجعة الطلب'),
+      summary: sup('Check the request before DOA approval. Return it with comments if anything needs correcting.', 'راجع المنافسة قبل اعتماد الصلاحيات. أعدها مع ملاحظات إن احتاج شيء إلى تصحيح.'),
       actions: [
         { id: 'submit', labelEn: 'Submit for DOA approval', labelAr: 'إرسال لاعتماد الصلاحيات', variant: 'primary', gated: true, decision: sup('Submitted for DOA approval', 'أُرسل لاعتماد الصلاحيات') },
         { id: 'return', labelEn: 'Return with comments', labelAr: 'إعادة مع ملاحظات', variant: 'secondary', needsNote: true },
@@ -296,13 +277,13 @@ function stageDefs({ form, requestNo, total }: FlowInput, requester: Person): Re
       extra: { findingsLabel: sup('Officer comments', 'ملاحظات الأخصائي'), checklist: [
         confirm('c1', 'Reviewer comments addressed', 'تمت معالجة ملاحظات المراجعين'),
         { ...confirm('c2', form.hasBrandName ? 'Brand name justified' : 'No brand names in the BOQ', form.hasBrandName ? 'تم تبرير العلامة التجارية' : 'لا توجد علامات تجارية'), allowNA: true },
-        confirm('c3', 'RFP is clear and its sections are linked', 'المنافسة واضحة وأقسامها مترابطة'),
+        confirm('c3', 'Request is clear and its sections are linked', 'المنافسة واضحة وأقسامها مترابطة'),
         confirm('c4', 'No formal or systemic violations', 'لا توجد مخالفات شكلية أو نظامية'),
       ] },
     },
     doa: {
       key: 'doa', type: 'approval', assignee: doaBy, sla: 2, priority: 'high',
-      stage: sup('DOA approval', 'اعتماد تفويض الصلاحيات'), title: fromDept('DOA approval for RFP', 'اعتماد تفويض الصلاحيات للمنافسة'),
+      stage: sup('DOA approval', 'اعتماد تفويض الصلاحيات'), title: sup('Approval DOA', 'اعتماد تفويض الصلاحيات'),
       summary: sup('Approve the request per the delegation of authority (DOA).', 'اعتمد الطلب وفق مصفوفة تفويض الصلاحيات.'),
       actions: [{ id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary' }],
       extra: { approvalRecord: record, doaInfo: [
@@ -314,7 +295,7 @@ function stageDefs({ form, requestNo, total }: FlowInput, requester: Person): Re
     },
     price: {
       key: 'price', type: 'approval', assignee: P.director, sla: 2, priority: 'medium',
-      stage: sup('Estimated price approval', 'اعتماد السعر التقديري'), title: fromDept('Approve estimated price for RFP', 'اعتماد السعر التقديري للمنافسة'),
+      stage: sup('Estimated price approval', 'اعتماد السعر التقديري'), title: fromDept('Approve estimated price for request', 'اعتماد السعر التقديري للطلب'),
       summary: sup('Approve the estimated price. Request approval completes here and hands off to PR creation in SAP ECC.', 'اعتمد السعر التقديري. يكتمل اعتماد الطلب هنا وينتقل إلى إنشاء طلب الشراء.'),
       actions: [
         { id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary' },

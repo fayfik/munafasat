@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { LanguageProvider } from './context/LanguageContext';
 import { TenderProvider } from './context/TenderContext';
 import { RequestStoreProvider, useRequests } from './context/RequestStore';
-import EmptyPage from './pages/EmptyPage';
+import ReportsPage from './reports/ReportsPage';
 import { InboxProvider } from './inbox/store';
 import InboxPage from './inbox/InboxPage';
 import AppShell, { type AppPage } from './components/AppShell';
 import Dashboard from './pages/Dashboard';
 import MyRequests from './pages/MyRequests';
-import TenderForm from './pages/TenderForm';
 import RequestDetail from './pages/RequestDetail';
+import { PageLoad } from './components/Loader';
+import TenderForm from './pages/TenderForm';
 import type { SourceType, TenderFormData } from './types/tender';
 import { onAppNav } from './lib/appNav';
 import FlowSync from './inbox/FlowSync';
@@ -63,9 +64,9 @@ function AppRoot() {
   // Every new request opens the wizard on its Procurement Route step (Step 1),
   // which determines the channel; the dashboard quick actions land here too.
   const newRequest = (_sourceType?: SourceType) => open({ kind: 'new' });
-  // Drafts and returned requests open in the wizard to keep working on them; anything already
-  // submitted opens its detail page (where it stands, what's in it, linked requests).
-  const editRequest = (id: string) => open({ kind: 'existing', id });
+  // Clicking a request opens its detail page; editing (draft / returned) opens the form.
+  const editRequest = (id: string) => { const r = store.get(id); if (r?.form) open({ kind: 'existing', id }); else newRequest(r?.type); };
+  const viewRequest = (id: string) => { setDetailId(id); setPage('request-detail'); };
   const openRequest = (id: string) => {
     const r = store.get(id);
     // A request in the live approval flow always opens its detail page (comments are answered from there).
@@ -93,19 +94,19 @@ function AppRoot() {
       onNewRequest={() => newRequest()}
     >
       {page === 'dashboard' && (
-        <Dashboard
+        <PageLoad cards={3}><Dashboard
           onNewRequest={newRequest}
-          onOpenRequest={openRequest}
+          onOpenRequest={viewRequest}
           onViewRequests={(f) => { setReqFilter(f ?? 'all'); setPage('my-requests'); }}
-        />
+        /></PageLoad>
       )}
       {page === 'inbox' && <InboxPage key={focusTask ? `${focusTask.id}-${focusTask.n}` : 'inbox'} focusTaskId={focusTask?.id} />}
-      {page === 'reports' && <EmptyPage page="reports" />}
-      {page === 'request-detail' && detailId && (
-        <RequestDetail key={detailId} id={detailId} onBack={() => setPage('my-requests')} onEdit={editRequest} onOpen={openRequest} />
-      )}
+      {page === 'reports' && <PageLoad cards={2}><ReportsPage /></PageLoad>}
       {page === 'my-requests' && (
-        <MyRequests key={reqFilter} initialFilter={reqFilter} onNewRequest={() => newRequest()} onOpenRequest={openRequest} />
+        <MyRequests key={reqFilter} initialFilter={reqFilter} onNewRequest={() => newRequest()} onOpenRequest={viewRequest} />
+      )}
+      {page === 'request-detail' && detailId && (
+        <RequestDetail key={detailId} id={detailId} onBack={() => setPage('my-requests')} onEdit={editRequest} />
       )}
       {page === 'tender-form' && (
         <TenderProvider

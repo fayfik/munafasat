@@ -95,13 +95,13 @@ export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, pr
               <div className="relative">
                 <SearchIcon className={`w-3.5 h-3.5 text-neutral-400 absolute top-1/2 -translate-y-1/2 ${isAr ? 'right-2.5' : 'left-2.5'} pointer-events-none`} />
                 <input value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t('Search RFP by name or code…', 'ابحث عن منافسة بالاسم أو الرمز…')}
+                  placeholder={t('Search requests by name or code…', 'ابحث عن طلب بالاسم أو الرمز…')}
                   className={`w-full h-8 ${isAr ? 'pr-8 pl-2.5' : 'pl-8 pr-2.5'} text-[12px] rounded-lg border border-neutral-300 bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none`} />
               </div>
             </div>
             <p className="px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Projects', 'المشاريع')}</p>
             {visibleProjects.length === 0 && (
-              <p className="px-4 py-4 text-[12px] text-neutral-400">{t('No matching RFPs.', 'لا توجد منافسات مطابقة.')}</p>
+              <p className="px-4 py-4 text-[12px] text-neutral-400">{t('No matching requests.', 'لا توجد طلبات مطابقة.')}</p>
             )}
             {visibleProjects.map((p) => {
               const c = counts[p.id];

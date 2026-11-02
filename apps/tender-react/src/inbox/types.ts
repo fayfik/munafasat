@@ -214,6 +214,16 @@ export interface Task {
   assignTo?: Person[];          // officers the TL can assign to
   doaInfo?: { label: Bilingual; value: string }[];
   priceBreakdown?: boolean;     // show the estimated price by budget item
+  /** Budget check against SAP Funds Management (manager approval). Approve is blocked when short. */
+  /** Qualification task: edit the creation-page Qualification Criteria section. */
+  qualEditor?: boolean;
+  qualForm?: { criteria: import('../types/tender').QualMainCriteria[]; members: import('../types/tender').Person[] };
+  /** Qualification task: prefilled criteria, accept or modify each row. */
+  qualReview?: boolean;
+  /** Technical member task: accept or modify each technical evaluation item. */
+  techEvalReview?: boolean;
+  techDecisions?: Record<string, 'accepted' | 'modified'>;
+  budgetCheck?: { fundCenter: string; commitmentItem: string; fiscalYear: number; total: number; consumed: number };
   reviewComments?: boolean;     // reviewer can pin comments to RFP sections/fields
   respondComments?: boolean;    // requester replies to / resolves review comments and edits commented fields
   /** Steps shown in the decision dialog ("What's next?") per action id. */

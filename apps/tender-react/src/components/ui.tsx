@@ -468,7 +468,7 @@ export function PeoplePicker({ value, onChange, placeholder, label, single = fal
                           <p className="text-neutral-500 text-[11px] truncate">{dispRole(m)} · {m.department}</p>
                         </div>
                         <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-ai-700 bg-ai-100/70 rounded-full px-2 py-0.5 flex-shrink-0 whitespace-nowrap">
-                          {t(`${m.reviewed} RFP${m.reviewed > 1 ? 's' : ''} reviewed`, `راجع ${m.reviewed} طلب`)}
+                          {t(`${m.reviewed} request${m.reviewed > 1 ? 's' : ''} reviewed`, `راجع ${m.reviewed} طلب`)}
                         </span>
                       </button>
                     </li>

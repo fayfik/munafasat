@@ -39,8 +39,8 @@ export default function BrowseRfpsDialog({ projectId, onClose, onImport }: { pro
         {/* Header */}
         <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4 border-b border-neutral-100">
           <div>
-            <h2 id="rfp-dialog-title" className="text-[15px] font-semibold text-neutral-900">{t('Browse all RFPs', 'تصفح جميع طلبات العروض')}</h2>
-            <p className="text-[12px] text-neutral-500 mt-0.5">{t('Pick an RFP to import its details into this request. You can edit everything afterwards.', 'اختر طلب عروض لاستيراد تفاصيله إلى هذا الطلب. يمكنك تعديل كل شيء لاحقاً.')}</p>
+            <h2 id="rfp-dialog-title" className="text-[15px] font-semibold text-neutral-900">{t('Browse all requests', 'تصفح جميع الطلبات')}</h2>
+            <p className="text-[12px] text-neutral-500 mt-0.5">{t('Pick a request to import its details into this one. You can edit everything afterwards.', 'اختر طلباً لاستيراد تفاصيله إلى هذا الطلب. يمكنك تعديل كل شيء لاحقاً.')}</p>
           </div>
           <button type="button" onClick={onClose} aria-label={t('Close', 'إغلاق')} className="w-8 h-8 -me-2 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100">
             <XIcon className="w-4 h-4" />
@@ -56,12 +56,12 @@ export default function BrowseRfpsDialog({ projectId, onClose, onImport }: { pro
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('Search by title, RFP number or department…', 'ابحث بالعنوان أو رقم الطلب أو الإدارة…')}
+              placeholder={t('Search by title, request number or department…', 'ابحث بالعنوان أو رقم الطلب أو الإدارة…')}
               className="w-full ps-8 pe-3 py-2 text-[13px] rounded-lg border border-neutral-200 bg-neutral-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none placeholder:text-neutral-400"
             />
           </div>
           <div role="radiogroup" aria-label={t('Show', 'عرض')} className="inline-flex rounded-lg border border-neutral-300 bg-neutral-50 p-0.5">
-            {([['all', t('All RFPs', 'جميع الطلبات')], ['project', t('This project', 'هذا المشروع')]] as const).map(([v, label]) => (
+            {([['all', t('All requests', 'جميع الطلبات')], ['project', t('This project', 'هذا المشروع')]] as const).map(([v, label]) => (
               <button key={v} type="button" role="radio" aria-checked={scope === v} onClick={() => setScope(v)}
                 className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${scope === v ? 'bg-white text-brand-700 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>
                 {label}
@@ -71,9 +71,9 @@ export default function BrowseRfpsDialog({ projectId, onClose, onImport }: { pro
         </div>
 
         {/* List */}
-        <div role="radiogroup" aria-label={t('RFPs', 'طلبات العروض')} className="flex-1 overflow-y-auto px-6 py-3 space-y-2 bg-neutral-50">
+        <div role="radiogroup" aria-label={t('Requests', 'الطلبات')} className="flex-1 overflow-y-auto px-6 py-3 space-y-2 bg-neutral-50">
           {list.length === 0 && (
-            <p className="py-10 text-center text-[13px] text-neutral-400">{t('No RFPs match your search.', 'لا توجد طلبات مطابقة.')}</p>
+            <p className="py-10 text-center text-[13px] text-neutral-400">{t('No requests match your search.', 'لا توجد طلبات مطابقة.')}</p>
           )}
           {list.map((r) => {
             const isSel = r.id === selected;
@@ -110,7 +110,7 @@ export default function BrowseRfpsDialog({ projectId, onClose, onImport }: { pro
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 px-6 py-3.5 border-t border-neutral-100 bg-white">
           <p className="text-[12px] text-neutral-500 truncate">
-            {chosen ? t(`Selected: ${chosen.code}`, `المحدد: ${chosen.code}`) : t(`${list.length} RFPs`, `${list.length} طلب`)}
+            {chosen ? t(`Selected: ${chosen.code}`, `المحدد: ${chosen.code}`) : t(`${list.length} requests`, `${list.length} طلب`)}
           </p>
           <div className="flex items-center gap-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-neutral-300 bg-white text-[13px] font-medium text-neutral-700 hover:bg-neutral-50">

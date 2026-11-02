@@ -40,6 +40,23 @@ export function isBlocked(task: Task, all: Task[]) {
 // ── Completion gating (enforced here, as a backend would) ──────────────────────
 export interface Completion { canComplete: boolean; missing: Bilingual[]; done: number; total: number }
 
+/** Row keys the technical member must accept or modify (mirrors TechEvalReview). */
+export function techReviewKeys(task: Task): string[] {
+  const r = task.rfp;
+  if (!r) return [];
+  return [
+    ...(r.techDocs ?? []).map((_, i) => `doc-${i}`),
+    ...(r.techRequirements ?? []).map((_, i) => `req-${i}`),
+    ...r.evaluation.map((_, i) => `eval-${i}`),
+    'passing',
+  ];
+}
+
+/** Row keys the qualification reviewer must accept or modify (mirrors QualReview). */
+export function qualReviewKeys(task: Task): string[] {
+  return (task.rfp?.qualCriteria ?? []).flatMap((m, i) => [`qm-${i}`, ...m.subs.map((_, j) => `qs-${i}-${j}`)]);
+}
+
 export function completionStatus(task: Task): Completion {
   const missing: Bilingual[] = [];
   let done = 0, total = 0;
@@ -56,6 +73,23 @@ export function completionStatus(task: Task): Completion {
       const ok = checkItemDone(c) && (!c.evidenceRequired || (c.evidence?.length ?? 0) > 0);
       if (ok) done++; else missing.push(c.label);
     }
+  } else if (task.qualEditor) {
+    const crit = task.qualForm?.criteria ?? [];
+    const pct = (v: number | '') => (typeof v === 'number' ? v : 0);
+    const main = crit.reduce((s, m) => s + pct(m.percentage), 0);
+    // Same completion rule as the request-creation Qualification step.
+    total = 2;
+    if (crit.length && main === 100) done++; else missing.push({ en: 'Main criteria must total 100%', ar: 'يجب أن يبلغ مجموع المعايير الرئيسية 100%' });
+    if (crit.length && crit.every((m) => m.subCriteria.reduce((s, c) => s + pct(c.percentage), 0) === 100)) done++; else missing.push({ en: 'Each sub-criteria group must total 100%', ar: 'يجب أن تبلغ كل مجموعة معايير فرعية 100%' });
+  } else if (task.qualReview) {
+    const crit = task.rfp?.qualCriteria ?? [];
+    for (const k of qualReviewKeys(task)) { total++; if (task.techDecisions?.[k]) done++; else missing.push({ en: `Accept or modify ${k}`, ar: `اقبل أو عدّل ${k}` }); }
+    total++; if (crit.length && crit.reduce((s, m) => s + m.pct, 0) === 100) done++; else missing.push({ en: 'Main criteria must total 100%', ar: 'يجب أن يبلغ مجموع المعايير الرئيسية 100%' });
+    total++; if (crit.every((m) => m.subs.reduce((s, c) => s + c.pct, 0) === 100)) done++; else missing.push({ en: 'Each sub-criteria group must total 100%', ar: 'يجب أن تبلغ كل مجموعة معايير فرعية 100%' });
+  } else if (task.techEvalReview) {
+    for (const k of techReviewKeys(task)) { total++; if (task.techDecisions?.[k]) done++; else missing.push({ en: `Accept or modify ${k}`, ar: `اقبل أو عدّل ${k}` }); }
+    const w = (task.rfp?.evaluation ?? []).reduce((x, c) => x + c.weight, 0);
+    total++; if (w === 100) done++; else missing.push({ en: 'Evaluation criteria weights must total 100%', ar: 'يجب أن يبلغ مجموع أوزان معايير التقييم 100%' });
   } else if (task.type === 'data-collection' && task.fields) {
     for (const f of task.fields) {
       if (!f.required) continue;
@@ -148,6 +182,7 @@ interface InboxCtx {
   addComment: (id: string, text: string, anchor?: ActivityEntry['anchor'], replyTo?: string, editNote?: boolean) => void;
   resolveComment: (id: string, commentId: string, resolved: boolean) => void;
   updateRfp: (id: string, rfp: RfpDetail) => void;
+  setTaskData: (id: string, patch: Partial<Task>) => void;
   decide: (id: string, action: 'approve' | 'reject' | 'return' | 'request-clarification' | 'complete' | 'submit' | 'save-draft', note?: string, decisionLabel?: Bilingual) => void;
   setChecklistItem: (id: string, itemId: string, patch: Partial<ChecklistItem>) => void;
   setField: (id: string, fieldId: string, value: CollectField['value']) => void;
@@ -194,6 +229,10 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   }, [patch]);
   const updateRfp = useCallback((id: string, rfp: RfpDetail) => {
     patch(id, (t) => ({ ...t, rfp, state: t.state === 'available' ? 'in-progress' : t.state }));
+  }, [patch]);
+
+  const setTaskData = useCallback((id: string, p: Partial<Task>) => {
+    patch(id, (t) => ({ ...t, ...p, state: t.state === 'available' ? 'in-progress' : t.state }));
   }, [patch]);
 
   const setChecklistItem = useCallback((id: string, itemId: string, p: Partial<ChecklistItem>) => {
@@ -364,10 +403,10 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       tasksForView: (v) => tasks.filter((t) => viewOf(t, tasks, viewer).includes(v)),
       getTask: (id) => tasks.find((t) => t.id === id),
       blocked: (t) => isBlocked(t, tasks),
-      addComment, resolveComment, updateRfp, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
+      addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
       addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask,
     };
-  }, [tasks, viewer, addComment, resolveComment, updateRfp, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask]);
+  }, [tasks, viewer, addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

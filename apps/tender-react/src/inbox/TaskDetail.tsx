@@ -1,7 +1,7 @@
 // Munafasat Inbox — task detail workspace (right pane).
 // Header with meta + Approve/Reject/Return CTAs, tabbed body (Overview / RFP /
 // Activity), and top actions: Comments (side pane), History (task trail), Download PDF.
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { chooseOfficer } from './flow';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
@@ -14,6 +14,11 @@ import type { Bilingual, Task, TaskAction, Person, RfpDetail } from './types';
 import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
 import { TaskBody } from './renderers';
 import { useRequests } from '../context/RequestStore';
+import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
+import { BudgetChecker, useBudgetCheck } from './BudgetCheck';
+import TechEvalReview from './TechEvalReview';
+import QualReview from './QualReview';
+import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
 
 type T = (en: string, ar: string) => string;
@@ -81,7 +86,7 @@ function actionsFor(task: Task): ActionDef[] {
 export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: Task; onBack: () => void; onSideOpenChange?: (open: boolean) => void }) {
   const { isAr } = useLanguage();
   const t = useT();
-  const { decide, addComment, resolveComment, updateRfp, finishEtimadReview, finishRouteCheck } = useInbox();
+  const { decide, addComment, resolveComment, updateRfp, setTaskData, finishEtimadReview, finishRouteCheck } = useInbox();
   const { addSessionDraft, updateSessionDraft, get: getRequest } = useRequests();
   // Etimad review outcomes: confirm all, return to the requester, or move flagged lines to an eMarket draft.
   function finishEtimad(id: TaskAction, n?: string) {
@@ -155,6 +160,8 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const [note, setNote] = useState('');
 
   const comp = useMemo(() => completionStatus(task), [task]);
+  const budget = useBudgetCheck(task);
+  const budgetBlocked = !!task.budgetCheck && budget.state !== 'ok';
   // Gated CTAs stay inactive until the required checks are done — but they explain why:
   // a "N left" hint beside them, and clicking either one points at what's missing.
   const left = comp.missing.length;
@@ -171,7 +178,9 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
     }, 120);
   };
   const blocked = (a: ActionDef) => !!a.gated && !comp.canComplete;
-  const ctaProps = (a: ActionDef) => blocked(a)
+  const ctaProps = (a: ActionDef) => a.id === 'approve' && budgetBlocked
+    ? { disabled: true, title: budget.state === 'checking' ? t('Checking budget…', 'جارٍ فحص الميزانية…') : t('Insufficient budget — approval is blocked', 'الميزانية غير كافية — الاعتماد محظور') }
+    : blocked(a)
     ? { 'aria-disabled': true, className: 'opacity-50 cursor-not-allowed', title: t(`Complete the required checks first — ${leftLabel}`, `أكمل الفحوص المطلوبة أولاً — ${leftLabel}`), onClick: showMissing }
     : { onClick: () => run(a) };
   const hasBlocked = left > 0 && actionsFor(task).some(blocked);
@@ -295,7 +304,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             <div className="rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3 flex items-center gap-3 min-w-0">
               <span className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center flex-shrink-0 text-[11px] font-bold">SAR</span>
               <div className="min-w-0 flex-1">
-                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-brand-700/80">{t('RFP amount', 'قيمة المنافسة')}</p>
+                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-brand-700/80">{t('Request amount', 'قيمة الطلب')}</p>
                 <p className="text-[19px] font-bold text-brand-800 tabular-nums leading-tight whitespace-nowrap" dir="ltr">{task.amount != null ? fmtSAR(task.amount) : '—'}</p>
                 {task.amount != null && <p className="text-[11.5px] text-brand-700/80 tabular-nums" dir="ltr">{t('Incl. VAT', 'شامل الضريبة')} {fmtSAR(task.amount * 1.15)}</p>}
               </div>
@@ -336,10 +345,24 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
         {/* Tab content */}
         <div className="p-4 sm:p-6">
           {showInfo && <ContextNote task={task} isAr={isAr} t={t} onClose={() => setShowInfo(false)} />}
-          {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} footer={bottomActions} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length} />}
+          {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} footer={bottomActions} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
+            budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
+            mainWidget={task.techEvalReview && task.rfp
+              ? <TechEvalReview task={task} isAr={isAr} t={t} readOnly={terminal}
+                  onDecide={(k, d) => { const next = { ...(task.techDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { techDecisions: next }); }}
+                  onUpdate={(rfp, k) => setTaskData(task.id, { rfp, techDecisions: { ...(task.techDecisions ?? {}), [k]: 'modified' } })}
+                  onAcceptAll={(keys) => setTaskData(task.id, { techDecisions: { ...(task.techDecisions ?? {}), ...Object.fromEntries(keys.map((k) => [k, 'accepted' as const])) } })} />
+              : task.qualReview && task.rfp
+                ? <QualReview task={task} isAr={isAr} t={t} readOnly={terminal}
+                    onDecide={(k, d) => { const next = { ...(task.techDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { techDecisions: next }); }}
+                    onUpdate={(rfp, k) => setTaskData(task.id, { rfp, techDecisions: { ...(task.techDecisions ?? {}), [k]: 'modified' } })}
+                    onAcceptAll={(keys) => setTaskData(task.id, { techDecisions: { ...(task.techDecisions ?? {}), ...Object.fromEntries(keys.map((k) => [k, 'accepted' as const])) } })} />
+              : task.qualEditor
+                ? <QualEditor task={task} readOnly={terminal} onChange={(f) => { if (JSON.stringify(f) !== JSON.stringify(task.qualForm ?? null) && (task.qualForm || f.members.length || f.criteria.some((m) => m.percentage !== '' || m.subCriteria.some((c) => c.range || c.percentage !== '')))) setTaskData(task.id, { qualForm: f }); }} />
+                : undefined} />}
           {tab === 'rfp' && (
             <div className="flex items-center justify-between gap-3 mb-3">
-              <p className="text-[12px] text-neutral-500 truncate">{t('RFP', 'المنافسة')} <span className="font-semibold text-neutral-700" dir="ltr">#{task.entity.ref.replace(/^RFP-/, '')}</span> · {isAr ? task.entity.titleAr : task.entity.titleEn}</p>
+              <p className="text-[12px] text-neutral-500 truncate">{t('Request', 'الطلب')} <span className="font-semibold text-neutral-700" dir="ltr">#{task.entity.ref.replace(/^(RFP|REQ)-/, '')}</span> · {isAr ? task.entity.titleAr : task.entity.titleEn}</p>
               <Button size="sm" variant="secondary" onClick={() => downloadTaskPdf(task)}><DownloadIcon className="w-4 h-4" />{t('Download PDF', 'تنزيل PDF')}</Button>
             </div>
           )}
@@ -468,11 +491,22 @@ function Donut({ segments, size = 128, stroke = 20 }: { segments: { value: numbe
 
 type RfpView = 'table' | 'chart';
 
+/** Lets a host page start every RFP section collapsed and expand/collapse them all. */
+export const RfpOpenCtx = createContext<{ open: boolean; rev: number } | null>(null);
+/** Opens one RFP section (e.g. before jumping to it). */
+export const openRfpSection = (id: string) => window.dispatchEvent(new CustomEvent('rfp-open', { detail: id }));
+
 function RfpSection({ id, title, meta, views, children, label }: { id: string; title: string; label?: Bilingual; meta?: string; views?: { table: React.ReactNode; chart: React.ReactNode }; children?: React.ReactNode }) {
   const { isAr } = useLanguage();
   const t = useT();
-  const [open, setOpen] = useState(true);
+  const ctl = useContext(RfpOpenCtx);
+  const [open, setOpen] = useState(ctl ? ctl.open : true);
   const [view, setView] = useState<RfpView>('table');
+  useEffect(() => { if (ctl) setOpen(ctl.open); }, [ctl?.rev]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const on = (e: Event) => { if ((e as CustomEvent).detail === id) setOpen(true); };
+    window.addEventListener('rfp-open', on); return () => window.removeEventListener('rfp-open', on);
+  }, [id]);
   return (
     <Commentable id={`sec-${id}`} label={label ?? title}><section id={`rfp-${id}`} className="scroll-mt-16 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
       <div className="flex items-center gap-2 pe-3 sm:pe-4 hover:bg-neutral-50/70 transition-colors">
@@ -500,7 +534,7 @@ function RfpSection({ id, title, meta, views, children, label }: { id: string; t
   );
 }
 
-function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: string }[] {
+export function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: string }[] {
   return [
     { id: 'overview', en: 'Overview', ar: 'نظرة عامة' },
     { id: 'scope', en: 'Scope', ar: 'النطاق' },
@@ -536,8 +570,9 @@ function CommitteeChips({ members, isAr }: { members?: RfpDetail['evalCommittee'
   );
 }
 
-function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T }) {
-  if (!rfp) return <div className="rounded-xl border border-neutral-200 bg-white p-6 text-[13px] text-neutral-500 shadow-sm">{t('No RFP record linked to this task.', 'لا يوجد سجل منافسة مرتبط بهذه المهمة.')}</div>;
+export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T }) {
+  const [preview, setPreview] = useState<PreviewDoc | null>(null);
+  if (!rfp) return <div className="rounded-xl border border-neutral-200 bg-white p-6 text-[13px] text-neutral-500 shadow-sm">{t('No request record linked to this task.', 'لا يوجد سجل منافسة مرتبط بهذه المهمة.')}</div>;
   const boqTotal = rfp.boq.reduce((s, l) => s + lineTotalOf(l), 0);
   const estValue = boqTotal > 0 ? boqTotal : (amount ?? 0);
   const costSegs = rfp.boq.map((l, i) => ({ value: lineTotalOf(l), color: PALETTE[i % PALETTE.length], label: isAr ? l.itemAr : l.itemEn }));
@@ -937,10 +972,17 @@ function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; is
                     <p className="text-[13px] font-medium text-neutral-800 truncate">{isAr ? dc.ar : dc.en}</p>
                     {(dc.size || dc.by) && <p className="text-[11px] text-neutral-400">{[dc.size, dc.by].filter(Boolean).join(' · ')}</p>}
                   </div>
-                  <DownloadIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" />
+                  {(() => {
+                    const pd: PreviewDoc = { name: dc.en, nameAr: dc.ar, type: dc.type ?? 'PDF', size: dc.size, by: dc.by, ref: rfp.refId, title: rfp.titleEn, dept: rfp.meta.find((m) => m.label.en === 'Requesting department')?.value, amount: amount ? fmtSAR(amount) : undefined };
+                    return (<>
+                      <button type="button" onClick={() => setPreview(pd)} title={t('Preview', 'معاينة')} className="h-8 px-2.5 rounded-md text-[12px] font-semibold text-brand-700 hover:bg-brand-50 inline-flex items-center gap-1 flex-shrink-0"><EyeGlyph className="w-4 h-4" />{t('Preview', 'معاينة')}</button>
+                      <button type="button" onClick={() => downloadDocPdf(pd)} title={t('Download', 'تنزيل')} className="w-8 h-8 rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 flex items-center justify-center flex-shrink-0"><DownloadIcon className="w-4 h-4" /></button>
+                    </>);
+                  })()}
                 </li></Commentable>
               ))}
             </ul>
+            {preview && <DocPreview doc={preview} onClose={() => setPreview(null)} />}
           </RfpSection>
         )}
     </div>
@@ -1150,10 +1192,10 @@ function ChartGlyph({ className = '' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 11-9-9v9z" /><path d="M15 3.5A9 9 0 0120.5 9H15z" /></svg>;
 }
 
-function JumpFab({ sections, isAr, t }: { sections: { id: string; en: string; ar: string }[]; isAr: boolean; t: T }) {
+export function JumpFab({ sections, isAr, t, fixed }: { sections: { id: string; en: string; ar: string }[]; isAr: boolean; t: T; fixed?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="absolute bottom-5 end-5 z-20">
+    <div className={`${fixed ? 'fixed bottom-6 end-6' : 'absolute bottom-5 end-5'} z-20`}>
       {open && (
         <>
           <div className="fixed inset-0 z-0" onClick={() => setOpen(false)} />
@@ -1161,7 +1203,7 @@ function JumpFab({ sections, isAr, t }: { sections: { id: string; en: string; ar
             <p className="px-2.5 py-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{t('Jump to section', 'الانتقال إلى قسم')}</p>
             {sections.map((s) => (
               <button key={s.id} type="button"
-                onClick={() => { document.getElementById(`rfp-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setOpen(false); }}
+                onClick={() => { openRfpSection(s.id); setTimeout(() => document.getElementById(`rfp-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30); setOpen(false); }}
                 className="w-full text-start px-2.5 py-1.5 rounded-lg text-[13px] font-medium text-neutral-700 hover:bg-brand-50 hover:text-brand-700 transition-colors">
                 {isAr ? s.ar : s.en}
               </button>
@@ -1170,7 +1212,7 @@ function JumpFab({ sections, isAr, t }: { sections: { id: string; en: string; ar
         </>
       )}
       <button type="button" onClick={() => setOpen((o) => !o)} title={t('Jump to section', 'الانتقال إلى قسم')}
-        className="w-11 h-11 rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700 active:scale-95 transition flex items-center justify-center">
+        className="relative z-10 w-11 h-11 rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700 active:scale-95 transition flex items-center justify-center">
         <JumpGlyph className="w-5 h-5" />
       </button>
     </div>
@@ -1213,7 +1255,7 @@ function ContextNote({ task, isAr, t, onClose }: { task: Task; isAr: boolean; t:
   );
 }
 
-function RequiredAction({ task, isAr, t, footer, onReview, commentCount = 0, resolvedCount = 0 }: { task: Task; isAr: boolean; t: T; footer?: ReactNode; onReview?: () => void; commentCount?: number; resolvedCount?: number }) {
+function RequiredAction({ task, isAr, t, footer, onReview, commentCount = 0, resolvedCount = 0, budgetWidget, mainWidget }: { task: Task; isAr: boolean; t: T; footer?: ReactNode; onReview?: () => void; commentCount?: number; resolvedCount?: number; budgetWidget?: React.ReactNode; mainWidget?: React.ReactNode }) {
   const [officer, setOfficer] = useState(task.assignTo?.[0]?.id ?? '');
   const lines = task.rfp?.boq ?? [];
   const budgets = Array.from(new Set(lines.map((l) => l.budgetEn ?? '')));
@@ -1245,9 +1287,12 @@ function RequiredAction({ task, isAr, t, footer, onReview, commentCount = 0, res
               {commentCount > 0 && <p className="text-[12px] font-semibold text-[#21507A] mt-1">{t(`${commentCount} comment${commentCount > 1 ? 's' : ''} added`, `${commentCount} تعليق مضاف`)}{resolvedCount > 0 && <span className="text-success-700"> · {t(`${resolvedCount} resolved by ${task.requester.name}`, `${resolvedCount} تم حلها من ${task.requester.nameAr ?? task.requester.name}`)}</span>}</p>}
             </>)}
           </div>
-          <Button size="md" variant="primary" onClick={onReview}>{task.respondComments ? t('Open request details', 'فتح تفاصيل الطلب') : t('Review RFP & add comments', 'مراجعة المنافسة وإضافة تعليقات')}</Button>
+          <Button size="md" variant="primary" onClick={onReview}>{task.respondComments ? t('Open request details', 'فتح تفاصيل الطلب') : t('Review request & add comments', 'مراجعة الطلب وإضافة تعليقات')}</Button>
         </div>
       )}
+
+      {/* Budget checker sits below the review card */}
+      {budgetWidget}
 
       {/* Team Lead: pick the officer */}
       {task.assignTo?.length ? (
@@ -1314,11 +1359,13 @@ function RequiredAction({ task, isAr, t, footer, onReview, commentCount = 0, res
         </div>
       )}
 
-      {/* Task form / record */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-        <TaskBody task={task} />
-        {footer}
-      </div>
+      {/* Task form / record — or the creation-page section this task works on */}
+      {mainWidget ?? (
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <TaskBody task={task} />
+          {footer}
+        </div>
+      )}
     </div>
   );
 }
@@ -1438,7 +1485,7 @@ function CommentsPanel({ task, isAr, t, onSend, disabled, onJump, threads, respo
     <>
       {review > 0 && (
         <div className="px-3 py-2 border-b border-neutral-200 bg-[#F3F8FC] text-[11.5px] text-[#21507A] font-semibold flex items-center gap-1.5">
-          <BubbleIcon className="w-3.5 h-3.5" />{t(`${review} review comment${review > 1 ? 's' : ''} on the RFP`, `${review} تعليق مراجعة على المنافسة`)}<span className="ms-auto font-medium text-neutral-500">{open ? t(`${open} open`, `${open} مفتوح`) : t('All resolved', 'تم حل الكل')}</span>
+          <BubbleIcon className="w-3.5 h-3.5" />{t(`${review} review comment${review > 1 ? 's' : ''} on the request`, `${review} تعليق مراجعة على الطلب`)}<span className="ms-auto font-medium text-neutral-500">{open ? t(`${open} open`, `${open} مفتوح`) : t('All resolved', 'تم حل الكل')}</span>
         </div>
       )}
       <div ref={listRef} data-comment-dock="pane" className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -1514,7 +1561,7 @@ function ReviewBar({ on, onToggle, count, isAr, t, disabled, onOpenComments }: {
     <div className={`mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 flex-wrap transition-colors ${on ? 'border-[#2A6193] bg-[#F3F8FC] shadow-[0_0_0_3px_rgba(42,97,147,0.08)]' : 'border-neutral-200 bg-white shadow-sm'}`}>
       <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${on ? 'bg-[#2A6193] text-white' : 'bg-[#EAF1F8] text-[#2A6193]'}`}><BubbleIcon className="w-[18px] h-[18px]" /></span>
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-bold text-neutral-900">{on ? t('Commenting is on', 'وضع التعليق مفعّل') : t('Review the RFP', 'مراجعة المنافسة')}</p>
+        <p className="text-[13px] font-bold text-neutral-900">{on ? t('Commenting is on', 'وضع التعليق مفعّل') : t('Review the request', 'مراجعة الطلب')}</p>
         <p className="text-[12px] text-neutral-500">
           {on ? t('Hover any section, row or field and click Comment. Press Esc to close a comment.', 'مرّر المؤشر على أي قسم أو صف أو حقل ثم اضغط تعليق. اضغط Esc للإغلاق.')
               : t('Add comments to any section or field — they are posted to Comments with the section name.', 'أضف تعليقات على أي قسم أو حقل — تُنشر في التعليقات مع اسم القسم.')}
@@ -1595,7 +1642,7 @@ function downloadTaskPdf(task: Task) {
   gap(4); rule();
   const rfp = task.rfp;
   if (rfp) {
-    line('RFP / REQUEST', 9, true, '#699843'); gap(2);
+    line('REQUEST', 9, true, '#699843'); gap(2);
     line(`${rfp.refId} — ${rfp.titleEn}`, 12, true);
     line(rfp.scopeEn, 10, false, '#474D43'); gap(4);
     if (rfp.boq.length) {
@@ -1629,4 +1676,8 @@ function PanelCollapseGlyph({ className = '' }: { className?: string }) {
 }
 function JumpGlyph({ className = '' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>;
+}
+
+export function EyeGlyph({ className = 'w-4 h-4' }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>;
 }

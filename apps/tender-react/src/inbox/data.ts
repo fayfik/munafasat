@@ -43,7 +43,7 @@ const sup = (en: string, ar: string) => ({ en, ar });
 // ── The RFP every task in this inbox relates to ────────────────
 const REQ = {
   no: '4433',
-  ref: 'RFP-4433',
+  ref: 'REQ-4433',
   titleEn: 'Enterprise ERP System Upgrade', titleAr: 'ترقية نظام تخطيط موارد المؤسسة',
   project: sup('Core ERP Modernization', 'تحديث نظام ERP الأساسي'),
   amount: 9940000,
@@ -54,12 +54,12 @@ const reqUser = (isAr = false) => (isAr ? REQ.requester.nameAr : REQ.requester.n
 
 /** Task titles from the process task list — names/departments are resolved, never hard-coded. */
 const TITLE = {
-  reviewFromUser: () => sup(`Review & approve RFP #${REQ.no} from ${reqUser()}`, `مراجعة واعتماد المنافسة رقم ${REQ.no} من ${reqUser(true)}`),
-  techEvalFromUser: () => sup(`Review technical evaluation criteria for RFP #${REQ.no} from ${reqUser()}`, `مراجعة معايير التقييم الفني للمنافسة رقم ${REQ.no} من ${reqUser(true)}`),
-  reviewFromDept: () => sup(`Review RFP #${REQ.no} from ${reqDept()}`, `مراجعة المنافسة رقم ${REQ.no} من ${reqDept(true)}`),
-  qualFromDept: () => sup(`Review request & add qualification criteria for RFP #${REQ.no} from ${reqDept()}`, `مراجعة الطلب وإضافة معايير التأهيل للمنافسة رقم ${REQ.no} من ${reqDept(true)}`),
-  doaFromDept: () => sup(`DOA approval for RFP #${REQ.no} from ${reqDept()}`, `اعتماد تفويض الصلاحيات للمنافسة رقم ${REQ.no} من ${reqDept(true)}`),
-  priceFromDept: () => sup(`Approve estimated price for RFP #${REQ.no} from ${reqDept()}`, `اعتماد السعر التقديري للمنافسة رقم ${REQ.no} من ${reqDept(true)}`),
+  reviewFromUser: () => sup(`Review & approve request #${REQ.no} from ${reqUser()}`, `مراجعة واعتماد الطلب رقم ${REQ.no} من ${reqUser(true)}`),
+  techEvalFromUser: () => sup(`Review technical evaluation criteria for request #${REQ.no} from ${reqUser()}`, `مراجعة معايير التقييم الفني للطلب رقم ${REQ.no} من ${reqUser(true)}`),
+  reviewFromDept: () => sup(`Review request #${REQ.no} from ${reqDept()}`, `مراجعة الطلب رقم ${REQ.no} من ${reqDept(true)}`),
+  qualFromDept: () => sup(`Review request & add qualification criteria for request #${REQ.no} from ${reqDept()}`, `مراجعة الطلب وإضافة معايير التأهيل للطلب رقم ${REQ.no} من ${reqDept(true)}`),
+  doaFromDept: () => sup('Approval DOA', 'اعتماد تفويض الصلاحيات'),
+  priceFromDept: () => sup(`Approve estimated price for request #${REQ.no} from ${reqDept()}`, `اعتماد السعر التقديري للطلب رقم ${REQ.no} من ${reqDept(true)}`),
 };
 
 const step = (titleEn: string, titleAr: string, descEn: string, descAr: string) => ({ titleEn, titleAr, descEn, descAr });
@@ -67,22 +67,22 @@ const MANAGER_STEPS: NonNullable<Task['decisionSteps']> = {
   approve: [
     step('Specialist & finance reviews', 'المراجعات التخصصية والمالية', 'Cyber Security, Risk, Enterprise Architecture and Finance review the request in parallel.', 'تراجع الأمن السيبراني والمخاطر والبنية المؤسسية والمالية الطلب بالتوازي.'),
     step('Qualification', 'التأهيل', 'Finance and Procurement add the qualification criteria.', 'تضيف المالية والمشتريات معايير التأهيل.'),
-    step('Procurement review & DOA', 'مراجعة المشتريات والصلاحيات', 'The procurement Team Lead and Officer review the RFP, then it goes for DOA approval.', 'يراجع رئيس فريق المشتريات والأخصائي المنافسة ثم تُرسل لاعتماد الصلاحيات.'),
+    step('Procurement review & DOA', 'مراجعة المشتريات والصلاحيات', 'The procurement Team Lead and Officer review the request, then it goes for DOA approval.', 'يراجع رئيس فريق المشتريات والأخصائي الطلب ثم تُرسل لاعتماد الصلاحيات.'),
     step('Estimated price approval', 'اعتماد السعر التقديري', 'The Director approves the estimated price and the PR is created in SAP ECC.', 'يعتمد المدير السعر التقديري ويُنشأ طلب الشراء في SAP ECC.'),
   ],
   return: [
-    step('Back to the requester', 'العودة إلى مقدّم الطلب', `A "Review comments for the RFP #${REQ.no}" task is created for ${reqUser()}.`, `تُنشأ مهمة "مراجعة التعليقات على المنافسة رقم ${REQ.no}" لـ ${reqUser(true)}.`),
+    step('Back to the requester', 'العودة إلى مقدّم الطلب', `A "Review comments for request #${REQ.no}" task is created for ${reqUser()}.`, `تُنشأ مهمة "مراجعة التعليقات على المنافسة رقم ${REQ.no}" لـ ${reqUser(true)}.`),
     step('Requester responds', 'رد مقدّم الطلب', 'They reply to and resolve each comment, and edit only the commented fields.', 'يرد على كل تعليق ويحله، ويعدّل الحقول التي عليها تعليقات فقط.'),
     step('Back to you for approval', 'العودة إليك للاعتماد', 'Once every comment is resolved the request is resubmitted to you.', 'بعد حل جميع التعليقات يُعاد تقديم الطلب إليك.'),
   ],
   reject: [
-    step('Request closed', 'إغلاق الطلب', `RFP #${REQ.no} is rejected and closed.`, `تُرفض المنافسة رقم ${REQ.no} وتُغلق.`),
+    step('Request closed', 'إغلاق الطلب', `Request #${REQ.no} is rejected and closed.`, `يُرفض الطلب رقم ${REQ.no} ويُغلق.`),
     step('Requester notified', 'إشعار مقدّم الطلب', `${reqUser()} receives your rejection reason.`, `يتلقى ${reqUser(true)} سبب الرفض.`),
   ],
 };
 
 const returnSteps = (who: Person) => [
-  step('Back to the requester', 'العودة إلى مقدّم الطلب', `A "Review comments for the RFP #${REQ.no}" task is created for ${reqUser()}.`, `تُنشأ مهمة "مراجعة التعليقات على المنافسة رقم ${REQ.no}" لـ ${reqUser(true)}.`),
+  step('Back to the requester', 'العودة إلى مقدّم الطلب', `A "Review comments for request #${REQ.no}" task is created for ${reqUser()}.`, `تُنشأ مهمة "مراجعة التعليقات على المنافسة رقم ${REQ.no}" لـ ${reqUser(true)}.`),
   step('Requester responds', 'رد مقدّم الطلب', 'They reply to and resolve each comment, and edit only the commented fields.', 'يرد على كل تعليق ويحله، ويعدّل الحقول التي عليها تعليقات فقط.'),
   step(`Back to ${who.name}`, `العودة إلى ${who.nameAr ?? who.name}`, 'Once every comment is resolved the request is resubmitted to you.', 'بعد حل جميع التعليقات يُعاد تقديم الطلب إليك.'),
 ];
@@ -92,7 +92,7 @@ const S = {
   finQual: step('Finance qualification', 'التأهيل المالي', 'Finance adds the financial qualification criteria (cash ratio, quick ratio, passing %).', 'تضيف المالية معايير التأهيل المالي (نسبة النقدية والسيولة السريعة ونسبة الاجتياز).'),
   procQual: step('Procurement qualification', 'تأهيل المشتريات', 'Procurement completes the qualification criteria ranges and weights.', 'تكمل المشتريات نطاقات وأوزان معايير التأهيل.'),
   tl: step('Procurement Team Lead review', 'مراجعة رئيس فريق المشتريات', 'No comments → DOA approval; new request or comments → assigned to an officer.', 'لا ملاحظات ← اعتماد الصلاحيات؛ طلب جديد أو ملاحظات ← إسناد إلى أخصائي.'),
-  officer: step('Procurement Officer review', 'مراجعة أخصائي المشتريات', 'The officer checks the RFP and either submits it for DOA approval or returns it with comments.', 'يراجع الأخصائي المنافسة ثم يرسلها لاعتماد الصلاحيات أو يعيدها مع ملاحظات.'),
+  officer: step('Procurement Officer review', 'مراجعة أخصائي المشتريات', 'The officer checks the request and either submits it for DOA approval or returns it with comments.', 'يراجع الأخصائي الطلب ثم يرسلها لاعتماد الصلاحيات أو يعيدها مع ملاحظات.'),
   backTl: step('Back to the Team Lead', 'العودة إلى رئيس الفريق', 'The Team Lead takes the officer-checked request to DOA approval.', 'يحيل رئيس الفريق الطلب بعد مراجعة الأخصائي لاعتماد الصلاحيات.'),
   doa: step('DOA approval', 'اعتماد تفويض الصلاحيات', 'Approved per the delegation of authority matrix.', 'يُعتمد وفق مصفوفة تفويض الصلاحيات.'),
   price: step('Estimated price approval', 'اعتماد السعر التقديري', 'The Director approves the estimated price.', 'يعتمد المدير السعر التقديري.'),
@@ -118,13 +118,14 @@ export function buildCommentResponseTask(src: Task, note?: string): Task {
   const mgr = src.assignee;
   const roots = src.activity.filter((a) => a.kind === 'comment' && a.anchor && !a.replyTo);
   const replies = src.activity.filter((a) => a.kind === 'comment' && a.replyTo);
-  const title = sup(`Review comments for the RFP #${REQ.no} added by ${mgr.name}`, `مراجعة التعليقات على المنافسة رقم ${REQ.no} المضافة من ${mgr.nameAr ?? mgr.name}`);
+  const no = src.entity.ref.replace(/^[A-Z]+-/, ''); // the request this task belongs to
+  const title = sup(`Review comments for request #${no} added by ${mgr.name}`, `مراجعة التعليقات على الطلب رقم ${no} المضافة من ${mgr.nameAr ?? mgr.name}`);
   return {
     id: `${src.id}-R`,
     type: 'clarification',
     titleEn: title.en, titleAr: title.ar,
-    summaryEn: `${mgr.name} returned the request with ${roots.length} comment${roots.length === 1 ? '' : 's'} on the RFP. Reply to and resolve each one, edit the commented fields, then resubmit.`,
-    summaryAr: `أعاد ${mgr.nameAr ?? mgr.name} الطلب مع ${roots.length} تعليق على المنافسة. رد على كل تعليق وحله، وعدّل الحقول المعنية، ثم أعد التقديم.`,
+    summaryEn: `${mgr.name} returned the request with ${roots.length} comment${roots.length === 1 ? '' : 's'} on the request. Reply to and resolve each one, edit the commented fields, then resubmit.`,
+    summaryAr: `أعاد ${mgr.nameAr ?? mgr.name} الطلب مع ${roots.length} تعليق على الطلب. رد على كل تعليق وحله، وعدّل الحقول المعنية، ثم أعد التقديم.`,
     state: 'returned', priority: 'high',
     entity: src.entity, project: src.project, amount: src.amount,
     requester: src.requester, assignee: src.requester, department: src.department,
@@ -133,7 +134,7 @@ export function buildCommentResponseTask(src: Task, note?: string): Task {
     mineAction: true, initiatedByMe: false, slaHours: 48,
     respondComments: true, reviewComments: true,
     returnedBy: mgr,
-    returnReason: note ? sup(note, note) : sup('Please address the review comments on the RFP.', 'يرجى معالجة تعليقات المراجعة على المنافسة.'),
+    returnReason: note ? sup(note, note) : sup('Please address the review comments on the request.', 'يرجى معالجة تعليقات المراجعة على الطلب.'),
     returnIssues: roots.map((r) => sup(`${r.anchor!.label.en}: ${r.text ?? ''}`, `${r.anchor!.label.ar}: ${r.text ?? ''}`)),
     actions: [
       { id: 'submit', labelEn: 'Resubmit for approval', labelAr: 'إعادة التقديم للاعتماد', variant: 'primary', gated: true, decision: sup('Resubmitted for approval', 'أُعيد التقديم للاعتماد') },
@@ -191,7 +192,7 @@ const approvalRecord = [
 
 const SPECS: Spec[] = [
   { n: 1, type: 'approval', title: TITLE.reviewFromUser(),
-    summary: sup(`${reqUser()} submitted this RFP. Review the request details, add comments on any section or field, then approve, return or reject.`, `قدّم ${reqUser(true)} هذه المنافسة. راجع تفاصيل الطلب وأضف ملاحظاتك على أي قسم أو حقل، ثم اعتمد الطلب أو أعده أو ارفضه.`),
+    summary: sup(`${reqUser()} submitted this request. Review the request details, add comments on any section or field, then approve, return or reject.`, `قدّم ${reqUser(true)} هذا الطلب. راجع تفاصيل الطلب وأضف ملاحظاتك على أي قسم أو حقل، ثم اعتمد الطلب أو أعده أو ارفضه.`),
     stage: sup('Department approval', 'اعتماد الإدارة'), assignee: P.manager, sla: 1, priority: 'high', received: -1,
     actions: [
       { id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary' },
@@ -200,14 +201,13 @@ const SPECS: Spec[] = [
     ],
     extra: { approvalRecord, requireReasonOnReject: true, reviewComments: true, decisionSteps: MANAGER_STEPS } },
   { n: 2, type: 'review', title: TITLE.techEvalFromUser(),
-    summary: sup('Verify the technical evaluation criteria and weights before the specialist and finance reviews.', 'تحقق من معايير التقييم الفني وأوزانها قبل المراجعات التخصصية والمالية.'),
+    summary: sup('Go through the technical evaluation set by the requester — documents, requirements, evaluation criteria and the passing score. Accept each item or modify it.', 'راجع التقييم الفني الذي حدده مقدّم الطلب — الوثائق والمتطلبات ومعايير التقييم ودرجة الاجتياز. اقبل كل بند أو عدّله.'),
     stage: sup('Technical member review', 'مراجعة العضو الفني'), assignee: P.techMember, sla: 2, priority: 'medium', received: -1,
-    actions: APPROVE_RETURN,
-    extra: { findingsLabel: sup('Review notes', 'ملاحظات المراجعة'), checklist: reviewChecklist([
-      ['Technical requirements are complete and clear', 'المتطلبات الفنية مكتملة وواضحة'],
-      ['Evaluation criteria weights total 100%', 'مجموع أوزان معايير التقييم 100%'],
-      ['Technical passing score is set', 'تم تحديد درجة الاجتياز الفنية'],
-    ]) } },
+    actions: [
+      { id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary', gated: true },
+      { id: 'return', labelEn: 'Return', labelAr: 'إعادة', variant: 'secondary', needsNote: true },
+    ],
+    extra: { techEvalReview: true, techDecisions: {} } },
   { n: 3, type: 'review', title: TITLE.reviewFromDept(),
     summary: sup('Cyber security review: confirm NCA requirements are captured in the request.', 'مراجعة الأمن السيبراني: تأكد من تضمين متطلبات الهيئة الوطنية للأمن السيبراني في الطلب.'),
     stage: sup('Specialist review — Cyber Security', 'مراجعة تخصصية — الأمن السيبراني'), assignee: P.cyber, sla: 2, priority: 'medium', received: 0,
@@ -258,33 +258,20 @@ const SPECS: Spec[] = [
       ['Asset-to-PR mapping prepared (asset reference)', 'تم إعداد ربط الأصل بطلب الشراء (مرجع الأصل)'],
     ]) } },
   { n: 9, type: 'data-collection', title: TITLE.qualFromDept(),
-    summary: sup('Add the financial qualification criteria: cash ratio, quick ratio, ranges, weights and passing %.', 'أضف معايير التأهيل المالي: نسبة النقدية ونسبة السيولة السريعة والنطاقات والأوزان ونسبة الاجتياز.'),
+    summary: sup('Add the qualification criteria for this request: ranges and weights for each main and sub-criterion, and the qualification member.', 'أضف معايير التأهيل لهذا الطلب: النطاقات والأوزان لكل معيار رئيسي وفرعي، وعضو التأهيل.'),
     stage: sup('Qualification — Finance', 'التأهيل — المالية'), assignee: P.finQual, sla: 1, priority: 'medium', received: 0,
     actions: [
       { id: 'complete', labelEn: 'Complete', labelAr: 'إكمال', variant: 'primary', gated: true },
-      { id: 'save-draft', labelEn: 'Save draft', labelAr: 'حفظ مسودة', variant: 'secondary' },
     ],
-    extra: { fields: [
-      { id: 'f1', label: sup('Cash ratio (latest fiscal year) — range', 'نسبة النقدية (آخر سنة مالية) — النطاق'), kind: 'text', required: true, value: null, placeholder: sup('e.g. ≥ 1.2', 'مثال: ≥ 1.2') },
-      { id: 'f2', label: sup('Cash ratio — weight (%)', 'نسبة النقدية — الوزن (%)'), kind: 'number', required: true, value: null },
-      { id: 'f3', label: sup('Quick ratio (latest fiscal year) — range', 'نسبة السيولة السريعة (آخر سنة مالية) — النطاق'), kind: 'text', required: true, value: null, placeholder: sup('e.g. ≥ 1.0', 'مثال: ≥ 1.0') },
-      { id: 'f4', label: sup('Quick ratio — weight (%)', 'نسبة السيولة السريعة — الوزن (%)'), kind: 'number', required: true, value: null },
-      { id: 'f5', label: sup('Qualification financial passing percentage', 'نسبة الاجتياز المالي للتأهيل'), kind: 'number', required: true, value: null },
-    ] } },
+    extra: { qualReview: true, techDecisions: {} } },
   { n: 10, type: 'data-collection', title: TITLE.qualFromDept(),
-    summary: sup('Complete the procurement qualification criteria (ranges and weights) for the fixed criteria list.', 'أكمل معايير تأهيل المشتريات (النطاقات والأوزان) لقائمة المعايير الثابتة.'),
+    summary: sup('Complete the qualification criteria for this request: ranges and weights for each main and sub-criterion, and the qualification member.', 'أكمل معايير التأهيل لهذا الطلب: النطاقات والأوزان لكل معيار رئيسي وفرعي، وعضو التأهيل.'),
     stage: sup('Qualification — Procurement', 'التأهيل — المشتريات'), assignee: P.procQual, sla: 1, priority: 'medium', received: 0,
     actions: [
       { id: 'complete', labelEn: 'Complete', labelAr: 'إكمال', variant: 'primary', gated: true },
-      { id: 'save-draft', labelEn: 'Save draft', labelAr: 'حفظ مسودة', variant: 'secondary' },
     ],
-    extra: { fields: [
-      { id: 'f1', label: sup('Previous Experience — weight (%)', 'الخبرة السابقة — الوزن (%)'), kind: 'number', required: true, value: null },
-      { id: 'f2', label: sup('Existing Contractual Obligations — weight (%)', 'الالتزامات التعاقدية القائمة — الوزن (%)'), kind: 'number', required: true, value: null },
-      { id: 'f3', label: sup('Human Resources — weight (%)', 'الموارد البشرية — الوزن (%)'), kind: 'number', required: true, value: null },
-      { id: 'f4', label: sup('Qualification passing percentage', 'نسبة الاجتياز للتأهيل'), kind: 'number', required: true, value: null },
-    ] } },
-  { n: 11, type: 'approval', title: TITLE.reviewFromDept(),
+    extra: { qualReview: true, techDecisions: {} } },
+  { n: 11, type: 'approval', title: TITLE.qualFromDept(),
     summary: sup('Review the request. With no comments, send it for DOA approval; if it is new or has comments, assign it to an officer.', 'راجع الطلب. إن لم توجد ملاحظات أرسله لاعتماد تفويض الصلاحيات، وإن كان جديداً أو عليه ملاحظات أسنده إلى أخصائي.'),
     stage: sup('Procurement review — Team Lead', 'مراجعة المشتريات — رئيس الفريق'), assignee: P.tl, sla: 4, priority: 'high', received: 0,
     actions: [
@@ -292,17 +279,17 @@ const SPECS: Spec[] = [
       { id: 'complete', labelEn: 'Assign to officer', labelAr: 'إسناد إلى أخصائي', variant: 'secondary', decision: sup('Assigned to officer', 'أُسند إلى أخصائي') },
     ],
     extra: { approvalRecord, assignTo: [P.officer, person('u-yousef', 'Yousef Al-Harthi', 'يوسف الحارثي', 'Procurement Officer', 'أخصائي مشتريات', 'Procurement', 'المشتريات'), person('u-amal', 'Amal Al-Qahtani', 'أمل القحطاني', 'Procurement Officer', 'أخصائي مشتريات', 'Procurement', 'المشتريات')] } },
-  { n: 12, type: 'review', title: TITLE.reviewFromDept(),
-    summary: sup('Officer review of the RFP before DOA approval. Return it with comments if anything below needs correcting.', 'مراجعة الأخصائي للمنافسة قبل اعتماد الصلاحيات. أعدها مع ملاحظات إن احتاج أي بند أدناه إلى تصحيح.'),
+  { n: 12, type: 'review', title: TITLE.qualFromDept(),
+    summary: sup('Officer review of the request before DOA approval. Return it with comments if anything below needs correcting.', 'مراجعة الأخصائي للطلب قبل اعتماد الصلاحيات. أعدها مع ملاحظات إن احتاج أي بند أدناه إلى تصحيح.'),
     stage: sup('Procurement review — Officer', 'مراجعة المشتريات — الأخصائي'), assignee: P.officer, sla: 2, priority: 'high', received: 0,
     actions: [
       { id: 'submit', labelEn: 'Submit for DOA approval', labelAr: 'إرسال لاعتماد الصلاحيات', variant: 'primary', decision: sup('Submitted for DOA approval', 'أُرسل لاعتماد الصلاحيات') },
       { id: 'return', labelEn: 'Return with comments', labelAr: 'إعادة مع ملاحظات', variant: 'secondary', needsNote: true },
     ],
     extra: { findingsLabel: sup('Officer comments', 'ملاحظات الأخصائي'), checklist: reviewChecklist([
-      ['RFP comments addressed', 'تمت معالجة ملاحظات المنافسة'],
+      ['Request comments addressed', 'تمت معالجة ملاحظات الطلب'],
       ['Brand name details provided (if a brand is named)', 'تم تقديم تفاصيل العلامة التجارية (إن وُجدت)'],
-      ['RFP is clear and its sections are linked', 'المنافسة واضحة وأقسامها مترابطة'],
+      ['Request is clear and its sections are linked', 'الطلب واضح وأقسامه مترابطة'],
       ['No formal violations (unclear words or text)', 'لا توجد مخالفات شكلية (كلمات أو نصوص غير واضحة)'],
       ['No systemic violations (mandatory list, brand names)', 'لا توجد مخالفات نظامية (القائمة الإلزامية، العلامات التجارية)'],
     ]) } },
@@ -349,7 +336,7 @@ const at = (ms: number) => new Date(ms).toISOString();
 const PRIOR_NOTE: Record<number, string> = {
   1: 'Budget confirmed against the IT & Digital CAPEX line. Approved.',
   2: 'Technical criteria and weights verified.',
-  11: 'New request — assigning to the officer for a full RFP check.',
+  11: 'New request — assigning to the officer for a full request check.',
 };
 export const SEED_TASKS: Task[] = SPECS.map((s) => {
   // Working-hour timestamps: two steps per working day (10:00, 14:00), newest = today.
@@ -359,7 +346,7 @@ export const SEED_TASKS: Task[] = SPECS.map((s) => {
   const t0 = slot(prior.length + 1) - 60 * 60000;
   const stepAt = (i: number) => slot(prior.length - i);
   const activity: Task['activity'] = [
-    { id: 'a0', kind: 'system', actor: REQ.requester, at: at(t0), system: sup(`RFP #${REQ.no} submitted`, `تم تقديم المنافسة رقم ${REQ.no}`) },
+    { id: 'a0', kind: 'system', actor: REQ.requester, at: at(t0), system: sup(`Request #${REQ.no} submitted`, `تم تقديم الطلب رقم ${REQ.no}`) },
     { id: 'a0c', kind: 'comment', actor: REQ.requester, at: at(t0 + 15 * 60000), text: 'Requesting approval for the ERP upgrade — the current ECC 6.0 support ends in 2027.' },
     ...prior.map((p, i) => ({
       id: `a${p.n}`, kind: 'decision' as const, actor: p.assignee, at: at(stepAt(i)),
@@ -397,7 +384,7 @@ export const SEED_TASKS: Task[] = SPECS.map((s) => {
 
 // Large tender request, reused by the RFP-2026-041 tasks.
 const RFP_S4HANA: RfpDetail = {
-  refId: 'RFP-2026-041',
+  refId: 'REQ-2026-041',
   titleEn: 'SAP S/4HANA Implementation', titleAr: 'تطبيق SAP S/4HANA',
   summaryEn: 'Full S/4HANA implementation with Embedded EWM, data migration, training and hypercare for the entity.',
   summaryAr: 'تطبيق كامل لـ S/4HANA مع إدارة المستودعات المدمجة وترحيل البيانات والتدريب والدعم بعد التشغيل.',
@@ -422,8 +409,8 @@ const RFP_S4HANA: RfpDetail = {
       itemsEn: ['FI, CO, MM, FM and Embedded EWM design and build', 'Integration with Etimad, SADAD and the HR system via SAP CPI', 'Migration of open items, masters and 3 years of history', 'Fiori launchpad with 40 standard and 12 custom apps'],
       itemsAr: ['تصميم وبناء المالية والتحكم والمشتريات وإدارة الأموال والمستودعات', 'التكامل مع اعتماد وسداد ونظام الموارد البشرية عبر CPI', 'ترحيل البنود المفتوحة والبيانات الرئيسية و3 سنوات من البيانات التاريخية', 'منصة Fiori مع 40 تطبيقاً قياسياً و12 تطبيقاً مخصصاً'] },
     { headEn: 'Out of scope', headAr: 'خارج النطاق',
-      itemsEn: ['SuccessFactors / HR payroll', 'Hardware and hosting (covered by RFP-2026-037)'],
-      itemsAr: ['نظام SuccessFactors والرواتب', 'الأجهزة والاستضافة (مشمولة في RFP-2026-037)'] },
+      itemsEn: ['SuccessFactors / HR payroll', 'Hardware and hosting (covered by REQ-2026-037)'],
+      itemsAr: ['نظام SuccessFactors والرواتب', 'الأجهزة والاستضافة (مشمولة في REQ-2026-037)'] },
     { headEn: 'Deliverables & timeline', headAr: 'المخرجات والجدول الزمني',
       itemsEn: ['Blueprint & solution design — Month 3', 'Build & unit test — Month 9', 'SIT & UAT sign-off — Month 13', 'Go-live — Month 15, hypercare to Month 18'],
       itemsAr: ['التصميم والمخطط — الشهر 3', 'البناء واختبار الوحدات — الشهر 9', 'اعتماد اختبار التكامل والقبول — الشهر 13', 'التشغيل — الشهر 15 والدعم حتى الشهر 18'] },
@@ -581,3 +568,172 @@ for (const tk of SEED_TASKS) {
 
 /** The people behind each process role — used by the live request flow and the "View as" switcher. */
 export const PEOPLE = P;
+// ── Request detail page (My Requests) ────────────────────────────────────────
+
+/** The approval stages a request passes through, in order (same as the Inbox tasks). */
+export const APPROVAL_STAGES: { stage: Bilingual; assignee: Person; sla: number }[] =
+  SPECS.map((s) => ({ stage: s.stage, assignee: s.assignee, sla: s.sla }));
+export const REQUESTER = P.requester;
+
+/** Full RFP record for any request, so the detail page shows every create-request section. */
+
+// ── BOQ templates: realistic line items per request kind (scaled to the request value) ──
+type BoqRow = RfpDetail['boq'][number];
+const B = (itemEn: string, itemAr: string, descEn: string, descAr: string, qty: number, unit: string, unitPrice: number, budgetEn: string, budgetAr: string, category: 'Service' | 'Material', months: number): Omit<BoqRow, 'delivery'> & { months: number } =>
+  ({ itemEn, itemAr, descEn, descAr, qty: String(qty), unit, unitPrice, budgetEn, budgetAr, category, months });
+const BOQ_TEMPLATES: Record<'goods' | 'it' | 'services', ReturnType<typeof B>[]> = {
+  goods: [
+    B('Primary units', 'الوحدات الرئيسية', 'Main items as per the technical specification', 'البنود الرئيسية حسب المواصفات الفنية', 120, 'Each', 4200, 'Equipment & Furniture', 'المعدات والأثاث', 'Material', 1),
+    B('Accessories kit', 'طقم الملحقات', 'Chargers, cables, adapters and protective cases', 'الشواحن والكابلات والمحولات والأغطية الواقية', 120, 'Set', 380, 'Equipment & Furniture', 'المعدات والأثاث', 'Material', 1),
+    B('Spare units (5%)', 'وحدات احتياطية (5٪)', 'Hot spares held by the service desk', 'وحدات احتياطية لدى مكتب الخدمة', 6, 'Each', 4200, 'Equipment & Furniture', 'المعدات والأثاث', 'Material', 1),
+    B('Delivery & installation', 'التوصيل والتركيب', 'Delivery to Riyadh HQ, unpacking, placement and disposal of packaging', 'التوصيل للمقر الرئيسي بالرياض وفك التغليف والتركيب والتخلص من مواد التغليف', 1, 'LS', 38000, 'Logistics & Installation', 'الخدمات اللوجستية والتركيب', 'Service', 2),
+    B('Asset tagging & registration', 'ترميز وتسجيل الأصول', 'Barcode tags and registration in the asset register', 'ملصقات الباركود والتسجيل في سجل الأصول', 126, 'Each', 25, 'Logistics & Installation', 'الخدمات اللوجستية والتركيب', 'Service', 2),
+    B('Imaging & configuration', 'التهيئة والإعداد', 'Standard build, security baseline and enrolment', 'الإعداد القياسي وخط الأساس الأمني والتسجيل', 120, 'Each', 150, 'Logistics & Installation', 'الخدمات اللوجستية والتركيب', 'Service', 2),
+    B('Extended warranty (3 years)', 'ضمان ممتد (3 سنوات)', 'Next-business-day on-site replacement', 'استبدال في الموقع في يوم العمل التالي', 120, 'Each', 290, 'Warranty & Support', 'الضمان والدعم', 'Service', 3),
+    B('User guides & training', 'أدلة المستخدم والتدريب', 'Quick-start guides (Arabic/English) and 2 sessions', 'أدلة البدء السريع (عربي/إنجليزي) وجلستان تدريبيتان', 2, 'Session', 6500, 'Training', 'التدريب', 'Service', 3),
+  ],
+  it: [
+    B('Software subscription', 'اشتراك البرمجيات', 'Annual subscription — enterprise tier', 'اشتراك سنوي — فئة المؤسسات', 3, 'Year', 420000, 'Software Licenses', 'تراخيص البرمجيات', 'Material', 1),
+    B('Named user licences', 'تراخيص المستخدمين', 'Professional user licences', 'تراخيص مستخدمين احترافية', 250, 'License', 1800, 'Software Licenses', 'تراخيص البرمجيات', 'Material', 1),
+    B('Infrastructure & hosting', 'البنية التحتية والاستضافة', 'Production, DR and non-production environments in-Kingdom', 'بيئات الإنتاج والتعافي والاختبار داخل المملكة', 36, 'Month', 22000, 'Cloud & Hosting', 'السحابة والاستضافة', 'Service', 2),
+    B('Solution design', 'تصميم الحل', 'Requirements, blueprint and solution architecture', 'المتطلبات والتصميم وبنية الحل', 1, 'LS', 260000, 'Implementation Services', 'خدمات التنفيذ', 'Service', 3),
+    B('Build & configuration', 'البناء والتهيئة', 'Configuration, integrations and custom development', 'التهيئة والتكامل والتطوير المخصص', 1, 'LS', 640000, 'Implementation Services', 'خدمات التنفيذ', 'Service', 7),
+    B('Integration (SAP CPI)', 'التكامل (SAP CPI)', 'Interfaces with SAP, HR and Etimad via CPI', 'واجهات التكامل مع SAP والموارد البشرية واعتماد عبر CPI', 6, 'Interface', 48000, 'Implementation Services', 'خدمات التنفيذ', 'Service', 7),
+    B('Data migration', 'ترحيل البيانات', 'Extraction, cleansing, mock loads and reconciliation', 'الاستخراج والتنقية والتحميل التجريبي والتسوية', 1, 'LS', 180000, 'Implementation Services', 'خدمات التنفيذ', 'Service', 8),
+    B('Testing (SIT & UAT)', 'الاختبارات (التكامل والقبول)', 'Test scripts, defect management and sign-off', 'سيناريوهات الاختبار وإدارة العيوب والاعتماد', 1, 'LS', 120000, 'Implementation Services', 'خدمات التنفيذ', 'Service', 9),
+    B('Security assessment', 'التقييم الأمني', 'Penetration test and NCA ECC compliance review', 'اختبار الاختراق ومراجعة الامتثال لضوابط الأمن السيبراني', 1, 'LS', 75000, 'Security & Compliance', 'الأمن والامتثال', 'Service', 9),
+    B('Training & knowledge transfer', 'التدريب ونقل المعرفة', 'Key-user and admin training, Arabic materials', 'تدريب المستخدمين الرئيسيين والمشرفين بمواد عربية', 4, 'Batch', 28000, 'Training', 'التدريب', 'Service', 10),
+    B('Hypercare', 'الدعم بعد التشغيل', 'On-site stabilisation after go-live', 'فريق استقرار في الموقع بعد التشغيل', 3, 'Month', 55000, 'Support & Maintenance', 'الدعم والصيانة', 'Service', 12),
+    B('Support & maintenance', 'الدعم والصيانة', 'Helpdesk Sun–Thu, 4-hour SLA, updates and patches', 'مكتب مساعدة الأحد–الخميس، استجابة 4 ساعات، تحديثات وتصحيحات', 2, 'Year', 140000, 'Support & Maintenance', 'الدعم والصيانة', 'Service', 24),
+  ],
+  services: [
+    B('Service mobilisation', 'تجهيز الخدمة', 'Team onboarding, site survey and service plan', 'تجهيز الفريق ومسح الموقع وخطة الخدمة', 1, 'LS', 45000, 'Professional Services', 'الخدمات المهنية', 'Service', 1),
+    B('Senior consultant', 'استشاري أول', 'Lead consultant — full time', 'استشاري رئيسي — دوام كامل', 12, 'Month', 68000, 'Professional Services', 'الخدمات المهنية', 'Service', 12),
+    B('Consultant', 'استشاري', 'Delivery consultants — 2 FTE', 'استشاريون للتنفيذ — موظفان بدوام كامل', 24, 'Month', 42000, 'Professional Services', 'الخدمات المهنية', 'Service', 12),
+    B('Specialist days (on demand)', 'أيام عمل تخصصية (عند الطلب)', 'Subject-matter experts called off as needed', 'خبراء متخصصون عند الحاجة', 60, 'Day', 5200, 'Professional Services', 'الخدمات المهنية', 'Service', 12),
+    B('Reports & deliverables', 'التقارير والمخرجات', 'Monthly reports and final report in Arabic & English', 'تقارير شهرية وتقرير نهائي بالعربية والإنجليزية', 12, 'Report', 6000, 'Reporting', 'التقارير', 'Service', 12),
+    B('Tools & consumables', 'الأدوات والمستهلكات', 'Materials and consumables used to deliver the service', 'المواد والمستهلكات المستخدمة لتقديم الخدمة', 12, 'Month', 8500, 'Materials & Consumables', 'المواد والمستهلكات', 'Material', 12),
+    B('Quality assurance', 'ضمان الجودة', 'Quarterly quality audits and KPI dashboard', 'تدقيق جودة ربع سنوي ولوحة مؤشرات الأداء', 4, 'Quarter', 18000, 'Quality & Compliance', 'الجودة والامتثال', 'Service', 12),
+    B('Workshops', 'ورش العمل', 'Stakeholder workshops and awareness sessions', 'ورش عمل لأصحاب المصلحة وجلسات توعية', 6, 'Session', 9500, 'Training', 'التدريب', 'Service', 6),
+    B('Contingency (call-off)', 'بند احتياطي (عند الطلب)', 'Additional services approved by the contract manager', 'خدمات إضافية يعتمدها مدير العقد', 1, 'LS', 60000, 'Professional Services', 'الخدمات المهنية', 'Service', 12),
+  ],
+};
+function boqKind(title: string): 'goods' | 'it' | 'services' {
+  if (/laptop|chair|toner|supplies|stationery|UPS|equipment|furniture|AV|vehicle/i.test(title)) return 'goods';
+  if (/cleaning|audit|recruit|consult|testing|wellness|leasing|program|agency|managed services|research|legal/i.test(title)) return 'services';
+  return 'it';
+}
+function boqFor(title: string, amount: number, start: Date): BoqRow[] {
+  const rows = BOQ_TEMPLATES[boqKind(title)];
+  const sub = rows.reduce((s, r) => s + Number(r.qty) * r.unitPrice, 0) || 1;
+  const k = amount / 1.15 / sub;
+  return rows.map(({ months, ...r }) => {
+    const d = new Date(start); d.setMonth(d.getMonth() + months);
+    return { ...r, unitPrice: Math.max(1, Math.round(r.unitPrice * k)), delivery: d.toISOString().slice(0, 10) };
+  });
+}
+
+export function requestRfpFor(o: { refId: string; titleEn: string; titleAr: string; deptEn: string; deptAr: string; amount: number; type: 'tendering' | 'souq-etimad'; costCenter: string; start?: Date }): RfpDetail {
+  const base = completeRfp(RFP_S4HANA);
+  // Scale the sample BOQ so it adds up to the request's estimated value (excl. VAT).
+  const sub = base.boq.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0) || 1;
+  const k = o.amount / 1.15 / sub;
+  // The ERP upgrade keeps the detailed S/4HANA BOQ; other requests get a BOQ for their kind.
+  const boq = /ERP System Upgrade/.test(o.titleEn)
+    ? base.boq.map((l) => ({ ...l, unitPrice: Math.round(l.unitPrice * k) }))
+    : boqFor(o.titleEn, o.amount, o.start ?? new Date());
+  const esouq = o.type === 'souq-etimad';
+  return {
+    ...base,
+    refId: o.refId, titleEn: o.titleEn, titleAr: o.titleAr,
+    summaryEn: `${o.titleEn} for ${o.deptEn} — supply, delivery and support against the approved bill of quantities.`,
+    summaryAr: `${o.titleAr} لصالح ${o.deptAr} — التوريد والتسليم والدعم وفق جدول الكميات المعتمد.`,
+    scopeEn: `Deliver ${o.titleEn.toLowerCase()} for ${o.deptEn}, covering supply, implementation, testing and handover, with training, warranty and post-delivery support as defined in the bill of quantities and the technical specification.`,
+    scopeAr: `تنفيذ «${o.titleAr}» لصالح ${o.deptAr}، ويشمل التوريد والتنفيذ والاختبار والتسليم، مع التدريب والضمان والدعم بعد التسليم وفق جدول الكميات والمواصفات الفنية.`,
+    scopeBlocks: [
+      { headEn: 'Objectives', headAr: 'الأهداف', itemsEn: ['Meet the department’s operational requirement on time', 'Comply with the technical specification and NCA controls', 'Achieve best value within the approved budget'], itemsAr: ['تلبية الاحتياج التشغيلي للإدارة في الوقت المحدد', 'الالتزام بالمواصفات الفنية وضوابط الهيئة الوطنية للأمن السيبراني', 'تحقيق أفضل قيمة ضمن الميزانية المعتمدة'] },
+      { headEn: 'In scope', headAr: 'ضمن النطاق', itemsEn: ['Supply and delivery of all BOQ items', 'Installation, configuration and testing', 'Training and knowledge transfer'], itemsAr: ['توريد وتسليم جميع بنود جدول الكميات', 'التركيب والإعداد والاختبار', 'التدريب ونقل المعرفة'] },
+      { headEn: 'Out of scope', headAr: 'خارج النطاق', itemsEn: ['Civil works and building modifications', 'Items already covered by existing contracts'], itemsAr: ['الأعمال المدنية وتعديلات المباني', 'البنود المشمولة بعقود قائمة'] },
+      { headEn: 'Deliverables & timeline', headAr: 'المخرجات والجدول الزمني', itemsEn: ['Kick-off and delivery plan — Week 2', 'Delivery and installation — Week 8', 'Final acceptance — Week 12'], itemsAr: ['الانطلاق وخطة التسليم — الأسبوع 2', 'التسليم والتركيب — الأسبوع 8', 'القبول النهائي — الأسبوع 12'] },
+    ],
+    documents: [
+      { en: 'Scope of work', ar: 'نطاق العمل', type: 'PDF', size: '1.2 MB', by: o.deptEn },
+      { en: 'Technical specification', ar: 'المواصفات الفنية', type: 'PDF', size: '860 KB', by: o.deptEn },
+      { en: 'Bill of quantities', ar: 'جدول الكميات', type: 'XLSX', size: '74 KB', by: o.deptEn },
+      { en: 'Budget confirmation', ar: 'تأكيد الميزانية', type: 'PDF', size: '140 KB', by: 'Finance' },
+      { en: 'Market price survey', ar: 'دراسة أسعار السوق', type: 'DOCX', size: '210 KB', by: o.deptEn },
+    ],
+    meta: base.meta.map((m) =>
+      m.label.en === 'Project' ? { ...m, value: o.titleEn } :
+      m.label.en === 'Cost center' ? { ...m, value: o.costCenter } :
+      m.label.en === 'Contract duration' ? { ...m, value: esouq ? 'One-off purchase' : '12 months' } :
+      m.label.en === 'Requesting department' ? { ...m, value: o.deptEn } :
+      m.label.en === 'Estimated value' ? { ...m, value: `SAR ${o.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` } :
+      m.label.en === 'Procurement route' ? { ...m, value: esouq ? 'Etimad E-Market' : 'Competitive Tender' } : m)
+      .filter((m) => !esouq || !['Evaluation split', 'Suppliers invited', 'Planned award'].includes(m.label.en)),
+    boq,
+    // Etimad E-Market requests skip payment, evaluation and qualification (shorter flow).
+    ...(esouq ? { payment: [], evaluation: [], qualification: [], qualCriteria: [], techRequirements: [], techDocs: [], evalCommittee: [], qualCommittee: [] } : {}),
+  };
+}
+
+// ── Budget checker use cases (manager "Department approval" tasks) ──────────────
+// RFP #4433: fits the budget. Two more manager approvals show both outcomes:
+// RFP #4471 fits (approve enabled), RFP #4478 exceeds the budget (approve blocked).
+SEED_TASKS[0].budgetCheck = { fundCenter: 'FC-IT-1000', commitmentItem: 'CAPEX-ERP', fiscalYear: 2026, total: 14_500_000, consumed: 2_180_000 };
+
+function managerApprovalFor(o: {
+  no: string; titleEn: string; titleAr: string; amount: number; requester: Person; minutesAgo: number; priority: Task['priority']; manager?: Person;
+  budget: NonNullable<Task['budgetCheck']>; note: string;
+}): Task {
+  const src = SEED_TASKS[0];
+  const swap = (x: string) => x
+    .split(REQ.no).join(o.no)
+    .split(REQ.titleEn).join(o.titleEn).split(REQ.titleAr).join(o.titleAr)
+    .split(REQ.requester.name).join(o.requester.name).split(REQ.requester.nameAr ?? '§').join(o.requester.nameAr ?? o.requester.name)
+    .split(REQ.requester.dept ?? '§').join(o.requester.dept ?? '').split(REQ.requester.deptAr ?? '§').join(o.requester.deptAr ?? '');
+  const { rfp: _r, trail: _t, ...rest } = src;
+  const tk = JSON.parse(swap(JSON.stringify(rest))) as Task;
+  const received = new Date(Date.now() - o.minutesAgo * 60000);
+  tk.id = `TSK-${o.no}-01`;
+  tk.amount = o.amount;
+  tk.priority = o.priority;
+  tk.requester = o.requester;
+  tk.receivedAt = received.toISOString();
+  tk.dueAt = new Date(+received + 24 * 3600000).toISOString();
+  tk.budgetCheck = o.budget;
+  if (o.manager) tk.assignee = o.manager;
+  tk.approvalRecord = (tk.approvalRecord ?? []).map((r) => r.label.en === 'Request value' ? { ...r, value: fmtSARPlain(o.amount) } : r.label.en === 'Project' ? { ...r, value: o.titleEn } : r);
+  tk.project = { en: o.titleEn, ar: o.titleAr };
+  tk.activity = [
+    { id: 'a0', kind: 'system', actor: o.requester, at: new Date(+received - 20 * 60000).toISOString(), system: { en: `Request #${o.no} submitted`, ar: `تم تقديم الطلب رقم ${o.no}` } },
+    { id: 'a0c', kind: 'comment', actor: o.requester, at: new Date(+received - 15 * 60000).toISOString(), text: o.note },
+    { id: 'aN', kind: 'system', actor: tk.assignee, at: received.toISOString(), system: { en: `Assigned to ${tk.assignee.name} — Department approval`, ar: `أُسند إلى ${tk.assignee.nameAr} — اعتماد الإدارة` } },
+  ];
+  tk.rfp = requestRfpFor({ refId: `REQ-${o.no}`, titleEn: o.titleEn, titleAr: o.titleAr, deptEn: o.requester.dept ?? '', deptAr: o.requester.deptAr ?? '', amount: o.amount, type: 'tendering', costCenter: o.budget.fundCenter });
+  tk.trail = trailFor(tk).map((st) => st.titleEn === 'Department approval' ? { ...st, actorEn: tk.assignee.name, actorAr: tk.assignee.nameAr ?? tk.assignee.name } : st);
+  return tk;
+}
+function fmtSARPlain(n: number) { return 'SAR ' + n.toLocaleString('en-US', { minimumFractionDigits: 2 }); }
+
+SEED_TASKS.unshift(
+  managerApprovalFor({
+    no: '4478', titleEn: 'SIEM & SOC Managed Services', titleAr: 'خدمات مُدارة لمركز العمليات الأمنية', amount: 5_400_000, priority: 'urgent', minutesAgo: 25,
+    requester: person('u-khalidq', 'Khalid Al-Qahtani', 'خالد القحطاني', 'Requester', 'مقدّم الطلب', 'Information Security', 'أمن المعلومات'),
+    manager: person('u-nasser', 'Nasser Al-Harthi', 'ناصر الحارثي', 'Department Manager', 'مدير الإدارة', 'Information Security', 'أمن المعلومات'),
+    budget: { fundCenter: 'FC-SEC-2200', commitmentItem: 'OPEX-MANAGED-SVC', fiscalYear: 2026, total: 6_000_000, consumed: 2_150_000 },
+    note: 'SOC coverage must start before the current contract ends in Q1 — please prioritise.',
+  }),
+  managerApprovalFor({
+    no: '4471', titleEn: 'Cloud Infrastructure Migration', titleAr: 'ترحيل البنية التحتية السحابية', amount: 1_800_000, priority: 'high', minutesAgo: 70,
+    requester: person('u-fatimaz', 'Fatima Al-Zahrani', 'فاطمة الزهراني', 'Requester', 'مقدّم الطلب', 'IT & Digital', 'تقنية المعلومات والتحول الرقمي'),
+    budget: { fundCenter: 'FC-IT-1000', commitmentItem: 'CAPEX-CLOUD', fiscalYear: 2026, total: 3_200_000, consumed: 620_000 },
+    note: 'Migration of the remaining on-prem workloads to the sovereign cloud region.',
+  }),
+);
+
+// Keep the manager's "Review & approve" tasks at the top of the inbox (soonest due).
+[['TSK-4478-01', 4], ['TSK-4471-01', 5], ['TSK-4433-01', 6]].forEach(([id, h]) => {
+  const tk = SEED_TASKS.find((x) => x.id === id);
+  if (tk) tk.dueAt = new Date(Date.now() + (h as number) * 3600000).toISOString();
+});
