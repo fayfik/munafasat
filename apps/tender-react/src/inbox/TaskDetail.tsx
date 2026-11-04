@@ -293,7 +293,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-14 bg-[#17233A] flex-shrink-0">
               <div className="flex items-center gap-0.5 bg-white/10 rounded-lg p-0.5">
                 <PaneTab active={side === 'comments'} onClick={() => setSide('comments')} icon={<CommentGlyph className="w-3.5 h-3.5" />}>{t('Comments', 'التعليقات')}</PaneTab>
-                <PaneTab active={side === 'history'} onClick={() => setSide('history')} icon={<HistoryGlyph className="w-3.5 h-3.5" />}>{t('Approval flow', 'مسار الاعتماد')}</PaneTab>
+                <PaneTab active={side === 'history'} onClick={() => setSide('history')} icon={<HistoryGlyph className="w-3.5 h-3.5" />}>{t('Process', 'العملية')}</PaneTab>
               </div>
               <button onClick={() => setSide(null)} title={t('Collapse panel', 'طي اللوحة')}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white flex-shrink-0">
@@ -314,7 +314,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
       {/* ── Right icon rail (always visible) — navy, contrasting the green header ── */}
       <nav className="w-16 flex-shrink-0 bg-[#17233A] flex flex-col items-center pt-4 pb-3 gap-2 z-40" aria-label={t('Task tools', 'أدوات المهمة')}>
         <StripBtn dock active={side === 'comments'} onClick={() => toggleSide('comments')} label={t('Comments', 'التعليقات')} count={task.activity.filter((a) => a.kind === 'comment').length} icon={<CommentGlyph className="w-[18px] h-[18px]" />} />
-        <StripBtn active={side === 'history'} onClick={() => toggleSide('history')} label={t('History', 'السجل')} icon={<HistoryGlyph className="w-[18px] h-[18px]" />} />
+        <StripBtn active={side === 'history'} onClick={() => toggleSide('history')} label={t('Process', 'العملية')} icon={<HistoryGlyph className="w-[18px] h-[18px]" />} />
       </nav>
     </div>
   );
@@ -1164,7 +1164,7 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
     <div className="space-y-6">
       {/* Approver: review the RFP and pin comments */}
       {onReview && (
-        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-5 flex items-center gap-4 flex-wrap">
+        <div data-review-card className="sticky top-[43px] z-[5] rounded-xl border border-neutral-200 bg-white px-6 py-5 flex items-center gap-4 flex-wrap shadow-[0_6px_16px_-8px_rgba(16,24,40,0.18)]">
           <span className="w-10 h-10 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center flex-shrink-0"><BubbleIcon className="w-5 h-5" /></span>
           <div className="min-w-[260px] flex-1">
             {task.respondComments ? (<>
@@ -1268,8 +1268,8 @@ const TL_META: Record<TLStatus, { en: string; ar: string; pill: string; dot: str
   done:     { en: 'Done', ar: 'تم', pill: 'bg-success-50 text-success-700', dot: 'bg-success-500', tile: 'bg-success-50 text-success-700 border-success-100' },
   approved: { en: 'Approved', ar: 'معتمد', pill: 'bg-success-50 text-success-700', dot: 'bg-success-500', tile: 'bg-success-50 text-success-700 border-success-100' },
   comment:  { en: 'Comment', ar: 'تعليق', pill: 'bg-warning-50 text-warning-700', dot: 'bg-warning-500', tile: 'bg-warning-50 text-warning-700 border-warning-100' },
-  current:  { en: 'In progress', ar: 'قيد التنفيذ', pill: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500', tile: 'bg-blue-50 text-blue-700 border-blue-100' },
-  upcoming: { en: 'Upcoming', ar: 'قادمة', pill: 'bg-white text-neutral-700 border border-neutral-200', dot: 'bg-neutral-800', tile: 'bg-neutral-50 text-neutral-600 border-neutral-200' },
+  current:  { en: 'Current step', ar: 'الخطوة الحالية', pill: 'bg-[#2A6193] text-white', dot: 'bg-[#2A6193]', tile: 'bg-[#2A6193] text-white border-[#2A6193]' },
+  upcoming: { en: 'Upcoming', ar: 'قادمة', pill: 'bg-white text-neutral-500 border border-dashed border-neutral-300', dot: 'bg-white border-2 border-neutral-300', tile: 'bg-white text-neutral-400 border-dashed border-neutral-300' },
   returned: { en: 'Returned', ar: 'مُعاد', pill: 'bg-warning-50 text-warning-700', dot: 'bg-warning-500', tile: 'bg-warning-50 text-warning-700 border-warning-100' },
   rejected: { en: 'Rejected', ar: 'مرفوض', pill: 'bg-error-50 text-error-700', dot: 'bg-error-500', tile: 'bg-error-50 text-error-700 border-error-100' },
 };
@@ -1296,6 +1296,7 @@ function ActivityTab({ task, isAr, t, onComment, terminal, onJump }: { task: Tas
   const upcoming = curIdx >= 0 ? steps.slice(curIdx + 1) : [];
   for (const s of upcoming) rows.push({ key: s.id, status: 'upcoming', icon: <ClockIcon className="w-[18px] h-[18px]" />, title: isAr ? s.titleAr : s.titleEn, sub: isAr ? s.actorAr : s.actorEn });
   const doneSteps = curIdx >= 0 ? curIdx : steps.length;
+  const curRow = rows.findIndex((r) => r.status === 'current');
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm">
@@ -1306,24 +1307,35 @@ function ActivityTab({ task, isAr, t, onComment, terminal, onJump }: { task: Tas
         </div>
         <span className="text-[11.5px] font-medium text-neutral-500">{t(`${doneSteps} of ${steps.length} steps complete`, `${doneSteps} من ${steps.length} خطوات مكتملة`)}</span>
       </div>
+      {/* Legend — what each state looks like */}
+      <div className="px-5 pb-3 flex items-center gap-4 flex-wrap text-[11.5px] text-neutral-500" data-activity-legend>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-success-500" />{t('Completed', 'مكتملة')}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#2A6193] ring-2 ring-[#2A6193]/25" />{t('Current step', 'الخطوة الحالية')}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-white border-2 border-neutral-300" />{t('Upcoming', 'قادمة')}</span>
+      </div>
 
       <ol className="px-5 pb-2">
         {rows.map((r, i) => {
           const m = TL_META[r.status]; const last = i === rows.length - 1;
+          const isCur = r.status === 'current';
+          const after = curRow >= 0 && i >= curRow; // line below the current step is dashed (not yet done)
           return (
-            <li key={r.key} className="grid grid-cols-[72px_20px_1fr] sm:grid-cols-[92px_24px_1fr] gap-x-2 sm:gap-x-3">
+            <li key={r.key} className="grid grid-cols-[72px_20px_1fr] sm:grid-cols-[92px_24px_1fr] gap-x-2 sm:gap-x-3" data-step-state={r.status}>
               <div className="pt-2.5 text-end">
                 {r.at ? (<><p className="text-[12.5px] font-medium text-neutral-600 tabular-nums whitespace-nowrap">{fmtTime(r.at, isAr)}</p><p className="text-[10.5px] text-neutral-400 whitespace-nowrap">{fmtDate(r.at, isAr)}</p></>)
-                  : <p className="text-[11.5px] text-neutral-400">{r.status === 'current' ? t('Now', 'الآن') : '—'}</p>}
+                  : isCur ? <p className="pt-2 text-[12px] font-bold text-[#2A6193] uppercase tracking-wide">{t('Now', 'الآن')}</p> : <p className="text-[11.5px] text-neutral-300">—</p>}
               </div>
               <div className="relative flex justify-center">
-                <span className={`absolute top-0 bottom-0 w-px ${i === 0 ? 'top-4' : ''} ${last ? 'bottom-auto h-4' : ''} bg-neutral-200`} />
-                <span className={`relative mt-[13px] w-2.5 h-2.5 rounded-full ${m.dot} ${r.status === 'current' ? 'ring-4 ring-blue-100' : 'ring-4 ring-white'}`} />
+                <span className={`absolute top-0 bottom-0 ${i === 0 ? 'top-4' : ''} ${last ? 'bottom-auto h-4' : ''} ${after ? 'border-s-2 border-dashed border-neutral-300' : 'w-0.5 bg-success-300'}`} />
+                {isCur
+                  ? <span className="relative mt-[22px] flex w-3.5 h-3.5"><span className="absolute inset-0 rounded-full bg-[#2A6193]/40 animate-ping" /><span className="relative w-3.5 h-3.5 rounded-full bg-[#2A6193] ring-4 ring-[#2A6193]/20" /></span>
+                  : <span className={`relative mt-[13px] w-2.5 h-2.5 rounded-full ${m.dot} ring-4 ring-white`} />}
               </div>
-              <div className={`flex items-start gap-3 py-2 ${r.status === 'upcoming' ? 'opacity-80' : ''}`}>
+              <div className={`min-w-0 flex items-start gap-3 ${isCur ? 'my-2 rounded-xl border-2 border-[#2A6193] bg-[#EEF4FB] px-3.5 py-3 shadow-sm' : 'py-2'} ${r.status === 'upcoming' ? 'text-neutral-400' : ''}`} data-current-step={isCur || undefined}>
                 <span className={`w-10 h-10 rounded-full border flex items-center justify-center flex-shrink-0 ${m.tile}`}>{r.icon}</span>
                 <div className="min-w-0 flex-1 pt-0.5">
-                  <p className="text-[14px] font-semibold text-neutral-900 leading-snug">{r.title}</p>
+                  {isCur && <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#2A6193]">{t('You are here', 'أنت هنا')}</p>}
+                  <p className={`text-[14px] leading-snug ${r.status === 'upcoming' ? 'font-medium text-neutral-500' : 'font-semibold text-neutral-900'}`}>{r.title}</p>
                   <p className="text-[12.5px] text-neutral-500 truncate">{r.sub}</p>
                   {r.quote && <p className="mt-1.5 text-[12.5px] text-neutral-600 border-s-2 border-neutral-200 ps-2.5 italic">“{r.quote}”</p>}
                   {r.chip && <div className="mt-1.5"><AnchorChip label={r.chip.label} onClick={() => onJump?.(r.chip!.id)} /></div>}
@@ -1478,23 +1490,25 @@ function TrailPanel({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
   const steps = task.trail ?? [];
   return (
     <div className="flex-1 overflow-y-auto p-4">
-      <p className="text-[12px] text-neutral-500 mb-3">{t('Past and upcoming steps for this request.', 'الخطوات السابقة والقادمة لهذا الطلب.')}</p>
+      <p className="text-[12px] text-neutral-500 mb-3">{t('Completed, current and upcoming steps for this request.', 'الخطوات المكتملة والحالية والقادمة لهذا الطلب.')}</p>
       <ol className="relative">
         {steps.map((s, i) => {
           const last = i === steps.length - 1;
-          const color = s.state === 'done' ? 'bg-success-500' : s.state === 'current' ? 'bg-brand-600 ring-4 ring-brand-100' : 'bg-neutral-300';
+          const cur = s.state === 'current', up = s.state === 'upcoming';
           return (
-            <li key={s.id} className="flex gap-3 pb-4">
+            <li key={s.id} className="flex gap-3" data-step-state={s.state}>
               <div className="flex flex-col items-center">
-                <span className={`w-3 h-3 rounded-full mt-0.5 flex-shrink-0 ${color}`} />
-                {!last && <span className={`w-px flex-1 mt-1 ${s.state === 'done' ? 'bg-success-200' : 'bg-neutral-200'}`} />}
+                {cur
+                  ? <span className="relative mt-3.5 flex w-3.5 h-3.5 flex-shrink-0"><span className="absolute inset-0 rounded-full bg-[#2A6193]/40 animate-ping" /><span className="relative w-3.5 h-3.5 rounded-full bg-[#2A6193] ring-4 ring-[#2A6193]/20" /></span>
+                  : <span className={`w-3 h-3 rounded-full mt-0.5 flex-shrink-0 ${s.state === 'done' ? 'bg-success-500' : 'bg-white border-2 border-neutral-300'}`} />}
+                {!last && <span className={`flex-1 mt-1 ${s.state === 'done' ? 'w-0.5 bg-success-300' : 'border-s-2 border-dashed border-neutral-300'}`} />}
               </div>
-              <div className={`min-w-0 flex-1 ${s.state === 'upcoming' ? 'opacity-70' : ''}`}>
-                <p className={`text-[13px] ${s.state === 'current' ? 'font-bold text-brand-800' : 'font-semibold text-neutral-800'}`}>{isAr ? s.titleAr : s.titleEn}</p>
-                <p className="text-[11.5px] text-neutral-500">{isAr ? s.actorAr : s.actorEn}{s.at ? ` · ${fmtDate(s.at, isAr)}` : s.state === 'upcoming' ? ` · ${t('upcoming', 'قادمة')}` : ''}</p>
+              <div className={`min-w-0 flex-1 mb-4 ${cur ? 'rounded-xl border-2 border-[#2A6193] bg-[#EEF4FB] px-3 py-2.5' : ''}`}>
+                {cur && <p className="text-[10px] font-bold uppercase tracking-wider text-[#2A6193]">{t('You are here · Current step', 'أنت هنا · الخطوة الحالية')}</p>}
+                <p className={`text-[13px] ${cur ? 'font-bold text-[#17233A]' : up ? 'font-medium text-neutral-500' : 'font-semibold text-neutral-800'}`}>{isAr ? s.titleAr : s.titleEn}</p>
+                <p className={`text-[11.5px] ${up ? 'text-neutral-400' : 'text-neutral-500'}`}>{isAr ? s.actorAr : s.actorEn}{s.at ? ` · ${fmtDate(s.at, isAr)}` : up ? ` · ${t('upcoming', 'قادمة')}` : ''}</p>
                 {s.note && <p className="text-[11.5px] text-neutral-500 mt-0.5">{tb(s.note, isAr)}</p>}
               </div>
-              {s.state === 'current' && <ChevronRightIcon className={`w-4 h-4 text-brand-500 self-center ${isAr ? 'rotate-180' : ''}`} />}
             </li>
           );
         })}
