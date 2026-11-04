@@ -2,6 +2,7 @@
 // Header with meta + Approve/Reject/Return CTAs, tabbed body (Overview / RFP /
 // Activity), and top actions: Comments (side pane), History (task trail), Download PDF.
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { openRequestFromAnywhere } from '../lib/appNav';
 import { chooseOfficer } from './flow';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
@@ -12,7 +13,7 @@ import { createPortal } from 'react-dom';
 import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadIcon, ChevronRightIcon } from '../components/Icons';
 import type { Bilingual, Task, TaskAction, Person, RfpDetail } from './types';
 import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
-import { TaskBody } from './renderers';
+import { TaskBody, hasTaskBody } from './renderers';
 import { useRequests } from '../context/RequestStore';
 import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
 import { BudgetChecker, useBudgetCheck } from './BudgetCheck';
@@ -41,7 +42,12 @@ function slaInfo(task: Task) {
 }
 
 interface ActionDef { id: TaskAction; label: [string, string]; variant: 'primary' | 'secondary' | 'danger'; needsNote?: boolean; gated?: boolean; decision?: Bilingual }
+// CTA hierarchy across tasks: primary (Approve / Complete) → Reject → Return / others.
+const CTA_RANK = (a: ActionDef) => (a.variant === 'primary' ? 0 : a.variant === 'danger' ? 1 : 2);
 function actionsFor(task: Task): ActionDef[] {
+  return baseActions(task).map((a, i) => ({ a, i })).sort((x, y) => CTA_RANK(x.a) - CTA_RANK(y.a) || x.i - y.i).map((x) => x.a);
+}
+function baseActions(task: Task): ActionDef[] {
   if (task.actions?.length) return task.actions.map((a) => ({ id: a.id, label: [a.labelEn, a.labelAr], variant: a.variant, needsNote: a.needsNote, gated: a.gated, decision: a.decision }));
   switch (task.type) {
     case 'approval': return [
@@ -209,6 +215,12 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
       ))}
     </div>
   ) : null;
+  // The request this task belongs to, in My Requests (matched by title) — opened in a new tab.
+  const { requests } = useRequests();
+  const reqMatch = requests.find((r) => r.id === (task.flow?.requestId ?? task.sourceRequest?.id)) ?? requests.find((r) => r.title === task.entity.titleEn);
+  // Requests made in this session (live flow, Etimad review) exist only in this tab — open them here.
+  const sessionReq = !!(task.flow?.requestId || task.sourceRequest?.id);
+  const reqLink = reqMatch ? `${window.location.pathname}?request=${encodeURIComponent(reqMatch.id)}` : undefined;
 
   function run(a: ActionDef) {
     if (a.id === 'save-draft') { decide(task.id, 'save-draft'); return; }
@@ -240,21 +252,31 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
     <div className="relative flex h-full min-h-0 bg-neutral-50" data-testid="task-detail-root">
       {/* ── Detail column ─────────────────────────────────────────── */}
       <div className="relative flex-1 min-w-0 flex flex-col">
-      {/* Top bar — record id + mobile back */}
-      <div className="flex items-center gap-2 px-4 sm:px-6 h-12 border-b border-neutral-200 bg-white flex-shrink-0">
-        <button onClick={onBack} className="sm:hidden inline-flex items-center gap-1 text-[13px] font-medium text-neutral-600 hover:text-neutral-900">
+      {/* Mobile back */}
+      <div className="sm:hidden flex items-center px-4 h-11 border-b border-neutral-200 bg-white flex-shrink-0">
+        <button onClick={onBack} className="inline-flex items-center gap-1 text-[13px] font-medium text-neutral-600 hover:text-neutral-900">
           <ArrowLeftIcon className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />{t('Back', 'رجوع')}
         </button>
-        <span className="text-[12px] text-neutral-400 font-medium">{task.id}</span>
       </div>
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Header card */}
-        <div className="@container bg-white border-b border-neutral-200 px-4 sm:px-6 pt-5 pb-5">
-          {/* Row 1 — task name · CTAs */}
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <h2 className="min-w-0 flex-1 text-[20px] font-bold text-neutral-900 leading-snug">{isAr ? task.titleAr : task.titleEn}</h2>
+        {/* Header — one title block and one quiet row of key facts */}
+        <div className="@container bg-white border-b border-neutral-200 px-5 sm:px-8 pt-7 pb-6">
+          {/* Eyebrow — reference · task id · status */}
+          <div className="flex items-center gap-2 text-[12px] text-neutral-400 font-medium" data-task-eyebrow>
+            <span className="font-semibold text-neutral-500 tabular-nums" dir="ltr">{task.entity.ref}</span>
+            <span className="text-neutral-300">/</span>
+            <span className="tabular-nums" dir="ltr">{task.id}</span>
+            <span className="ms-1"><StateChip state={task.state} isAr={isAr} /></span>
+            <span className="ms-1"><PriorityTag priority={task.priority} isAr={isAr} /></span>
+          </div>
+          {/* Title · CTAs */}
+          <div className="mt-2 flex items-start justify-between gap-6 flex-wrap">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[22px] font-bold text-neutral-900 leading-snug">{isAr ? task.titleAr : task.titleEn}</h2>
+              <p className="mt-1.5 text-[13.5px] text-neutral-500 leading-relaxed max-w-2xl">{isAr ? task.summaryAr : task.summaryEn}</p>
+            </div>
             {!terminal && !actionsAtBottom && (
               <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                 <div className="flex items-center gap-2">
@@ -270,46 +292,30 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
               </div>
             )}
           </div>
-          {/* Row 2 — description */}
-          <p className="mt-1.5 text-[13px] text-neutral-500 leading-relaxed max-w-3xl">{isAr ? task.summaryAr : task.summaryEn}</p>
 
-          {/* Row 3 — key facts: label on top, value below */}
-          <dl className="mt-4 grid grid-cols-2 @[520px]:grid-cols-4 @[860px]:grid-cols-[0.95fr_0.85fr_0.95fr_0.8fr_1.2fr_1.7fr_0.95fr] gap-px bg-neutral-200 rounded-xl border border-neutral-200 overflow-hidden">
+          {/* Key facts — no boxes, separated by whitespace */}
+          <dl className="mt-6 grid grid-cols-2 @[640px]:grid-cols-3 @[780px]:grid-cols-[minmax(190px,1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(150px,0.9fr)] gap-x-10 gap-y-5" data-task-facts>
             {[
-              { k: t('Created', 'تاريخ الإنشاء'), v: <span className="tabular-nums">{fmtDate(task.receivedAt, isAr)}</span> },
-              { k: t('Status', 'الحالة'), v: <StateChip state={task.state} isAr={isAr} /> },
-              { k: t('SLA left', 'المتبقي من SLA'), v: <SlaValue sla={sla} t={t} terminal={terminal} /> },
-              { k: t('Priority', 'الأولوية'), v: <PriorityTag priority={task.priority} isAr={isAr} /> },
-              { k: t('Department', 'الإدارة الطالبة'), v: <span className="truncate">{tb(task.department, isAr)}</span> },
-              { k: t('Requester', 'مقدّم الطلب'), v: <span className="inline-flex items-center gap-1.5 min-w-0"><Avatar name={task.requester.name} id={task.requester.id} className="w-5 h-5" /><span className="truncate">{personName(task.requester, isAr)}</span></span> },
-              { k: t('Due date', 'الاستحقاق'), v: <span className={`tabular-nums ${d.overdue ? 'text-error-700' : ''}`}>{fmtDate(task.dueAt, isAr)}</span> },
+              { k: t('Request amount', 'قيمة الطلب'), v: <span className="text-[17px] font-bold text-neutral-900 tabular-nums whitespace-nowrap" dir="ltr">{task.amount != null ? fmtSAR(task.amount) : '—'}</span>,
+                sub: task.amount != null ? <span dir="ltr" className="whitespace-nowrap">{t('Incl. VAT', 'شامل الضريبة')} {fmtSAR(task.amount * 1.15)}</span> : null },
+              { k: t('Project', 'المشروع'), v: reqLink
+                  ? <a href={reqLink} target={sessionReq ? undefined : '_blank'} rel="noopener" data-project-link
+                      onClick={(e) => { if (sessionReq && reqMatch) { e.preventDefault(); openRequestFromAnywhere(reqMatch.id); } }} title={t('Open the request details in a new tab', 'فتح تفاصيل الطلب في علامة تبويب جديدة')}
+                      className="inline-flex items-center gap-1 min-w-0 text-[#2A6193] hover:text-[#21507A] hover:underline underline-offset-2">
+                      <span className="truncate">{task.project ? tb(task.project, isAr) : '—'}</span><ExternalGlyph className="w-3.5 h-3.5 flex-shrink-0" />
+                    </a>
+                  : <span className="truncate">{task.project ? tb(task.project, isAr) : '—'}</span>,
+                sub: <span className="truncate block">{isAr ? task.entity.titleAr : task.entity.titleEn}</span> },
+              { k: t('Requester', 'مقدّم الطلب'), v: <span className="inline-flex items-center gap-2 min-w-0"><Avatar name={task.requester.name} id={task.requester.id} className="w-5 h-5" /><span className="truncate">{personName(task.requester, isAr)}</span></span>, sub: <span className="truncate block">{tb(task.department, isAr)}</span> },
+              { k: t('Due', 'الاستحقاق'), v: <span className={`tabular-nums ${d.overdue ? 'text-error-700' : ''}`}>{fmtDate(task.dueAt, isAr)}</span>, sub: <SlaValue sla={sla} t={t} terminal={terminal} /> },
             ].map((c, i) => (
-              <div key={i} className={`bg-neutral-50 px-3 py-2.5 min-w-0 ${i === 6 ? 'col-span-2 @[860px]:col-span-1' : ''}`}>
-                <dt className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400 truncate">{c.k}</dt>
-                <dd className="mt-1 text-[13px] font-semibold text-neutral-800 min-h-[22px] flex items-center min-w-0 whitespace-nowrap">{c.v}</dd>
+              <div key={i} className="min-w-0">
+                <dt className="text-[11.5px] font-medium text-neutral-400">{c.k}</dt>
+                <dd className="mt-1 text-[14px] font-semibold text-neutral-800 min-w-0 flex items-center">{c.v}</dd>
+                {c.sub && <dd className="mt-0.5 text-[12px] text-neutral-500 min-w-0">{c.sub}</dd>}
               </div>
             ))}
           </dl>
-
-          {/* Row 4 — project · RFP amount */}
-          <div className="mt-3 grid grid-cols-1 @[560px]:grid-cols-2 gap-3">
-            <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 flex items-center gap-3 min-w-0">
-              <span className="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center flex-shrink-0"><FolderGlyph className="w-5 h-5" /></span>
-              <div className="min-w-0">
-                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{t('Project', 'المشروع')}</p>
-                <p className="text-[15px] font-bold text-neutral-900 truncate">{task.project ? tb(task.project, isAr) : '—'}</p>
-                <p className="text-[11.5px] text-neutral-500 truncate">{isAr ? task.entity.titleAr : task.entity.titleEn} · <span dir="ltr">{task.entity.ref}</span></p>
-              </div>
-            </div>
-            <div className="rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3 flex items-center gap-3 min-w-0">
-              <span className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center flex-shrink-0 text-[11px] font-bold">SAR</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-brand-700/80">{t('Request amount', 'قيمة الطلب')}</p>
-                <p className="text-[19px] font-bold text-brand-800 tabular-nums leading-tight whitespace-nowrap" dir="ltr">{task.amount != null ? fmtSAR(task.amount) : '—'}</p>
-                {task.amount != null && <p className="text-[11.5px] text-brand-700/80 tabular-nums" dir="ltr">{t('Incl. VAT', 'شامل الضريبة')} {fmtSAR(task.amount * 1.15)}</p>}
-              </div>
-            </div>
-          </div>
 
           {awaiting && (
             <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-warning-50 border border-warning-200 px-3.5 py-2.5">
@@ -326,11 +332,11 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
         </div>
 
         {/* Tabs */}
-        <div className="px-4 sm:px-6 border-b border-neutral-200 bg-white sticky top-0 z-10">
-          <div className="flex items-center gap-1">
+        <div className="px-5 sm:px-8 border-b border-neutral-200 bg-white sticky top-0 z-10">
+          <div className="flex items-center gap-6">
             {TABS.map((tb2) => (
               <button key={tb2.key} type="button" onClick={() => setTab(tb2.key)}
-                className={`px-3.5 py-2.5 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${tab === tb2.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-neutral-500 hover:text-neutral-800'}`}>
+                className={`py-3 text-[13.5px] font-semibold border-b-2 -mb-px transition-colors ${tab === tb2.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-neutral-500 hover:text-neutral-800'}`}>
                 {isAr ? tb2.ar : tb2.en}
               </button>
             ))}
@@ -343,7 +349,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
         </div>
 
         {/* Tab content */}
-        <div className="p-4 sm:p-6">
+        <div className="px-5 sm:px-8 py-6 sm:py-8">
           {showInfo && <ContextNote task={task} isAr={isAr} t={t} onClose={() => setShowInfo(false)} />}
           {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} footer={bottomActions} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
@@ -390,10 +396,10 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           <aside className="absolute inset-y-0 end-16 z-30 w-[320px] max-w-[80%] bg-white border-s border-neutral-200 shadow-2xl flex flex-col slide-up
                             md:static md:z-auto md:w-[320px] md:max-w-none md:shadow-none lg:w-[360px]">
             {/* Pane header — switch between the two panes + collapse */}
-            <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-12 bg-[#17233A] flex-shrink-0">
+            <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-14 bg-[#17233A] flex-shrink-0">
               <div className="flex items-center gap-0.5 bg-white/10 rounded-lg p-0.5">
                 <PaneTab active={side === 'comments'} onClick={() => setSide('comments')} icon={<CommentGlyph className="w-3.5 h-3.5" />}>{t('Comments', 'التعليقات')}</PaneTab>
-                <PaneTab active={side === 'history'} onClick={() => setSide('history')} icon={<HistoryGlyph className="w-3.5 h-3.5" />}>{t('Approval flow', 'مسار الاعتماد')}</PaneTab>
+                <PaneTab active={side === 'history'} onClick={() => setSide('history')} icon={<HistoryGlyph className="w-3.5 h-3.5" />}>{t('Process', 'العملية')}</PaneTab>
               </div>
               <button onClick={() => setSide(null)} title={t('Collapse panel', 'طي اللوحة')}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white flex-shrink-0">
@@ -411,10 +417,10 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 
       {pending && <DecisionModal task={task} action={pending} isAr={isAr} t={t} onCancel={() => setPending(null)} onConfirm={confirmPending} />}
 
-      {/* ── Right icon rail (always visible) — dark navy to anchor the workspace ── */}
-      <nav className="w-16 flex-shrink-0 bg-[#17233A] flex flex-col items-center pt-3 pb-3 gap-1.5 z-40" aria-label={t('Task tools', 'أدوات المهمة')}>
+      {/* ── Right icon rail (always visible) — navy, contrasting the green header ── */}
+      <nav className="w-16 flex-shrink-0 bg-[#17233A] flex flex-col items-center pt-4 pb-3 gap-2 z-40" aria-label={t('Task tools', 'أدوات المهمة')}>
         <StripBtn dock active={side === 'comments'} onClick={() => toggleSide('comments')} label={t('Comments', 'التعليقات')} count={task.activity.filter((a) => a.kind === 'comment').length} icon={<CommentGlyph className="w-[18px] h-[18px]" />} />
-        <StripBtn active={side === 'history'} onClick={() => toggleSide('history')} label={t('History', 'السجل')} icon={<HistoryGlyph className="w-[18px] h-[18px]" />} />
+        <StripBtn active={side === 'history'} onClick={() => toggleSide('history')} label={t('Process', 'العملية')} icon={<HistoryGlyph className="w-[18px] h-[18px]" />} />
       </nav>
     </div>
   );
@@ -1261,7 +1267,7 @@ function RequiredAction({ task, isAr, t, footer, onReview, commentCount = 0, res
   const budgets = Array.from(new Set(lines.map((l) => l.budgetEn ?? '')));
   const sub = lines.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Route check (manual build): the guidance stays in view, as plain text — no card. */}
       {task.type === 'route-check' && (
         <p className="text-[13px] text-neutral-600 leading-relaxed" data-testid="route-check-guidance">
@@ -1271,9 +1277,9 @@ function RequiredAction({ task, isAr, t, footer, onReview, commentCount = 0, res
       )}
       {/* Approver: review the RFP and pin comments */}
       {onReview && (
-        <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white p-5 shadow-sm flex items-center gap-4 flex-wrap">
-          <span className="w-11 h-11 rounded-xl bg-[#2A6193] text-white flex items-center justify-center flex-shrink-0"><BubbleIcon className="w-5 h-5" /></span>
-          <div className="min-w-0 flex-1">
+        <div data-review-card className="sticky top-[43px] z-[5] rounded-xl border border-neutral-200 bg-white px-6 py-5 flex items-center gap-4 flex-wrap shadow-[0_6px_16px_-8px_rgba(16,24,40,0.18)]">
+          <span className="w-10 h-10 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center flex-shrink-0"><BubbleIcon className="w-5 h-5" /></span>
+          <div className="min-w-[260px] flex-1">
             {task.respondComments ? (<>
               <p className="text-[14px] font-bold text-neutral-900">{t('Respond to the review comments', 'الرد على تعليقات المراجعة')}</p>
               <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Open the request details. Each commented section shows a marker — reply to or resolve the comment there. Turn on editing to change only the commented fields.', 'افتح تفاصيل الطلب. يظهر مؤشر على كل قسم عليه تعليق — رد عليه أو حله هناك. فعّل التعديل لتغيير الحقول التي عليها تعليقات فقط.')}</p>
@@ -1296,7 +1302,7 @@ function RequiredAction({ task, isAr, t, footer, onReview, commentCount = 0, res
 
       {/* Team Lead: pick the officer */}
       {task.assignTo?.length ? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-5">
           <p className="text-[13px] font-bold text-neutral-800">{t('Assign to officer', 'الإسناد إلى أخصائي')}</p>
           <p className="text-[12px] text-neutral-500 mt-0.5">{t('Used when the request is new or has comments. Pick who reviews it.', 'يُستخدم عندما يكون الطلب جديداً أو عليه ملاحظات. اختر من يراجعه.')}</p>
           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -1316,7 +1322,7 @@ function RequiredAction({ task, isAr, t, footer, onReview, commentCount = 0, res
 
       {/* DOA approval: authority check */}
       {task.doaInfo?.length ? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-5">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[13px] font-bold text-neutral-800">{t('Delegation of authority', 'تفويض الصلاحيات')}</p>
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold rounded-full border px-2 py-0.5 bg-success-50 text-success-700 border-success-100"><CheckCircleIcon className="w-3 h-3" />{t('Within your limit', 'ضمن حد صلاحيتك')}</span>
@@ -1334,7 +1340,7 @@ function RequiredAction({ task, isAr, t, footer, onReview, commentCount = 0, res
 
       {/* Director: estimated price by budget item */}
       {task.priceBreakdown && lines.length > 0 && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-5">
           <p className="text-[13px] font-bold text-neutral-800">{t('Estimated price by budget item', 'السعر التقديري حسب بند الميزانية')}</p>
           <div className="mt-3 space-y-2.5">
             {budgets.map((b, i) => {
@@ -1360,8 +1366,8 @@ function RequiredAction({ task, isAr, t, footer, onReview, commentCount = 0, res
       )}
 
       {/* Task form / record — or the creation-page section this task works on */}
-      {mainWidget ?? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+      {mainWidget ?? (hasTaskBody(task) &&
+        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-5">
           <TaskBody task={task} />
           {footer}
         </div>
@@ -1376,8 +1382,8 @@ const TL_META: Record<TLStatus, { en: string; ar: string; pill: string; dot: str
   done:     { en: 'Done', ar: 'تم', pill: 'bg-success-50 text-success-700', dot: 'bg-success-500', tile: 'bg-success-50 text-success-700 border-success-100' },
   approved: { en: 'Approved', ar: 'معتمد', pill: 'bg-success-50 text-success-700', dot: 'bg-success-500', tile: 'bg-success-50 text-success-700 border-success-100' },
   comment:  { en: 'Comment', ar: 'تعليق', pill: 'bg-warning-50 text-warning-700', dot: 'bg-warning-500', tile: 'bg-warning-50 text-warning-700 border-warning-100' },
-  current:  { en: 'In progress', ar: 'قيد التنفيذ', pill: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500', tile: 'bg-blue-50 text-blue-700 border-blue-100' },
-  upcoming: { en: 'Upcoming', ar: 'قادمة', pill: 'bg-white text-neutral-700 border border-neutral-200', dot: 'bg-neutral-800', tile: 'bg-neutral-50 text-neutral-600 border-neutral-200' },
+  current:  { en: 'Current step', ar: 'الخطوة الحالية', pill: 'bg-[#2A6193] text-white', dot: 'bg-[#2A6193]', tile: 'bg-[#2A6193] text-white border-[#2A6193]' },
+  upcoming: { en: 'Upcoming', ar: 'قادمة', pill: 'bg-white text-neutral-500 border border-dashed border-neutral-300', dot: 'bg-white border-2 border-neutral-300', tile: 'bg-white text-neutral-400 border-dashed border-neutral-300' },
   returned: { en: 'Returned', ar: 'مُعاد', pill: 'bg-warning-50 text-warning-700', dot: 'bg-warning-500', tile: 'bg-warning-50 text-warning-700 border-warning-100' },
   rejected: { en: 'Rejected', ar: 'مرفوض', pill: 'bg-error-50 text-error-700', dot: 'bg-error-500', tile: 'bg-error-50 text-error-700 border-error-100' },
 };
@@ -1404,6 +1410,7 @@ function ActivityTab({ task, isAr, t, onComment, terminal, onJump }: { task: Tas
   const upcoming = curIdx >= 0 ? steps.slice(curIdx + 1) : [];
   for (const s of upcoming) rows.push({ key: s.id, status: 'upcoming', icon: <ClockIcon className="w-[18px] h-[18px]" />, title: isAr ? s.titleAr : s.titleEn, sub: isAr ? s.actorAr : s.actorEn });
   const doneSteps = curIdx >= 0 ? curIdx : steps.length;
+  const curRow = rows.findIndex((r) => r.status === 'current');
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm">
@@ -1414,24 +1421,35 @@ function ActivityTab({ task, isAr, t, onComment, terminal, onJump }: { task: Tas
         </div>
         <span className="text-[11.5px] font-medium text-neutral-500">{t(`${doneSteps} of ${steps.length} steps complete`, `${doneSteps} من ${steps.length} خطوات مكتملة`)}</span>
       </div>
+      {/* Legend — what each state looks like */}
+      <div className="px-5 pb-3 flex items-center gap-4 flex-wrap text-[11.5px] text-neutral-500" data-activity-legend>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-success-500" />{t('Completed', 'مكتملة')}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#2A6193] ring-2 ring-[#2A6193]/25" />{t('Current step', 'الخطوة الحالية')}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-white border-2 border-neutral-300" />{t('Upcoming', 'قادمة')}</span>
+      </div>
 
       <ol className="px-5 pb-2">
         {rows.map((r, i) => {
           const m = TL_META[r.status]; const last = i === rows.length - 1;
+          const isCur = r.status === 'current';
+          const after = curRow >= 0 && i >= curRow; // line below the current step is dashed (not yet done)
           return (
-            <li key={r.key} className="grid grid-cols-[72px_20px_1fr] sm:grid-cols-[92px_24px_1fr] gap-x-2 sm:gap-x-3">
+            <li key={r.key} className="grid grid-cols-[72px_20px_1fr] sm:grid-cols-[92px_24px_1fr] gap-x-2 sm:gap-x-3" data-step-state={r.status}>
               <div className="pt-2.5 text-end">
                 {r.at ? (<><p className="text-[12.5px] font-medium text-neutral-600 tabular-nums whitespace-nowrap">{fmtTime(r.at, isAr)}</p><p className="text-[10.5px] text-neutral-400 whitespace-nowrap">{fmtDate(r.at, isAr)}</p></>)
-                  : <p className="text-[11.5px] text-neutral-400">{r.status === 'current' ? t('Now', 'الآن') : '—'}</p>}
+                  : isCur ? <p className="pt-2 text-[12px] font-bold text-[#2A6193] uppercase tracking-wide">{t('Now', 'الآن')}</p> : <p className="text-[11.5px] text-neutral-300">—</p>}
               </div>
               <div className="relative flex justify-center">
-                <span className={`absolute top-0 bottom-0 w-px ${i === 0 ? 'top-4' : ''} ${last ? 'bottom-auto h-4' : ''} bg-neutral-200`} />
-                <span className={`relative mt-[13px] w-2.5 h-2.5 rounded-full ${m.dot} ${r.status === 'current' ? 'ring-4 ring-blue-100' : 'ring-4 ring-white'}`} />
+                <span className={`absolute top-0 bottom-0 ${i === 0 ? 'top-4' : ''} ${last ? 'bottom-auto h-4' : ''} ${after ? 'border-s-2 border-dashed border-neutral-300' : 'w-0.5 bg-success-300'}`} />
+                {isCur
+                  ? <span className="relative mt-[22px] flex w-3.5 h-3.5"><span className="absolute inset-0 rounded-full bg-[#2A6193]/40 animate-ping" /><span className="relative w-3.5 h-3.5 rounded-full bg-[#2A6193] ring-4 ring-[#2A6193]/20" /></span>
+                  : <span className={`relative mt-[13px] w-2.5 h-2.5 rounded-full ${m.dot} ring-4 ring-white`} />}
               </div>
-              <div className={`flex items-start gap-3 py-2 ${r.status === 'upcoming' ? 'opacity-80' : ''}`}>
+              <div className={`min-w-0 flex items-start gap-3 ${isCur ? 'my-2 rounded-xl border-2 border-[#2A6193] bg-[#EEF4FB] px-3.5 py-3 shadow-sm' : 'py-2'} ${r.status === 'upcoming' ? 'text-neutral-400' : ''}`} data-current-step={isCur || undefined}>
                 <span className={`w-10 h-10 rounded-full border flex items-center justify-center flex-shrink-0 ${m.tile}`}>{r.icon}</span>
                 <div className="min-w-0 flex-1 pt-0.5">
-                  <p className="text-[14px] font-semibold text-neutral-900 leading-snug">{r.title}</p>
+                  {isCur && <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#2A6193]">{t('You are here', 'أنت هنا')}</p>}
+                  <p className={`text-[14px] leading-snug ${r.status === 'upcoming' ? 'font-medium text-neutral-500' : 'font-semibold text-neutral-900'}`}>{r.title}</p>
                   <p className="text-[12.5px] text-neutral-500 truncate">{r.sub}</p>
                   {r.quote && <p className="mt-1.5 text-[12.5px] text-neutral-600 border-s-2 border-neutral-200 ps-2.5 italic">“{r.quote}”</p>}
                   {r.chip && <div className="mt-1.5"><AnchorChip label={r.chip.label} onClick={() => onJump?.(r.chip!.id)} /></div>}
@@ -1586,23 +1604,25 @@ function TrailPanel({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
   const steps = task.trail ?? [];
   return (
     <div className="flex-1 overflow-y-auto p-4">
-      <p className="text-[12px] text-neutral-500 mb-3">{t('Past and upcoming steps for this request.', 'الخطوات السابقة والقادمة لهذا الطلب.')}</p>
+      <p className="text-[12px] text-neutral-500 mb-3">{t('Completed, current and upcoming steps for this request.', 'الخطوات المكتملة والحالية والقادمة لهذا الطلب.')}</p>
       <ol className="relative">
         {steps.map((s, i) => {
           const last = i === steps.length - 1;
-          const color = s.state === 'done' ? 'bg-success-500' : s.state === 'current' ? 'bg-brand-600 ring-4 ring-brand-100' : 'bg-neutral-300';
+          const cur = s.state === 'current', up = s.state === 'upcoming';
           return (
-            <li key={s.id} className="flex gap-3 pb-4">
+            <li key={s.id} className="flex gap-3" data-step-state={s.state}>
               <div className="flex flex-col items-center">
-                <span className={`w-3 h-3 rounded-full mt-0.5 flex-shrink-0 ${color}`} />
-                {!last && <span className={`w-px flex-1 mt-1 ${s.state === 'done' ? 'bg-success-200' : 'bg-neutral-200'}`} />}
+                {cur
+                  ? <span className="relative mt-3.5 flex w-3.5 h-3.5 flex-shrink-0"><span className="absolute inset-0 rounded-full bg-[#2A6193]/40 animate-ping" /><span className="relative w-3.5 h-3.5 rounded-full bg-[#2A6193] ring-4 ring-[#2A6193]/20" /></span>
+                  : <span className={`w-3 h-3 rounded-full mt-0.5 flex-shrink-0 ${s.state === 'done' ? 'bg-success-500' : 'bg-white border-2 border-neutral-300'}`} />}
+                {!last && <span className={`flex-1 mt-1 ${s.state === 'done' ? 'w-0.5 bg-success-300' : 'border-s-2 border-dashed border-neutral-300'}`} />}
               </div>
-              <div className={`min-w-0 flex-1 ${s.state === 'upcoming' ? 'opacity-70' : ''}`}>
-                <p className={`text-[13px] ${s.state === 'current' ? 'font-bold text-brand-800' : 'font-semibold text-neutral-800'}`}>{isAr ? s.titleAr : s.titleEn}</p>
-                <p className="text-[11.5px] text-neutral-500">{isAr ? s.actorAr : s.actorEn}{s.at ? ` · ${fmtDate(s.at, isAr)}` : s.state === 'upcoming' ? ` · ${t('upcoming', 'قادمة')}` : ''}</p>
+              <div className={`min-w-0 flex-1 mb-4 ${cur ? 'rounded-xl border-2 border-[#2A6193] bg-[#EEF4FB] px-3 py-2.5' : ''}`}>
+                {cur && <p className="text-[10px] font-bold uppercase tracking-wider text-[#2A6193]">{t('You are here · Current step', 'أنت هنا · الخطوة الحالية')}</p>}
+                <p className={`text-[13px] ${cur ? 'font-bold text-[#17233A]' : up ? 'font-medium text-neutral-500' : 'font-semibold text-neutral-800'}`}>{isAr ? s.titleAr : s.titleEn}</p>
+                <p className={`text-[11.5px] ${up ? 'text-neutral-400' : 'text-neutral-500'}`}>{isAr ? s.actorAr : s.actorEn}{s.at ? ` · ${fmtDate(s.at, isAr)}` : up ? ` · ${t('upcoming', 'قادمة')}` : ''}</p>
                 {s.note && <p className="text-[11.5px] text-neutral-500 mt-0.5">{tb(s.note, isAr)}</p>}
               </div>
-              {s.state === 'current' && <ChevronRightIcon className={`w-4 h-4 text-brand-500 self-center ${isAr ? 'rotate-180' : ''}`} />}
             </li>
           );
         })}
@@ -1673,6 +1693,9 @@ function HistoryGlyph({ className = '' }: { className?: string }) {
 }
 function PanelCollapseGlyph({ className = '' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16" /><path d="m10.5 10 2 2-2 2" /></svg>;
+}
+function ExternalGlyph({ className = '' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg>;
 }
 function JumpGlyph({ className = '' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>;

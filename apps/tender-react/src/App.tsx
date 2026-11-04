@@ -64,6 +64,13 @@ function AppRoot() {
   // Every new request opens the wizard on its Procurement Route step (Step 1),
   // which determines the channel; the dashboard quick actions land here too.
   const newRequest = (_sourceType?: SourceType) => open({ kind: 'new' });
+  // A request opened from an Inbox task in a new tab: ?request=<id>
+  useEffect(() => {
+    try {
+      const id = new URLSearchParams(window.location.search).get('request');
+      if (id) { setDetailId(id); setPage('request-detail'); }
+    } catch { /* ignore */ }
+  }, []);
   // Clicking a request opens its detail page; editing (draft / returned) opens the form.
   const editRequest = (id: string) => { const r = store.get(id); if (r?.form) open({ kind: 'existing', id }); else newRequest(r?.type); };
   const viewRequest = (id: string) => { setDetailId(id); setPage('request-detail'); };

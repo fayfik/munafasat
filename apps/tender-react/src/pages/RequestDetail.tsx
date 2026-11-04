@@ -135,7 +135,7 @@ function committee(esouq: boolean): Member[] {
 export default function RequestDetail({ id, onBack, onEdit }: { id: string; onBack: () => void; onEdit: (id: string) => void }) {
   const { isAr } = useLanguage();
   const t = useT();
-  const { get, requests, userName } = useRequests();
+  const { get, mode, requests, userName } = useRequests();
   const { tasks, setViewer } = useInbox();
   const r = get(id);
   const fs = flowStatus(tasks, r?.requestNo);
@@ -153,6 +153,9 @@ export default function RequestDetail({ id, onBack, onEdit }: { id: string; onBa
   }) : undefined), [r, amount, formRfp]);
   const proc = useMemo(() => r ? (fs ? flowProcess(r, fs) : buildProcess(r)) : [], [r, fs]);
 
+  if (!r && (mode === 'loading' || (mode === 'live' && requests.length === 0))) {
+    return <div className="p-8 space-y-4"><Sk className="h-4 w-40" /><Sk className="h-7 w-1/2" /><SkeletonCards cards={2} /></div>;
+  }
   if (!r || !rfp) {
     return (
       <div className="p-10 text-center">

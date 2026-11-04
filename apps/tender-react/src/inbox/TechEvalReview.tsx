@@ -30,7 +30,7 @@ export default function TechEvalReview({ task, isAr, t, readOnly, onDecide, onUp
     <div className="space-y-5" data-tech-review>
       {/* Progress */}
       <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white px-5 py-4 flex items-center gap-4 flex-wrap">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[280px] flex-1">
           <p className="text-[14px] font-bold text-neutral-900">{t('Review the technical evaluation', 'مراجعة التقييم الفني')}</p>
           <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Accept each item as defined by the requester, or click Modify to change that row. Approve is enabled once every item is accepted or modified.', 'اقبل كل بند كما حدده مقدّم الطلب، أو انقر تعديل لتغيير ذلك السطر. يُفعّل الاعتماد بعد قبول أو تعديل جميع البنود.')}</p>
           <div className="mt-2 flex items-center gap-2">

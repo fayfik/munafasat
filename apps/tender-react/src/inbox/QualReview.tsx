@@ -34,7 +34,7 @@ export default function QualReview({ task, isAr, t, readOnly, onDecide, onUpdate
     <div className="space-y-5" data-qual-review>
       {/* Progress */}
       <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white px-5 py-4 flex items-center gap-4 flex-wrap">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[280px] flex-1">
           <p className="text-[14px] font-bold text-neutral-900">{t('Review the qualification criteria', 'مراجعة معايير التأهيل')}</p>
           <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('The criteria below are prefilled from the request. Accept each criterion, or click Modify to change its range and weight. Complete is enabled once every row is reviewed and the totals are 100%.', 'المعايير أدناه معبأة مسبقاً من الطلب. اقبل كل معيار، أو انقر تعديل لتغيير النطاق والوزن. يُفعّل الإكمال بعد مراجعة جميع الأسطر وبلوغ المجاميع 100%.')}</p>
           <div className="mt-2 flex items-center gap-2">

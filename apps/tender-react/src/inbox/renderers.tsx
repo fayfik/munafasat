@@ -14,19 +14,25 @@ import { tb } from './meta';
 type T = (en: string, ar: string) => string;
 
 // ── Approval ─────────────────────────────────────────────────────────────────
+// Facts already shown in the task header are not repeated here.
+const IN_HEADER = new Set(['Request value', 'Request', 'Requesting department', 'Requester', 'Project']);
+export const approvalRows = (task: Task) => (task.approvalRecord ?? []).filter((r) => !IN_HEADER.has(r.label.en));
+export const hasTaskBody = (task: Task) => task.type !== 'approval' || approvalRows(task).length > 0 || (task.priorApprovals?.length ?? 0) > 0;
+
 function ApprovalBody({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
+  const rows = approvalRows(task);
   return (
     <div className="space-y-4">
-      <Section title={t('Record summary', 'ملخص السجل')}>
+      {rows.length > 0 && <Section title={t('Record summary', 'ملخص السجل')}>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
-          {task.approvalRecord?.map((r, i) => (
+          {rows.map((r, i) => (
             <div key={i} className={r.emphasis ? 'sm:col-span-2' : ''}>
               <dt className="text-[11px] uppercase tracking-wide text-neutral-400">{tb(r.label, isAr)}</dt>
               <dd className={`text-neutral-800 ${r.emphasis ? 'text-[16px] font-bold' : 'text-[13px] font-medium'}`} dir={/SAR|\d/.test(r.value) ? 'ltr' : undefined}>{r.value}</dd>
             </div>
           ))}
         </dl>
-      </Section>
+      </Section>}
       {task.priorApprovals && task.priorApprovals.length > 0 && (
         <Section title={t('Approval history', 'سجل الاعتماد')}>
           <ul className="space-y-1.5">
