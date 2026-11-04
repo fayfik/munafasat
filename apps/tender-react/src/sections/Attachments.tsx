@@ -72,8 +72,8 @@ export default function Attachments() {
       <SectionCard
         title="Supporting Documents"
         titleAr="الوثائق الداعمة"
-        description="Upload all relevant documents to support this tender request."
-        descriptionAr="ارفع جميع الوثائق ذات الصلة لدعم طلب المناقصة هذا."
+        description="Supporting documents only — such as detailed technical documentation or the current technical landscape. The Scope of Work and requirements belong in the form, where reviewers check them."
+        descriptionAr="وثائق داعمة فقط — مثل الوثائق الفنية التفصيلية أو البيئة التقنية الحالية. نطاق العمل والمتطلبات مكانها النموذج حيث يراجعها المراجعون."
       >
         {/* Drop zone */}
         <div

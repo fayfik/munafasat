@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import ViewAsSwitcher from './ViewAsSwitcher';
+import NotificationsBell from './NotificationsBell';
 import { TopProgress, useLoading } from './Loader';
 import { useRequests } from '../context/RequestStore';
 import { useInbox } from '../inbox/store';
@@ -68,17 +69,8 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
             {isAr ? 'English' : 'عربي'}
           </button>
 
-          {/* Notifications */}
-          <button
-            className="relative w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-white/90 hover:bg-white/15 hover:text-white"
-            title={t('Notifications', 'الإشعارات')}
-            aria-label={t('Notifications', 'الإشعارات')}
-          >
-            <BellIcon className="w-4 h-4" />
-            {returnedCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-warning-400 ring-2 ring-brand-700" />
-            )}
-          </button>
+          {/* Notifications — built from the viewer's tasks */}
+          <NotificationsBell />
 
           {/* User pill — doubles as the "View as" switcher */}
           <ViewAsSwitcher />

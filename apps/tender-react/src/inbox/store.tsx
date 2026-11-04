@@ -7,6 +7,8 @@ import { createContext, useContext, useState, useCallback, useMemo, useRef, type
 import { SEED_TASKS, ME, buildCommentResponseTask } from './data';
 import type { RfpDetail, Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry, EtimadReviewItem, RouteCheckItem, Person } from './types';
 import { advanceFlow, hiddenFromInbox } from './flow';
+import { withTeamSeeds, setDelegationRegistry, actorFor, unclaimed, teamOfTask, isMember, delegateOf, type Delegation } from './teams';
+import { cyberMissing } from './cyber';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
 export const fmtSAR = (n: number) =>
@@ -66,6 +68,11 @@ export function completionStatus(task: Task): Completion {
     if (c.kind === 'text' || c.kind === 'number') return c.value != null && String(c.value).trim() !== '';
     return c.done === true;
   };
+  if (task.cyberReview) {
+    const miss = cyberMissing(task);
+    const n = Math.max(miss.length, 1);
+    return { canComplete: miss.length === 0, missing: miss, done: miss.length ? 0 : n, total: n };
+  }
   if (task.type === 'review' && task.checklist) {
     for (const c of task.checklist) {
       if (!c.mandatory) continue;
@@ -143,8 +150,15 @@ export function viewOf(task: Task, all: Task[], viewer?: Person | null): InboxVi
   // "View as" a person: only their own tasks, plus what they're waiting on as requester.
   if (viewer) {
     const terminal = task.state === 'completed' || task.state === 'rejected' || task.state === 'cancelled';
-    const mine = task.assignee.id === viewer.id;
-    const asRequester = !mine && task.requester.id === viewer.id;
+    // Team queues: an unclaimed task is every member's to pick up; members also see who holds the rest.
+    const team = teamOfTask(task);
+    const queueOpen = unclaimed(task) && isMember(team, viewer);
+    // Out of office: a delegate gets the absent person's tasks.
+    const covering = delegateOf(task.assignee.id)?.id === viewer.id;
+    const mine = task.assignee.id === viewer.id || queueOpen || covering;
+    const teamView = !mine && isMember(team, viewer);
+    const asRequester = !mine && !teamView && task.requester.id === viewer.id;
+    if (teamView) return dueInfo(task).overdue ? ['all', 'overdue'] : ['all'];
     if (!mine && !asRequester) return [];
     const v: InboxView[] = ['all'];
     if (mine) {
@@ -174,6 +188,11 @@ interface InboxCtx {
   /** "View as": whose inbox is shown (null = every role, the original demo view). */
   viewer: Person | null;
   setViewer: (p: Person | null) => void;
+  /** Out-of-office delegations, keyed by the absent person's id. */
+  delegations: Record<string, Delegation>;
+  setDelegation: (personId: string, d: Delegation | null) => void;
+  /** Applies a change across tasks (team queue actions, referrals, revoking an approval). */
+  mutateTasks: (fn: (xs: Task[]) => Task[]) => void;
   countsByView: Record<InboxView, number>;
   tasksForView: (v: InboxView) => Task[];
   getTask: (id: string) => Task | undefined;
@@ -205,12 +224,17 @@ const Ctx = createContext<InboxCtx | null>(null);
 const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : `a_${Math.random().toString(36).slice(2)}`);
 
 export function InboxProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useState<Task[]>(() => SEED_TASKS.map((t) => ({ ...t })));
+  const [tasks, setTasks] = useState<Task[]>(() => withTeamSeeds(SEED_TASKS.map((t) => ({ ...t }))));
+  // Out-of-office delegations: who covers whom, until when (read by viewOf through the registry).
+  const [delegations, setDelegations] = useState<Record<string, Delegation>>({});
+  setDelegationRegistry(delegations);
   const [viewer, setViewer] = useState<Person | null>(null);
   // Who acts: the person being viewed as, otherwise the signed-in officer (as before).
   const actorRef = useRef<Person>(ME);
   actorRef.current = viewer ?? ME;
   const actor = () => actorRef.current;
+  const viewerRef = useRef<Person | null>(null);
+  viewerRef.current = viewer;
 
   const patch = useCallback((id: string, fn: (t: Task) => Task) => {
     setTasks((xs) => xs.map((t) => (t.id === id ? fn({ ...t }) : t)));
@@ -221,7 +245,9 @@ export function InboxProvider({ children }: { children: ReactNode }) {
 
   const addComment = useCallback((id: string, text: string, anchor?: ActivityEntry['anchor'], replyTo?: string, editNote?: boolean) => {
     if (!text.trim()) return;
-    patch(id, (t) => logActivity(t, { kind: 'comment', actor: (anchor || replyTo || t.respondComments) ? t.assignee : actor(), text: text.trim(), anchor, replyTo, editNote }));
+    patch(id, (t) => logActivity(t, { kind: 'comment', actor: (anchor || replyTo || t.respondComments) ? (viewerRef.current ? actorFor(t, viewerRef.current) : t.assignee) : actor(), text: text.trim(), anchor, replyTo, editNote,
+      // A reviewer's comments on the request are drafts until they send their decision.
+      draft: !!(anchor && !replyTo && t.reviewComments && !t.respondComments) || undefined }));
   }, [patch]);
 
   const resolveComment = useCallback((id: string, commentId: string, resolved: boolean) => {
@@ -356,10 +382,12 @@ export function InboxProvider({ children }: { children: ReactNode }) {
         else if (action === 'request-clarification') state = 'waiting';
         else if (action === 'save-draft') state = 'in-progress';
         const kind: ActivityEntry['kind'] = action === 'save-draft' ? 'system' : 'decision';
-        const entry: ActivityEntry = { id: uid(), at: new Date().toISOString(), kind, actor: actor(),
+        const entry: ActivityEntry = { id: uid(), at: new Date().toISOString(), kind, actor: viewerRef.current ? actorFor(t, viewerRef.current) : actor(),
           ...(kind === 'decision' ? { decision: decisionLabel ?? label[action] } : { system: label[action] }), text: note?.trim() || undefined };
         const done = action === 'approve' || action === 'complete' || action === 'submit';
-        return { ...t, state, activity: [...t.activity, entry],
+        // Draft review comments are sent together with the decision.
+        const acts = action === 'save-draft' ? t.activity : t.activity.map((a) => (a.draft ? { ...a, draft: undefined } : a));
+        return { ...t, state, activity: [...acts, entry],
           decision: (action === 'approve' || action === 'reject' || action === 'complete' || action === 'submit') ? (decisionLabel ?? label[action]) : t.decision,
           completedAt: done ? new Date().toISOString() : t.completedAt };
       });
@@ -400,13 +428,15 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     for (const t of tasks) for (const v of viewOf(t, tasks, viewer)) countsByView[v]++;
     return {
       tasks, me: viewer ?? ME, viewer, setViewer, countsByView,
+      delegations, setDelegation: (pid, d) => setDelegations((x) => { const n = { ...x }; if (d) n[pid] = d; else delete n[pid]; return n; }),
+      mutateTasks: (fn) => setTasks((xs) => fn(xs)),
       tasksForView: (v) => tasks.filter((t) => viewOf(t, tasks, viewer).includes(v)),
       getTask: (id) => tasks.find((t) => t.id === id),
       blocked: (t) => isBlocked(t, tasks),
       addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
       addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask,
     };
-  }, [tasks, viewer, addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask]);
+  }, [tasks, viewer, delegations, addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, addTask, setEtimadItem, finishEtimadReview, setRouteItem, finishRouteCheck, withdrawTask]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

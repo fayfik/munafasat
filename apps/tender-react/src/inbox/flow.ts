@@ -9,6 +9,9 @@ import type { TenderFormData } from '../types/tender';
 import { reviewDepartments, deriveIncludesFromItems } from '../components/ProjectIncludesSelect';
 import { effectiveQty } from '../lib/boqManpower';
 import { PEOPLE as P } from './data';
+import { CYBER_TEAM, CYBER_PEOPLE, toCyberQueue } from './teams';
+import { applyResubmit, reopen } from './versions';
+import { CYBER_LIBRARY, reqLabel } from '../lib/cyberLibrary';
 import type { Bilingual, ChecklistItem, Person, RfpDetail, Task, TaskActionDef, TrailStep } from './types';
 
 const sup = (en: string, ar: string): Bilingual => ({ en, ar });
@@ -24,7 +27,7 @@ export const OFFICERS: Person[] = [
 ];
 
 // ── Personas for the "View as" switcher ───────────────────────────────────────
-export type PersonaKey = 'requester' | keyof typeof P | 'yousef' | 'amal';
+export type PersonaKey = 'requester' | keyof typeof P | 'yousef' | 'amal' | 'faris' | 'huda';
 export interface Persona { key: PersonaKey; person: Person; group: Bilingual; lead?: boolean }
 const G = {
   req: sup('Requesting department', 'الإدارة الطالبة'),
@@ -39,6 +42,8 @@ export function personas(userName: string): Persona[] {
     { key: 'techMember', person: P.techMember, group: G.req },
     { key: 'director', person: P.director, group: G.req, lead: true },
     { key: 'cyber', person: P.cyber, group: G.spec },
+    { key: 'faris', person: CYBER_PEOPLE.faris, group: G.spec },
+    { key: 'huda', person: CYBER_PEOPLE.huda, group: G.spec, lead: true },
     { key: 'bcm', person: P.bcm, group: G.spec },
     { key: 'opRisk', person: P.opRisk, group: G.spec },
     { key: 'ea', person: P.ea, group: G.spec },
@@ -59,6 +64,7 @@ export function requesterPerson(userName: string, form?: TenderFormData): Person
 
 /** Who each lead sees in their team / workload view. */
 export function teamOf(key: PersonaKey): Person[] {
+  if (key === 'huda') return CYBER_TEAM.members;
   if (key === 'tl') return [P.tl, ...OFFICERS, P.procQual];
   if (key === 'manager') return [P.manager, P.techMember, P.director];
   if (key === 'director') return [P.manager, P.techMember, P.cyber, P.bcm, P.opRisk, P.ea, P.gl, P.assets, P.finQual, P.procQual, P.tl, ...OFFICERS];
@@ -106,7 +112,11 @@ export function formToRfp(form: TenderFormData, requestNo: string, total: number
     payment: form.paymentStages.map((s) => ({ stageEn: s.stageName || 'Stage', stageAr: s.stageName || 'مرحلة', pct: Number(s.percentage) || 0, descEn: s.itemsDeliverables || undefined, descAr: s.itemsDeliverables || undefined })),
     evaluation: form.evaluationCriteria.map((c) => ({ criterionEn: c.description || 'Criterion', criterionAr: c.description || 'معيار', weight: Number(c.weight) || 0, descEn: c.howApplied || undefined, descAr: c.howApplied || undefined })),
     techPassing: Number(form.technicalPassingPercentage) || undefined,
-    techRequirements: form.technicalRequirements.length ? form.technicalRequirements.map((r) => ({ reqEn: r.requirement, reqAr: r.requirement, descEn: r.description, descAr: r.description })) : undefined,
+    techRequirements: (() => {
+      const own = form.technicalRequirements.map((r) => ({ reqEn: r.requirement, reqAr: r.requirement, descEn: r.description, descAr: r.description }));
+      const cyber = CYBER_LIBRARY.filter((c) => form.cyberRequirements?.includes(c.id)).map((c) => ({ reqEn: reqLabel(c), reqAr: `الأمن السيبراني — ${c.titleAr}`, descEn: c.textEn, descAr: c.textEn }));
+      return own.length || cyber.length ? [...own, ...cyber] : undefined;
+    })(),
     techDocs: form.technicalDocumentsList.map((d) => ({ en: d, ar: d })),
     evalCommittee: form.technicalCommitteeMembers.map(member),
     qualification: form.qualificationCriteria.map((q) => ({ reqEn: q.name, reqAr: q.nameAr || q.name })),
@@ -145,14 +155,19 @@ export interface FlowInput {
 }
 
 /** Which stages a request goes through — the specialist reviews follow Step 3's "Approvals required". */
-export function stagesFor(form: TenderFormData): StageKey[] {
+/** The request's project categories (Step 3), locked ones from its items included. */
+export function categoriesFor(form: TenderFormData): string[] {
   const p = PROJECTS.find((x) => x.id === form.projectId);
   const names = [...(p?.items.filter((i) => form.selectedProjectItemIds?.includes(i.id)).map((i) => i.name) ?? []), ...form.boqItems.map((b) => b.itemName)].filter(Boolean);
-  const cats = [...new Set([...deriveIncludesFromItems(names), ...form.scopeIncludes])];
+  return [...new Set([...deriveIncludesFromItems(names), ...form.scopeIncludes])];
+}
+
+export function stagesFor(form: TenderFormData): StageKey[] {
+  const cats = categoriesFor(form);
   const depts = new Set(reviewDepartments(cats));
   const hasAssets = form.boqItems.some((b) => b.category === 'equipment' || b.category === 'material');
   return STAGE_ORDER.filter((k) => {
-    if (k === 'cyber') return depts.has('cyber');
+    if (k === 'cyber') return depts.has('cyber') || !!form.affectsTechnology;
     if (k === 'ea') return depts.has('ea');
     if (k === 'bcm' || k === 'oprisk') return depts.has('bcm');
     if (k === 'assets') return hasAssets;
@@ -381,7 +396,15 @@ export function buildFlowTasks(input: FlowInput): Task[] {
       ...d.extra,
     };
   });
-  return withTrails(tasks, requestNo);
+  // Cyber Security reviews go to the team's shared queue, with the library-based review.
+  const cats = categoriesFor(form);
+  const queued = tasks.map((t) => (t.flow?.stage === 'cyber' ? {
+    ...toCyberQueue(t), checklist: undefined,
+    summaryEn: 'Classify the data, then check the request against the Cybersecurity requirements for that classification. Add anything missing to the request.',
+    summaryAr: 'صنّف البيانات ثم تحقق من الطلب مقابل متطلبات الأمن السيبراني لذلك التصنيف، وأضف الناقص إلى الطلب.',
+    cyberReview: { classification: form.dataClassification, projectTypes: [...new Set([...(cats.length ? cats : ['technology']), ...(form.affectsTechnology ? ['technology'] : [])])], status: {} },
+  } : t));
+  return withTrails(queued, requestNo);
 }
 
 // ── Advancing the flow ────────────────────────────────────────────────────────
@@ -401,6 +424,13 @@ export function advanceFlow(all: Task[], decidedId: string, action: string): Tas
   let xs = all;
   const set = (id: string, fn: (t: Task) => Task) => { xs = xs.map((t) => (t.id === id ? fn(t) : t)); };
 
+  // Each approval keeps the request as it stood, for impact-based re-approval later.
+  if (src?.flow && src.state === 'completed' && (action === 'approve' || action === 'complete' || action === 'submit') && src.rfp) {
+    const snap = JSON.parse(JSON.stringify(src.rfp)) as RfpDetail;
+    set(src.id, (t) => ({ ...t, approvedRfp: snap, reconfirm: undefined, changeNotice: undefined }));
+  }
+  // Requester resubmitted after a return: compare with every earlier approval.
+  if (action === 'resubmit' && src?.flow) xs = applyResubmit(xs, no, src.id);
   if (src?.flow) {
     const k = src.flow.stage;
     // Team Lead: send straight to DOA (officer step skipped) or assign an officer first.
@@ -481,3 +511,38 @@ export function flowStatus(tasks: Task[], requestNo?: string): FlowStatus | null
 /** Flow tasks that haven't been reached yet (or were skipped) stay out of every inbox. */
 export const hiddenFromInbox = (t: Task, all: Task[]) =>
   !!t.flow && (t.state === 'cancelled' && t.flow.stage === 'officer' || (!t.flow.activated && (t.dependsOn ?? []).some((d) => all.find((x) => x.id === d)?.state !== 'completed')));
+
+/** Reviewer revokes an approval after a change notice (their area may be affected after all). */
+export function revokeApproval(t: Task): Task {
+  return reopen(t, t.changeNotice?.changes ?? [], { en: 'Approval revoked by the reviewer to review the changes', ar: 'سحب المراجع اعتماده لمراجعة التغييرات' });
+}
+
+/** Procurement refers a request that skipped Cyber to the Cyber Security team (DOA waits for it). */
+export function referToCyber(all: Task[], requestNo: string, by: Person): Task[] {
+  const id = flowTaskId(requestNo, 'cyber');
+  if (all.some((t) => t.id === id)) return all;
+  const base = all.find((t) => t.flow?.requestNo === requestNo && t.flow.stage === 'tl') ?? all.find((t) => t.flow?.requestNo === requestNo);
+  if (!base) return all;
+  const now = Date.now();
+  const task: Task = {
+    ...base, id, type: 'review', state: 'available', decision: undefined, completedAt: undefined,
+    titleEn: `Review request #${requestNo} from ${base.requester.dept ?? ''} — referred by Procurement`, titleAr: `مراجعة الطلب رقم ${requestNo} — محال من المشتريات`,
+    summaryEn: 'Procurement referred this request to Cyber Security. Classify the data and check it against the Cybersecurity requirements.',
+    summaryAr: 'أحالت المشتريات هذا الطلب إلى الأمن السيبراني. صنّف البيانات وتحقق منه مقابل متطلبات الأمن السيبراني.',
+    stageEn: 'Specialist review — Cyber Security', stageAr: 'مراجعة تخصصية — الأمن السيبراني',
+    receivedAt: new Date(now).toISOString(), dueAt: new Date(now + 2 * DAY).toISOString(), slaHours: 48,
+    dependsOn: [], parallelGroup: undefined, assignTo: undefined, doaInfo: undefined, approvalRecord: undefined, priceBreakdown: undefined,
+    actions: [
+      { id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary', gated: true },
+      { id: 'return', labelEn: 'Return', labelAr: 'إعادة', variant: 'secondary', needsNote: true },
+    ],
+    outcomes: [{ action: sup('Approve', 'اعتماد'), next: sup('DOA approval can go ahead', 'يمكن متابعة اعتماد الصلاحيات'), tone: 'success' }],
+    flow: { requestNo, requestId: base.flow?.requestId, stage: 'cyber', activated: true },
+    approvedRfp: undefined, reconfirm: undefined, changeNotice: undefined,
+    cyberReview: { projectTypes: ['general'], status: {} },
+    activity: [{ id: `ref_${now}`, kind: 'system', actor: by, at: new Date(now).toISOString(), system: sup(`Referred to Cyber Security by ${by.name}`, `أحاله ${by.nameAr ?? by.name} إلى الأمن السيبراني`) }],
+  };
+  const queued = toCyberQueue(task);
+  const doa = flowTaskId(requestNo, 'doa');
+  return withTrails([queued, ...all.map((t) => (t.id === doa && !t.flow?.activated ? { ...t, dependsOn: [...(t.dependsOn ?? []), id] } : t))], requestNo);
+}

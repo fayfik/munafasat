@@ -221,6 +221,11 @@ export interface TenderFormData {
   qualificationCommitteeMembers: Person[];
   qualificationCriteria: QualMainCriteria[];
   attachments: FileAttachment[];
+  /** Manual build: a "General" request that introduces or changes technology also goes to Cyber Security. */
+  affectsTechnology?: boolean;
+  /** Manual build: the data classification the requester expects, and the Cyber library requirements they included. */
+  dataClassification?: string;
+  cyberRequirements?: string[];
   /** Etimad E-Market draft that receives BOQ items moved out of this tender. */
   linkedEtimadRequestId?: string;
   /** BOQ items that were moved out of this tender into the linked Etimad E-Market draft. */

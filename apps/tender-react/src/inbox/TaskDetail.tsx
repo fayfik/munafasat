@@ -4,6 +4,8 @@
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { openRequestFromAnywhere } from '../lib/appNav';
 import { chooseOfficer } from './flow';
+import { TaskBanners, queueBlock } from './Teamwork';
+import CyberReview from './CyberReview';
 import { jsPDF } from 'jspdf';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { LOCKED_TECH_DOCS } from '../sections/TechnicalEvaluation';
@@ -92,7 +94,9 @@ function baseActions(task: Task): ActionDef[] {
 export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: Task; onBack: () => void; onSideOpenChange?: (open: boolean) => void }) {
   const { isAr } = useLanguage();
   const t = useT();
-  const { decide, addComment, resolveComment, updateRfp, setTaskData, finishEtimadReview, finishRouteCheck } = useInbox();
+  const { decide, addComment, resolveComment, updateRfp, setTaskData, finishEtimadReview, finishRouteCheck, viewer } = useInbox();
+  // Manual build: a team-queue task must be picked up (or held by you / someone you cover) before deciding.
+  const mustPickUp = queueBlock(task, viewer);
   const { addSessionDraft, updateSessionDraft, get: getRequest } = useRequests();
   // Etimad review outcomes: confirm all, return to the requester, or move flagged lines to an eMarket draft.
   function finishEtimad(id: TaskAction, n?: string) {
@@ -137,7 +141,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const [editEnabled, setEditEnabled] = useState(false);
   useEffect(() => { setEditEnabled(false); }, [task.id]);
   const anchored: AnchoredComment[] = task.activity.filter((a) => a.kind === 'comment' && a.anchor && !a.replyTo)
-    .map((a) => ({ id: a.id, anchor: a.anchor!, text: a.text ?? '', author: personName(a.actor, isAr), at: a.at, resolved: a.resolved,
+    .map((a) => ({ id: a.id, anchor: a.anchor!, text: a.text ?? '', author: personName(a.actor, isAr) + (a.draft ? t(' · Draft — sent with your decision', ' · مسودة — تُرسل مع قرارك') : ''), at: a.at, resolved: a.resolved,
       replies: task.activity.filter((r) => r.replyTo === a.id).map((r) => ({ id: r.id, text: r.text ?? '', author: personName(r.actor, isAr), at: r.at, kind: r.editNote ? 'edit' as const : 'reply' as const })) }));
   const respond: RespondHandlers | undefined = task.respondComments && !['completed', 'rejected', 'cancelled'].includes(task.state) ? {
     onReply: (rootId, text) => { const root = task.activity.find((a) => a.id === rootId); addComment(task.id, text, root?.anchor, rootId); },
@@ -184,7 +188,10 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
     }, 120);
   };
   const blocked = (a: ActionDef) => !!a.gated && !comp.canComplete;
-  const ctaProps = (a: ActionDef) => a.id === 'approve' && budgetBlocked
+  const ctaProps = (a: ActionDef) => mustPickUp && a.id !== 'save-draft'
+    ? { 'aria-disabled': true, className: 'opacity-50 cursor-not-allowed', title: t('Pick up this task from the team queue first', 'استلم المهمة من قائمة الفريق أولاً'),
+        onClick: () => { setTab('overview'); window.setTimeout(() => { const el = document.querySelector<HTMLElement>('[data-testid=queue-bar]'); el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); el?.classList.add('missing-flash'); window.setTimeout(() => el?.classList.remove('missing-flash'), 2600); }, 120); } }
+    : a.id === 'approve' && budgetBlocked
     ? { disabled: true, title: budget.state === 'checking' ? t('Checking budget…', 'جارٍ فحص الميزانية…') : t('Insufficient budget — approval is blocked', 'الميزانية غير كافية — الاعتماد محظور') }
     : blocked(a)
     ? { 'aria-disabled': true, className: 'opacity-50 cursor-not-allowed', title: t(`Complete the required checks first — ${leftLabel}`, `أكمل الفحوص المطلوبة أولاً — ${leftLabel}`), onClick: showMissing }
@@ -351,9 +358,12 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
         {/* Tab content */}
         <div className="px-5 sm:px-8 py-6 sm:py-8">
           {showInfo && <ContextNote task={task} isAr={isAr} t={t} onClose={() => setShowInfo(false)} />}
+          {tab === 'overview' && <div className="space-y-4 mb-6 empty:hidden"><TaskBanners task={task} isAr={isAr} t={t} /></div>}
           {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} footer={bottomActions} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
-            mainWidget={task.techEvalReview && task.rfp
+            mainWidget={task.cyberReview
+              ? <CyberReview task={task} isAr={isAr} t={t} readOnly={terminal || mustPickUp} onOpenRequest={() => setTab('rfp')} />
+              : task.techEvalReview && task.rfp
               ? <TechEvalReview task={task} isAr={isAr} t={t} readOnly={terminal}
                   onDecide={(k, d) => { const next = { ...(task.techDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { techDecisions: next }); }}
                   onUpdate={(rfp, k) => setTaskData(task.id, { rfp, techDecisions: { ...(task.techDecisions ?? {}), [k]: 'modified' } })}

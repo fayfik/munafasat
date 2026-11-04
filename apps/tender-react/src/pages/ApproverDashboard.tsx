@@ -3,7 +3,10 @@
 // the team's workload and the requests in flight.
 import { useMemo } from 'react';
 import { useInbox, viewOf, dueInfo, completionStatus, fmtSAR } from '../inbox/store';
-import { personas, teamOf, flowStatus, type PersonaKey } from '../inbox/flow';
+import { personas, teamOf, flowStatus, REQUESTER_ID, type PersonaKey } from '../inbox/flow';
+import { teamFor } from '../inbox/teams';
+import { OutOfOfficeCard } from '../inbox/Teamwork';
+import CyberDashboard from './CyberDashboard';
 import { TYPE_META } from '../inbox/meta';
 import { useRequests } from '../context/RequestStore';
 import { useLanguage, useT } from '../context/LanguageContext';
@@ -22,7 +25,12 @@ export default function ApproverDashboard({ viewer }: { viewer: Person }) {
   const key = (personas(userName).find((p) => p.person.id === viewer.id)?.key ?? 'officer') as PersonaKey;
   const lead = personas(userName).find((p) => p.key === key)?.lead;
 
-  const queueOf = (p: Person) => tasks.filter((x) => x.assignee.id === p.id && viewOf(x, tasks, p).includes('needs-action'));
+  // A person's queue: their own tasks, team-queue tasks they can pick up, and tasks they cover for others.
+  const queueOf = (p: Person) => tasks.filter((x) => viewOf(x, tasks, p).includes('needs-action'));
+  // Workload counts only what each person holds (not the shared queue).
+  const heldBy = (p: Person) => tasks.filter((x) => x.assignee.id === p.id && viewOf(x, tasks, p).includes('needs-action'));
+  const cyberTeam = key === 'cyber' || key === 'faris' || key === 'huda';
+  const colleagues = (teamFor(viewer)?.members ?? personas(userName).map((x) => x.person).filter((x) => x.id !== REQUESTER_ID)).filter((x) => x.id !== viewer.id);
   const queue = useMemo(() => queueOf(viewer).sort((a, b) => +new Date(a.dueAt) - +new Date(b.dueAt)), [tasks, viewer]); // eslint-disable-line react-hooks/exhaustive-deps
   const mineDone = tasks.filter((x) => x.assignee.id === viewer.id && x.state === 'completed');
   const overdue = queue.filter((x) => dueInfo(x).overdue);
@@ -60,7 +68,9 @@ export default function ApproverDashboard({ viewer }: { viewer: Person }) {
         <RoleChecks k={key} queue={queue} tasks={tasks} viewer={viewer} isAr={isAr} t={t} />
       </div>
 
-      {lead && <Workload team={teamOf(key)} queueOf={queueOf} t={t} isAr={isAr} />}
+      {cyberTeam && <CyberDashboard isAr={isAr} t={t} />}
+      <OutOfOfficeCard key={viewer.id} person={viewer} candidates={colleagues} isAr={isAr} t={t} />
+      {lead && <Workload team={teamOf(key)} queueOf={heldBy} t={t} isAr={isAr} />}
       {lead && <InFlight tasks={tasks} t={t} isAr={isAr} />}
     </div>
   );
@@ -155,7 +165,7 @@ function RoleChecks({ k, queue, tasks, viewer, isAr, t }: { k: PersonaKey; queue
       { label: t('Above SAR 10M (your DOA level)', 'فوق 10 ملايين (مستوى صلاحيتك)'), value: String(big) },
     ],
     requester: [],
-  } as Record<string, Check[]>)[k === 'yousef' || k === 'amal' ? 'officer' : k] ?? [];
+  } as Record<string, Check[]>)[k === 'yousef' || k === 'amal' ? 'officer' : k === 'faris' || k === 'huda' ? 'cyber' : k] ?? [];
   return (
     <section className="bg-white rounded-xl border border-neutral-200 shadow-sm p-5" data-testid="role-checks">
       <h2 className="text-[14px] font-semibold text-neutral-900">{t('Your checks', 'فحوصك')}</h2>

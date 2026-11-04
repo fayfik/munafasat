@@ -8,6 +8,7 @@ import { FormField, SectionCard, Textarea, AIButton, Input, Select } from '../co
 import { SparklesIcon } from '../components/Icons';
 import ProjectIncludesSelect, { deriveIncludesFromItems, workflowStages, DEPARTMENTS, WorkflowDrawer } from '../components/ProjectIncludesSelect';
 import DatePicker from '../components/DatePicker';
+import CyberRequirementsPicker, { AffectsTechnologyQuestion } from './CyberRequirementsPicker';
 
 function calcEndDate(start: string, duration: string, type: string): string {
   if (!start || !duration) return '';
@@ -133,7 +134,11 @@ export default function ScopeOfWork() {
     .map((it) => it.name);
   const lockedIncludes = deriveIncludesFromItems([...budgetedNames, ...formData.boqItems.map((b) => b.itemName)].filter(Boolean));
   const allIncludes = [...new Set([...lockedIncludes, ...formData.scopeIncludes])];
-  const approvalDepts = workflowStages(allIncludes).filter((d) => d !== 'requester');
+  const baseDepts = workflowStages(allIncludes).filter((d) => d !== 'requester');
+  // Manual build: a request outside technology/consultancy still goes to Cyber if it touches technology.
+  const askTech = !baseDepts.includes('cyber');
+  const approvalDepts = askTech && formData.affectsTechnology ? [...baseDepts.slice(0, -1), 'cyber' as const, ...baseDepts.slice(-1)] : baseDepts;
+  const cyberApplies = approvalDepts.includes('cyber');
 
   return (
     <div className="space-y-5">
@@ -171,9 +176,11 @@ export default function ScopeOfWork() {
                 {t('View workflow', 'عرض مسار الاعتماد')}
               </button>
             </div>
+            <AffectsTechnologyQuestion show={askTech} />
           </FormField>
 
-          <FormField label="Project Scope of Work" labelAr="نطاق عمل المشروع" required>
+          <FormField label="Project Scope of Work" labelAr="نطاق عمل المشروع" required
+            hint={t('Write the full scope here — services, solution, integrations, dependencies, stages and deliverables. Cyber, BCM, Risk and EA review this section; attachments support it but don\u2019t replace it.', 'اكتب النطاق كاملاً هنا — الخدمات والحل والتكاملات والاعتماديات والمراحل والمخرجات. يراجع الأمن السيبراني واستمرارية الأعمال والمخاطر والبنية المؤسسية هذا القسم؛ المرفقات تدعمه ولا تغني عنه.')}>
             {scopeLoading ? (
               <div className="rounded-md border border-ai-200 bg-ai-50 p-4 ai-loading">
                 <div className="flex items-center gap-2 text-ai-600 text-sm">
@@ -199,13 +206,15 @@ export default function ScopeOfWork() {
             )}
             {formData.scopeOfWork && (
               <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-neutral-400">{formData.scopeOfWork.length} {t('characters', 'حرف')}</p>
+                <p className="text-xs text-neutral-400">{formData.scopeOfWork.trim().split(/\s+/).filter(Boolean).length} {t('words', 'كلمة')}{formData.scopeOfWork.trim().split(/\s+/).filter(Boolean).length < 120 ? t(' · reviewers need the full scope here — aim for 120+ words', ' · يحتاج المراجعون النطاق كاملاً هنا — 120 كلمة على الأقل') : ''}</p>
                 {formData.scopeOfWork === aiScopeText && (
                   <span className="text-xs text-neutral-500">{t('Standard text — edit it to fit this request', 'نص قياسي — عدّله ليناسب هذا الطلب')}</span>
                 )}
               </div>
             )}
           </FormField>
+
+          <CyberRequirementsPicker categories={formData.affectsTechnology ? [...allIncludes, 'technology'] : allIncludes} show={cyberApplies} />
           <AiNote error={scopeAi.error} usedSample={scopeAi.usedSample} />
         </div>
       </SectionCard>

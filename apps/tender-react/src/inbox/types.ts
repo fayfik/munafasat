@@ -163,6 +163,7 @@ export interface ActivityEntry {
   replyTo?: string;             // reply to a review comment (root id)
   resolved?: boolean;           // review comment resolved by the requester
   editNote?: boolean;           // reply records an edit made to the commented field
+  draft?: boolean;              // manual build: a review comment saved as a draft, sent with the decision
 }
 
 /** A decision button on a task, as defined by the process task list. */
@@ -206,6 +207,16 @@ export interface Task {
   parallelGroup?: string;       // tasks sharing a group run in parallel
   /** Manual build: this task is one stage of a submitted request's live approval flow (see flow.ts). */
   flow?: { requestNo: string; requestId?: string; stage: string; activated?: boolean };
+  /** Manual build: a task held in a team queue (e.g. Cyber) — any member picks it up, the lead assigns. */
+  queue?: { team: string; claimedAt?: string; assignedBy?: string };
+  /** Manual build: the Cyber review — data classification and the library requirements' status. */
+  cyberReview?: { classification?: string; projectTypes: string[]; status: Record<string, 'added' | 'na'> };
+  /** Manual build: the request as it stood when this reviewer approved (for impact-based re-approval). */
+  approvedRfp?: RfpDetail;
+  /** Manual build: reopened because the request changed in this reviewer's area. */
+  reconfirm?: { at: string; changes: SectionChange[] };
+  /** Manual build: the request changed after this approval, outside this reviewer's area (approval kept). */
+  changeNotice?: { at: string; changes: SectionChange[]; seen?: boolean };
   joinNote?: Bilingual;         // next-stage join condition, for display
 
   actions?: TaskActionDef[];    // CTAs for this task (falls back to defaults by type)
@@ -315,3 +326,6 @@ export type InboxView =
   | 'completed'
   | 'overdue'
   | 'all';
+
+/** Manual build: one section of the request that changed between two versions. */
+export interface SectionChange { key: string; label: Bilingual; removed: string[]; added: string[] }
