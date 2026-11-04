@@ -18,6 +18,7 @@ import TechEvalReview from './TechEvalReview';
 import QualReview from './QualReview';
 import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
+import { useRequests } from '../context/RequestStore';
 
 type T = (en: string, ar: string) => string;
 const personName = (p: Person, isAr: boolean) => (isAr && p.nameAr ? p.nameAr : p.name);
@@ -39,7 +40,12 @@ function slaInfo(task: Task) {
 }
 
 interface ActionDef { id: TaskAction; label: [string, string]; variant: 'primary' | 'secondary' | 'danger'; needsNote?: boolean; gated?: boolean; decision?: Bilingual }
+// CTA hierarchy across tasks: primary (Approve / Complete) → Reject → Return / others.
+const CTA_RANK = (a: ActionDef) => (a.variant === 'primary' ? 0 : a.variant === 'danger' ? 1 : 2);
 function actionsFor(task: Task): ActionDef[] {
+  return baseActions(task).map((a, i) => ({ a, i })).sort((x, y) => CTA_RANK(x.a) - CTA_RANK(y.a) || x.i - y.i).map((x) => x.a);
+}
+function baseActions(task: Task): ActionDef[] {
   if (task.actions?.length) return task.actions.map((a) => ({ id: a.id, label: [a.labelEn, a.labelAr], variant: a.variant, needsNote: a.needsNote, gated: a.gated, decision: a.decision }));
   switch (task.type) {
     case 'approval': return [
@@ -115,6 +121,10 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const awaiting = task.state === 'waiting' && !!task.reviewComments && !task.respondComments; // returned, waiting on the requester
   const terminal = task.state === 'completed' || task.state === 'rejected' || task.state === 'cancelled' || awaiting;
   const acts = actionsFor(task);
+  // The request this task belongs to, in My Requests (matched by title) — opened in a new tab.
+  const { requests } = useRequests();
+  const reqMatch = requests.find((r) => r.title === task.entity.titleEn);
+  const reqLink = reqMatch ? `${window.location.pathname}?request=${encodeURIComponent(reqMatch.id)}` : undefined;
 
   function run(a: ActionDef) {
     if (a.id === 'save-draft') { decide(task.id, 'save-draft'); return; }
@@ -183,7 +193,13 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             {[
               { k: t('Request amount', 'قيمة الطلب'), v: <span className="text-[17px] font-bold text-neutral-900 tabular-nums whitespace-nowrap" dir="ltr">{task.amount != null ? fmtSAR(task.amount) : '—'}</span>,
                 sub: task.amount != null ? <span dir="ltr" className="whitespace-nowrap">{t('Incl. VAT', 'شامل الضريبة')} {fmtSAR(task.amount * 1.15)}</span> : null },
-              { k: t('Project', 'المشروع'), v: <span className="truncate">{task.project ? tb(task.project, isAr) : '—'}</span>, sub: <span className="truncate block">{isAr ? task.entity.titleAr : task.entity.titleEn}</span> },
+              { k: t('Project', 'المشروع'), v: reqLink
+                  ? <a href={reqLink} target="_blank" rel="noopener" data-project-link title={t('Open the request details in a new tab', 'فتح تفاصيل الطلب في علامة تبويب جديدة')}
+                      className="inline-flex items-center gap-1 min-w-0 text-[#2A6193] hover:text-[#21507A] hover:underline underline-offset-2">
+                      <span className="truncate">{task.project ? tb(task.project, isAr) : '—'}</span><ExternalGlyph className="w-3.5 h-3.5 flex-shrink-0" />
+                    </a>
+                  : <span className="truncate">{task.project ? tb(task.project, isAr) : '—'}</span>,
+                sub: <span className="truncate block">{isAr ? task.entity.titleAr : task.entity.titleEn}</span> },
               { k: t('Requester', 'مقدّم الطلب'), v: <span className="inline-flex items-center gap-2 min-w-0"><Avatar name={task.requester.name} id={task.requester.id} className="w-5 h-5" /><span className="truncate">{personName(task.requester, isAr)}</span></span>, sub: <span className="truncate block">{tb(task.department, isAr)}</span> },
               { k: t('Due', 'الاستحقاق'), v: <span className={`tabular-nums ${d.overdue ? 'text-error-700' : ''}`}>{fmtDate(task.dueAt, isAr)}</span>, sub: <SlaValue sla={sla} t={t} terminal={terminal} /> },
             ].map((c, i) => (
@@ -274,13 +290,13 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           <aside className="absolute inset-y-0 end-16 z-30 w-[320px] max-w-[80%] bg-white border-s border-neutral-200 shadow-2xl flex flex-col slide-up
                             md:static md:z-auto md:w-[320px] md:max-w-none md:shadow-none lg:w-[360px]">
             {/* Pane header — switch between the two panes + collapse */}
-            <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-14 bg-white border-b border-neutral-200 flex-shrink-0">
-              <div className="flex items-center gap-0.5 bg-neutral-100 rounded-lg p-0.5">
+            <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-14 bg-[#17233A] flex-shrink-0">
+              <div className="flex items-center gap-0.5 bg-white/10 rounded-lg p-0.5">
                 <PaneTab active={side === 'comments'} onClick={() => setSide('comments')} icon={<CommentGlyph className="w-3.5 h-3.5" />}>{t('Comments', 'التعليقات')}</PaneTab>
                 <PaneTab active={side === 'history'} onClick={() => setSide('history')} icon={<HistoryGlyph className="w-3.5 h-3.5" />}>{t('Approval flow', 'مسار الاعتماد')}</PaneTab>
               </div>
               <button onClick={() => setSide(null)} title={t('Collapse panel', 'طي اللوحة')}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 flex-shrink-0">
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white flex-shrink-0">
                 <PanelCollapseGlyph className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
               </button>
             </div>
@@ -295,8 +311,8 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 
       {pending && <DecisionModal task={task} action={pending} isAr={isAr} t={t} onCancel={() => setPending(null)} onConfirm={confirmPending} />}
 
-      {/* ── Right icon rail (always visible) — light, like the app's side navigation ── */}
-      <nav className="w-16 flex-shrink-0 bg-white border-s border-neutral-200 flex flex-col items-center pt-4 pb-3 gap-2 z-40" aria-label={t('Task tools', 'أدوات المهمة')}>
+      {/* ── Right icon rail (always visible) — navy, contrasting the green header ── */}
+      <nav className="w-16 flex-shrink-0 bg-[#17233A] flex flex-col items-center pt-4 pb-3 gap-2 z-40" aria-label={t('Task tools', 'أدوات المهمة')}>
         <StripBtn dock active={side === 'comments'} onClick={() => toggleSide('comments')} label={t('Comments', 'التعليقات')} count={task.activity.filter((a) => a.kind === 'comment').length} icon={<CommentGlyph className="w-[18px] h-[18px]" />} />
         <StripBtn active={side === 'history'} onClick={() => toggleSide('history')} label={t('History', 'السجل')} icon={<HistoryGlyph className="w-[18px] h-[18px]" />} />
       </nav>
@@ -307,7 +323,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 function StripBtn({ active, onClick, label, icon, count, dock }: { active?: boolean; onClick: () => void; label: string; icon: React.ReactNode; count?: number; dock?: boolean }) {
   return (
     <button type="button" onClick={onClick} title={label} aria-label={label} aria-pressed={active} data-comment-dock={dock ? 'rail' : undefined}
-      className={`relative w-[60px] py-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${active ? 'bg-brand-50 text-brand-700' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800'}`}>
+      className={`relative w-[60px] py-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${active ? 'bg-white text-[#17233A] shadow-sm' : 'text-white/65 hover:bg-white/10 hover:text-white'}`}>
       {icon}
       <span className="text-[9.5px] font-semibold leading-none tracking-tight">{label}</span>
       {!!count && <span className="absolute top-1 end-1.5 min-w-[16px] h-4 px-1 rounded-full bg-brand-500 text-white text-[9.5px] font-bold flex items-center justify-center">{count}</span>}
@@ -318,7 +334,7 @@ function StripBtn({ active, onClick, label, icon, count, dock }: { active?: bool
 function PaneTab({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <button type="button" onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${active ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'}`}>
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${active ? 'bg-white text-[#17233A] shadow-sm' : 'text-white/70 hover:text-white'}`}>
       {icon}{children}
     </button>
   );
@@ -1549,6 +1565,9 @@ function HistoryGlyph({ className = '' }: { className?: string }) {
 }
 function PanelCollapseGlyph({ className = '' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16" /><path d="m10.5 10 2 2-2 2" /></svg>;
+}
+function ExternalGlyph({ className = '' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg>;
 }
 function JumpGlyph({ className = '' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>;

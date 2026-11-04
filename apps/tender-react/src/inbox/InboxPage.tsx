@@ -54,7 +54,7 @@ export default function InboxPage() {
               className={`w-full h-10 ${isAr ? 'pr-9 pl-3' : 'pl-9 pr-3'} text-[13px] rounded-lg border border-neutral-300 bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none`} />
           </div>
           {/* View tabs — same underline style as My Requests */}
-          <div className="mt-3 flex items-center gap-5 overflow-x-auto">
+          <div className="mt-3 flex items-center gap-5">
             {FILTERS.map((f) => {
               const active = view === f.key;
               const c = countsByView[f.key];

@@ -60,6 +60,13 @@ function AppRoot() {
   // which determines the channel; the dashboard quick actions land here too.
   const newRequest = (_sourceType?: SourceType) => open({ kind: 'new' });
   const [detailId, setDetailId] = useState<string | null>(null);
+  // A request opened from an Inbox task in a new tab: ?request=<id>
+  useEffect(() => {
+    try {
+      const id = new URLSearchParams(window.location.search).get('request');
+      if (id) { setDetailId(id); setPage('request-detail'); }
+    } catch { /* ignore */ }
+  }, []);
   // Clicking a request opens its detail page; editing (draft / returned) opens the form.
   const viewRequest = (id: string) => { setDetailId(id); setPage('request-detail'); };
   const openRequest = (id: string) => {

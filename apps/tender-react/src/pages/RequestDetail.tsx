@@ -110,7 +110,7 @@ function committee(esouq: boolean): Member[] {
 export default function RequestDetail({ id, onBack, onEdit }: { id: string; onBack: () => void; onEdit: (id: string) => void }) {
   const { isAr } = useLanguage();
   const t = useT();
-  const { get } = useRequests();
+  const { get, mode, requests } = useRequests();
   const r = get(id);
   const [tab, setTab] = useState<TabKey>('overview');
   const [cancelAsk, setCancelAsk] = useState(false);
@@ -124,6 +124,9 @@ export default function RequestDetail({ id, onBack, onEdit }: { id: string; onBa
   }) : undefined, [r, amount]);
   const proc = useMemo(() => r ? buildProcess(r) : [], [r]);
 
+  if (!r && (mode === 'loading' || (mode === 'live' && requests.length === 0))) {
+    return <div className="p-8 space-y-4"><Sk className="h-4 w-40" /><Sk className="h-7 w-1/2" /><SkeletonCards cards={2} /></div>;
+  }
   if (!r || !rfp) {
     return (
       <div className="p-10 text-center">
