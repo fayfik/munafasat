@@ -294,7 +294,7 @@ async function openRequest(title) {
   await test('Inbox: approve via decision dialog', async () => {
     await tab('Required action'); await wait(200);
     if (await count('[data-budget-state]')) await page.waitForSelector('[data-budget-state="ok"], [data-budget-state="short"]');
-    const approve = page.getByRole('button', { name: /^Approve/ }).first();
+    const approve = page.getByRole('button', { name: 'Approve', exact: true }).first();
     if (await approve.isDisabled()) {
       for (const cb of await page.locator('input[type="checkbox"]:visible').all()) await cb.check().catch(() => {});
     }

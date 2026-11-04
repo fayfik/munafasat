@@ -7,7 +7,7 @@ import { useLanguage, useT } from '../context/LanguageContext';
 import { SearchIcon, NavInboxIcon, ClockIcon, AlertTriangleIcon } from '../components/Icons';
 import type { InboxView, Task } from './types';
 import { useInbox, dueInfo } from './store';
-import { StateChip, TYPE_META, PRIORITY_META } from './meta';
+import { StateChip, PRIORITY_META } from './meta';
 import TaskDetail from './TaskDetail';
 
 const FILTERS: { key: InboxView; en: string; ar: string }[] = [
@@ -41,28 +41,28 @@ export default function InboxPage() {
     <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-neutral-50">
       {/* ── Left: task list (hidden on mobile while a task is open) ─── */}
       <div className={`${selected ? (sideOpen ? 'hidden xl:flex' : 'hidden sm:flex') : 'flex'} w-full sm:w-[380px] lg:w-[420px] flex-shrink-0 flex-col border-e border-neutral-200 bg-white`}>
-        <div className="px-4 pt-4 pb-3 border-b border-neutral-100">
-          <div className="flex items-center justify-between">
-            <h1 className="text-[18px] font-bold text-neutral-900">{t('Inbox', 'الوارد')}</h1>
-            <span className="text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-100 rounded-full px-2 py-0.5">
-              {countsByView['needs-action']} {t('to action', 'للإجراء')}
-            </span>
+        <div className="px-5 pt-6 border-b border-neutral-200">
+          <div className="flex items-baseline gap-2.5">
+            <h1 className="text-[22px] font-bold text-neutral-900">{t('Inbox', 'الوارد')}</h1>
+            <span className="text-[12px] font-semibold text-neutral-500 bg-neutral-100 rounded-full px-2 py-0.5 tabular-nums" data-inbox-count>{countsByView['needs-action']}</span>
           </div>
-          <div className="relative mt-3">
+          <p className="mt-1 text-[13px] text-neutral-500">{t('Tasks waiting for your action.', 'المهام التي تنتظر إجراءك.')}</p>
+          <div className="relative mt-4">
             <SearchIcon className={`w-4 h-4 text-neutral-400 absolute top-1/2 -translate-y-1/2 ${isAr ? 'right-3' : 'left-3'} pointer-events-none`} />
             <input value={q} onChange={(e) => setQ(e.target.value)}
               placeholder={t('Search tasks…', 'ابحث في المهام…')}
-              className={`w-full h-9 ${isAr ? 'pr-9 pl-3' : 'pl-9 pr-3'} text-[13px] rounded-lg border border-neutral-300 bg-neutral-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none`} />
+              className={`w-full h-10 ${isAr ? 'pr-9 pl-3' : 'pl-9 pr-3'} text-[13px] rounded-lg border border-neutral-300 bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none`} />
           </div>
-          <div className="mt-3 flex items-center gap-1.5 overflow-x-auto -mx-1 px-1">
+          {/* View tabs — same underline style as My Requests */}
+          <div className="mt-3 flex items-center gap-5 overflow-x-auto">
             {FILTERS.map((f) => {
               const active = view === f.key;
               const c = countsByView[f.key];
               return (
-                <button key={f.key} type="button" onClick={() => setView(f.key)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium whitespace-nowrap transition-colors ${active ? 'bg-brand-600 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
+                <button key={f.key} type="button" onClick={() => setView(f.key)} aria-current={active ? "page" : undefined}
+                  className={`inline-flex items-center gap-1.5 py-2.5 text-[13px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${active ? 'border-brand-600 text-brand-700' : 'border-transparent text-neutral-500 hover:text-neutral-800'}`}>
                   {isAr ? f.ar : f.en}
-                  <span className={`text-[10.5px] font-bold ${active ? 'text-white/80' : f.key === 'overdue' && c > 0 ? 'text-error-600' : 'text-neutral-400'}`}>{c}</span>
+                  <span className={`text-[11px] font-semibold tabular-nums ${f.key === 'overdue' && c > 0 ? 'text-error-600' : active ? 'text-brand-600' : 'text-neutral-400'}`}>{c}</span>
                 </button>
               );
             })}
@@ -77,7 +77,7 @@ export default function InboxPage() {
               <p className="mt-0.5 text-[12px] text-neutral-500">{t('No tasks match this filter.', 'لا توجد مهام تطابق هذا التصفية.')}</p>
             </div>
           ) : (
-            <ul className="divide-y divide-neutral-100">
+            <ul className="divide-y divide-neutral-100 py-1">
               {listBusy ? <TaskRowsSkeleton /> : rows.map((task) => <TaskRow key={task.id} task={task} isAr={isAr} t={t} active={selectedId === task.id} onSelect={() => setSelectedId(task.id)} tasks={tasks} />)}
             </ul>
           )}
@@ -98,34 +98,28 @@ function TaskRow({ task, isAr, t, active, onSelect, tasks }: { task: Task; isAr:
   void tasks;
   const d = dueInfo(task);
   const p = PRIORITY_META[task.priority];
+  // Status shows only when it differs from the default "Pending".
+  const showState = task.state !== 'available';
   return (
     <li>
       <button type="button" onClick={onSelect}
-        className={`w-full text-start ps-4 pe-3 py-3 transition-colors relative ${active ? 'bg-brand-50' : 'hover:bg-neutral-50'}`}>
-        {active && <span className={`absolute ${isAr ? 'right-0' : 'left-0'} top-0 bottom-0 w-[3px] bg-brand-600`} />}
-        {/* Row 1 — task title (left) · duration (right) */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-2 min-w-0">
-            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-[5px] ${p.dot}`} title={isAr ? p.ar : p.en} />
-            <p className={`text-[13.5px] font-semibold leading-snug line-clamp-2 ${active ? 'text-brand-900' : 'text-neutral-900'}`}>{isAr ? task.titleAr : task.titleEn}</p>
-          </div>
-          <span className={`flex-shrink-0 mt-0.5 text-[11px] font-medium inline-flex items-center gap-0.5 ${d.overdue ? 'text-error-600' : d.soon ? 'text-warning-700' : 'text-neutral-400'}`}>
+        className={`w-full text-start px-5 py-4 transition-colors relative ${active ? 'bg-brand-50/70' : 'hover:bg-neutral-50'}`}>
+        {active && <span className={`absolute ${isAr ? 'right-0' : 'left-0'} top-3 bottom-3 w-[3px] rounded-full bg-brand-600`} />}
+        <div className="flex items-start justify-between gap-4">
+          <p className={`text-[14px] font-semibold leading-snug line-clamp-2 ${active ? 'text-brand-900' : 'text-neutral-900'}`}>{isAr ? task.titleAr : task.titleEn}</p>
+          <span className={`flex-shrink-0 mt-0.5 text-[12px] font-medium inline-flex items-center gap-1 whitespace-nowrap ${d.overdue ? 'text-error-600' : d.soon ? 'text-warning-700' : 'text-neutral-400'}`}>
             {d.overdue && <AlertTriangleIcon className="w-3 h-3" />}
             {d.overdue ? t(`${Math.abs(d.days)}d late`, `${Math.abs(d.days)}ي متأخرة`) : d.days <= 0 ? t('Today', 'اليوم') : t(`${d.days}d left`, `${d.days}ي متبقية`)}
           </span>
         </div>
-        {/* Row 2 — approval context (task type, as text) · reference number */}
-        <div className="mt-1.5 ps-3.5 flex items-center gap-1.5 min-w-0 text-[11.5px]">
-          <span className="font-semibold text-neutral-700 whitespace-nowrap">{isAr ? TYPE_META[task.type].ar : TYPE_META[task.type].en}</span>
-          <span className="text-neutral-300">·</span>
-          <span className="font-semibold text-neutral-500 tabular-nums truncate" dir="ltr">{task.entity.ref}</span>
-        </div>
-        {/* Row 3 — requester · department (left) · status (right) */}
-        <div className="mt-2 ps-3.5 flex items-center justify-between gap-2">
-          <p className="text-[11.5px] text-neutral-500 truncate">
-            {isAr && task.requester.nameAr ? task.requester.nameAr : task.requester.name} · {task.department[isAr ? "ar" : "en"]}
+        <div className="mt-1.5 flex items-center justify-between gap-3">
+          <p className="flex items-center gap-1.5 min-w-0 text-[12.5px] text-neutral-500">
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.dot}`} title={isAr ? p.ar : p.en} />
+            <span className="tabular-nums whitespace-nowrap" dir="ltr">{task.entity.ref}</span>
+            <span className="text-neutral-300">·</span>
+            <span className="truncate">{isAr && task.requester.nameAr ? task.requester.nameAr : task.requester.name}</span>
           </p>
-          <StateChip state={task.state} isAr={isAr} />
+          {showState && <StateChip state={task.state} isAr={isAr} />}
         </div>
       </button>
     </li>

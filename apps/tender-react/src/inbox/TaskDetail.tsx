@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom';
 import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadIcon, ChevronRightIcon } from '../components/Icons';
 import type { Bilingual, Task, TaskAction, Person, RfpDetail } from './types';
 import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
-import { TaskBody } from './renderers';
+import { TaskBody, hasTaskBody } from './renderers';
 import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
 import { BudgetChecker, useBudgetCheck } from './BudgetCheck';
 import TechEvalReview from './TechEvalReview';
@@ -138,21 +138,31 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
     <div className="relative flex h-full min-h-0 bg-neutral-50">
       {/* ── Detail column ─────────────────────────────────────────── */}
       <div className="relative flex-1 min-w-0 flex flex-col">
-      {/* Top bar — record id + mobile back */}
-      <div className="flex items-center gap-2 px-4 sm:px-6 h-12 border-b border-neutral-200 bg-white flex-shrink-0">
-        <button onClick={onBack} className="sm:hidden inline-flex items-center gap-1 text-[13px] font-medium text-neutral-600 hover:text-neutral-900">
+      {/* Mobile back */}
+      <div className="sm:hidden flex items-center px-4 h-11 border-b border-neutral-200 bg-white flex-shrink-0">
+        <button onClick={onBack} className="inline-flex items-center gap-1 text-[13px] font-medium text-neutral-600 hover:text-neutral-900">
           <ArrowLeftIcon className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />{t('Back', 'رجوع')}
         </button>
-        <span className="text-[12px] text-neutral-400 font-medium">{task.id}</span>
       </div>
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Header card */}
-        <div className="@container bg-white border-b border-neutral-200 px-4 sm:px-6 pt-5 pb-5">
-          {/* Row 1 — task name · CTAs */}
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <h2 className="min-w-0 flex-1 text-[20px] font-bold text-neutral-900 leading-snug">{isAr ? task.titleAr : task.titleEn}</h2>
+        {/* Header — one title block and one quiet row of key facts */}
+        <div className="@container bg-white border-b border-neutral-200 px-5 sm:px-8 pt-7 pb-6">
+          {/* Eyebrow — reference · task id · status */}
+          <div className="flex items-center gap-2 text-[12px] text-neutral-400 font-medium" data-task-eyebrow>
+            <span className="font-semibold text-neutral-500 tabular-nums" dir="ltr">{task.entity.ref}</span>
+            <span className="text-neutral-300">/</span>
+            <span className="tabular-nums" dir="ltr">{task.id}</span>
+            <span className="ms-1"><StateChip state={task.state} isAr={isAr} /></span>
+            <span className="ms-1"><PriorityTag priority={task.priority} isAr={isAr} /></span>
+          </div>
+          {/* Title · CTAs */}
+          <div className="mt-2 flex items-start justify-between gap-6 flex-wrap">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[22px] font-bold text-neutral-900 leading-snug">{isAr ? task.titleAr : task.titleEn}</h2>
+              <p className="mt-1.5 text-[13.5px] text-neutral-500 leading-relaxed max-w-2xl">{isAr ? task.summaryAr : task.summaryEn}</p>
+            </div>
             {!terminal && (
               <div className="flex items-center gap-2 flex-shrink-0">
                 {acts.map((a) => (
@@ -167,46 +177,23 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
               </div>
             )}
           </div>
-          {/* Row 2 — description */}
-          <p className="mt-1.5 text-[13px] text-neutral-500 leading-relaxed max-w-3xl">{isAr ? task.summaryAr : task.summaryEn}</p>
 
-          {/* Row 3 — key facts: label on top, value below */}
-          <dl className="mt-4 grid grid-cols-2 @[520px]:grid-cols-4 @[860px]:grid-cols-[0.95fr_0.85fr_0.95fr_0.8fr_1.2fr_1.7fr_0.95fr] gap-px bg-neutral-200 rounded-xl border border-neutral-200 overflow-hidden">
+          {/* Key facts — no boxes, separated by whitespace */}
+          <dl className="mt-6 grid grid-cols-2 @[640px]:grid-cols-3 @[780px]:grid-cols-[minmax(190px,1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(150px,0.9fr)] gap-x-10 gap-y-5" data-task-facts>
             {[
-              { k: t('Created', 'تاريخ الإنشاء'), v: <span className="tabular-nums">{fmtDate(task.receivedAt, isAr)}</span> },
-              { k: t('Status', 'الحالة'), v: <StateChip state={task.state} isAr={isAr} /> },
-              { k: t('SLA left', 'المتبقي من SLA'), v: <SlaValue sla={sla} t={t} terminal={terminal} /> },
-              { k: t('Priority', 'الأولوية'), v: <PriorityTag priority={task.priority} isAr={isAr} /> },
-              { k: t('Department', 'الإدارة الطالبة'), v: <span className="truncate">{tb(task.department, isAr)}</span> },
-              { k: t('Requester', 'مقدّم الطلب'), v: <span className="inline-flex items-center gap-1.5 min-w-0"><Avatar name={task.requester.name} id={task.requester.id} className="w-5 h-5" /><span className="truncate">{personName(task.requester, isAr)}</span></span> },
-              { k: t('Due date', 'الاستحقاق'), v: <span className={`tabular-nums ${d.overdue ? 'text-error-700' : ''}`}>{fmtDate(task.dueAt, isAr)}</span> },
+              { k: t('Request amount', 'قيمة الطلب'), v: <span className="text-[17px] font-bold text-neutral-900 tabular-nums whitespace-nowrap" dir="ltr">{task.amount != null ? fmtSAR(task.amount) : '—'}</span>,
+                sub: task.amount != null ? <span dir="ltr" className="whitespace-nowrap">{t('Incl. VAT', 'شامل الضريبة')} {fmtSAR(task.amount * 1.15)}</span> : null },
+              { k: t('Project', 'المشروع'), v: <span className="truncate">{task.project ? tb(task.project, isAr) : '—'}</span>, sub: <span className="truncate block">{isAr ? task.entity.titleAr : task.entity.titleEn}</span> },
+              { k: t('Requester', 'مقدّم الطلب'), v: <span className="inline-flex items-center gap-2 min-w-0"><Avatar name={task.requester.name} id={task.requester.id} className="w-5 h-5" /><span className="truncate">{personName(task.requester, isAr)}</span></span>, sub: <span className="truncate block">{tb(task.department, isAr)}</span> },
+              { k: t('Due', 'الاستحقاق'), v: <span className={`tabular-nums ${d.overdue ? 'text-error-700' : ''}`}>{fmtDate(task.dueAt, isAr)}</span>, sub: <SlaValue sla={sla} t={t} terminal={terminal} /> },
             ].map((c, i) => (
-              <div key={i} className={`bg-neutral-50 px-3 py-2.5 min-w-0 ${i === 6 ? 'col-span-2 @[860px]:col-span-1' : ''}`}>
-                <dt className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400 truncate">{c.k}</dt>
-                <dd className="mt-1 text-[13px] font-semibold text-neutral-800 min-h-[22px] flex items-center min-w-0 whitespace-nowrap">{c.v}</dd>
+              <div key={i} className="min-w-0">
+                <dt className="text-[11.5px] font-medium text-neutral-400">{c.k}</dt>
+                <dd className="mt-1 text-[14px] font-semibold text-neutral-800 min-w-0 flex items-center">{c.v}</dd>
+                {c.sub && <dd className="mt-0.5 text-[12px] text-neutral-500 min-w-0">{c.sub}</dd>}
               </div>
             ))}
           </dl>
-
-          {/* Row 4 — project · RFP amount */}
-          <div className="mt-3 grid grid-cols-1 @[560px]:grid-cols-2 gap-3">
-            <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 flex items-center gap-3 min-w-0">
-              <span className="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center flex-shrink-0"><FolderGlyph className="w-5 h-5" /></span>
-              <div className="min-w-0">
-                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{t('Project', 'المشروع')}</p>
-                <p className="text-[15px] font-bold text-neutral-900 truncate">{task.project ? tb(task.project, isAr) : '—'}</p>
-                <p className="text-[11.5px] text-neutral-500 truncate">{isAr ? task.entity.titleAr : task.entity.titleEn} · <span dir="ltr">{task.entity.ref}</span></p>
-              </div>
-            </div>
-            <div className="rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3 flex items-center gap-3 min-w-0">
-              <span className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center flex-shrink-0 text-[11px] font-bold">SAR</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-brand-700/80">{t('Request amount', 'قيمة الطلب')}</p>
-                <p className="text-[19px] font-bold text-brand-800 tabular-nums leading-tight whitespace-nowrap" dir="ltr">{task.amount != null ? fmtSAR(task.amount) : '—'}</p>
-                {task.amount != null && <p className="text-[11.5px] text-brand-700/80 tabular-nums" dir="ltr">{t('Incl. VAT', 'شامل الضريبة')} {fmtSAR(task.amount * 1.15)}</p>}
-              </div>
-            </div>
-          </div>
 
           {awaiting && (
             <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-warning-50 border border-warning-200 px-3.5 py-2.5">
@@ -223,11 +210,11 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
         </div>
 
         {/* Tabs */}
-        <div className="px-4 sm:px-6 border-b border-neutral-200 bg-white sticky top-0 z-10">
-          <div className="flex items-center gap-1">
+        <div className="px-5 sm:px-8 border-b border-neutral-200 bg-white sticky top-0 z-10">
+          <div className="flex items-center gap-6">
             {TABS.map((tb2) => (
               <button key={tb2.key} type="button" onClick={() => setTab(tb2.key)}
-                className={`px-3.5 py-2.5 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${tab === tb2.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-neutral-500 hover:text-neutral-800'}`}>
+                className={`py-3 text-[13.5px] font-semibold border-b-2 -mb-px transition-colors ${tab === tb2.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-neutral-500 hover:text-neutral-800'}`}>
                 {isAr ? tb2.ar : tb2.en}
               </button>
             ))}
@@ -240,7 +227,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
         </div>
 
         {/* Tab content */}
-        <div className="p-4 sm:p-6">
+        <div className="px-5 sm:px-8 py-6 sm:py-8">
           {showInfo && <ContextNote task={task} isAr={isAr} t={t} onClose={() => setShowInfo(false)} />}
           {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
@@ -287,13 +274,13 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           <aside className="absolute inset-y-0 end-16 z-30 w-[320px] max-w-[80%] bg-white border-s border-neutral-200 shadow-2xl flex flex-col slide-up
                             md:static md:z-auto md:w-[320px] md:max-w-none md:shadow-none lg:w-[360px]">
             {/* Pane header — switch between the two panes + collapse */}
-            <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-12 bg-[#17233A] flex-shrink-0">
-              <div className="flex items-center gap-0.5 bg-white/10 rounded-lg p-0.5">
+            <div className="flex items-center justify-between gap-2 ps-3 pe-2 h-14 bg-white border-b border-neutral-200 flex-shrink-0">
+              <div className="flex items-center gap-0.5 bg-neutral-100 rounded-lg p-0.5">
                 <PaneTab active={side === 'comments'} onClick={() => setSide('comments')} icon={<CommentGlyph className="w-3.5 h-3.5" />}>{t('Comments', 'التعليقات')}</PaneTab>
                 <PaneTab active={side === 'history'} onClick={() => setSide('history')} icon={<HistoryGlyph className="w-3.5 h-3.5" />}>{t('Approval flow', 'مسار الاعتماد')}</PaneTab>
               </div>
               <button onClick={() => setSide(null)} title={t('Collapse panel', 'طي اللوحة')}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white flex-shrink-0">
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 flex-shrink-0">
                 <PanelCollapseGlyph className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
               </button>
             </div>
@@ -308,8 +295,8 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 
       {pending && <DecisionModal task={task} action={pending} isAr={isAr} t={t} onCancel={() => setPending(null)} onConfirm={confirmPending} />}
 
-      {/* ── Right icon rail (always visible) — dark navy to anchor the workspace ── */}
-      <nav className="w-16 flex-shrink-0 bg-[#17233A] flex flex-col items-center pt-3 pb-3 gap-1.5 z-40" aria-label={t('Task tools', 'أدوات المهمة')}>
+      {/* ── Right icon rail (always visible) — light, like the app's side navigation ── */}
+      <nav className="w-16 flex-shrink-0 bg-white border-s border-neutral-200 flex flex-col items-center pt-4 pb-3 gap-2 z-40" aria-label={t('Task tools', 'أدوات المهمة')}>
         <StripBtn dock active={side === 'comments'} onClick={() => toggleSide('comments')} label={t('Comments', 'التعليقات')} count={task.activity.filter((a) => a.kind === 'comment').length} icon={<CommentGlyph className="w-[18px] h-[18px]" />} />
         <StripBtn active={side === 'history'} onClick={() => toggleSide('history')} label={t('History', 'السجل')} icon={<HistoryGlyph className="w-[18px] h-[18px]" />} />
       </nav>
@@ -320,7 +307,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 function StripBtn({ active, onClick, label, icon, count, dock }: { active?: boolean; onClick: () => void; label: string; icon: React.ReactNode; count?: number; dock?: boolean }) {
   return (
     <button type="button" onClick={onClick} title={label} aria-label={label} aria-pressed={active} data-comment-dock={dock ? 'rail' : undefined}
-      className={`relative w-[60px] py-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${active ? 'bg-white text-[#17233A] shadow-sm' : 'text-white/65 hover:bg-white/10 hover:text-white'}`}>
+      className={`relative w-[60px] py-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${active ? 'bg-brand-50 text-brand-700' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800'}`}>
       {icon}
       <span className="text-[9.5px] font-semibold leading-none tracking-tight">{label}</span>
       {!!count && <span className="absolute top-1 end-1.5 min-w-[16px] h-4 px-1 rounded-full bg-brand-500 text-white text-[9.5px] font-bold flex items-center justify-center">{count}</span>}
@@ -331,7 +318,7 @@ function StripBtn({ active, onClick, label, icon, count, dock }: { active?: bool
 function PaneTab({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <button type="button" onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${active ? 'bg-white text-[#17233A] shadow-sm' : 'text-white/70 hover:text-white'}`}>
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${active ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'}`}>
       {icon}{children}
     </button>
   );
@@ -1158,12 +1145,12 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
   const budgets = Array.from(new Set(lines.map((l) => l.budgetEn ?? '')));
   const sub = lines.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Approver: review the RFP and pin comments */}
       {onReview && (
-        <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white p-5 shadow-sm flex items-center gap-4 flex-wrap">
-          <span className="w-11 h-11 rounded-xl bg-[#2A6193] text-white flex items-center justify-center flex-shrink-0"><BubbleIcon className="w-5 h-5" /></span>
-          <div className="min-w-0 flex-1">
+        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-5 flex items-center gap-4 flex-wrap">
+          <span className="w-10 h-10 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center flex-shrink-0"><BubbleIcon className="w-5 h-5" /></span>
+          <div className="min-w-[260px] flex-1">
             {task.respondComments ? (<>
               <p className="text-[14px] font-bold text-neutral-900">{t('Respond to the review comments', 'الرد على تعليقات المراجعة')}</p>
               <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Open the request details. Each commented section shows a marker — reply to or resolve the comment there. Turn on editing to change only the commented fields.', 'افتح تفاصيل الطلب. يظهر مؤشر على كل قسم عليه تعليق — رد عليه أو حله هناك. فعّل التعديل لتغيير الحقول التي عليها تعليقات فقط.')}</p>
@@ -1186,7 +1173,7 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
 
       {/* Team Lead: pick the officer */}
       {task.assignTo?.length ? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-5">
           <p className="text-[13px] font-bold text-neutral-800">{t('Assign to officer', 'الإسناد إلى أخصائي')}</p>
           <p className="text-[12px] text-neutral-500 mt-0.5">{t('Used when the request is new or has comments. Pick who reviews it.', 'يُستخدم عندما يكون الطلب جديداً أو عليه ملاحظات. اختر من يراجعه.')}</p>
           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -1206,7 +1193,7 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
 
       {/* DOA approval: authority check */}
       {task.doaInfo?.length ? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-5">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[13px] font-bold text-neutral-800">{t('Delegation of authority', 'تفويض الصلاحيات')}</p>
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold rounded-full border px-2 py-0.5 bg-success-50 text-success-700 border-success-100"><CheckCircleIcon className="w-3 h-3" />{t('Within your limit', 'ضمن حد صلاحيتك')}</span>
@@ -1224,7 +1211,7 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
 
       {/* Director: estimated price by budget item */}
       {task.priceBreakdown && lines.length > 0 && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-5">
           <p className="text-[13px] font-bold text-neutral-800">{t('Estimated price by budget item', 'السعر التقديري حسب بند الميزانية')}</p>
           <div className="mt-3 space-y-2.5">
             {budgets.map((b, i) => {
@@ -1250,8 +1237,8 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
       )}
 
       {/* Task form / record — or the creation-page section this task works on */}
-      {mainWidget ?? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+      {mainWidget ?? (hasTaskBody(task) &&
+        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-5">
           <TaskBody task={task} />
         </div>
       )}
