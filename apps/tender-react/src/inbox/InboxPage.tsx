@@ -106,7 +106,7 @@ function TaskRow({ task, isAr, t, active, onSelect, tasks }: { task: Task; isAr:
         className={`w-full text-start px-5 py-4 transition-colors relative ${active ? 'bg-brand-50/70' : 'hover:bg-neutral-50'}`}>
         {active && <span className={`absolute ${isAr ? 'right-0' : 'left-0'} top-3 bottom-3 w-[3px] rounded-full bg-brand-600`} />}
         <div className="flex items-start justify-between gap-4">
-          <p className={`text-[14px] font-semibold leading-snug line-clamp-2 ${active ? 'text-brand-900' : 'text-neutral-900'}`}>{isAr ? task.titleAr : task.titleEn}</p>
+          <p className={`text-[14px] leading-snug line-clamp-2 ${active ? 'font-semibold text-brand-900' : 'font-normal text-neutral-800'}`}>{isAr ? task.titleAr : task.titleEn}</p>
           <span className={`flex-shrink-0 mt-0.5 text-[12px] font-medium inline-flex items-center gap-1 whitespace-nowrap ${d.overdue ? 'text-error-600' : d.soon ? 'text-warning-700' : 'text-neutral-400'}`}>
             {d.overdue && <AlertTriangleIcon className="w-3 h-3" />}
             {d.overdue ? t(`${Math.abs(d.days)}d late`, `${Math.abs(d.days)}ي متأخرة`) : d.days <= 0 ? t('Today', 'اليوم') : t(`${d.days}d left`, `${d.days}ي متبقية`)}
