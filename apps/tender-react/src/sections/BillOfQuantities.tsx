@@ -225,9 +225,27 @@ export default function BillOfQuantities() {
     updateField('boqItems', [...formData.boqItems, blank]);
   }
   // "Add manually" respects the active view: Table → inline sheet row; Grid/Grouped → the form.
+  // Remembers that the user picked "Add manually" while the BOQ has no items yet.
+  const [manualMode, setManualMode] = useState(false);
   function addManually() {
+    setManualMode(true);
     if (layout === 'sheet') addBlankSheetRow();
     else { closeItemForm(); setShowAddForm(true); }
+  }
+  const isBlankRow = (r: BOQRow) => !r.itemName.trim() && !r.itemDescription.trim() && !r.projectItem && !String(r.quantity).trim() && !String(r.unitPrice).trim();
+  // Switching views: while no items have been added in manual mode, the create component
+  // follows the view — Grid / Grouped open the Add BOQ Item section by default, Table shows an inline row.
+  function switchLayout(v: typeof layout) {
+    if (v === layout) return;
+    const noItems = formData.boqItems.every(isBlankRow);
+    closeItemForm();
+    setBoqLayout(v);
+    if (!manualMode || !noItems) return;
+    if (v === 'sheet') { if (formData.boqItems.length === 0) addBlankSheetRow(); }
+    else {
+      if (formData.boqItems.length) { prevCount.current = 0; updateField('boqItems', []); }
+      setShowAddForm(true);
+    }
   }
 
   // BOQ actions menu (expand/collapse/download/delete-all) next to the view switch.
@@ -466,7 +484,7 @@ export default function BillOfQuantities() {
   // When the last row is deleted (in any view), go back to the three create options.
   const prevCount = useRef(formData.boqItems.length);
   useEffect(() => {
-    if (prevCount.current > 0 && formData.boqItems.length === 0) { closeItemForm(); setShowUploadZone(false); setViewingId(null); }
+    if (prevCount.current > 0 && formData.boqItems.length === 0) { closeItemForm(); setShowUploadZone(false); setViewingId(null); setManualMode(false); }
     prevCount.current = formData.boqItems.length;
   }, [formData.boqItems.length]); // eslint-disable-line react-hooks/exhaustive-deps
   // Editing any field after an Etimad warning dismisses it so "Save" returns.
@@ -973,7 +991,7 @@ export default function BillOfQuantities() {
               ['sheet', t('Table', 'جدول'), <TableIcon key="i" className="w-3.5 h-3.5" />],
               ['grouped', t('Grouped', 'مُجمّع'), <ListIcon key="i" className="w-3.5 h-3.5" />],
             ] as const).map(([v, label, icon]) => (
-              <button key={v} type="button" role="radio" aria-checked={layout === v} onClick={() => { if (v !== layout) closeItemForm(); setBoqLayout(v); }}
+              <button key={v} type="button" role="radio" aria-checked={layout === v} onClick={() => switchLayout(v)}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${layout === v ? 'bg-white text-brand-700 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>
                 {icon}
                 {label}

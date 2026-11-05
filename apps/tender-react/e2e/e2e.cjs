@@ -595,6 +595,21 @@ async function openRequest(title) {
       expect(await page.getByRole('button', { name: /Add manually/ }).count() === 1, `${view}: options should return`);
     });
   }
+  await test('BOQ: with no items added, Grid / Grouped open the Add BOQ Item section by default', async () => {
+    await openDraft({ sourceType: 'tender', boqItems: [] });
+    await page.locator('button', { hasText: 'Bill of Quantities' }).first().click(); await wait(800);
+    await page.getByRole('button', { name: /Add manually/ }).click(); await wait(400);
+    for (const v of ['Grid', 'Grouped', 'Table', 'Grouped']) {
+      await page.getByRole('radio', { name: v }).click(); await wait(450);
+      if (v === 'Table') {
+        expect(await page.locator('input[placeholder="Item name"]').count() === 1, 'Table: one inline row expected');
+        expect(await text('Add BOQ Item').count() === 0, 'Table: card form should be closed');
+      } else {
+        expect(await text('Add BOQ Item').count() === 1, `${v}: Add BOQ Item section should be open`);
+        expect(await page.locator('input[placeholder="Item name"]').count() === 0, `${v}: blank table row should not remain`);
+      }
+    }
+  });
   await test('Qualification import: fills values for the fixed criteria only, never adds criteria', async () => {
     await openDraft({ sourceType: 'tender', boqItems: [], qualificationCriteria: [{ id: 'x-extra', name: 'Legacy extra', nameAr: 'x', percentage: 10, subCriteria: [] }] });
     await page.locator('button', { hasText: 'Qualification Criteria' }).first().click(); await wait(800);
