@@ -39,30 +39,34 @@ export default function QualificationCriteria() {
   const aiLoading = qualAi.loading;
   const [showQualImport, setShowQualImport] = useState(false);
 
-  // Import qualification criteria (main + sub) from similar past projects.
+  // Import qualification VALUES from similar past projects. The criteria are fixed across
+  // the app, so importing never adds a criterion — it only fills range and weight for the
+  // matching fixed main criterion and its fixed sub-criteria.
   const qualItemsFor = (pid: string): DrawerItem[] => (QUAL_LIBRARY[pid] ?? []).map((m) => ({
     key: m.id, title: m.name, titleAr: m.nameAr,
-    sub: m.subCriteria.map((s) => s.name).join(' · '),
-    subAr: m.subCriteria.map((s) => s.nameAr).join(' · '),
+    sub: m.subCriteria.map((s) => `${s.name}: ${s.range} (${s.percentage}%)`).join(' · '),
+    subAr: m.subCriteria.map((s) => `${s.nameAr}: ${s.range} (${s.percentage}%)`).join(' · '),
     badge: `${m.percentage}%`, addedBy: m.addedBy, addedByAr: m.addedByAr, addedOn: m.addedOn,
   }));
   const allLibQual: LibQualMain[] = Object.values(QUAL_LIBRARY).flat();
-  const existingQualKeys = new Set(
-    allLibQual.filter((m) => formData.qualificationCriteria.some((c) => {
-      const n = c.name.trim(); return n === m.name.trim() || n === m.nameAr.trim();
-    })).map((m) => m.id),
-  );
   function importQual(keys: string[]) {
-    const existingNames = new Set(formData.qualificationCriteria.map((c) => c.name.trim()));
-    const additions = keys
-      .map((k) => allLibQual.find((m) => m.id === k))
-      .filter((m): m is LibQualMain => !!m)
-      .map((m) => ({
-        id: crypto.randomUUID(), name: isAr ? m.nameAr : m.name, nameAr: m.nameAr, percentage: m.percentage,
-        subCriteria: m.subCriteria.map((s) => ({ id: crypto.randomUUID(), name: isAr ? s.nameAr : s.name, nameAr: s.nameAr, range: s.range, percentage: s.percentage })),
-      }))
-      .filter((c) => !existingNames.has(c.name.trim()));
-    if (additions.length) updateField('qualificationCriteria', [...formData.qualificationCriteria, ...additions]);
+    // One source per fixed criterion: if several projects were picked for the same criterion, the last one wins.
+    const byFixed = new Map<string, LibQualMain>();
+    keys.forEach((k) => { const m = allLibQual.find((x) => x.id === k); if (m) byFixed.set(m.fixedId, m); });
+    if (!byFixed.size) return;
+    const next = formData.qualificationCriteria.map((c) => {
+      const src = byFixed.get(c.id);
+      if (!src) return c;
+      return {
+        ...c,
+        percentage: src.percentage,
+        subCriteria: c.subCriteria.map((s) => {
+          const v = src.subCriteria.find((x) => x.id === s.id);
+          return v ? { ...s, range: v.range, percentage: v.percentage } : s;
+        }),
+      };
+    });
+    updateField('qualificationCriteria', next);
   }
 
   function handleAISuggest() {
@@ -257,11 +261,10 @@ export default function QualificationCriteria() {
       <ImportCriteriaDrawer
         open={showQualImport}
         onClose={() => setShowQualImport(false)}
-        title="Import qualification criteria"
-        titleAr="استيراد معايير التأهيل"
+        title="Import qualification values"
+        titleAr="استيراد قيم معايير التأهيل"
         projects={SIMILAR_PROJECTS}
         itemsFor={qualItemsFor}
-        existingKeys={existingQualKeys}
         onImport={importQual}
         isAr={isAr}
         t={t}

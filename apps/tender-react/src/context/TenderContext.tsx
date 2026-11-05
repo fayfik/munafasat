@@ -164,13 +164,32 @@ interface ProviderProps {
   noPersist?: boolean;
 }
 
+/** Qualification criteria are fixed across the app: keep only the fixed main / sub
+ *  criteria (by id) and carry over their saved range and weight. Anything else is dropped. */
+function fixedQual(saved: QualMainCriteria[] | undefined): QualMainCriteria[] {
+  const list = Array.isArray(saved) ? saved : [];
+  return DEFAULT_QUAL.map((m) => {
+    const sm = list.find((x) => x.id === m.id);
+    return {
+      ...m,
+      percentage: sm?.percentage ?? m.percentage,
+      subCriteria: m.subCriteria.map((sub) => {
+        const ss = sm?.subCriteria?.find((x) => x.id === sub.id);
+        return { ...sub, range: ss?.range ?? sub.range, percentage: ss?.percentage ?? sub.percentage };
+      }),
+    };
+  });
+}
+
 export function TenderProvider({ children, requestId: givenId, initialForm, initialStatus, initialSourceType, initialSeed, noPersist }: ProviderProps) {
   const store = useRequests();
   const [requestId] = useState(() => givenId ?? crypto.randomUUID());
-  const [formData, setFormData] = useState<TenderFormData>(() =>
-    initialForm
+  const [formData, setFormData] = useState<TenderFormData>(() => {
+    const f = initialForm
       ? { ...INITIAL, ...initialForm }
-      : { ...INITIAL, ...(initialSeed ?? {}), sourceType: initialSourceType ?? initialSeed?.sourceType ?? INITIAL.sourceType });
+      : { ...INITIAL, ...(initialSeed ?? {}), sourceType: initialSourceType ?? initialSeed?.sourceType ?? INITIAL.sourceType };
+    return { ...f, qualificationCriteria: fixedQual(f.qualificationCriteria) };
+  });
   const [status, setStatus] = useState<TenderStatus>(initialStatus ?? 'draft');
   // Existing requests are already past the route step; new ones start on it.
   const [routeConfirmed, setRouteConfirmed] = useState<boolean>(!!initialForm);

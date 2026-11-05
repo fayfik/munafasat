@@ -63,6 +63,8 @@ export const EVAL_LIBRARY: Record<string, LibEvalCriterion[]> = {
 export interface LibQualSub { id: string; name: string; nameAr: string; range: string; percentage: number; }
 export interface LibQualMain {
   id: string;
+  /** The fixed criterion (qm-1 / qm-2 / qm-3) these values belong to. */
+  fixedId: string;
   name: string; nameAr: string;
   percentage: number;
   subCriteria: LibQualSub[];
@@ -70,63 +72,48 @@ export interface LibQualMain {
   addedOn: string;
 }
 
+/** Values each similar project used for the FIXED qualification criteria (qm-1…qm-3).
+ *  Import never adds criteria — it only applies these ranges and weights. */
 export const QUAL_LIBRARY: Record<string, LibQualMain[]> = {
   'lib-erp': [
-    { id: 'q-erp-1', name: 'Company Experience', nameAr: 'خبرة الشركة', percentage: 40, addedBy: 'Fatima Al-Zahrani', addedByAr: 'فاطمة الزهراني', addedOn: '2024-09-15',
-      subCriteria: [
-        { id: 'q-erp-1a', name: 'Years in ERP delivery', nameAr: 'سنوات الخبرة في تنفيذ ERP', range: '7+ years', percentage: 40 },
-        { id: 'q-erp-1b', name: 'Similar projects delivered', nameAr: 'مشاريع مماثلة منفذة', range: '5+ projects', percentage: 35 },
-        { id: 'q-erp-1c', name: 'Largest contract value', nameAr: 'أكبر قيمة عقد', range: 'SAR 2M+', percentage: 25 },
-      ] },
-    { id: 'q-erp-2', name: 'Financial Standing', nameAr: 'المركز المالي', percentage: 30, addedBy: 'Sara Al-Ghamdi', addedByAr: 'سارة الغامدي', addedOn: '2024-09-18',
-      subCriteria: [
-        { id: 'q-erp-2a', name: 'Average annual turnover', nameAr: 'متوسط الإيراد السنوي', range: 'SAR 10M+', percentage: 60 },
-        { id: 'q-erp-2b', name: 'Current ratio', nameAr: 'نسبة التداول', range: '1.2+', percentage: 40 },
-      ] },
+    { id: 'lib-erp:qm-1', fixedId: 'qm-1', name: 'Previous Experience', nameAr: 'الخبرة السابقة', percentage: 40, addedBy: 'Fatima Al-Zahrani', addedByAr: 'فاطمة الزهراني', addedOn: '2024-09-15',
+      subCriteria: [{ id: 'qs-1-1', name: 'Number of years of experience', nameAr: 'عدد سنوات الخبرة', range: '7+ years', percentage: 40 }, { id: 'qs-1-2', name: 'Number of projects (last 3 years)', nameAr: 'عدد المشاريع خلال 3 سنوات', range: '5+ projects', percentage: 35 }, { id: 'qs-1-3', name: 'Total value of projects (last 3 years)', nameAr: 'إجمالي قيمة المشاريع خلال 3 سنوات', range: 'SAR 2M+', percentage: 25 }] },
+    { id: 'lib-erp:qm-2', fixedId: 'qm-2', name: 'Existing Contractual Obligations', nameAr: 'الالتزامات التعاقدية القائمة', percentage: 30, addedBy: 'Fatima Al-Zahrani', addedByAr: 'فاطمة الزهراني', addedOn: '2024-09-15',
+      subCriteria: [{ id: 'qs-2-1', name: 'Number of existing projects', nameAr: 'عدد المشاريع القائمة', range: '2–8 projects', percentage: 50 }, { id: 'qs-2-2', name: 'Value of existing projects', nameAr: 'قيمة المشاريع القائمة', range: 'SAR 3M–15M', percentage: 50 }] },
+    { id: 'lib-erp:qm-3', fixedId: 'qm-3', name: 'Human Resources', nameAr: 'الموارد البشرية', percentage: 30, addedBy: 'Fatima Al-Zahrani', addedByAr: 'فاطمة الزهراني', addedOn: '2024-09-15',
+      subCriteria: [{ id: 'qs-3-1', name: 'Number of employees', nameAr: 'عدد الموظفين', range: '100+ employees', percentage: 50 }, { id: 'qs-3-2', name: 'Percentage of Saudi employees', nameAr: 'نسبة الموظفين السعوديين', range: '35%+', percentage: 50 }] },
   ],
   'lib-cloud': [
-    { id: 'q-cloud-1', name: 'Cloud Partner Certifications', nameAr: 'اعتمادات شركاء السحابة', percentage: 45, addedBy: 'Abdullah Al-Harbi', addedByAr: 'عبدالله الحربي', addedOn: '2024-05-03',
-      subCriteria: [
-        { id: 'q-cloud-1a', name: 'Hyperscaler partner tier', nameAr: 'مستوى الشراكة مع مزود السحابة', range: 'Advanced/Premier', percentage: 50 },
-        { id: 'q-cloud-1b', name: 'Certified cloud engineers', nameAr: 'مهندسو سحابة معتمدون', range: '10+', percentage: 50 },
-      ] },
-    { id: 'q-cloud-2', name: 'Delivery Capacity', nameAr: 'القدرة على التنفيذ', percentage: 30, addedBy: 'Noura Al-Dossari', addedByAr: 'نورة الدوسري', addedOn: '2024-05-06',
-      subCriteria: [
-        { id: 'q-cloud-2a', name: 'Concurrent active projects', nameAr: 'مشاريع نشطة متزامنة', range: '2–8 projects', percentage: 100 },
-      ] },
+    { id: 'lib-cloud:qm-1', fixedId: 'qm-1', name: 'Previous Experience', nameAr: 'الخبرة السابقة', percentage: 45, addedBy: 'Abdullah Al-Harbi', addedByAr: 'عبدالله الحربي', addedOn: '2024-05-03',
+      subCriteria: [{ id: 'qs-1-1', name: 'Number of years of experience', nameAr: 'عدد سنوات الخبرة', range: '5+ years', percentage: 40 }, { id: 'qs-1-2', name: 'Number of projects (last 3 years)', nameAr: 'عدد المشاريع خلال 3 سنوات', range: '4+ projects', percentage: 30 }, { id: 'qs-1-3', name: 'Total value of projects (last 3 years)', nameAr: 'إجمالي قيمة المشاريع خلال 3 سنوات', range: 'SAR 5M+', percentage: 30 }] },
+    { id: 'lib-cloud:qm-2', fixedId: 'qm-2', name: 'Existing Contractual Obligations', nameAr: 'الالتزامات التعاقدية القائمة', percentage: 25, addedBy: 'Abdullah Al-Harbi', addedByAr: 'عبدالله الحربي', addedOn: '2024-05-03',
+      subCriteria: [{ id: 'qs-2-1', name: 'Number of existing projects', nameAr: 'عدد المشاريع القائمة', range: '2–6 projects', percentage: 60 }, { id: 'qs-2-2', name: 'Value of existing projects', nameAr: 'قيمة المشاريع القائمة', range: 'SAR 2M–10M', percentage: 40 }] },
+    { id: 'lib-cloud:qm-3', fixedId: 'qm-3', name: 'Human Resources', nameAr: 'الموارد البشرية', percentage: 30, addedBy: 'Abdullah Al-Harbi', addedByAr: 'عبدالله الحربي', addedOn: '2024-05-03',
+      subCriteria: [{ id: 'qs-3-1', name: 'Number of employees', nameAr: 'عدد الموظفين', range: '80+ employees', percentage: 60 }, { id: 'qs-3-2', name: 'Percentage of Saudi employees', nameAr: 'نسبة الموظفين السعوديين', range: '30%+', percentage: 40 }] },
   ],
   'lib-portal': [
-    { id: 'q-portal-1', name: 'Digital Delivery Track Record', nameAr: 'سجل التسليم الرقمي', percentage: 50, addedBy: 'Ahmed Al-Rashidi', addedByAr: 'أحمد الراشدي', addedOn: '2023-11-20',
-      subCriteria: [
-        { id: 'q-portal-1a', name: 'Gov portals launched', nameAr: 'بوابات حكومية مُطلقة', range: '3+ portals', percentage: 60 },
-        { id: 'q-portal-1b', name: 'National platform integrations', nameAr: 'تكاملات مع المنصات الوطنية', range: '2+ integrations', percentage: 40 },
-      ] },
-    { id: 'q-portal-2', name: 'Localization Capability', nameAr: 'قدرة التعريب', percentage: 20, addedBy: 'Fatima Al-Zahrani', addedByAr: 'فاطمة الزهراني', addedOn: '2023-11-23',
-      subCriteria: [
-        { id: 'q-portal-2a', name: 'Arabic UX specialists', nameAr: 'مختصو تجربة مستخدم عربية', range: '2+', percentage: 100 },
-      ] },
+    { id: 'lib-portal:qm-1', fixedId: 'qm-1', name: 'Previous Experience', nameAr: 'الخبرة السابقة', percentage: 50, addedBy: 'Ahmed Al-Rashidi', addedByAr: 'أحمد الراشدي', addedOn: '2023-11-20',
+      subCriteria: [{ id: 'qs-1-1', name: 'Number of years of experience', nameAr: 'عدد سنوات الخبرة', range: '5+ years', percentage: 30 }, { id: 'qs-1-2', name: 'Number of projects (last 3 years)', nameAr: 'عدد المشاريع خلال 3 سنوات', range: '3+ projects', percentage: 40 }, { id: 'qs-1-3', name: 'Total value of projects (last 3 years)', nameAr: 'إجمالي قيمة المشاريع خلال 3 سنوات', range: 'SAR 1M+', percentage: 30 }] },
+    { id: 'lib-portal:qm-2', fixedId: 'qm-2', name: 'Existing Contractual Obligations', nameAr: 'الالتزامات التعاقدية القائمة', percentage: 20, addedBy: 'Ahmed Al-Rashidi', addedByAr: 'أحمد الراشدي', addedOn: '2023-11-20',
+      subCriteria: [{ id: 'qs-2-1', name: 'Number of existing projects', nameAr: 'عدد المشاريع القائمة', range: '1–5 projects', percentage: 50 }, { id: 'qs-2-2', name: 'Value of existing projects', nameAr: 'قيمة المشاريع القائمة', range: 'SAR 1M–8M', percentage: 50 }] },
+    { id: 'lib-portal:qm-3', fixedId: 'qm-3', name: 'Human Resources', nameAr: 'الموارد البشرية', percentage: 30, addedBy: 'Ahmed Al-Rashidi', addedByAr: 'أحمد الراشدي', addedOn: '2023-11-20',
+      subCriteria: [{ id: 'qs-3-1', name: 'Number of employees', nameAr: 'عدد الموظفين', range: '50+ employees', percentage: 50 }, { id: 'qs-3-2', name: 'Percentage of Saudi employees', nameAr: 'نسبة الموظفين السعوديين', range: '40%+', percentage: 50 }] },
   ],
   'lib-cyber': [
-    { id: 'q-cyber-1', name: 'Security Accreditations', nameAr: 'الاعتمادات الأمنية', percentage: 50, addedBy: 'Khalid Al-Shehri', addedByAr: 'خالد الشهري', addedOn: '2024-04-12',
-      subCriteria: [
-        { id: 'q-cyber-1a', name: 'ISO 27001 certified', nameAr: 'اعتماد ISO 27001', range: 'Required', percentage: 50 },
-        { id: 'q-cyber-1b', name: 'CREST / sector accreditation', nameAr: 'اعتماد CREST / قطاعي', range: 'Required', percentage: 50 },
-      ] },
-    { id: 'q-cyber-2', name: 'Specialist Workforce', nameAr: 'الكوادر المتخصصة', percentage: 30, addedBy: 'Mohammed Al-Otaibi', addedByAr: 'محمد العتيبي', addedOn: '2024-04-14',
-      subCriteria: [
-        { id: 'q-cyber-2a', name: 'Certified analysts (CISSP/GIAC)', nameAr: 'محللون معتمدون', range: '6+', percentage: 100 },
-      ] },
+    { id: 'lib-cyber:qm-1', fixedId: 'qm-1', name: 'Previous Experience', nameAr: 'الخبرة السابقة', percentage: 40, addedBy: 'Khalid Al-Shehri', addedByAr: 'خالد الشهري', addedOn: '2024-04-12',
+      subCriteria: [{ id: 'qs-1-1', name: 'Number of years of experience', nameAr: 'عدد سنوات الخبرة', range: '8+ years', percentage: 45 }, { id: 'qs-1-2', name: 'Number of projects (last 3 years)', nameAr: 'عدد المشاريع خلال 3 سنوات', range: '5+ projects', percentage: 35 }, { id: 'qs-1-3', name: 'Total value of projects (last 3 years)', nameAr: 'إجمالي قيمة المشاريع خلال 3 سنوات', range: 'SAR 3M+', percentage: 20 }] },
+    { id: 'lib-cyber:qm-2', fixedId: 'qm-2', name: 'Existing Contractual Obligations', nameAr: 'الالتزامات التعاقدية القائمة', percentage: 25, addedBy: 'Khalid Al-Shehri', addedByAr: 'خالد الشهري', addedOn: '2024-04-12',
+      subCriteria: [{ id: 'qs-2-1', name: 'Number of existing projects', nameAr: 'عدد المشاريع القائمة', range: '2–5 projects', percentage: 50 }, { id: 'qs-2-2', name: 'Value of existing projects', nameAr: 'قيمة المشاريع القائمة', range: 'SAR 2M–12M', percentage: 50 }] },
+    { id: 'lib-cyber:qm-3', fixedId: 'qm-3', name: 'Human Resources', nameAr: 'الموارد البشرية', percentage: 35, addedBy: 'Khalid Al-Shehri', addedByAr: 'خالد الشهري', addedOn: '2024-04-12',
+      subCriteria: [{ id: 'qs-3-1', name: 'Number of employees', nameAr: 'عدد الموظفين', range: '60+ employees', percentage: 60 }, { id: 'qs-3-2', name: 'Percentage of Saudi employees', nameAr: 'نسبة الموظفين السعوديين', range: '45%+', percentage: 40 }] },
   ],
   'lib-dc': [
-    { id: 'q-dc-1', name: 'Infrastructure Experience', nameAr: 'خبرة البنية التحتية', percentage: 45, addedBy: 'Noura Al-Dossari', addedByAr: 'نورة الدوسري', addedOn: '2023-09-01',
-      subCriteria: [
-        { id: 'q-dc-1a', name: 'Tier III+ data centers built', nameAr: 'مراكز بيانات Tier III+ منفذة', range: '2+', percentage: 60 },
-        { id: 'q-dc-1b', name: 'Years in DC delivery', nameAr: 'سنوات الخبرة في مراكز البيانات', range: '8+ years', percentage: 40 },
-      ] },
-    { id: 'q-dc-2', name: 'Local Content', nameAr: 'المحتوى المحلي', percentage: 25, addedBy: 'Abdullah Al-Harbi', addedByAr: 'عبدالله الحربي', addedOn: '2023-09-03',
-      subCriteria: [
-        { id: 'q-dc-2a', name: 'Saudisation rate', nameAr: 'نسبة التوطين', range: '35%+', percentage: 100 },
-      ] },
+    { id: 'lib-dc:qm-1', fixedId: 'qm-1', name: 'Previous Experience', nameAr: 'الخبرة السابقة', percentage: 45, addedBy: 'Noura Al-Dossari', addedByAr: 'نورة الدوسري', addedOn: '2023-09-01',
+      subCriteria: [{ id: 'qs-1-1', name: 'Number of years of experience', nameAr: 'عدد سنوات الخبرة', range: '8+ years', percentage: 40 }, { id: 'qs-1-2', name: 'Number of projects (last 3 years)', nameAr: 'عدد المشاريع خلال 3 سنوات', range: '2+ projects', percentage: 40 }, { id: 'qs-1-3', name: 'Total value of projects (last 3 years)', nameAr: 'إجمالي قيمة المشاريع خلال 3 سنوات', range: 'SAR 10M+', percentage: 20 }] },
+    { id: 'lib-dc:qm-2', fixedId: 'qm-2', name: 'Existing Contractual Obligations', nameAr: 'الالتزامات التعاقدية القائمة', percentage: 25, addedBy: 'Noura Al-Dossari', addedByAr: 'نورة الدوسري', addedOn: '2023-09-01',
+      subCriteria: [{ id: 'qs-2-1', name: 'Number of existing projects', nameAr: 'عدد المشاريع القائمة', range: '1–4 projects', percentage: 50 }, { id: 'qs-2-2', name: 'Value of existing projects', nameAr: 'قيمة المشاريع القائمة', range: 'SAR 5M–20M', percentage: 50 }] },
+    { id: 'lib-dc:qm-3', fixedId: 'qm-3', name: 'Human Resources', nameAr: 'الموارد البشرية', percentage: 30, addedBy: 'Noura Al-Dossari', addedByAr: 'نورة الدوسري', addedOn: '2023-09-01',
+      subCriteria: [{ id: 'qs-3-1', name: 'Number of employees', nameAr: 'عدد الموظفين', range: '120+ employees', percentage: 50 }, { id: 'qs-3-2', name: 'Percentage of Saudi employees', nameAr: 'نسبة الموظفين السعوديين', range: '35%+', percentage: 50 }] },
   ],
 };
 

@@ -463,6 +463,12 @@ export default function BillOfQuantities() {
     setNewItem({ ...EMPTY_FORM });
     setAddWarning(null);
   }
+  // When the last row is deleted (in any view), go back to the three create options.
+  const prevCount = useRef(formData.boqItems.length);
+  useEffect(() => {
+    if (prevCount.current > 0 && formData.boqItems.length === 0) { closeItemForm(); setShowUploadZone(false); setViewingId(null); }
+    prevCount.current = formData.boqItems.length;
+  }, [formData.boqItems.length]); // eslint-disable-line react-hooks/exhaustive-deps
   // Editing any field after an Etimad warning dismisses it so "Save" returns.
   useEffect(() => { setAddWarning((w) => (w ? null : w)); }, [newItem]);
 
@@ -929,7 +935,9 @@ export default function BillOfQuantities() {
 
   // Empty state: no items yet, and not actively adding or uploading.
   // In this state we show ONLY the three option cards — every other control is hidden.
-  const isEmptyState = formData.boqItems.length === 0 && !showAddForm && !showUploadZone;
+  // Same empty state in every view: Table has no add form (it adds inline rows), so only
+  // Grid / Grouped keep the add form open over an empty BOQ.
+  const isEmptyState = formData.boqItems.length === 0 && !showUploadZone && (layout === 'sheet' || !showAddForm);
   // Template flow reached from the empty state (no items yet): show just the two step
   // cards + a Back link, and hide the toolbar / layout switch so it reads as its own screen.
   const uploadingEmpty = showUploadZone && formData.boqItems.length === 0 && !showAddForm;
@@ -965,7 +973,7 @@ export default function BillOfQuantities() {
               ['sheet', t('Table', 'جدول'), <TableIcon key="i" className="w-3.5 h-3.5" />],
               ['grouped', t('Grouped', 'مُجمّع'), <ListIcon key="i" className="w-3.5 h-3.5" />],
             ] as const).map(([v, label, icon]) => (
-              <button key={v} type="button" role="radio" aria-checked={layout === v} onClick={() => setBoqLayout(v)}
+              <button key={v} type="button" role="radio" aria-checked={layout === v} onClick={() => { if (v !== layout) closeItemForm(); setBoqLayout(v); }}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${layout === v ? 'bg-white text-brand-700 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>
                 {icon}
                 {label}
@@ -1445,7 +1453,7 @@ export default function BillOfQuantities() {
         )}
 
         {/* C · grouped by Etimad category — accordion (expand / collapse) */}
-        {formData.boqItems.length > 0 && layout === 'grouped' && (
+        {(formData.boqItems.length > 0 || showAddForm) && layout === 'grouped' && (
           <div className="space-y-3">
             {BOQ_CATEGORIES.map((cat) => {
               const m = BOQ_CATEGORY_META[cat];

@@ -566,6 +566,51 @@ async function openRequest(title) {
     await page.setViewportSize({ width: 1440, height: 900 });
   });
 
+  // ── Request creation: BOQ empty state + Qualification import ──────────────
+  const openDraft = async (seed) => {
+    await page.goto(BASE); await wait(300);
+    await page.evaluate((f) => localStorage.setItem('munafasat:etimad-draft', JSON.stringify(f)), seed);
+    await page.goto(BASE + '?open=etimad-draft'); await wait(1500);
+  };
+  const boqRows = () => Array.from({ length: 2 }, (_, i) => ({ id: 'r' + i, projectItem: 'Hardware', itemName: 'Server ' + (i + 1), itemDescription: 'Rack server', unitOfMeasure: 'Each', quantity: '2', unitPrice: '1000', deliveryDate: '', hasBrandName: false, brandJustification: '' }));
+  const delSel = 'button[aria-label*="Delete" i], button[title*="Delete" i], button[aria-label*="Remove" i], button[title*="Remove" i]';
+  for (const view of ['Table', 'Grouped', 'Grid']) {
+    await test(`BOQ ${view}: deleting all rows shows the 3 options; Add manually matches the view`, async () => {
+      await openDraft({ sourceType: 'tender', boqItems: boqRows() });
+      await page.locator('button', { hasText: 'Bill of Quantities' }).first().click(); await wait(800);
+      await page.getByRole('radio', { name: view }).click(); await wait(400);
+      for (let k = 0; k < 2; k++) { await page.locator(delSel).first().click(); await wait(350); }
+      for (const o of ['Upload via template', 'Generate with AI', 'Add manually'])
+        expect(await page.getByRole('button', { name: new RegExp(o) }).count() === 1, `${view}: option "${o}" missing after deleting all rows`);
+      await page.getByRole('button', { name: /Add manually/ }).click(); await wait(500);
+      if (view === 'Table') {
+        expect(await page.locator('input[placeholder="Item name"]').count() === 1, 'Table: inline row expected');
+        expect(await text('Add BOQ Item').count() === 0, 'Table should not open the card form');
+        await page.locator(delSel).first().click(); await wait(400);
+      } else {
+        expect(await text('Add BOQ Item').count() === 1, `${view}: card create form expected`);
+        expect(await page.locator('input[placeholder="Item name"]').count() === 0, `${view}: should not add a table row`);
+        await page.getByRole('button', { name: 'Cancel', exact: true }).click(); await wait(400);
+      }
+      expect(await page.getByRole('button', { name: /Add manually/ }).count() === 1, `${view}: options should return`);
+    });
+  }
+  await test('Qualification import: fills values for the fixed criteria only, never adds criteria', async () => {
+    await openDraft({ sourceType: 'tender', boqItems: [], qualificationCriteria: [{ id: 'x-extra', name: 'Legacy extra', nameAr: 'x', percentage: 10, subCriteria: [] }] });
+    await page.locator('button', { hasText: 'Qualification Criteria' }).first().click(); await wait(800);
+    expect(await text('Legacy extra').count() === 0, 'non-fixed criterion should be dropped');
+    await page.getByRole('button', { name: /Import from similar projects/ }).click(); await wait(500);
+    await page.getByRole('button', { name: 'Select all' }).click(); await wait(150);
+    await page.getByRole('button', { name: /Import \d+ selected/ }).click(); await wait(600);
+    const body = await page.locator('main').first().innerText();
+    for (const m of ['Previous Experience', 'Existing Contractual Obligations', 'Human Resources'])
+      expect(body.split(m).length - 1 === 1, `criterion ${m} should appear exactly once`);
+    expect(await text('Company Experience').count() === 0, 'library criteria must not be added');
+    const vals = await page.locator('main input').evaluateAll((els) => els.map((e) => e.value));
+    expect(vals.includes('7+ years') || (await text('7+ years').count()) > 0, 'imported range not applied');
+    expect(/Main Criteria Total[^\n]*100%/.test(body), 'main total should be 100% after import');
+  });
+
   await browser.close();
   const pass = results.filter((r) => r.ok).length;
   console.log(`\n${pass}/${results.length} passed\n`);
