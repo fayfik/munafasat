@@ -837,6 +837,8 @@ async function openRequest(title) {
     expect(!/\bsubtotal\b/.test(await page.locator('[data-review-boq]').locator('xpath=..').innerText()), 'donut removed');
     await page.click('[data-review-boq] [data-boq-view="0"]'); await wait(250);
     expect(await count('[data-review-boq] [data-boq-details-inline]') === 1, 'inline details open');
+    const dt = await page.locator('[data-review-boq] [data-boq-details]').innerText();
+    for (const k of ['Item name', 'Description', 'Unit of measure', 'Line total (incl. VAT)', 'Purchase type', 'Material group', 'GL account', 'Asset / Non-asset', 'Cost center']) expect(dt.includes(k), `view mode missing ${k}`);
     expect(await count('[data-boq-drawer]') === 0, 'no drawer');
     expect(await page.getAttribute('[data-review-boq] [data-boq-view="0"]', 'data-open') === 'true', 'eye expanded');
     await page.click('[data-review-boq] [data-boq-view="1"]'); await wait(150);

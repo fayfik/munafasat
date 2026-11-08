@@ -10,7 +10,8 @@ import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiExecutiveSummary } from '../lib/aiTender';
 import { isStale, needsJustification } from '../lib/etimadCheck';
 import { BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
-import BoqLineDetails, { BoqViewButton, useBoqOpen, type BoqLineView } from '../components/BoqLineDetails';
+import BoqLineDetails, { BoqViewButton, useBoqOpen, financeFor, type BoqLineView } from '../components/BoqLineDetails';
+import { requestAccounting } from '../lib/accounting';
 import { effectiveQty } from '../lib/boqManpower';
 import RegulatoryRecordsCard from '../components/RegulatoryRecordsCard';
 import { LOCKED_TECH_DOCS } from './TechnicalEvaluation';
@@ -60,6 +61,8 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
   const lineTotal = (r: typeof formData.boqItems[number]) => effectiveQty(r) * (Number(r.unitPrice) || 0);
   const boqOpen = useBoqOpen();
   const boqName = (n: string) => (isAr ? (selectedProject?.items.find((x) => x.name === n)?.nameAr ?? n) : n);
+  const reqAcct = requestAccounting(formData);
+  const reqFin = { costCenter: reqAcct.costCenter ? `${reqAcct.costCenter.code} · ${isAr ? reqAcct.costCenter.ar : reqAcct.costCenter.en}` : undefined, commitmentItem: reqAcct.commitmentItem?.code };
   const boqViews: BoqLineView[] = formData.boqItems.map((r) => {
     const cat = r.category ?? deriveCategory(r.itemName);
     const m = BOQ_CATEGORY_META[cat];
@@ -85,6 +88,7 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
       qty: effectiveQty(r) ? String(effectiveQty(r)) : '', unit: r.unitOfMeasure,
       unitPrice: Number(r.unitPrice) || undefined, total: lineTotal(r) || undefined,
       delivery: r.deliveryDate || undefined, extra,
+      finance: financeFor({ name: r.itemName, description: r.itemDescription, saved: r }, reqFin),
     };
   });
 
@@ -287,7 +291,7 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
                       <td className="px-3 py-2 text-end tabular-nums font-semibold text-neutral-900" dir="ltr">{lineTotal(r) > 0 ? formatSAR(lineTotal(r)) : '—'}</td>
                       <td className="px-2 py-1 text-center"><BoqViewButton index={i} open={boqOpen.isOpen(i)} onClick={() => boqOpen.toggle(i)} label={t('View item details', 'عرض تفاصيل البند')} /></td>
                     </tr>
-                    {boqOpen.isOpen(i) && <tr><td colSpan={6} className="p-0"><BoqLineDetails line={boqViews[i]} isAr={isAr} t={t} grandTotal={boqSubtotal} /></td></tr>}
+                    {boqOpen.isOpen(i) && <tr><td colSpan={6} className="p-0"><BoqLineDetails line={boqViews[i]} isAr={isAr} t={t} /></td></tr>}
                     </Fragment>
                   );
                 })}

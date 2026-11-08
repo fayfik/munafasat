@@ -8,7 +8,7 @@ import { CheckIcon, ChevronDownIcon, PencilIcon } from '../components/Icons';
 import { stdById, eaScope, type Answers } from '../lib/eaStandards';
 import { DeploymentHero, ProjectProfile, StandardsList } from '../components/TechStandards';
 import { Fragment } from 'react';
-import BoqLineDetails, { BoqViewButton, useBoqOpen, viewFromRfpLine } from '../components/BoqLineDetails';
+import BoqLineDetails, { BoqViewButton, useBoqOpen, viewFromRfpLine, rfpCostCenter } from '../components/BoqLineDetails';
 import { eaSections, LICENCE_RX, type EaSection } from './eaSections';
 
 type T = (en: string, ar: string) => string;
@@ -56,7 +56,7 @@ export default function EaReview({ task, isAr, t, readOnly, onDecide, onAcceptAl
             <Fragment key={i}><tr className="border-t border-neutral-100"><td className="py-1.5 pe-3"><span className="text-neutral-400 me-1.5">{i + 1}.</span>{L(l.itemEn, l.itemAr)}<span className="block text-[11.5px] text-neutral-500">{L(l.descEn, l.descAr)}</span></td>
               <td className="py-1.5 text-end font-semibold tabular-nums whitespace-nowrap">{l.qty} {l.unit}</td><td className="py-1.5 text-end tabular-nums whitespace-nowrap" dir="ltr">{sar((Number(l.qty) || 1) * l.unitPrice)}</td>
               <td className="py-1 ps-1 text-end"><BoqViewButton index={i} open={boqOpen.isOpen(i)} onClick={() => boqOpen.toggle(i)} label={t('View item details', 'عرض تفاصيل البند')} /></td></tr>
-              {boqOpen.isOpen(i) && <tr><td colSpan={4} className="p-0 pb-1"><div className="rounded-lg overflow-hidden border border-neutral-100"><BoqLineDetails line={viewFromRfpLine(l, isAr, t)} isAr={isAr} t={t} grandTotal={boqGrand} /></div></td></tr>}</Fragment>
+              {boqOpen.isOpen(i) && <tr><td colSpan={4} className="p-0 pb-1"><div className="rounded-lg overflow-hidden border border-neutral-100"><BoqLineDetails line={viewFromRfpLine(l, isAr, t, rfpCostCenter(rfp))} isAr={isAr} t={t} /></div></td></tr>}</Fragment>
           ))}</tbody>
         </table>
         <p className="mt-1.5 text-[11.5px] text-neutral-500">{t('Check the quantities against what was agreed in the assessment — quantities above it affect the budget.', 'تحقق من الكميات مقابل ما تم الاتفاق عليه في التقييم — الكميات الأعلى تؤثر على الميزانية.')}</p>

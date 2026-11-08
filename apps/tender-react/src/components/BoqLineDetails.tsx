@@ -1,32 +1,45 @@
-// Read-only BOQ line details, expanded inline (accordion) under a row by the eye icon.
-// Shared by every BOQ table that isn't the editor: Review & Confirm, Inbox request tab,
-// EA licences, GL / Assets tasks.
+// BOQ line — view mode. One common component for every read-only BOQ table
+// (Review & Confirm, Inbox request tab, request detail BOQ items, EA licences,
+// GL / Assets tasks). Opened inline (accordion) by the eye icon on a row.
+// Simple label / value pairs in three groups: Item · Amount · Finance.
 import { useState, type ReactNode } from 'react';
+import type { BOQRow } from '../types/tender';
+import {
+  PURCHASE_TYPES, COMPONENT_ROLES, mgByCode, glFor, suggestAccounting, assetFlagOf,
+  type FinPurchaseType, type ComponentRole,
+} from '../lib/accounting';
+
+type T = (en: string, ar: string) => string;
+
+export interface BoqFinance {
+  purchaseType?: FinPurchaseType;
+  materialGroup?: string;
+  glSubOverride?: string;
+  assetFlag?: 'asset' | 'non-asset';
+  componentRole?: ComponentRole;
+  /** Suggested by AI (not yet confirmed by the requester / Finance). */
+  ai?: boolean;
+  costCenter?: string;
+  commitmentItem?: string;
+}
 
 export interface BoqLineView {
   name: string;
   description?: string;
-  /** Category chip, e.g. Service / Material. */
   category?: { label: string; tone: 'service' | 'material' | 'equipment' | 'manpower' };
-  /** Budgeted (project) item the line belongs to. */
   budget?: string;
-  qty?: string;
   unit?: string;
+  qty?: string;
   unitPrice?: number;
   total?: number;
   delivery?: string;
-  /** Extra label / value pairs (brand, mandatory list, manpower…). */
+  /** Item-specific fields (brand, mandatory list, manpower, Etimad, attachments…). */
   extra?: { label: string; value: ReactNode; full?: boolean; ltr?: boolean }[];
+  finance?: BoqFinance;
 }
 
-type T = (en: string, ar: string) => string;
 const sar = (n: number) => 'SAR ' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const TONE = {
-  service: 'bg-[#EAF2FA] text-[#2A6193] border-[#C9DBEC]',
-  material: 'bg-[#FDF1E8] text-[#B4501A] border-[#F5D5BE]',
-  equipment: 'bg-ai-50 text-ai-700 border-ai-200',
-  manpower: 'bg-success-50 text-success-700 border-success-200',
-};
+const DOT = { service: 'bg-[#2A6193]', material: 'bg-[#E08E00]', equipment: 'bg-ai-500', manpower: 'bg-success-500' };
 
 export const ViewGlyph = ({ className = 'w-4 h-4' }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
@@ -36,7 +49,7 @@ export const ViewGlyph = ({ className = 'w-4 h-4' }: { className?: string }) => 
 export function BoqViewButton({ onClick, label, index, open }: { onClick: () => void; label: string; index: number; open?: boolean }) {
   return (
     <button type="button" onClick={(e) => { e.stopPropagation(); onClick(); }} aria-label={label} title={label} data-open={open ? 'true' : 'false'} data-boq-view={index}
-      className={`w-7 h-7 rounded-lg inline-flex items-center justify-center transition-colors ${open ? 'bg-brand-50 text-brand-700' : 'text-neutral-500 hover:text-brand-700 hover:bg-brand-50'}`}>
+      className={`w-7 h-7 rounded-lg inline-flex items-center justify-center transition-colors ${open ? 'bg-brand-600 text-white' : 'text-neutral-500 hover:text-brand-700 hover:bg-brand-50'}`}>
       <ViewGlyph />
     </button>
   );
@@ -49,49 +62,89 @@ export function useBoqOpen() {
   return { isOpen: (i: number) => open.has(i), toggle };
 }
 
-/** Inline details panel shown under an expanded BOQ row. */
-export default function BoqLineDetails({ line: l, isAr, t, grandTotal }: { line: BoqLineView; isAr: boolean; t: T; grandTotal?: number }) {
-  const share = grandTotal && l.total ? Math.round((l.total / grandTotal) * 100) : null;
-  const Field = ({ label, value, full, ltr }: { label: string; value: ReactNode; full?: boolean; ltr?: boolean }) => (
-    <div className={full ? 'col-span-2 @[560px]:col-span-3' : ''}>
-      <dt className="text-[11px] font-medium text-neutral-500">{label}</dt>
-      <dd className="mt-0.5 text-[12.5px] text-neutral-900 font-medium break-words" dir={ltr ? 'ltr' : undefined}>{value === '' || value == null ? <span className="text-neutral-300">—</span> : value}</dd>
+function Field({ label, value, full, ltr, strong }: { label: string; value: ReactNode; full?: boolean; ltr?: boolean; strong?: boolean }) {
+  const empty = value === '' || value == null;
+  return (
+    <div className={full ? 'col-span-full' : ''}>
+      <dt className="text-[11.5px] text-neutral-500">{label}</dt>
+      <dd className={`mt-0.5 text-[13px] leading-snug break-words ${strong ? 'font-semibold text-neutral-900' : 'text-neutral-800'} ${empty ? '!text-neutral-300' : ''}`} dir={ltr ? 'ltr' : undefined}>
+        {empty ? '—' : value}
+      </dd>
     </div>
   );
+}
+
+function Group({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
   return (
-    <div className="@container drill-in px-4 py-3.5 bg-neutral-50/70 border-t border-neutral-100 text-start" data-boq-details-inline>
-      <div className="flex flex-col @[640px]:flex-row gap-4">
-        <div className="@[640px]:w-56 flex-shrink-0 rounded-xl bg-white border border-brand-100 px-3.5 py-3">
-          <p className="text-[11px] font-medium text-brand-800/80">{t('Line total (excl. VAT)', 'إجمالي البند (قبل الضريبة)')}</p>
-          <p className="text-[17px] font-bold text-brand-800 tabular-nums leading-tight" dir="ltr">{l.total ? sar(l.total) : '—'}</p>
-          <p className="mt-0.5 text-[11.5px] text-neutral-600 tabular-nums"><span dir="ltr">{l.qty || '—'} {l.unit ?? ''} × {l.unitPrice ? sar(l.unitPrice) : '—'}</span></p>
-          {share != null && <>
-            <div className="mt-2 h-1.5 rounded-full bg-neutral-100 overflow-hidden"><div className="h-full bg-brand-500 rounded-full" style={{ width: `${Math.max(2, share)}%` }} /></div>
-            <p className="mt-1 text-[11px] text-neutral-500">{t(`${share}% of the BOQ`, `${share}% من الجدول`)}</p>
-          </>}
-        </div>
-        <div className="flex-1 min-w-0 space-y-3">
-          {(l.category || l.budget) && (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {l.category && <span className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${TONE[l.category.tone]}`}>{l.category.label}</span>}
-              {l.budget && <span className="px-2 py-0.5 rounded-full bg-white border border-neutral-200 text-neutral-600 text-[11px] font-medium">{l.budget}</span>}
-            </div>
-          )}
-          {l.description && <p className="text-[12.5px] text-neutral-700 leading-relaxed whitespace-pre-line">{l.description}</p>}
-          <dl className="grid grid-cols-2 @[560px]:grid-cols-3 gap-x-5 gap-y-2.5">
-            <Field label={t('Quantity', 'الكمية')} value={l.qty ? `${l.qty} ${l.unit ?? ''}` : ''} />
-            <Field label={t('Unit price', 'سعر الوحدة')} value={l.unitPrice ? sar(l.unitPrice) : ''} ltr />
-            <Field label={t('Delivery date', 'موعد التسليم')} value={l.delivery ? new Date(l.delivery).toLocaleDateString(isAr ? 'ar-SA' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''} />
-            {l.extra?.map((x, i) => <Field key={i} {...x} />)}
-          </dl>
-        </div>
+    <section className="py-3.5 first:pt-0 last:pb-0">
+      <div className="flex items-center gap-2 mb-2.5">
+        <h4 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-neutral-400">{title}</h4>
+        <span className="flex-1 h-px bg-neutral-100" />
+        {aside}
+      </div>
+      <dl className="grid grid-cols-2 @[520px]:grid-cols-3 @[760px]:grid-cols-4 gap-x-6 gap-y-3">{children}</dl>
+    </section>
+  );
+}
+
+/** Inline view-mode details under an expanded BOQ row. */
+export default function BoqLineDetails({ line: l, isAr, t }: { line: BoqLineView; isAr: boolean; t: T; grandTotal?: number }) {
+  const L = (o?: { en: string; ar: string }) => (o ? (isAr ? o.ar : o.en) : '');
+  const fmtD = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(isAr ? 'ar-SA' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
+  const f = l.finance;
+  const mg = mgByCode(f?.materialGroup);
+  const { glMain, glSub } = glFor(f?.materialGroup);
+  const total = l.total ?? 0;
+
+  return (
+    <div className="@container drill-in bg-white border-t border-neutral-100 px-5 py-4 text-start shadow-[inset_3px_0_0_var(--color-brand-500)] rtl:shadow-[inset_-3px_0_0_var(--color-brand-500)]" data-boq-details data-boq-details-inline>
+      <div className="divide-y divide-neutral-100">
+        <Group title={t('Item', 'البند')}>
+          <Field label={t('Item name', 'اسم البند')} value={l.name} strong full />
+          {l.description && <Field label={t('Description', 'الوصف')} value={<span className="whitespace-pre-line">{l.description}</span>} full />}
+          <Field label={t('Category', 'التصنيف')} value={l.category && <span className="inline-flex items-center gap-1.5"><span className={`w-2 h-2 rounded-full ${DOT[l.category.tone]}`} />{l.category.label}</span>} />
+          <Field label={t('Budgeted item', 'البند المعتمد')} value={l.budget} />
+          <Field label={t('Unit of measure', 'وحدة القياس')} value={l.unit} />
+          <Field label={t('Delivery date', 'موعد التسليم')} value={fmtD(l.delivery)} />
+          {l.extra?.map((x, i) => <Field key={i} {...x} />)}
+        </Group>
+
+        <Group title={t('Amount', 'المبلغ')}>
+          <Field label={t('Quantity', 'الكمية')} value={l.qty ? `${l.qty} ${l.unit ?? ''}`.trim() : ''} />
+          <Field label={t('Unit price', 'سعر الوحدة')} value={l.unitPrice ? sar(l.unitPrice) : ''} ltr />
+          <Field label={t('Line total (excl. VAT)', 'إجمالي البند (قبل الضريبة)')} value={total ? sar(total) : ''} ltr />
+          <Field label={t('Line total (incl. VAT)', 'إجمالي البند (شامل الضريبة)')} value={total ? sar(total * 1.15) : ''} ltr strong />
+        </Group>
+
+        <Group title={t('Finance', 'المالية')}
+          aside={f?.ai ? <span className="text-[10.5px] font-semibold text-ai-700 bg-ai-50 px-1.5 py-0.5 rounded">{t('AI-suggested', 'مقترح بالذكاء الاصطناعي')}</span> : undefined}>
+          <Field label={t('Purchase type', 'نوع الشراء')} value={L(f?.purchaseType ? PURCHASE_TYPES[f.purchaseType] : undefined)} />
+          <Field label={t('Material group', 'مجموعة المواد')} value={mg && <>{L(mg)}<span className="block text-neutral-400 text-[11.5px]" dir="ltr">{mg.code}</span></>} />
+          <Field label={t('GL account', 'حساب الأستاذ')} value={glMain && <><span dir="ltr">{glMain.code}</span><span className="block text-neutral-400 text-[11.5px]">{L(glMain)}</span></>} />
+          <Field label={t('GL sub-account', 'الحساب الفرعي')} value={glSub ? <><span dir="ltr">{glSub.code}</span><span className="block text-neutral-400 text-[11.5px]">{L(glSub)}</span></> : f?.glSubOverride} />
+          <Field label={t('Asset / Non-asset', 'أصل / غير أصل')} value={f?.assetFlag ? (f.assetFlag === 'asset' ? t('Asset', 'أصل') : t('Non-asset', 'غير أصل')) : ''} />
+          {f?.componentRole && <Field label={t('Component role', 'دور المكوّن')} value={L(COMPONENT_ROLES[f.componentRole])} />}
+          {f?.costCenter && <Field label={t('Cost center', 'مركز التكلفة')} value={f.costCenter} />}
+          {f?.commitmentItem && <Field label={t('Commitment item', 'بند الالتزام')} value={f.commitmentItem} />}
+        </Group>
       </div>
     </div>
   );
 }
 
+/** Finance fields for a line: what was saved, or the AI suggestion from name + description. */
+export function financeFor(src: { name: string; description?: string; saved?: Partial<BOQRow> }, extra?: Pick<BoqFinance, 'costCenter' | 'commitmentItem'>): BoqFinance {
+  const s = src.saved;
+  if (s?.finPurchaseType || s?.materialGroup) {
+    return { purchaseType: s.finPurchaseType, materialGroup: s.materialGroup, glSubOverride: s.glSubOverride, assetFlag: assetFlagOf(s as BOQRow), componentRole: s.componentRole, ai: s.acctSource === 'ai', ...extra };
+  }
+  const g = suggestAccounting(src.name, src.description ?? '');
+  if (!g) return { ...extra };
+  return { purchaseType: g.finPurchaseType, materialGroup: g.materialGroup, componentRole: g.componentRole, assetFlag: assetFlagOf({ finPurchaseType: g.finPurchaseType }), ai: true, ...extra };
+}
+
 /** Adapter for request records (Inbox / request detail). */
-export function viewFromRfpLine(l: { itemEn: string; itemAr: string; qty: string; unit: string; unitPrice: number; descEn?: string; descAr?: string; budgetEn?: string; budgetAr?: string; category?: 'Service' | 'Material'; delivery?: string }, isAr: boolean, t: T): BoqLineView {
+export function viewFromRfpLine(l: { itemEn: string; itemAr: string; qty: string; unit: string; unitPrice: number; descEn?: string; descAr?: string; budgetEn?: string; budgetAr?: string; category?: 'Service' | 'Material'; delivery?: string }, isAr: boolean, t: T, costCenter?: string): BoqLineView {
   return {
     name: isAr ? l.itemAr : l.itemEn,
     description: (isAr ? l.descAr : l.descEn) ?? undefined,
@@ -100,5 +153,9 @@ export function viewFromRfpLine(l: { itemEn: string; itemAr: string; qty: string
     qty: l.qty, unit: l.unit, unitPrice: l.unitPrice,
     total: (Number(l.qty) || 1) * l.unitPrice,
     delivery: l.delivery,
+    finance: financeFor({ name: l.itemEn, description: l.descEn }, { costCenter }),
   };
 }
+
+/** Cost center shown on a request record (its "Cost center" meta row). */
+export const rfpCostCenter = (rfp?: { meta: { label: { en: string }; value: string }[] }) => rfp?.meta.find((m) => m.label.en === 'Cost center')?.value;

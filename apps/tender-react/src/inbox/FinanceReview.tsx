@@ -10,25 +10,18 @@ import {
   PURCHASE_TYPES, COMPONENT_ROLES, MATERIAL_GROUPS, mgByCode, glFor, accountingIssues, assetFlagOf, type FinPurchaseType,
 } from '../lib/accounting';
 import type { BOQRow } from '../types/tender';
-import BoqLineDetails, { BoqViewButton, useBoqOpen, type BoqLineView } from '../components/BoqLineDetails';
+import BoqLineDetails, { BoqViewButton, useBoqOpen, type BoqLineView, rfpCostCenter } from '../components/BoqLineDetails';
 
-/** BOQ line drawer content for finance lines (adds the accounting fields). */
+/** View-mode content for finance lines (the accounting saved on each line). */
 function finViews(lines: FinLine[], task: Task, isAr: boolean, t: (en: string, ar: string) => string): BoqLineView[] {
-  const L = (o?: { en: string; ar: string }) => (o ? (isAr ? o.ar : o.en) : '');
   return lines.map((l) => {
     const src = task.rfp?.boq[(l.no ?? 1) - 1];
-    const { glMain, glSub } = glFor(l.materialGroup);
     return {
       name: isAr ? l.itemAr : l.itemEn, description: (isAr ? l.descAr : l.descEn) ?? undefined,
       category: src?.category ? { label: src.category === 'Service' ? t('Service', 'خدمة') : t('Material', 'مواد'), tone: src.category === 'Service' ? 'service' : 'material' } : undefined,
       budget: src ? ((isAr ? src.budgetAr : src.budgetEn) ?? undefined) : undefined,
       qty: l.qty, unit: l.unit, unitPrice: l.unitPrice, total: l.amount, delivery: src?.delivery,
-      extra: [
-        { label: t('Purchase type', 'نوع الشراء'), value: L(PURCHASE_TYPES[l.finPurchaseType]) },
-        { label: t('Material group', 'مجموعة المواد'), value: mgByCode(l.materialGroup) ? `${L(mgByCode(l.materialGroup))} · ${l.materialGroup}` : '' },
-        { label: t('GL account', 'حساب الأستاذ'), value: [glMain?.code, glSub?.code ?? l.glSubOverride].filter(Boolean).join(' / '), ltr: true },
-        { label: t('Asset / Non-asset', 'أصل / غير أصل'), value: assetFlagOf(l as unknown as BOQRow) === 'asset' ? t('Asset', 'أصل') : t('Non-asset', 'غير أصل') },
-      ],
+      finance: { purchaseType: l.finPurchaseType, materialGroup: l.materialGroup, glSubOverride: l.glSubOverride, assetFlag: flagOf(l), componentRole: l.componentRole, costCenter: rfpCostCenter(task.rfp) },
     };
   });
 }
@@ -235,7 +228,7 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
                       )}
                     </td>
                   </tr>
-                  {boqOpen.isOpen(lines.indexOf(l)) && <tr><td colSpan={5} className="p-0"><BoqLineDetails line={views[lines.indexOf(l)]} isAr={isAr} t={t} grandTotal={grand} /></td></tr>}
+                  {boqOpen.isOpen(lines.indexOf(l)) && <tr><td colSpan={5} className="p-0"><BoqLineDetails line={views[lines.indexOf(l)]} isAr={isAr} t={t} /></td></tr>}
                   </Fragment>
                 );
               })}
@@ -264,7 +257,7 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll, 
   const views = finViews(all, task, isAr, t);
   const grand = all.reduce((n, x) => n + x.amount, 0);
   const viewBtn = (l: FinLine) => <BoqViewButton index={all.indexOf(l)} open={boqOpen.isOpen(all.indexOf(l))} onClick={() => boqOpen.toggle(all.indexOf(l))} label={t('View item details', 'عرض تفاصيل البند')} />;
-  const details = (l: FinLine) => boqOpen.isOpen(all.indexOf(l)) && <div className="mt-3 rounded-lg overflow-hidden border border-neutral-100"><BoqLineDetails line={views[all.indexOf(l)]} isAr={isAr} t={t} grandTotal={grand} /></div>;
+  const details = (l: FinLine) => boqOpen.isOpen(all.indexOf(l)) && <div className="mt-3 rounded-lg overflow-hidden border border-neutral-100"><BoqLineDetails line={views[all.indexOf(l)]} isAr={isAr} t={t} /></div>;
   const dec = task.finAssetDecisions ?? {};
   const L = (o?: { en: string; ar: string }) => (o ? (isAr ? o.ar : o.en) : '—');
   // Suggested treatment: implementation / installation building up an asset → AUC.

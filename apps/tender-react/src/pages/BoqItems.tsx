@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import type { RfpDetail } from '../inbox/types';
 import { SearchIcon, XIcon, ChevronDownIcon, ChevronRightIcon } from '../components/Icons';
-import { BoqViewButton } from '../components/BoqLineDetails';
+import BoqLineDetails, { BoqViewButton, viewFromRfpLine, rfpCostCenter } from '../components/BoqLineDetails';
 
 type T = (en: string, ar: string) => string;
 type Line = RfpDetail['boq'][number];
@@ -196,7 +196,7 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
                     <td className="px-3 py-3"><Share v={i.total / (total || 1)} color={color(i.budget)} /></td>
                     <td className="px-1 py-2 text-center"><BoqViewButton index={i.idx} onClick={() => toggle(i.idx)} open={open.has(i.idx)} label={viewLabel} /></td>
                   </tr>
-                  {isOpen && <tr className="bg-brand-50/20"><td colSpan={10} className="p-0"><ItemDetails item={i} total={total} color={color(i.budget)} fmtD={fmtD} t={t} /></td></tr>}
+                  {isOpen && <tr><td colSpan={10} className="p-0"><BoqLineDetails line={viewFromRfpLine(rfp.boq[i.idx], isAr, t, rfpCostCenter(rfp))} isAr={isAr} t={t} /></td></tr>}
                   </Fragment>
                 ); })}
               </tbody>
@@ -233,7 +233,7 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
                     </button>
                     <BoqViewButton index={i.idx} onClick={() => toggle(i.idx)} open={open.has(i.idx)} label={viewLabel} />
                     </div>
-                    {isOpen && <ItemDetails item={i} total={total} color={color(i.budget)} fmtD={fmtD} t={t} />}
+                    {isOpen && <BoqLineDetails line={viewFromRfpLine(rfp.boq[i.idx], isAr, t, rfpCostCenter(rfp))} isAr={isAr} t={t} />}
                     </div>
                   ); })}
                 </div>
@@ -330,38 +330,3 @@ function ViewGlyph({ v }: { v: View }) {
 }
 
 /** Inline details shown when an item row is expanded. */
-function ItemDetails({ item, total, color, fmtD, t }: { item: Item; total: number; color: string; fmtD: (s?: string) => string; t: T }) {
-  const cells: [string, ReactNode][] = [
-    [t('Category', 'التصنيف'), <Cat c={item.category} t={t} />],
-    [t('Budget line', 'بند الميزانية'), <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />{item.budget}</span>],
-    [t('Quantity', 'الكمية'), `${item.qty} ${item.unit}`],
-    [t('Unit price', 'سعر الوحدة'), <span dir="ltr">{sar(item.unitPrice)}</span>],
-    [t('Line total (excl. VAT)', 'إجمالي البند (قبل الضريبة)'), <span dir="ltr" className="font-bold">{sar(item.total)}</span>],
-    [t('VAT (15%)', 'ضريبة القيمة المضافة (15٪)'), <span dir="ltr">{sar(item.total * 0.15)}</span>],
-    [t('Line total (incl. VAT)', 'إجمالي البند (شامل الضريبة)'), <span dir="ltr" className="font-semibold">{sar(item.total * 1.15)}</span>],
-    [t('Delivery date', 'تاريخ التسليم'), `${fmtD(item.delivery)} · ${item.quarter}`],
-  ];
-  return (
-    <div className="px-4 sm:px-12 py-4 border-t border-brand-100 cm-fade-in" data-boq-details>
-      <div className="flex items-start gap-3">
-        <span className="w-1 self-stretch rounded-full flex-shrink-0" style={{ background: color }} />
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Description', 'الوصف')}</p>
-          <p className="mt-1 text-[13px] text-neutral-700 leading-relaxed">{item.desc || '—'}</p>
-          <dl className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-3">
-            {cells.map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-[11px] text-neutral-500">{k}</dt>
-                <dd className="mt-0.5 text-[13px] text-neutral-900 tabular-nums">{v}</dd>
-              </div>
-            ))}
-          </dl>
-          <div className="mt-3 flex items-center gap-3">
-            <span className="text-[11px] text-neutral-500 whitespace-nowrap">{t('Share of BOQ', 'الحصة من الجدول')}</span>
-            <div className="flex-1 max-w-sm"><Share v={item.total / (total || 1)} color={color} /></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}

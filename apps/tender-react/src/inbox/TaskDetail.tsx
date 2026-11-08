@@ -19,7 +19,7 @@ import QualReview from './QualReview';
 import { GlReview, AssetsReview, ChangesReview, glReturnDraft } from './FinanceReview';
 import { finLinesFor } from './data';
 import EaReview from './EaReview';
-import BoqLineDetails, { BoqViewButton, useBoqOpen, viewFromRfpLine } from '../components/BoqLineDetails';
+import BoqLineDetails, { BoqViewButton, useBoqOpen, viewFromRfpLine, rfpCostCenter } from '../components/BoqLineDetails';
 import { EA_RETURN_REASONS, eaReturnDraft } from './eaSections';
 import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
@@ -518,7 +518,7 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
 
   // ── Bill of quantities ──
   const viewLabel = t('View item details', 'عرض تفاصيل البند');
-  const boqDetails = (i: number, cols: number) => boqOpen.isOpen(i) && <tr><td colSpan={cols} className="p-0"><BoqLineDetails line={viewFromRfpLine(rfp.boq[i], isAr, t)} isAr={isAr} t={t} grandTotal={boqTotal} /></td></tr>;
+  const boqDetails = (i: number, cols: number) => boqOpen.isOpen(i) && <tr><td colSpan={cols} className="p-0"><BoqLineDetails line={viewFromRfpLine(rfp.boq[i], isAr, t, rfpCostCenter(rfp))} isAr={isAr} t={t} /></td></tr>;
   const boqChart = (
     <div className="flex flex-col lg:flex-row gap-5">
       <div className="flex items-center gap-4 lg:flex-col lg:items-center flex-shrink-0">
@@ -569,7 +569,7 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
   );
   const boqTable = (
     <div className="overflow-x-auto rounded-xl border border-neutral-200">
-      <table className="w-full min-w-[860px] text-[12.5px]">
+      <table className="w-full min-w-[720px] text-[12.5px]">
         <thead><tr className="bg-neutral-50 border-b border-neutral-200">
           <th className={`${TH} text-center w-10`}>#</th>
           <th className={`${TH} text-start`}>{t('Item', 'البند')}</th>
