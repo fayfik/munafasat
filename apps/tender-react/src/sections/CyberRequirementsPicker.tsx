@@ -35,7 +35,7 @@ export default function CyberRequirementsPicker({ categories, show }: { categori
   const cls = formData.dataClassification ?? 'Internal';
   const list = applicableReqs(categories.length ? categories : ['general'], classLevel(cls));
   const chosen = new Set(formData.cyberRequirements ?? []);
-  const toggle = (id: string) => { const n = new Set(chosen); if (n.has(id)) n.delete(id); else n.add(id); updateField('cyberRequirements', [...n]); };
+  const toggle = (id: string) => { const n = new Set(chosen); if (n.has(id)) n.delete(id); else n.add(id); updateField('cyberRequirements', [...n]); if (!formData.dataClassification) updateField('dataClassification', cls); };
   return (
     <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 p-4" data-testid="cyber-picker">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -43,7 +43,7 @@ export default function CyberRequirementsPicker({ categories, show }: { categori
           <p className="text-[13px] font-semibold text-neutral-900">{t('Cybersecurity requirements', 'متطلبات الأمن السيبراني')}</p>
           <p className="text-[12px] text-neutral-500 mt-0.5">{t('From the Cyber Security requirements library. Include the ones that apply — Cyber reviews against this same list, so including them now avoids a return later.', 'من مكتبة متطلبات الأمن السيبراني. أدرج ما ينطبق — يراجع الأمن السيبراني وفق القائمة نفسها، فإدراجها الآن يجنبك الإعادة لاحقاً.')}</p>
         </div>
-        <button type="button" onClick={() => updateField('cyberRequirements', [...new Set([...chosen, ...list.map((r) => r.id)])])} className="text-[12px] font-semibold text-brand-700 hover:underline">{t('Include all', 'إدراج الكل')}</button>
+        <button type="button" onClick={() => { updateField('cyberRequirements', [...new Set([...chosen, ...list.map((r) => r.id)])]); if (!formData.dataClassification) updateField('dataClassification', cls); }} className="text-[12px] font-semibold text-brand-700 hover:underline">{t('Include all', 'إدراج الكل')}</button>
       </div>
       <div className="mt-3 flex items-center gap-2 flex-wrap">
         <span className="text-[12px] font-medium text-neutral-600">{t('Data this request handles:', 'البيانات التي يتعامل معها الطلب:')}</span>

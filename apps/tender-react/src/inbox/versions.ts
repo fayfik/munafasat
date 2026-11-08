@@ -16,7 +16,7 @@ const SECTIONS: { key: string; label: Bilingual; lines: (r: RfpDetail) => string
     ...(r.scopeBlocks ?? []).flatMap((b) => b.itemsEn.map((i) => `${b.headEn}: ${i}`)),
   ] },
   { key: 'tech', label: sup('Technical requirements', 'المتطلبات الفنية'), lines: (r) => [
-    ...(r.techRequirements ?? []).map((x) => `${x.reqEn}${x.descEn ? ` — ${x.descEn}` : ''}`),
+    ...(r.techRequirements ?? []).map((x) => `${x.reqEn}${x.descEn ? ` — ${x.descEn}` : ''}${x.removedBy ? ` [removed by ${x.removedBy}: ${x.removedReason ?? ''}]` : ''}`),
     ...(r.techDocs ?? []).map((d) => `Document: ${d.en}`),
   ] },
   { key: 'evaluation', label: sup('Evaluation criteria', 'معايير التقييم'), lines: (r) => [...r.evaluation.map((e) => `${e.criterionEn} (${e.weight}%)`), `Passing score ${r.techPassing ?? '—'}%`] },

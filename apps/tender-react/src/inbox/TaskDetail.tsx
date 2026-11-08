@@ -814,8 +814,11 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
                 {rfp.techRequirements.map((r, i) => (
                   <Commentable key={i} id={`treq-${i}`} label={{ en: r.reqEn, ar: r.reqAr }}><tr className="bg-white align-top">
                     <td className="px-3 py-2.5 text-center text-neutral-400">{i + 1}</td>
-                    <td className="px-3 py-2.5 font-semibold text-neutral-800">{isAr ? r.reqAr : r.reqEn}</td>
-                    <td className="px-3 py-2.5 text-neutral-600 leading-snug">{isAr ? r.descAr : r.descEn}</td>
+                    <td className={`px-3 py-2.5 font-semibold ${r.removedBy ? 'text-neutral-400 line-through' : 'text-neutral-800'}`}>{isAr ? r.reqAr : r.reqEn}
+                      {r.addedBy && !r.removedBy && <span className="ms-1.5 inline-block no-underline text-[10.5px] font-semibold rounded-full px-1.5 py-px bg-[#EEF4FB] text-[#2A6193]">{t(`Added by ${r.addedBy}`, 'أضافه الأمن السيبراني')}</span>}</td>
+                    <td className="px-3 py-2.5 text-neutral-600 leading-snug">{r.removedBy
+                      ? <span data-testid="removed-req"><span className="text-[10.5px] font-semibold rounded-full px-1.5 py-px bg-neutral-200 text-neutral-600 me-1.5">{t(`Removed by ${r.removedBy}`, 'أزاله الأمن السيبراني')}</span>{r.removedReason}</span>
+                      : (isAr ? r.descAr : r.descEn)}</td>
                   </tr></Commentable>
                 ))}
               </tbody>

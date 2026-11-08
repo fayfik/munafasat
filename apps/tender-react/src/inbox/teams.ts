@@ -76,7 +76,7 @@ export function toCyberQueue(t: Task): Task {
 export function withTeamSeeds(tasks: Task[]): Task[] {
   const cy = tasks.find((t) => t.id === 'TSK-4433-03');
   if (!cy) return tasks;
-  const queued = tasks.map((t) => (t.id === cy.id ? { ...toCyberQueue(t), cyberReview: { projectTypes: ['technology'], status: {} } } : t));
+  const queued = tasks.map((t) => (t.id === cy.id ? { ...toCyberQueue(t), cyberReview: { projectTypes: ['technology'], requesterClass: 'Internal' } } : t));
   const day = 86400000;
   const past = (o: { no: string; title: string; titleAr: string; by: Person; receivedDays: number; tookHours: number; decision: 'approved' | 'returned'; note: string; amount: number }): Task => {
     const rec = new Date(Date.now() - o.receivedDays * day); rec.setHours(9, 30, 0, 0);
@@ -90,7 +90,7 @@ export function withTeamSeeds(tasks: Task[]): Task[] {
       state: o.decision === 'approved' ? 'completed' : 'waiting', mineAction: true,
       receivedAt: rec.toISOString(), dueAt: new Date(o.decision === 'approved' ? +rec + 2 * day : Date.now() + 5 * day).toISOString(), completedAt: done.toISOString(),
       decision: o.decision === 'approved' ? { en: 'Approved', ar: 'تم الاعتماد' } : { en: 'Returned for Correction', ar: 'مُعاد للتصحيح' },
-      cyberReview: { classification: o.decision === 'approved' ? 'Internal' : 'Confidential', projectTypes: ['technology'], status: {} },
+      cyberReview: { classification: o.decision === 'approved' ? 'Internal' : 'Confidential', projectTypes: ['technology'] },
       rfp: cy.rfp ? { ...cy.rfp, refId: `REQ-${o.no}`, titleEn: o.title, titleAr: o.titleAr } : undefined, trail: undefined,
       activity: [
         { id: 'p0', kind: 'system', actor: P.requester, at: new Date(+rec - 2 * day).toISOString(), system: { en: `Request #${o.no} submitted`, ar: `تم تقديم الطلب رقم ${o.no}` } },

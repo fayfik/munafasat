@@ -8,7 +8,7 @@ import { SEED_TASKS, ME, buildCommentResponseTask } from './data';
 import type { RfpDetail, Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry, EtimadReviewItem, RouteCheckItem, Person } from './types';
 import { advanceFlow, hiddenFromInbox } from './flow';
 import { withTeamSeeds, setDelegationRegistry, actorFor, unclaimed, teamOfTask, isMember, delegateOf, type Delegation } from './teams';
-import { cyberMissing } from './cyber';
+import { cyberMissing, applyCyberPending } from './cyber';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
 export const fmtSAR = (n: number) =>
@@ -373,7 +373,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
         submit: { en: 'Submitted', ar: 'تم التقديم' },
         'save-draft': { en: 'Draft Saved', ar: 'تم حفظ المسودة' },
       };
-      const next = xs.map((t) => {
+      const mapped = xs.map((t) => {
         if (t.id !== id) return t;
         let state = t.state;
         if (action === 'approve' || action === 'complete' || action === 'submit') { state = 'completed'; completedDepId = t.id; }
@@ -391,6 +391,8 @@ export function InboxProvider({ children }: { children: ReactNode }) {
           decision: (action === 'approve' || action === 'reject' || action === 'complete' || action === 'submit') ? (decisionLabel ?? label[action]) : t.decision,
           completedAt: done ? new Date().toISOString() : t.completedAt };
       });
+      // Manual build: the Cyber reviewer's requirement changes reach the request with the decision.
+      const next = applyCyberPending(mapped, id, action);
       // Manager returned a reviewed request → the requester gets a task to answer the comments.
       const src = next.find((t) => t.id === id);
       if (action === 'return' && src?.reviewComments && !src.respondComments) {

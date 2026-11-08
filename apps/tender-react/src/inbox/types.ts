@@ -210,7 +210,13 @@ export interface Task {
   /** Manual build: a task held in a team queue (e.g. Cyber) — any member picks it up, the lead assigns. */
   queue?: { team: string; claimedAt?: string; assignedBy?: string };
   /** Manual build: the Cyber review — data classification and the library requirements' status. */
-  cyberReview?: { classification?: string; projectTypes: string[]; status: Record<string, 'added' | 'na'> };
+  cyberReview?: {
+    classification?: string;            // confirmed by the Cyber reviewer (gates the decision)
+    requesterClass?: string;            // what the requester selected in Scope of Work
+    projectTypes: string[];
+    /** Reviewer's changes, sent to the request with the decision. */
+    pending?: { add: string[]; revoke: { id: string; reason: string }[] };
+  };
   /** Manual build: the request as it stood when this reviewer approved (for impact-based re-approval). */
   approvedRfp?: RfpDetail;
   /** Manual build: reopened because the request changed in this reviewer's area. */
@@ -298,7 +304,7 @@ export interface RfpDetail {
   techPassing?: number;                        // technical passing score %
   techSplit?: number;                          // technical share of the overall score %
   techDocs?: { en: string; ar: string }[];      // additional technical documents (beyond the locked set)
-  techRequirements?: { reqEn: string; reqAr: string; descEn: string; descAr: string }[];
+  techRequirements?: { reqEn: string; reqAr: string; descEn: string; descAr: string; addedBy?: string; removedBy?: string; removedReason?: string }[];
   evalCommittee?: CommitteeMember[];
   qualification: { reqEn: string; reqAr: string; evidenceEn?: string; evidenceAr?: string }[];
   qualCriteria?: { nameEn: string; nameAr: string; pct: number; subs: { nameEn: string; nameAr: string; range: string; pct: number }[] }[];

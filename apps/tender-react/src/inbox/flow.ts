@@ -402,7 +402,7 @@ export function buildFlowTasks(input: FlowInput): Task[] {
     ...toCyberQueue(t), checklist: undefined,
     summaryEn: 'Classify the data, then check the request against the Cybersecurity requirements for that classification. Add anything missing to the request.',
     summaryAr: 'صنّف البيانات ثم تحقق من الطلب مقابل متطلبات الأمن السيبراني لذلك التصنيف، وأضف الناقص إلى الطلب.',
-    cyberReview: { classification: form.dataClassification, projectTypes: [...new Set([...(cats.length ? cats : ['technology']), ...(form.affectsTechnology ? ['technology'] : [])])], status: {} },
+    cyberReview: { requesterClass: form.dataClassification ?? (form.cyberRequirements?.length ? 'Internal' : undefined), projectTypes: [...new Set([...(cats.length ? cats : ['technology']), ...(form.affectsTechnology ? ['technology'] : [])])] },
   } : t));
   return withTrails(queued, requestNo);
 }
@@ -539,7 +539,7 @@ export function referToCyber(all: Task[], requestNo: string, by: Person): Task[]
     outcomes: [{ action: sup('Approve', 'اعتماد'), next: sup('DOA approval can go ahead', 'يمكن متابعة اعتماد الصلاحيات'), tone: 'success' }],
     flow: { requestNo, requestId: base.flow?.requestId, stage: 'cyber', activated: true },
     approvedRfp: undefined, reconfirm: undefined, changeNotice: undefined,
-    cyberReview: { projectTypes: ['general'], status: {} },
+    cyberReview: { projectTypes: ['general'] },
     activity: [{ id: `ref_${now}`, kind: 'system', actor: by, at: new Date(now).toISOString(), system: sup(`Referred to Cyber Security by ${by.name}`, `أحاله ${by.nameAr ?? by.name} إلى الأمن السيبراني`) }],
   };
   const queued = toCyberQueue(task);
