@@ -714,7 +714,7 @@ async function openRequest(title) {
   await test('Assets task: asset lines only, AUC + Group with, decisions shown in GL task', async () => {
     await openTaskId('TSK-4433-08');
     expect(await count('[data-asset-line]') === 4, 'expected 4 asset-flagged BOQ items');
-    expect(await count('[data-assets-context]') === 1, 'project context missing');
+    expect(await count('[data-assets-context]') === 0, 'project context panel removed');
     const first = page.locator('[data-asset-line]').first();
     await first.locator('[data-cap="auc"]').click();
     const key = await first.getAttribute('data-asset-line');

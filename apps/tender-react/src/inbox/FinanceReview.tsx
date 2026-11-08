@@ -238,7 +238,6 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll, 
   const cur = (l: FinLine) => dec[l.key] ?? suggest(l);
   // Progress counts every BOQ item: confirmed asset items + the non-asset group once checked.
   const done = lines.filter((l) => dec[l.key]?.confirmed).length + (checked ? nonAssets.length : 0);
-  const roles = all.reduce<Record<string, number>>((m, l) => { const r = l.componentRole ?? 'none'; m[r] = (m[r] ?? 0) + 1; return m; }, {});
   const seg = (on: boolean, disabled?: boolean) => `px-3 py-1.5 text-[12px] font-semibold ${on ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`;
   return (
     <div className="space-y-5" data-assets-review>
@@ -248,7 +247,7 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll, 
         allLabel={t('Confirm all as suggested', 'تأكيد الكل كما هو مقترح')}
         onAll={lines.some((l) => !dec[l.key]?.confirmed) ? () => onConfirmAll(Object.fromEntries(lines.filter((l) => !dec[l.key]?.confirmed).map((l) => [l.key, { ...cur(l), confirmed: true }]))) : undefined} />
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-5 items-start">
+      <div>
         <div className="space-y-3">
           <p className="text-[13px] font-semibold text-neutral-700" data-assets-heading>{t(`Flagged as assets — ${lines.length} of ${all.length} BOQ items`, `مصنفة كأصول — ${lines.length} من ${all.length} بنود`)}</p>
           {lines.map((l) => {
@@ -356,19 +355,6 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll, 
           )}
         </div>
 
-        {/* Project context */}
-        <aside className="rounded-xl border border-neutral-200 bg-white px-5 py-4 xl:sticky xl:top-[176px]" data-assets-context>
-          <p className="text-[13px] font-semibold text-neutral-900">{t('Project context', 'سياق المشروع')}</p>
-          <p className="mt-1.5 text-[12.5px] text-neutral-600 leading-relaxed">{isAr ? task.rfp?.scopeAr : task.rfp?.scopeEn}</p>
-          <p className="mt-4 text-[11.5px] font-semibold text-neutral-500 uppercase tracking-wide">{t('Component roles (all BOQ items)', 'أدوار المكونات (كل البنود)')}</p>
-          <ul className="mt-1.5 space-y-1">
-            {Object.entries(roles).map(([r, n]) => (
-              <li key={r} className="flex items-center justify-between text-[12.5px] text-neutral-700">
-                <span>{r === 'none' ? t('Not specified', 'غير محدد') : L(COMPONENT_ROLES[r as keyof typeof COMPONENT_ROLES])}</span><span className="tabular-nums text-neutral-500">{n}</span>
-              </li>
-            ))}
-          </ul>
-        </aside>
       </div>
     </div>
   );
