@@ -6,7 +6,8 @@
 // decisions and the activity log live on the task (the request), never on the person, so
 // whoever holds it next sees everything.
 import { PEOPLE as P } from './data';
-import type { ActivityEntry, Person, Task } from './types';
+import type { ActivityEntry, Person, RfpDetail, Task } from './types';
+import { CYBER_LIBRARY, reqLabel } from '../lib/cyberLibrary';
 
 export interface Team { id: string; name: string; nameAr: string; placeholder: Person; members: Person[]; lead: Person }
 
@@ -76,7 +77,19 @@ export function toCyberQueue(t: Task): Task {
 export function withTeamSeeds(tasks: Task[]): Task[] {
   const cy = tasks.find((t) => t.id === 'TSK-4433-03');
   if (!cy) return tasks;
-  const queued = tasks.map((t) => (t.id === cy.id ? { ...toCyberQueue(t), cyberReview: { projectTypes: ['technology'], requesterClass: 'Internal' } } : t));
+  // The demo request comes with a few Cybersecurity requirements the requester picked in Scope of
+  // Work (Internal data), so the Cyber review starts from a realistic selection.
+  const PICKS = ['cy-ecc', 'cy-residency', 'cy-iam'];
+  const withPicks = (r?: RfpDetail): RfpDetail | undefined => r && {
+    ...r,
+    techRequirements: [...(r.techRequirements ?? []).filter((x) => !x.reqEn.startsWith('Cybersecurity —')),
+      ...CYBER_LIBRARY.filter((c) => PICKS.includes(c.id)).map((c) => ({ reqEn: reqLabel(c), reqAr: `الأمن السيبراني — ${c.titleAr}`, descEn: c.textEn, descAr: c.textEn }))],
+  };
+  const queued = tasks.map((t) => {
+    if (!t.id.startsWith('TSK-4433-')) return t;
+    const x = { ...t, rfp: withPicks(t.rfp) };
+    return t.id === cy.id ? { ...toCyberQueue(x), cyberReview: { projectTypes: ['technology'], requesterClass: 'Internal' } } : x;
+  });
   const day = 86400000;
   const past = (o: { no: string; title: string; titleAr: string; by: Person; receivedDays: number; tookHours: number; decision: 'approved' | 'returned'; note: string; amount: number }): Task => {
     const rec = new Date(Date.now() - o.receivedDays * day); rec.setHours(9, 30, 0, 0);
