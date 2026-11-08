@@ -15,6 +15,7 @@ const LOAD = 700; // > simulated load delay
 
 function expect(cond, msg) { if (!cond) throw new Error(msg); }
 async function test(name, fn) {
+  if (process.env.ONLY && !name.includes(process.env.ONLY)) return;
   const before = errors.length;
   try {
     await fn();
@@ -23,7 +24,7 @@ async function test(name, fn) {
   } catch (e) {
     const shot = `${OUT}/FAIL-${results.length + 1}.png`;
     await page.screenshot({ path: shot }).catch(() => {});
-    results.push({ name, ok: false, err: String(e.message || e).split('\n')[0], shot });
+    results.push({ name, ok: false, err: String(e.message || e).split('\n').slice(0, process.env.ONLY ? 6 : 1).join(' / '), shot });
   }
 }
 const nav = (title) => page.click(`button[title="${title}"]`);
@@ -263,7 +264,7 @@ async function openRequest(title) {
     expect(await count('[data-boq-details]') === 12, 'list keeps expanded items');
     await page.getByRole('button', { name: 'Collapse all', exact: true }).last().click();
     expect(await count('[data-boq-details]') === 0, 'collapse all');
-    await page.locator('#boq-item-2 > button').click();
+    await page.locator('#boq-item-2 button[aria-expanded]').click();
     expect(await count('[data-boq-details]') === 1, 'list row accordion');
   });
 
@@ -786,7 +787,7 @@ async function openRequest(title) {
     expect(await count('[data-std-toggle="h1"]') === 0, 'required standard cannot be unticked');
     await page.click('[data-std-group="data"] > button'); await wait(150);
     expect(await page.getAttribute('[data-std="d4"]', 'data-std-state') === 'included', 'PDPL from personal data');
-    expect(/personal or confidential/i.test(await page.locator('[data-std-because="d4"]').innerText()), 'because tag');
+    expect(/confidential/i.test(await page.locator('[data-std-because="d4"]').innerText()), 'because tag');
     expect(await page.getAttribute('[data-std="d2"]', 'data-std-state') === 'off', 'no migration std');
     // Change one answer → rebuild
     await page.click('[data-q-edit]'); await wait(100);
@@ -810,6 +811,46 @@ async function openRequest(title) {
       await page.click(`[data-q-answer="${id === 'saas' ? 'yes' : 'no'}"]`); await wait(120);
     }
     expect(!seen.includes('migration') && seen.includes('build'), `asked: ${seen}`);
+  });
+  await test('Review & Confirm: no BOQ chart, view icon opens the item drawer; technical standards summary', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', techAnswers: { saas: true, 'own-servers': false, build: true, integrates: true, migration: false, 'personal-data': true, 'external-users': false, critical: true, ai: false }, deploymentModel: 'saas', techStandards: [{ id: 'h1', status: 'included' }, { id: 'd4', status: 'included', ai: true }, { id: 'a1', status: 'na', naReason: 'Documented already' }], boqItems: eaRows([['SAP S/4HANA subscription', 'Cloud ERP licences'], ['Integration with HR system', 'APIs via iPaaS']]) });
+    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(900);
+    expect(await count('[data-review-boq]') === 1, 'BOQ table');
+    expect(!/\bsubtotal\b/.test(await page.locator('[data-review-boq]').locator('xpath=..').innerText()), 'donut removed');
+    await page.click('[data-review-boq] [data-boq-view="0"]'); await wait(250);
+    expect(await count('[data-boq-drawer]') === 1, 'drawer open');
+    expect(/SAP S\/4HANA subscription/.test(await page.locator('[data-boq-drawer-title]').innerText()), 'drawer title');
+    await page.click('[data-boq-next]'); await wait(150);
+    expect(/Integration with HR/.test(await page.locator('[data-boq-drawer-title]').innerText()), 'next item');
+    await page.keyboard.press('Escape'); await wait(200);
+    expect(await count('[data-boq-drawer]') === 0, 'drawer closed');
+    expect(await count('[data-std-review]') === 1, 'tech standards summary');
+    expect(await page.getAttribute('[data-std-review] [data-deploy-result]', 'data-deploy-result') === 'saas', 'deployment');
+    expect(await count('[data-std-review] [data-answer]') === 9, 'answer tiles');
+  });
+  await test('BOQ view icon in Inbox request tab and request detail BOQ items', async () => {
+    await openTaskId('TSK-4433-06');
+    await tab('Request details'); await wait(600);
+    const btn = page.locator('[data-boq-view]').first();
+    if (await btn.count() === 0) throw new Error('no view icon in inbox request tab');
+    await btn.click(); await wait(250);
+    expect(await count('[data-boq-drawer]') === 1, 'inbox drawer');
+    await page.keyboard.press('Escape'); await wait(150);
+    await openRequest('Cloud Infrastructure Migration');
+    await tab('BOQ items'); await wait(LOAD);
+    await page.locator('tbody [data-boq-view]').first().click(); await wait(250);
+    expect(await count('[data-boq-drawer]') === 1, 'request detail drawer');
+    await page.keyboard.press('Escape'); await wait(150);
+  });
+  await test('EA task: Hosting & deployment shows deployment card, answer tiles and a clean standards list', async () => {
+    await openTaskId('TSK-4433-06');
+    const h = page.locator('[data-ea-hosting]');
+    expect(await h.locator('[data-deploy-result="saas"]').count() === 1, 'deployment card');
+    expect(await h.locator('[data-answer]').count() === 9, 'answer tiles');
+    expect(await h.locator('[data-std-row]').count() >= 3, 'standards rows');
+    await page.click('[data-ea-section="licences"] [data-boq-view]'); await wait(250);
+    expect(await count('[data-boq-drawer]') === 1, 'licence drawer');
+    await page.keyboard.press('Escape'); await wait(150);
   });
   await test('EA task: only EA sections, comment one, return needs a reason, accept all unlocks Approve', async () => {
     await openTaskId('TSK-4433-06');

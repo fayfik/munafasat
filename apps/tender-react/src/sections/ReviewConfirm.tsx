@@ -9,13 +9,14 @@ import type { SectionStatus, Person } from '../types/tender';
 import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiExecutiveSummary } from '../lib/aiTender';
 import { isStale, needsJustification } from '../lib/etimadCheck';
-import { BOQ_CATEGORIES, BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
+import { BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
+import BoqLineDrawer, { BoqViewButton, type BoqLineView } from '../components/BoqLineDrawer';
 import { effectiveQty } from '../lib/boqManpower';
 import RegulatoryRecordsCard from '../components/RegulatoryRecordsCard';
 import { LOCKED_TECH_DOCS } from './TechnicalEvaluation';
 import { downloadRfpPdf } from '../lib/rfpPdf';
 import { FinanceRoutingCard } from '../components/BoqAccounting';
-import { EaRouteCard } from '../components/TechStandards';
+import { EaRouteCard, TechStandardsReview, eaScopeForForm } from '../components/TechStandards';
 
 function formatSAR(n: number) {
   return new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -25,7 +26,6 @@ function formatSAR0(n: number) {
 }
 
 // Distinct colours for categories / stages.
-const CAT_COLOR: Record<string, string> = { service: '#2563eb', equipment: '#7c3aed', material: '#ea580c', manpower: '#0d9488' };
 const SERIES = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#14b8a6'];
 
 export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
@@ -57,12 +57,36 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
   const projectName = (isAr ? selectedProject?.nameAr : selectedProject?.name) ?? t('New Tender Request', 'طلب منافسة جديد');
   const deptName = selectedCC ? (isAr ? selectedCC.nameAr : selectedCC.name) : (isAr ? 'القسم الطالب' : 'Requesting Department');
 
-  // BOQ figures by category for the budget donut.
   const lineTotal = (r: typeof formData.boqItems[number]) => effectiveQty(r) * (Number(r.unitPrice) || 0);
-  const catBreakdown = BOQ_CATEGORIES.map((cat) => {
-    const rows = formData.boqItems.filter((r) => (r.category ?? deriveCategory(r.itemName)) === cat);
-    return { cat, total: rows.reduce((s, r) => s + lineTotal(r), 0), count: rows.length, color: CAT_COLOR[cat] };
-  }).filter((x) => x.count > 0);
+  const [boqView, setBoqView] = useState<number | null>(null);
+  const boqName = (n: string) => (isAr ? (selectedProject?.items.find((x) => x.name === n)?.nameAr ?? n) : n);
+  const boqViews: BoqLineView[] = formData.boqItems.map((r) => {
+    const cat = r.category ?? deriveCategory(r.itemName);
+    const m = BOQ_CATEGORY_META[cat];
+    const yes = (b?: boolean) => (b ? t('Yes', 'نعم') : t('No', 'لا'));
+    const extra: BoqLineView['extra'] = [];
+    if (cat === 'manpower') {
+      if (r.jobTitle) extra.push({ label: t('Job title', 'المسمى الوظيفي'), value: r.jobTitle });
+      if (r.staffCount !== '' && r.staffCount != null) extra.push({ label: t('Staff count', 'عدد الموظفين'), value: String(r.staffCount) });
+      if (r.minExperienceYears !== '' && r.minExperienceYears != null) extra.push({ label: t('Min. experience (years)', 'الحد الأدنى للخبرة (سنوات)'), value: String(r.minExperienceYears) });
+      if (r.officialWorkingHours !== '' && r.officialWorkingHours != null) extra.push({ label: t('Official hours', 'ساعات العمل الرسمية'), value: String(r.officialWorkingHours) });
+      extra.push({ label: t('Nationality required', 'الجنسية مطلوبة'), value: yes(r.nationalityRequired) });
+    } else {
+      extra.push({ label: t('Brand name', 'علامة تجارية'), value: yes(r.hasBrandName) });
+      if (r.hasBrandName && r.brandJustification) extra.push({ label: t('Brand justification', 'مبرر العلامة التجارية'), value: r.brandJustification, full: true });
+      if (r.mandatoryList) extra.push({ label: t('Mandatory list', 'القائمة الإلزامية'), value: r.mandatoryList, full: true });
+    }
+    if (r.attachments?.length) extra.push({ label: t('Attachments', 'المرفقات'), value: r.attachments.map((f) => f.name).join(', '), full: true });
+    return {
+      name: boqName(r.itemName) || t('Unnamed item', 'بند بلا اسم'),
+      description: r.itemDescription || undefined,
+      category: { label: isAr ? m.ar : m.en, tone: cat },
+      budget: r.projectItem ? boqName(r.projectItem) : undefined,
+      qty: effectiveQty(r) ? String(effectiveQty(r)) : '', unit: r.unitOfMeasure,
+      unitPrice: Number(r.unitPrice) || undefined, total: lineTotal(r) || undefined,
+      delivery: r.deliveryDate || undefined, extra,
+    };
+  });
 
   function generateAISummary() {
     summaryAi.run(
@@ -226,72 +250,63 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
         </ReviewSection>
       )}
 
-      {/* ── Bill of Quantities — budget donut + table ────────────── */}
+      {/* ── Technical standards (built from the project questions) ── */}
+      {!isEsouq && eaScopeForForm(formData).required && (
+        <ReviewSection title="Technical standards" titleAr="المعايير التقنية" sectionIdx={2} status={sectionStatuses[2]}>
+          <TechStandardsReview />
+        </ReviewSection>
+      )}
+
+      {/* ── Bill of Quantities — table with a view icon per line ─── */}
       <ReviewSection title="Bill of Quantities" titleAr="جدول الكميات" sectionIdx={3} status={sectionStatuses[3]}>
         {formData.boqItems.length === 0 ? (
           <span className="text-neutral-400 italic text-sm">{t('No items added', 'لم تُضف بنود')}</span>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-5 items-start">
-            {/* Donut + legend */}
-            <div className="flex lg:flex-col items-center gap-4">
-              <Donut segments={catBreakdown.map((c) => ({ value: c.total, color: c.color }))} centerTop={`SAR ${formatSAR0(boqSubtotal)}`} centerSub={t('subtotal', 'المجموع')} />
-              <div className="space-y-1.5">
-                {catBreakdown.map((c) => (
-                  <div key={c.cat} className="flex items-center gap-2 text-[12px]">
-                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: c.color }} />
-                    <span className="text-neutral-600">{isAr ? BOQ_CATEGORY_META[c.cat].ar : BOQ_CATEGORY_META[c.cat].en}</span>
-                    <span className="text-neutral-400 ms-auto tabular-nums" dir="ltr">{boqSubtotal > 0 ? Math.round((c.total / boqSubtotal) * 100) : 0}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Items table */}
-            <div className="min-w-0 overflow-x-auto rounded-xl border border-neutral-200">
-              <table className="w-full text-[12.5px]">
-                <thead>
-                  <tr className="bg-neutral-50 border-b border-neutral-200 text-[11px] text-neutral-500">
-                    <th className="text-start px-3 py-2 font-medium">{t('Item', 'البند')}</th>
-                    <th className="text-start px-3 py-2 font-medium">{t('Category', 'التصنيف')}</th>
-                    <th className="text-end px-3 py-2 font-medium">{t('Qty', 'الكمية')}</th>
-                    <th className="text-end px-3 py-2 font-medium">{t('Unit price', 'سعر الوحدة')}</th>
-                    <th className="text-end px-3 py-2 font-medium">{t('Total', 'الإجمالي')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100">
-                  {formData.boqItems.slice(0, 8).map((r) => {
-                    const m = BOQ_CATEGORY_META[r.category ?? deriveCategory(r.itemName)];
-                    return (
-                      <tr key={r.id} className="bg-white">
-                        <td className="px-3 py-2 text-neutral-800 font-medium truncate max-w-[220px]">{r.itemName || <span className="text-neutral-300">—</span>}</td>
-                        <td className="px-3 py-2"><Badge variant={m.badge}>{isAr ? m.ar : m.en}</Badge></td>
-                        <td className="px-3 py-2 text-end tabular-nums text-neutral-600">{effectiveQty(r) || '—'}</td>
-                        <td className="px-3 py-2 text-end tabular-nums text-neutral-600" dir="ltr">{Number(r.unitPrice) > 0 ? formatSAR(Number(r.unitPrice)) : '—'}</td>
-                        <td className="px-3 py-2 text-end tabular-nums font-semibold text-neutral-900" dir="ltr">{lineTotal(r) > 0 ? formatSAR(lineTotal(r)) : '—'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  {formData.boqItems.length > 8 && (
-                    <tr><td colSpan={5} className="px-3 py-1.5 text-[11px] text-neutral-400 bg-neutral-50/60">+ {formData.boqItems.length - 8} {t('more items', 'بنود أخرى')}</td></tr>
-                  )}
-                  <tr className="bg-neutral-50 border-t border-neutral-200 text-[12px]">
-                    <td colSpan={4} className="px-3 py-2 text-end text-neutral-500">{t('Subtotal', 'المجموع الفرعي')}</td>
-                    <td className="px-3 py-2 text-end tabular-nums font-medium" dir="ltr">{formatSAR(boqSubtotal)}</td>
-                  </tr>
-                  <tr className="bg-neutral-50 text-[12px]">
-                    <td colSpan={4} className="px-3 py-1.5 text-end text-neutral-500">{t('VAT (15%)', 'ضريبة القيمة المضافة')}</td>
-                    <td className="px-3 py-1.5 text-end tabular-nums font-medium" dir="ltr">{formatSAR(boqVat)}</td>
-                  </tr>
-                  <tr className="bg-brand-50 border-t border-brand-200 text-[13px]">
-                    <td colSpan={4} className="px-3 py-2 text-end font-bold text-brand-800">{t('Grand total', 'الإجمالي')}</td>
-                    <td className="px-3 py-2 text-end tabular-nums font-bold text-brand-800" dir="ltr">SAR {formatSAR(boqTotal)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+          <div className="min-w-0 overflow-x-auto rounded-xl border border-neutral-200" data-review-boq>
+            <table className="w-full text-[12.5px]">
+              <thead>
+                <tr className="bg-neutral-50 border-b border-neutral-200 text-[11px] text-neutral-500">
+                  <th className="text-start px-3 py-2 font-medium">{t('Item', 'البند')}</th>
+                  <th className="text-start px-3 py-2 font-medium">{t('Category', 'التصنيف')}</th>
+                  <th className="text-end px-3 py-2 font-medium">{t('Qty', 'الكمية')}</th>
+                  <th className="text-end px-3 py-2 font-medium">{t('Unit price', 'سعر الوحدة')}</th>
+                  <th className="text-end px-3 py-2 font-medium">{t('Total', 'الإجمالي')}</th>
+                  <th className="w-12 px-2 py-2"><span className="sr-only">{t('View', 'عرض')}</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {formData.boqItems.map((r, i) => {
+                  const m = BOQ_CATEGORY_META[r.category ?? deriveCategory(r.itemName)];
+                  return (
+                    <tr key={r.id} className="bg-white hover:bg-neutral-50/70 cursor-pointer" onClick={() => setBoqView(i)}>
+                      <td className="px-3 py-2 text-neutral-800 font-medium max-w-[320px]"><span className="block truncate">{boqName(r.itemName) || <span className="text-neutral-300">—</span>}</span></td>
+                      <td className="px-3 py-2"><Badge variant={m.badge}>{isAr ? m.ar : m.en}</Badge></td>
+                      <td className="px-3 py-2 text-end tabular-nums text-neutral-600">{effectiveQty(r) || '—'}</td>
+                      <td className="px-3 py-2 text-end tabular-nums text-neutral-600" dir="ltr">{Number(r.unitPrice) > 0 ? formatSAR(Number(r.unitPrice)) : '—'}</td>
+                      <td className="px-3 py-2 text-end tabular-nums font-semibold text-neutral-900" dir="ltr">{lineTotal(r) > 0 ? formatSAR(lineTotal(r)) : '—'}</td>
+                      <td className="px-2 py-1 text-center"><BoqViewButton index={i} onClick={() => setBoqView(i)} label={t('View item details', 'عرض تفاصيل البند')} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="bg-neutral-50 border-t border-neutral-200 text-[12px]">
+                  <td colSpan={4} className="px-3 py-2 text-end text-neutral-500">{t('Subtotal', 'المجموع الفرعي')}</td>
+                  <td className="px-3 py-2 text-end tabular-nums font-medium" dir="ltr">{formatSAR(boqSubtotal)}</td><td />
+                </tr>
+                <tr className="bg-neutral-50 text-[12px]">
+                  <td colSpan={4} className="px-3 py-1.5 text-end text-neutral-500">{t('VAT (15%)', 'ضريبة القيمة المضافة')}</td>
+                  <td className="px-3 py-1.5 text-end tabular-nums font-medium" dir="ltr">{formatSAR(boqVat)}</td><td />
+                </tr>
+                <tr className="bg-brand-50 border-t border-brand-200 text-[13px]">
+                  <td colSpan={4} className="px-3 py-2 text-end font-bold text-brand-800">{t('Grand total', 'الإجمالي')}</td>
+                  <td className="px-3 py-2 text-end tabular-nums font-bold text-brand-800" dir="ltr">SAR {formatSAR(boqTotal)}</td><td />
+                </tr>
+              </tfoot>
+            </table>
           </div>
         )}
+        <BoqLineDrawer lines={boqViews} index={boqView} onIndex={setBoqView} onClose={() => setBoqView(null)} isAr={isAr} t={t} grandTotal={boqSubtotal} />
       </ReviewSection>
 
       {/* ── Payment schedule — stage cards + proportion bar ──────── */}
@@ -744,32 +759,6 @@ function CommitteeRow({ members, isAr, t }: { members: Person[]; isAr: boolean; 
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function Donut({ segments, centerTop, centerSub, size = 148, stroke = 20 }: { segments: { value: number; color: string }[]; centerTop?: string; centerSub?: string; size?: number; stroke?: number }) {
-  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  let offset = 0;
-  return (
-    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#eef1f5" strokeWidth={stroke} />
-          {segments.map((seg, i) => {
-            const len = (seg.value / total) * c;
-            const el = <circle key={i} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={seg.color} strokeWidth={stroke} strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset} />;
-            offset += len;
-            return el;
-          })}
-        </g>
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        {centerTop && <p className="text-[13px] font-bold text-neutral-900 tabular-nums leading-none" dir="ltr">{centerTop}</p>}
-        {centerSub && <p className="text-[10px] text-neutral-400 mt-0.5">{centerSub}</p>}
-      </div>
     </div>
   );
 }

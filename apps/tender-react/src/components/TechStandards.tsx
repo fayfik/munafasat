@@ -49,12 +49,131 @@ const QPATH: Record<QuestionId, string> = {
   critical: 'M13 2L4.5 13.5H12L11 22l8.5-11.5H12z',
   ai: 'M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2M12 9a3 3 0 100 6 3 3 0 000-6z',
 };
-const QIcon = ({ q, size = 'lg' }: { q: StdQuestion; size?: 'lg' | 'sm' }) => (
+export const QIcon = ({ q, size = 'lg' }: { q: StdQuestion; size?: 'lg' | 'sm' }) => (
   <span className={`${size === 'lg' ? 'w-11 h-11 rounded-xl' : 'w-7 h-7 rounded-lg'} flex items-center justify-center flex-shrink-0 ${TONE[q.tone]}`}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={size === 'lg' ? 'w-5 h-5' : 'w-3.5 h-3.5'}><path d={QPATH[q.id]} /></svg>
   </span>
 );
 const DEPLOY_LABEL: Record<Deployment, [string, string]> = { saas: ['SaaS', 'SaaS'], 'on-prem': ['On-premises', 'محلي'], hybrid: ['Hybrid', 'هجين'] };
+
+type TT = (en: string, ar: string) => string;
+type StdRow = { id: string; status: 'included' | 'na'; naReason?: string; naReasonAr?: string };
+
+/** Deployment model as a result card (creation, Review & Confirm, EA task). */
+export function DeploymentHero({ deployment, answers, isAr, t, compact }: { deployment: Deployment; answers?: Answers; isAr: boolean; t: TT; compact?: boolean }) {
+  const q = STD_QUESTIONS.find((x) => x.id === (deployment === 'on-prem' ? 'own-servers' : 'saas'))!;
+  const basis = (['saas', 'own-servers'] as QuestionId[]).filter((id) => answers?.[id] !== undefined)
+    .map((id) => { const x = STD_QUESTIONS.find((y) => y.id === id)!; return `${isAr ? x.shortAr : x.short}: ${answers![id] ? t('Yes', 'نعم') : t('No', 'لا')}`; });
+  return (
+    <div className={`rounded-xl border border-neutral-200 bg-gradient-to-br from-white to-neutral-50/70 ${compact ? 'px-3.5 py-3' : 'px-4 py-3.5'} flex items-center gap-3.5`} data-deploy-result={deployment}>
+      <QIcon q={q} />
+      <div className="min-w-0 flex-1">
+        <p className="text-[11.5px] font-medium text-neutral-500">{t('Deployment model', 'نموذج النشر')}</p>
+        <p className="text-[15px] font-semibold text-neutral-900 leading-tight flex items-center gap-2 flex-wrap">
+          {t(DEPLOY_LABEL[deployment][0], DEPLOY_LABEL[deployment][1])}
+          {deployment === 'saas'
+            ? <span className="px-1.5 py-0.5 rounded bg-success-50 text-success-700 text-[10.5px] font-semibold">{t('EA preferred', 'المفضل لدى البنية المؤسسية')}</span>
+            : <span className="px-1.5 py-0.5 rounded bg-warning-50 text-warning-800 text-[10.5px] font-semibold">{t('Needs justification — SaaS first', 'يتطلب مبرراً — SaaS أولاً')}</span>}
+        </p>
+        {basis.length > 0 && <p className="text-[12px] text-neutral-500 mt-0.5">{basis.join(' · ')}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** The requester's answers as a tidy grid of tiles. */
+export function ProjectProfile({ answers, isAr, t }: { answers: Answers; isAr: boolean; t: TT }) {
+  const qs = STD_QUESTIONS.filter((q) => answers[q.id] !== undefined);
+  if (!qs.length) return null;
+  return (
+    <div className="@container" data-ea-answers>
+      <div className="grid grid-cols-1 @[420px]:grid-cols-2 @[680px]:grid-cols-3 gap-2">
+        {qs.map((q) => {
+          const yes = !!answers[q.id];
+          return (
+            <div key={q.id} data-answer={q.id} data-yes={yes || undefined}
+              className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 ${yes ? 'border-neutral-200 bg-white' : 'border-dashed border-neutral-200 bg-neutral-50/60'}`}>
+              <span className={yes ? '' : 'opacity-50 grayscale'}><QIcon q={q} size="sm" /></span>
+              <span className={`flex-1 min-w-0 text-[12.5px] leading-snug ${yes ? 'text-neutral-800 font-medium' : 'text-neutral-500'}`}>{isAr ? q.shortAr : q.short}</span>
+              <span className={`px-1.5 py-0.5 rounded text-[10.5px] font-bold ${yes ? 'bg-success-50 text-success-700' : 'bg-neutral-100 text-neutral-500'}`}>{yes ? t('Yes', 'نعم') : t('No', 'لا')}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Standards as a clean list: check / N/A, text, owner + required chips aligned right. */
+export function StandardsList({ rows, isAr, t }: { rows: StdRow[]; isAr: boolean; t: TT }) {
+  return (
+    <ul className="rounded-xl border border-neutral-200 divide-y divide-neutral-100 bg-white">
+      {rows.map((x) => {
+        const d = stdById(x.id); if (!d) return null;
+        const na = x.status === 'na';
+        return (
+          <li key={x.id} data-std-row={x.id} className="flex items-start gap-3 px-3.5 py-2.5">
+            {na
+              ? <span className="mt-0.5 px-1.5 rounded bg-warning-50 text-warning-800 text-[10px] font-bold flex-shrink-0">{t('N/A', 'غ/م')}</span>
+              : <span className="mt-0.5 w-4 h-4 rounded-full bg-success-50 text-success-600 flex items-center justify-center flex-shrink-0"><CheckIcon className="w-2.5 h-2.5" /></span>}
+            <div className="min-w-0 flex-1">
+              <p className={`text-[12.5px] leading-snug ${na ? 'text-neutral-500' : 'text-neutral-800'}`}>{isAr ? d.ar : d.en}</p>
+              {na && (x.naReason || x.naReasonAr) && <p className="mt-1 text-[11.5px] text-warning-800"><span className="font-semibold">{t('Reason', 'السبب')}:</span> {isAr ? x.naReasonAr ?? x.naReason : x.naReason}</p>}
+            </div>
+            <div className="flex items-center gap-1 flex-shrink-0 text-[10.5px] font-semibold">
+              {d.required && <span className="px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600">{t('Required', 'إلزامي')}</span>}
+              <span className="px-1.5 py-0.5 rounded border border-neutral-200 text-neutral-500">{d.owner}</span>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Review & Confirm — what the questions built, read-only. */
+export function TechStandardsReview() {
+  const { formData } = useTender();
+  const t = useT();
+  const { isAr } = useLanguage();
+  const scope = eaScopeForForm(formData);
+  const [openG, setOpenG] = useState<StdGroup | null>(null);
+  if (!scope.required) return null;
+  const answers = (formData.techAnswers ?? {}) as Answers;
+  const sel = formData.techStandards ?? [];
+  const pending = stdQuestionsOpen(formData);
+  if (pending > 0 || !sel.length) {
+    return <p className="text-[12.5px] text-warning-800" data-std-review-pending>{t(`${pending || 'Some'} project question${pending === 1 ? '' : 's'} still to answer in Scope of Work — the technical standards are built from them.`, `ما زال هناك ${pending || 'بعض'} أسئلة عن المشروع في نطاق العمل — تُبنى المعايير التقنية منها.`)}</p>;
+  }
+  const deployment: Deployment = formData.deploymentModel ?? deploymentFrom(scope, answers);
+  const groups = (Object.keys(STD_GROUPS) as StdGroup[]).map((g) => ({ g, rows: sel.filter((x) => stdById(x.id)?.group === g) })).filter((x) => x.rows.length);
+  const na = sel.filter((x) => x.status === 'na').length;
+  return (
+    <div className="space-y-4" data-std-review>
+      <DeploymentHero deployment={deployment} answers={answers} isAr={isAr} t={t} />
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 mb-1.5">{t('About this project', 'عن هذا المشروع')}</p>
+        <ProjectProfile answers={answers} isAr={isAr} t={t} />
+      </div>
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 mb-1.5">{t(`${sel.length} standards · ${groups.length} sections${na ? ` · ${na} not applicable` : ''}`, `${sel.length} معياراً · ${groups.length} أقسام${na ? ` · ${na} غير منطبقة` : ''}`)}</p>
+        <div className="rounded-xl border border-neutral-200 divide-y divide-neutral-100 overflow-hidden">
+          {groups.map(({ g, rows }) => (
+            <div key={g} data-std-review-group={g}>
+              <button type="button" onClick={() => setOpenG(openG === g ? null : g)} aria-expanded={openG === g} className="w-full flex items-center gap-3 px-4 py-2.5 text-start hover:bg-neutral-50">
+                <span className="flex-1 text-[13px] font-semibold text-neutral-800">{isAr ? STD_GROUPS[g].ar : STD_GROUPS[g].en}</span>
+                {rows.some((r) => r.status === 'na') && <span className="px-1.5 py-0.5 rounded bg-warning-50 text-warning-800 text-[10.5px] font-semibold">{t(`${rows.filter((r) => r.status === 'na').length} N/A`, `${rows.filter((r) => r.status === 'na').length} غ/م`)}</span>}
+                <span className="text-[12px] text-neutral-500 tabular-nums">{rows.length}</span>
+                <ChevronDownIcon className={`w-4 h-4 text-neutral-400 transition-transform ${openG === g ? 'rotate-180' : ''}`} />
+              </button>
+              {openG === g && <div className="px-4 pb-3"><StandardsList rows={rows} isAr={isAr} t={t} /></div>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /** Texts the questions read their suggestions from. */
 function textsFor(f: TenderFormData) {
@@ -216,17 +335,8 @@ export default function TechStandards() {
         {built && !editing && (
           <>
             {/* Deployment model — built from the answers */}
-            <div className="rise-in rounded-xl border border-neutral-200 bg-white px-4 py-3.5 flex items-start gap-3.5" data-deploy-result={deployment}>
-              <QIcon q={qById(deployment === 'on-prem' ? 'own-servers' : 'saas')} />
-              <div className="min-w-0 flex-1">
-                <p className="text-[12px] text-neutral-500">{t('Deployment model', 'نموذج النشر')}</p>
-                <p className="text-[15px] font-semibold text-neutral-900">{t(DEPLOY_LABEL[deployment][0], DEPLOY_LABEL[deployment][1])}{deployment === 'saas' && <span className="ms-2 px-1.5 py-0.5 rounded bg-success-50 text-success-700 text-[10.5px] font-semibold align-middle">{t('EA preferred', 'المفضل لدى البنية المؤسسية')}</span>}</p>
-                <p className="text-[12px] text-neutral-500 mt-0.5">
-                  {(['saas', 'own-servers'] as QuestionId[]).filter((id) => answers[id] !== undefined).map((id) => `${L({ en: qById(id).en, ar: qById(id).ar })} ${answers[id] ? t('Yes', 'نعم') : t('No', 'لا')}`).join(' · ') || t('Based on the items in this request.', 'بناءً على بنود هذا الطلب.')}
-                </p>
-                {deployment !== 'saas' && <p className="mt-1.5 text-[12px] text-warning-800">{t('EA direction is SaaS first — add the reason for this choice in the Scope of Work.', 'توجه البنية المؤسسية هو SaaS أولاً — أضف سبب هذا الاختيار في نطاق العمل.')}</p>}
-              </div>
-            </div>
+            <div className="rise-in"><DeploymentHero deployment={deployment} answers={answers} isAr={isAr} t={t} /></div>
+            {deployment !== 'saas' && <p className="-mt-2 text-[12px] text-warning-800">{t('EA direction is SaaS first — add the reason for this choice in the Scope of Work.', 'توجه البنية المؤسسية هو SaaS أولاً — أضف سبب هذا الاختيار في نطاق العمل.')}</p>}
 
             <p className="text-[12px] text-neutral-500" data-std-summary>{t(`${included} included · ${na} not applicable · required items can’t be removed, only marked not applicable with a reason.`, `${included} مضمّنة · ${na} غير منطبقة · لا يمكن حذف البنود الإلزامية، يمكن فقط تحديدها كغير منطبقة مع ذكر السبب.`)}</p>
 
@@ -268,7 +378,7 @@ export default function TechStandards() {
                                         <SparklesIcon className="w-3 h-3" />
                                         {because === 'deployment'
                                           ? t(`Because: ${DEPLOY_LABEL[deployment][0]}`, `بسبب: ${DEPLOY_LABEL[deployment][1]}`)
-                                          : t(`Because: ${because.map((q) => qById(q).en.replace(/\?$/, '')).join(' · ')}`, `بسبب: ${because.map((q) => qById(q).ar.replace(/؟$/, '')).join(' · ')}`)}
+                                          : t(`Because: ${because.map((q) => qById(q).short).join(' · ')}`, `بسبب: ${because.map((q) => qById(q).shortAr).join(' · ')}`)}
                                       </span>
                                     )}
                                   </div>

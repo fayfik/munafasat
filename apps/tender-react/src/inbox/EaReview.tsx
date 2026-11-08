@@ -5,7 +5,9 @@
 import { useState } from 'react';
 import type { Task } from './types';
 import { CheckIcon, ChevronDownIcon, PencilIcon } from '../components/Icons';
-import { stdById, eaScope, STD_QUESTIONS } from '../lib/eaStandards';
+import { stdById, eaScope, type Answers } from '../lib/eaStandards';
+import { DeploymentHero, ProjectProfile, StandardsList } from '../components/TechStandards';
+import BoqLineDrawer, { BoqViewButton, viewFromRfpLine } from '../components/BoqLineDrawer';
 import { eaSections, LICENCE_RX, type EaSection } from './eaSections';
 
 type T = (en: string, ar: string) => string;
@@ -23,6 +25,7 @@ export default function EaReview({ task, isAr, t, readOnly, onDecide, onAcceptAl
   const [commenting, setCommenting] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [refOpen, setRefOpen] = useState(false);
+  const [boqView, setBoqView] = useState<number | null>(null);
   const L = (en?: string, ar?: string) => (isAr ? ar ?? en ?? '' : en ?? '');
   const done = secs.filter((s) => dec[s.id]).length;
   const comments = secs.filter((s) => dec[s.id]?.state === 'comment').length;
@@ -46,41 +49,38 @@ export default function EaReview({ task, isAr, t, readOnly, onDecide, onAcceptAl
     if (s.kind === 'licences') return (
       <div>
         <table className="w-full text-start text-[12.5px]">
-          <thead><tr className="text-[11px] text-neutral-500"><th className="text-start font-medium py-1">{t('BOQ item', 'البند')}</th><th className="text-end font-medium py-1">{t('Quantity', 'الكمية')}</th><th className="text-end font-medium py-1">{t('Amount', 'المبلغ')}</th></tr></thead>
+          <thead><tr className="text-[11px] text-neutral-500"><th className="text-start font-medium py-1">{t('BOQ item', 'البند')}</th><th className="text-end font-medium py-1">{t('Quantity', 'الكمية')}</th><th className="text-end font-medium py-1">{t('Amount', 'المبلغ')}</th><th className="w-9" /></tr></thead>
           <tbody>{rfp.boq.map((l, i) => ({ l, i })).filter(({ l }) => LICENCE_RX.test(`${l.itemEn} ${l.descEn ?? ''}`)).map(({ l, i }) => (
             <tr key={i} className="border-t border-neutral-100"><td className="py-1.5 pe-3"><span className="text-neutral-400 me-1.5">{i + 1}.</span>{L(l.itemEn, l.itemAr)}<span className="block text-[11.5px] text-neutral-500">{L(l.descEn, l.descAr)}</span></td>
-              <td className="py-1.5 text-end font-semibold tabular-nums whitespace-nowrap">{l.qty} {l.unit}</td><td className="py-1.5 text-end tabular-nums whitespace-nowrap" dir="ltr">{sar((Number(l.qty) || 1) * l.unitPrice)}</td></tr>
+              <td className="py-1.5 text-end font-semibold tabular-nums whitespace-nowrap">{l.qty} {l.unit}</td><td className="py-1.5 text-end tabular-nums whitespace-nowrap" dir="ltr">{sar((Number(l.qty) || 1) * l.unitPrice)}</td>
+              <td className="py-1 ps-1 text-end"><BoqViewButton index={i} onClick={() => setBoqView(i)} label={t('View item details', 'عرض تفاصيل البند')} /></td></tr>
           ))}</tbody>
         </table>
         <p className="mt-1.5 text-[11.5px] text-neutral-500">{t('Check the quantities against what was agreed in the assessment — quantities above it affect the budget.', 'تحقق من الكميات مقابل ما تم الاتفاق عليه في التقييم — الكميات الأعلى تؤثر على الميزانية.')}</p>
       </div>
     );
     const std = (rfp.techStandards ?? []).filter((x) => stdById(x.id)?.group === s.group);
-    return (
-      <div>
-        {s.group === 'hosting' && rfp.deploymentModel && <p className="mb-1.5 text-[12.5px] text-neutral-700">{t('Deployment model', 'نموذج النشر')}: <b>{rfp.deploymentModel === 'saas' ? 'SaaS' : rfp.deploymentModel === 'on-prem' ? t('On-premises', 'محلي') : t('Hybrid', 'هجين')}</b></p>}
-        {s.group === 'hosting' && rfp.techAnswers && (
-          <div className="mb-2" data-ea-answers>
-            <p className="text-[11.5px] text-neutral-500 mb-1">{t('Requester’s answers about the project', 'إجابات مقدّم الطلب عن المشروع')}</p>
-            <div className="flex flex-wrap gap-1.5">{STD_QUESTIONS.filter((q) => rfp.techAnswers![q.id] !== undefined).map((q) => (
-              <span key={q.id} className={`px-2 py-0.5 rounded-full text-[11.5px] border ${rfp.techAnswers![q.id] ? 'border-success-200 bg-success-50 text-success-800' : 'border-neutral-200 bg-neutral-50 text-neutral-600'}`}>{L(q.en, q.ar)} <b>{rfp.techAnswers![q.id] ? t('Yes', 'نعم') : t('No', 'لا')}</b></span>
-            ))}</div>
+    if (s.group === 'hosting') return (
+      <div className="space-y-4" data-ea-hosting>
+        {rfp.deploymentModel && <DeploymentHero deployment={rfp.deploymentModel} answers={rfp.techAnswers as Answers | undefined} isAr={isAr} t={t} compact />}
+        {rfp.techAnswers && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 mb-1.5">{t('Requester’s answers about the project', 'إجابات مقدّم الطلب عن المشروع')}</p>
+            <ProjectProfile answers={rfp.techAnswers as Answers} isAr={isAr} t={t} />
           </div>
         )}
-        <ul className="space-y-1">{std.map((x) => { const d = stdById(x.id)!; return (
-          <li key={x.id} className="flex items-start gap-2 text-[12.5px]">
-            {x.status === 'na'
-              ? <span className="mt-0.5 px-1.5 rounded bg-warning-50 text-warning-800 text-[10.5px] font-semibold flex-shrink-0">{t('N/A', 'غير منطبق')}</span>
-              : <CheckIcon className="w-3.5 h-3.5 mt-0.5 text-success-600 flex-shrink-0" />}
-            <span className={x.status === 'na' ? 'text-neutral-500' : 'text-neutral-700'}>{L(d.en, d.ar)} <span className="text-[10.5px] text-neutral-400">· {d.owner}{d.required ? ` · ${t('required', 'إلزامي')}` : ''}</span>
-              {x.status === 'na' && <span className="block text-[11.5px] text-warning-800">{t('Reason', 'السبب')}: {L(x.naReason, x.naReasonAr)}</span>}</span>
-          </li>); })}</ul>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 mb-1.5">{t(`${std.length} hosting standards`, `${std.length} معايير استضافة`)}</p>
+          <StandardsList rows={std} isAr={isAr} t={t} />
+        </div>
       </div>
     );
+    return <StandardsList rows={std} isAr={isAr} t={t} />;
   };
 
   return (
     <div className="space-y-5" data-ea-review>
+      <BoqLineDrawer lines={rfp.boq.map((l) => viewFromRfpLine(l, isAr, t))} index={boqView} onIndex={setBoqView} onClose={() => setBoqView(null)} isAr={isAr} t={t} grandTotal={rfp.boq.reduce((n, l) => n + (Number(l.qty) || 1) * l.unitPrice, 0)} />
       <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white px-5 py-4 flex items-center gap-4 flex-wrap">
         <div className="min-w-[280px] flex-1">
           <p className="text-[14px] font-bold text-neutral-900">{t('Review the technical sections', 'مراجعة الأقسام التقنية')}</p>

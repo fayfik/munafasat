@@ -19,6 +19,7 @@ import QualReview from './QualReview';
 import { GlReview, AssetsReview, ChangesReview, glReturnDraft } from './FinanceReview';
 import { finLinesFor } from './data';
 import EaReview from './EaReview';
+import BoqLineDrawer, { BoqViewButton, viewFromRfpLine } from '../components/BoqLineDrawer';
 import { EA_RETURN_REASONS, eaReturnDraft } from './eaSections';
 import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
@@ -498,6 +499,7 @@ function CommitteeChips({ members, isAr }: { members?: RfpDetail['evalCommittee'
 
 export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T }) {
   const [preview, setPreview] = useState<PreviewDoc | null>(null);
+  const [boqView, setBoqView] = useState<number | null>(null);
   if (!rfp) return <div className="rounded-xl border border-neutral-200 bg-white p-6 text-[13px] text-neutral-500 shadow-sm">{t('No request record linked to this task.', 'لا يوجد سجل منافسة مرتبط بهذه المهمة.')}</div>;
   const boqTotal = rfp.boq.reduce((s, l) => s + lineTotalOf(l), 0);
   const estValue = boqTotal > 0 ? boqTotal : (amount ?? 0);
@@ -515,6 +517,8 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
   if (rfp.evaluation.length) stats.push({ label: t('Eval. criteria', 'معايير التقييم'), value: String(rfp.evaluation.length) });
 
   // ── Bill of quantities ──
+  const viewLabel = t('View item details', 'عرض تفاصيل البند');
+  const boqDrawer = <BoqLineDrawer lines={rfp.boq.map((l) => viewFromRfpLine(l, isAr, t))} index={boqView} onIndex={setBoqView} onClose={() => setBoqView(null)} isAr={isAr} t={t} grandTotal={boqTotal} />;
   const boqChart = (
     <div className="flex flex-col lg:flex-row gap-5">
       <div className="flex items-center gap-4 lg:flex-col lg:items-center flex-shrink-0">
@@ -542,6 +546,7 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
             <th className="text-start ps-3 pe-2 py-2 font-medium">{t('Item', 'البند')}</th>
             <th className="px-2 py-2 font-medium w-28 text-center">{t('Qty', 'الكمية')}</th>
             <th className="px-2 py-2 font-medium w-40 text-end">{t('Line total', 'الإجمالي')}</th>
+            <th className="w-11 px-1 py-2"><span className="sr-only">{t('View', 'عرض')}</span></th>
           </tr></thead>
           <tbody className="divide-y divide-neutral-100">
             {rfp.boq.map((l, i) => (
@@ -549,16 +554,18 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
                 <td className="ps-3 pe-2 py-2 text-[12.5px] text-neutral-800"><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} />{isAr ? l.itemAr : l.itemEn}</span></td>
                 <td className="px-2 py-2 text-center text-[12px] text-neutral-600 whitespace-nowrap">{l.qty} {l.unit}</td>
                 <td className="px-2 py-2 text-end text-[12.5px] font-semibold text-neutral-800 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(lineTotalOf(l))}</td>
+                <td className="px-1 py-1 text-center"><BoqViewButton index={i} onClick={() => setBoqView(i)} label={viewLabel} /></td>
               </tr></Commentable>
             ))}
           </tbody>
           <tfoot className="bg-neutral-50 border-t-2 border-neutral-200">
-            <tr><td className="ps-3 pe-2 py-1.5 text-end text-[12px] text-neutral-500" colSpan={2}>{t('Subtotal', 'المجموع الفرعي')}</td><td className="px-2 py-1.5 text-end text-[12.5px] font-semibold tabular-nums text-neutral-700 whitespace-nowrap" dir="ltr">{fmtSAR(boqTotal)}</td></tr>
-            <tr><td className="ps-3 pe-2 py-1.5 text-end text-[12px] text-neutral-500" colSpan={2}>{t('VAT (15%)', 'ضريبة القيمة المضافة (15%)')}</td><td className="px-2 py-1.5 text-end text-[12.5px] font-semibold tabular-nums text-neutral-700 whitespace-nowrap" dir="ltr">{fmtSAR(boqTotal * 0.15)}</td></tr>
-            <tr className="border-t border-neutral-200"><td className="ps-3 pe-2 py-2 text-end text-[12.5px] font-bold text-neutral-800" colSpan={2}>{t('Grand total', 'الإجمالي الكلي')}</td><td className="px-2 py-2 text-end text-[13px] font-bold tabular-nums text-brand-700 whitespace-nowrap" dir="ltr">{fmtSAR(boqTotal * 1.15)}</td></tr>
+            <tr><td className="ps-3 pe-2 py-1.5 text-end text-[12px] text-neutral-500" colSpan={2}>{t('Subtotal', 'المجموع الفرعي')}</td><td className="px-2 py-1.5 text-end text-[12.5px] font-semibold tabular-nums text-neutral-700 whitespace-nowrap" dir="ltr">{fmtSAR(boqTotal)}</td><td /></tr>
+            <tr><td className="ps-3 pe-2 py-1.5 text-end text-[12px] text-neutral-500" colSpan={2}>{t('VAT (15%)', 'ضريبة القيمة المضافة (15%)')}</td><td className="px-2 py-1.5 text-end text-[12.5px] font-semibold tabular-nums text-neutral-700 whitespace-nowrap" dir="ltr">{fmtSAR(boqTotal * 0.15)}</td><td /></tr>
+            <tr className="border-t border-neutral-200"><td className="ps-3 pe-2 py-2 text-end text-[12.5px] font-bold text-neutral-800" colSpan={2}>{t('Grand total', 'الإجمالي الكلي')}</td><td className="px-2 py-2 text-end text-[13px] font-bold tabular-nums text-brand-700 whitespace-nowrap" dir="ltr">{fmtSAR(boqTotal * 1.15)}</td><td /></tr>
           </tfoot>
         </table>
       </div>
+      {boqDrawer}
     </div>
   );
   const boqTable = (
@@ -572,6 +579,7 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
           <th className={`${TH} text-end`}>{t('Qty', 'الكمية')}</th>
           <th className={`${TH} text-end`}>{t('Unit price', 'سعر الوحدة')}</th>
           <th className={`${TH} text-end`}>{t('Total', 'الإجمالي')}</th>
+          <th className={`${TH} w-11`}><span className="sr-only">{t('View', 'عرض')}</span></th>
         </tr></thead>
         <tbody>
           {budgets.map((b, bi) => {
@@ -584,7 +592,7 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
                 {b && (
                   <tr className="bg-neutral-50/80 border-y border-neutral-200">
                     <td colSpan={6} className="px-3 py-1.5 text-[12px] font-semibold text-neutral-700">{isAr ? first.budgetAr : first.budgetEn} <span className="font-normal text-neutral-400">· {lines.length} {lines.length > 1 ? t('items', 'بنود') : t('item', 'بند')}</span></td>
-                    <td className="px-3 py-1.5 text-end text-[12px] font-semibold tabular-nums text-neutral-700" dir="ltr">{fmtSAR(sub)}</td>
+                    <td className="px-3 py-1.5 text-end text-[12px] font-semibold tabular-nums text-neutral-700" dir="ltr">{fmtSAR(sub)}</td><td />
                   </tr>
                 )}
                 {lines.map(({ l, i }) => (
@@ -599,6 +607,7 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
                     <td className="px-3 py-2.5 text-end text-neutral-700 tabular-nums whitespace-nowrap">{l.qty} <span className="text-neutral-400">{l.unit}</span></td>
                     <td className="px-3 py-2.5 text-end text-neutral-600 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(l.unitPrice)}</td>
                     <td className="px-3 py-2.5 text-end font-semibold text-neutral-900 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(lineTotalOf(l))}</td>
+                    <td className="px-1 py-2 text-center"><BoqViewButton index={i} onClick={() => setBoqView(i)} label={viewLabel} /></td>
                   </tr></Commentable>
                 ))}
               </Fragment>
@@ -606,11 +615,12 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
           })}
         </tbody>
         <tfoot>
-          <tr className="bg-neutral-50 border-t border-neutral-200"><td colSpan={6} className="px-3 py-2 text-end text-neutral-500">{t('Subtotal', 'المجموع الفرعي')}</td><td className="px-3 py-2 text-end tabular-nums font-medium" dir="ltr">{fmtSAR(boqTotal)}</td></tr>
-          <tr className="bg-neutral-50"><td colSpan={6} className="px-3 py-1.5 text-end text-neutral-500">{t('VAT (15%)', 'ضريبة القيمة المضافة (15%)')}</td><td className="px-3 py-1.5 text-end tabular-nums font-medium" dir="ltr">{fmtSAR(boqTotal * 0.15)}</td></tr>
-          <tr className="bg-brand-50 border-t border-brand-200 text-[13px]"><td colSpan={6} className="px-3 py-2 text-end font-bold text-brand-800">{t('Grand total', 'الإجمالي الكلي')}</td><td className="px-3 py-2 text-end tabular-nums font-bold text-brand-800" dir="ltr">{fmtSAR(boqTotal * 1.15)}</td></tr>
+          <tr className="bg-neutral-50 border-t border-neutral-200"><td colSpan={6} className="px-3 py-2 text-end text-neutral-500">{t('Subtotal', 'المجموع الفرعي')}</td><td className="px-3 py-2 text-end tabular-nums font-medium" dir="ltr">{fmtSAR(boqTotal)}</td><td /></tr>
+          <tr className="bg-neutral-50"><td colSpan={6} className="px-3 py-1.5 text-end text-neutral-500">{t('VAT (15%)', 'ضريبة القيمة المضافة (15%)')}</td><td className="px-3 py-1.5 text-end tabular-nums font-medium" dir="ltr">{fmtSAR(boqTotal * 0.15)}</td><td /></tr>
+          <tr className="bg-brand-50 border-t border-brand-200 text-[13px]"><td colSpan={6} className="px-3 py-2 text-end font-bold text-brand-800">{t('Grand total', 'الإجمالي الكلي')}</td><td className="px-3 py-2 text-end tabular-nums font-bold text-brand-800" dir="ltr">{fmtSAR(boqTotal * 1.15)}</td><td /></tr>
         </tfoot>
       </table>
+      {boqDrawer}
     </div>
   );
 

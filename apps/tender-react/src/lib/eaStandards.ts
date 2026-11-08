@@ -135,7 +135,7 @@ export type QuestionId = 'saas' | 'own-servers' | 'build' | 'integrates' | 'migr
 export type Answers = Partial<Record<QuestionId, boolean>>;
 
 export interface StdQuestion {
-  id: QuestionId; tone: 'brand' | 'ai' | 'warning' | 'success' | 'error' | 'info';
+  id: QuestionId; short: string; shortAr: string; tone: 'brand' | 'ai' | 'warning' | 'success' | 'error' | 'info';
   en: string; ar: string; descEn: string; descAr: string;
   /** Asked only when this returns true (project-dependent). */
   ask?: (ctx: QCtx) => boolean;
@@ -151,31 +151,31 @@ const infraOnly = (c: QCtx) => has(c, 'infra') && !has(c, 'licence') && !has(c, 
 const licenceOnly = (c: QCtx) => has(c, 'licence') && !has(c, 'solution') && !has(c, 'integration') && !has(c, 'infra');
 
 export const STD_QUESTIONS: StdQuestion[] = [
-  { id: 'saas', tone: 'brand', en: 'Is it delivered as a cloud service (SaaS)?', ar: 'هل يُقدَّم كخدمة سحابية (SaaS)؟',
+  { id: 'saas', short: 'Cloud service (SaaS)', shortAr: 'خدمة سحابية (SaaS)', tone: 'brand', en: 'Is it delivered as a cloud service (SaaS)?', ar: 'هل يُقدَّم كخدمة سحابية (SaaS)؟',
     descEn: 'The vendor hosts and runs it; you use it over the internet. EA direction is SaaS first.', descAr: 'يستضيفه المورد ويشغّله وتستخدمه عبر الإنترنت. توجه البنية المؤسسية هو SaaS أولاً.',
     ask: (c) => !infraOnly(c), guess: (c) => yesIf(c, /saas|cloud|subscription/i) },
-  { id: 'own-servers', tone: 'info', en: 'Will any part run on our own servers?', ar: 'هل سيعمل أي جزء على خوادمنا؟',
+  { id: 'own-servers', short: 'Runs on our servers', shortAr: 'يعمل على خوادمنا', tone: 'info', en: 'Will any part run on our own servers?', ar: 'هل سيعمل أي جزء على خوادمنا؟',
     descEn: 'For example an on-site gateway, a local database or a connector installed in our data centre.', descAr: 'مثل بوابة محلية أو قاعدة بيانات محلية أو موصل مثبت في مركز بياناتنا.',
     ask: (c) => c.answers.saas === true, guess: (c) => yesIf(c, /on[- ]?prem|gateway|data cent(er|re)|server/i) },
-  { id: 'build', tone: 'success', en: 'Is it a new implementation or an upgrade?', ar: 'هل هو تنفيذ جديد أو ترقية؟',
+  { id: 'build', short: 'New build or upgrade', shortAr: 'تنفيذ جديد أو ترقية', tone: 'success', en: 'Is it a new implementation or an upgrade?', ar: 'هل هو تنفيذ جديد أو ترقية؟',
     descEn: 'Answer No if you are only renewing or adding licences for something already running.', descAr: 'أجب بلا إذا كنت تجدد أو تضيف تراخيص لنظام قائم فقط.',
     ask: (c) => !infraOnly(c), guess: (c) => (licenceOnly(c) ? { yes: false, basis: hit(c, /licen[cs]e|subscription|renewal/i) ?? '' } : yesIf(c, /implement|upgrade|deploy|configur|new system|platform/i)) },
-  { id: 'integrates', tone: 'ai', en: 'Does it connect to our internal systems?', ar: 'هل يتكامل مع أنظمتنا الداخلية؟',
+  { id: 'integrates', short: 'Internal integrations', shortAr: 'تكامل مع الأنظمة الداخلية', tone: 'ai', en: 'Does it connect to our internal systems?', ar: 'هل يتكامل مع أنظمتنا الداخلية؟',
     descEn: 'SAP, HR, Etimad, the identity provider or any other system we run.', descAr: 'ساب أو الموارد البشرية أو اعتماد أو مزود الهوية أو أي نظام آخر لدينا.',
     guess: (c) => yesIf(c, /integrat|interface|\bapi|ipaas|connector|\bsap\b|\bhr\b/i) },
-  { id: 'migration', tone: 'warning', en: 'Are we moving data from an existing system?', ar: 'هل سننقل بيانات من نظام قائم؟',
+  { id: 'migration', short: 'Data migration', shortAr: 'ترحيل البيانات', tone: 'warning', en: 'Are we moving data from an existing system?', ar: 'هل سننقل بيانات من نظام قائم؟',
     descEn: 'Historical records, master data or documents that must be loaded into the new solution.', descAr: 'سجلات تاريخية أو بيانات رئيسية أو مستندات يجب تحميلها في الحل الجديد.',
     ask: (c) => c.answers.build !== false && !infraOnly(c), guess: (c) => yesIf(c, /migrat|data load|legacy|replace/i) },
-  { id: 'personal-data', tone: 'error', en: 'Will it hold personal or confidential data?', ar: 'هل سيحتوي على بيانات شخصية أو سرية؟',
+  { id: 'personal-data', short: 'Personal / confidential data', shortAr: 'بيانات شخصية / سرية', tone: 'error', en: 'Will it hold personal or confidential data?', ar: 'هل سيحتوي على بيانات شخصية أو سرية؟',
     descEn: 'Employee, customer or citizen records, or anything classified above Public.', descAr: 'سجلات الموظفين أو العملاء أو المواطنين أو أي بيانات مصنفة أعلى من "عام".',
     guess: (c) => yesIf(c, /\bhr\b|payroll|employee|customer|crm|citizen|patient|personal|erp|s\/4hana/i) },
-  { id: 'external-users', tone: 'info', en: 'Will people outside the organisation use it?', ar: 'هل سيستخدمه أشخاص من خارج الجهة؟',
+  { id: 'external-users', short: 'External users', shortAr: 'مستخدمون خارجيون', tone: 'info', en: 'Will people outside the organisation use it?', ar: 'هل سيستخدمه أشخاص من خارج الجهة؟',
     descEn: 'Suppliers, citizens or partners logging in from the internet.', descAr: 'موردون أو مواطنون أو شركاء يسجلون الدخول عبر الإنترنت.',
     guess: (c) => yesIf(c, /portal|citizen|public|customer|supplier|website|mobile app/i) },
-  { id: 'critical', tone: 'warning', en: 'Would an outage stop critical work?', ar: 'هل يوقف تعطله أعمالاً حرجة؟',
+  { id: 'critical', short: 'Business-critical', shortAr: 'حرج للأعمال', tone: 'warning', en: 'Would an outage stop critical work?', ar: 'هل يوقف تعطله أعمالاً حرجة؟',
     descEn: 'If it is down for a day, core operations or services to the public are affected.', descAr: 'إذا تعطل يوماً تتأثر العمليات الأساسية أو الخدمات المقدمة للجمهور.',
     guess: (c) => yesIf(c, /erp|s\/4hana|core|finance|payroll|network|firewall|data cent(er|re)/i) },
-  { id: 'ai', tone: 'ai', en: 'Does it use AI or analytics on our data?', ar: 'هل يستخدم الذكاء الاصطناعي أو التحليلات على بياناتنا؟',
+  { id: 'ai', short: 'AI / analytics', shortAr: 'ذكاء اصطناعي / تحليلات', tone: 'ai', en: 'Does it use AI or analytics on our data?', ar: 'هل يستخدم الذكاء الاصطناعي أو التحليلات على بياناتنا؟',
     descEn: 'Machine learning, generative AI, chatbots or BI dashboards.', descAr: 'تعلم الآلة أو الذكاء الاصطناعي التوليدي أو روبوتات المحادثة أو لوحات ذكاء الأعمال.',
     guess: (c) => yesIf(c, /\bai\b|artificial intelligence|machine learning|analytics|\bbi\b|chatbot|copilot/i) },
 ];
