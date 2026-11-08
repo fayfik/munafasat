@@ -242,12 +242,12 @@ const SPECS: Spec[] = [
       ['EA requirements text added from template', 'تمت إضافة نص متطلبات البنية المؤسسية من القالب'],
     ]) } },
   { n: 7, type: 'review', title: TITLE.reviewFromDept(),
-    summary: sup('Check the accounting classification of each BOQ line — Material Group, GL main and sub-account — and accept or correct it.', 'تحقق من التصنيف المحاسبي لكل بند — مجموعة المواد والحساب الرئيسي والفرعي — واقبله أو صحّحه.'),
+    summary: sup('Check the accounting classification of each BOQ item — Material Group, GL main and sub-account — and accept or correct it.', 'تحقق من التصنيف المحاسبي لكل بند — مجموعة المواد والحساب الرئيسي والفرعي — واقبله أو صحّحه.'),
     stage: sup('Finance review — GL', 'مراجعة مالية — دفتر الأستاذ'), assignee: P.gl, sla: 1, priority: 'medium', received: 0,
     actions: [{ ...APPROVE_RETURN[0], gated: true }, APPROVE_RETURN[1]],
     extra: { parallelGroup: 'pg-specialist', finReview: 'gl', techDecisions: {} } },
   { n: 8, type: 'review', title: TITLE.reviewFromDept(),
-    summary: sup('Decide how each asset line is capitalised — direct asset or Asset Under Construction — and which components form one asset.', 'حدد طريقة رسملة كل بند أصل — أصل مباشر أو أصل تحت الإنشاء — والمكونات التي تشكل أصلاً واحداً.'),
+    summary: sup('Decide how each BOQ item flagged as an asset is capitalised — direct asset or Asset Under Construction — and which items form one asset.', 'حدد طريقة رسملة كل بند أصل — أصل مباشر أو أصل تحت الإنشاء — والمكونات التي تشكل أصلاً واحداً.'),
     stage: sup('Finance review — Assets', 'مراجعة مالية — الأصول'), assignee: P.assets, sla: 1, priority: 'medium', received: 0,
     actions: [{ ...APPROVE_RETURN[0], gated: true }, APPROVE_RETURN[1]],
     extra: { parallelGroup: 'pg-specialist', finReview: 'assets', finAssetDecisions: {} } },
@@ -577,7 +577,7 @@ const FIN_OVERLAY: Pick<FinLine, 'finPurchaseType' | 'materialGroup' | 'componen
 export function finLinesFor(rfp: RfpDetail): FinLine[] {
   return rfp.boq.map((l, i) => ({
     key: `L${i + 1}`, itemEn: l.itemEn, itemAr: l.itemAr, descEn: l.descEn, descAr: l.descAr,
-    qty: l.qty, unit: l.unit, amount: (Number(l.qty) || 1) * l.unitPrice,
+    no: i + 1, qty: l.qty, unit: l.unit, unitPrice: l.unitPrice, amount: (Number(l.qty) || 1) * l.unitPrice,
     ...(FIN_OVERLAY[i] ?? { finPurchaseType: 'service', materialGroup: 'MG-IT-CONS' }),
   }));
 }
@@ -772,7 +772,7 @@ SEED_TASKS.unshift(
     const tk: Task = {
       ...structuredClone(gl),
       id: `TSK-${no}-07R`,
-      titleEn: `Review changes to request #${no} since your GL review`, titleAr: `مراجعة التغييرات على الطلب رقم ${no} منذ مراجعتك المالية`,
+      titleEn: `Request #${no} changed after your GL approval`, titleAr: `تغيّر الطلب رقم ${no} بعد اعتمادك المالي`,
       summaryEn: `${REQ.requester.name} changed request #${no} after you approved it. Check what changed and decide whether it needs another GL review.`,
       summaryAr: `عدّل ${REQ.requester.nameAr ?? REQ.requester.name} الطلب رقم ${no} بعد اعتمادك له. تحقق مما تغيّر وقرر ما إذا كان يحتاج إلى مراجعة جديدة.`,
       entity: { kind: 'RFP', ref: `REQ-${no}`, titleEn, titleAr },
@@ -785,7 +785,7 @@ SEED_TASKS.unshift(
       activity: [
         { id: 'a0', kind: 'decision', actor: gl.assignee, at: reviewedAt.toISOString(), decision: { en: 'Approved', ar: 'تم الاعتماد' }, system: { en: 'Finance review — GL', ar: 'مراجعة مالية — دفتر الأستاذ' } },
         { id: 'a1', kind: 'system', actor: REQ.requester, at: new Date(+received - 30 * 60000).toISOString(), system: { en: `Request #${no} changed after Procurement comments (6 changes)`, ar: `تم تعديل الطلب رقم ${no} بعد ملاحظات المشتريات (6 تغييرات)` } },
-        { id: 'aN', kind: 'system', actor: gl.assignee, at: received.toISOString(), system: { en: `Assigned to ${gl.assignee.name} — Changes since your review`, ar: `أُسند إلى ${gl.assignee.nameAr} — تغييرات منذ مراجعتك` } },
+        { id: 'aN', kind: 'system', actor: gl.assignee, at: received.toISOString(), system: { en: `Assigned to ${gl.assignee.name} — Request changed after your approval`, ar: `أُسند إلى ${gl.assignee.nameAr} — تغييرات منذ مراجعتك` } },
       ],
     };
     tk.rfp = requestRfpFor({ refId: `REQ-${no}`, titleEn, titleAr, deptEn: REQ.requester.dept ?? '', deptAr: REQ.requester.deptAr ?? '', amount: 2_350_000, type: 'tendering', costCenter: 'FC-IT-1000' });

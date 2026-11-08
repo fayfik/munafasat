@@ -35,7 +35,7 @@ function Progress({ title, sub, done, total, onAll, allLabel, t, readOnly, testI
         <p className="text-[12.5px] text-neutral-600 mt-0.5">{sub}</p>
         <div className="mt-2 flex items-center gap-2">
           <div className="h-1.5 w-48 rounded-full bg-neutral-200 overflow-hidden"><div className="h-full bg-success-500 rounded-full transition-all" style={{ width: `${(done / Math.max(1, total)) * 100}%` }} /></div>
-          <span className="text-[12px] font-semibold text-neutral-700" data-fin-progress={`${done}/${total}`}>{t(`${done} of ${total} lines reviewed`, `${done} من ${total} بنود تمت مراجعتها`)}</span>
+          <span className="text-[12px] font-semibold text-neutral-700" data-fin-progress={`${done}/${total}`}>{t(`${done} of ${total} BOQ items reviewed`, `${done} من ${total} بنود تمت مراجعتها`)}</span>
         </div>
       </div>
       {!readOnly && onAll && done < total && (
@@ -119,7 +119,7 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
       <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
         <div className="flex items-center justify-between gap-3 flex-wrap px-5 py-3.5 border-b border-neutral-200">
           <div>
-            <p className="text-[14px] font-semibold text-neutral-900">{t('BOQ lines — accounting', 'بنود جدول الكميات — المحاسبة')}</p>
+            <p className="text-[14px] font-semibold text-neutral-900">{t('BOQ items — accounting', 'بنود جدول الكميات — المحاسبة')}</p>
             <p className="text-[12px] text-neutral-500">{issuesCount ? t(`${issuesCount} line(s) disagree and are highlighted.`, `${issuesCount} بند غير متسق ومُبرز.`) : t('All lines are consistent.', 'جميع البنود متسقة.')}</p>
           </div>
           <div className="inline-flex items-center gap-0.5 rounded-lg bg-neutral-100 p-0.5">
@@ -183,7 +183,8 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
                   <tr key={l.key} data-gl-row={l.key} data-state={dec[k] ?? ''} data-issue={issues.length ? 'yes' : 'no'}
                     className={`border-t border-neutral-100 align-top ${issues.length ? 'bg-warning-50/50' : ''}`}>
                     <td className={`px-4 py-3 ${issues.length ? 'border-s-[3px] border-s-warning-400' : ''}`}>
-                      <p className="text-[13px] font-semibold text-neutral-900">{L({ en: l.itemEn, ar: l.itemAr })}</p>
+                      <p className="text-[13px] font-semibold text-neutral-900"><span className="text-neutral-400 font-medium me-1.5 tabular-nums">{l.no}.</span>{L({ en: l.itemEn, ar: l.itemAr })}</p>
+                      {(l.descEn || l.descAr) && <p className="text-[11.5px] text-neutral-600">{isAr ? l.descAr : l.descEn}</p>}
                       <p className="text-[11.5px] text-neutral-500">{l.qty} {l.unit} · <span dir="ltr">{sar(l.amount)}</span>{flagOf(l) === 'asset' && <span className="ms-1.5 px-1.5 py-0.5 rounded bg-[#EEF4FB] text-[#21507A] text-[10px] font-semibold">{t('Asset', 'أصل')}</span>}</p>
                       {issues.map((i) => <p key={i.code} className="mt-1 flex items-start gap-1 text-[11.5px] text-warning-800"><AlertTriangleIcon className="w-3 h-3 mt-0.5 flex-shrink-0" />{isAr ? i.ar : i.en}</p>)}
                     </td>
@@ -237,12 +238,13 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll }
     <div className="space-y-5" data-assets-review>
       <Progress testId="assets" t={t} readOnly={readOnly} done={done} total={lines.length}
         title={t('Decide the asset treatment', 'تحديد معالجة الأصول')}
-        sub={t('Only lines flagged as assets are shown. Confirm Asset / Non-asset, how it is capitalised, and which components form one asset.', 'تُعرض البنود المصنفة كأصول فقط. أكّد أصل / غير أصل وطريقة الرسملة والمكونات التي تشكل أصلاً واحداً.')}
+        sub={t('These are the BOQ items of the request that were flagged as assets. For each one, confirm Asset / Non-asset, how it is capitalised, and which items form one asset.', 'هذه بنود جدول الكميات في الطلب المصنفة كأصول. لكل بند، أكّد أصل / غير أصل وطريقة الرسملة والبنود التي تشكل أصلاً واحداً.')}
         allLabel={t('Confirm all as suggested', 'تأكيد الكل كما هو مقترح')}
         onAll={() => onConfirmAll(Object.fromEntries(lines.filter((l) => !dec[l.key]?.confirmed).map((l) => [l.key, { ...cur(l), confirmed: true }])))} />
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-5 items-start">
         <div className="space-y-3">
+          <p className="text-[13px] font-semibold text-neutral-700" data-assets-heading>{t(`BOQ items flagged as assets — ${lines.length} of ${all.length}`, `بنود جدول الكميات المصنفة كأصول — ${lines.length} من ${all.length}`)}</p>
           {lines.map((l) => {
             const d = cur(l);
             const confirmed = !!dec[l.key]?.confirmed;
@@ -252,9 +254,15 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll }
               <div key={l.key} data-asset-line={l.key} data-confirmed={confirmed ? 'yes' : 'no'} className={`rounded-xl border bg-white px-5 py-4 ${confirmed ? 'border-success-200' : 'border-neutral-200'}`}>
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide">{t(`BOQ item ${l.no ?? ''}`, `بند جدول الكميات ${l.no ?? ''}`)}</p>
                     <p className="text-[14px] font-semibold text-neutral-900">{L({ en: l.itemEn, ar: l.itemAr })}</p>
-                    <p className="text-[12px] text-neutral-500 mt-0.5">{l.qty} {l.unit} · <span dir="ltr">{sar(l.amount)}</span> · {L(PURCHASE_TYPES[l.finPurchaseType])} · {L(mgByCode(l.materialGroup))}
-                      {l.componentRole && <span className="ms-1.5 px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 text-[10.5px] font-semibold">{L(COMPONENT_ROLES[l.componentRole])}</span>}</p>
+                    {(l.descEn || l.descAr) && <p className="text-[12.5px] text-neutral-600 mt-0.5">{isAr ? l.descAr : l.descEn}</p>}
+                    <p className="text-[12px] text-neutral-500 mt-1 tabular-nums" dir="ltr">{l.qty} {l.unit}{l.unitPrice ? ` × ${sar(l.unitPrice)}` : ''} = <span className="font-semibold text-neutral-700">{sar(l.amount)}</span></p>
+                    <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-[11px]">
+                      <span className="px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600">{t('Purchase type', 'نوع الشراء')}: <b className="font-semibold">{L(PURCHASE_TYPES[l.finPurchaseType])}</b></span>
+                      <span className="px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600">{t('Material group', 'مجموعة المواد')}: <b className="font-semibold">{L(mgByCode(l.materialGroup))}</b></span>
+                      {l.componentRole && <span className="px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600">{t('Role', 'الدور')}: <b className="font-semibold">{L(COMPONENT_ROLES[l.componentRole])}</b></span>}
+                    </div>
                   </div>
                   {confirmed && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-success-50 text-success-700 border border-success-200"><CheckCircleIcon className="w-3 h-3" />{t('Confirmed', 'مؤكد')}</span>}
                 </div>
@@ -298,7 +306,7 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll }
         <aside className="rounded-xl border border-neutral-200 bg-white px-5 py-4 xl:sticky xl:top-[120px]" data-assets-context>
           <p className="text-[13px] font-semibold text-neutral-900">{t('Project context', 'سياق المشروع')}</p>
           <p className="mt-1.5 text-[12.5px] text-neutral-600 leading-relaxed">{isAr ? task.rfp?.scopeAr : task.rfp?.scopeEn}</p>
-          <p className="mt-4 text-[11.5px] font-semibold text-neutral-500 uppercase tracking-wide">{t('Component roles (all lines)', 'أدوار المكونات (كل البنود)')}</p>
+          <p className="mt-4 text-[11.5px] font-semibold text-neutral-500 uppercase tracking-wide">{t('Component roles (all BOQ items)', 'أدوار المكونات (كل البنود)')}</p>
           <ul className="mt-1.5 space-y-1">
             {Object.entries(roles).map(([r, n]) => (
               <li key={r} className="flex items-center justify-between text-[12.5px] text-neutral-700">
@@ -306,9 +314,9 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll }
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-[11.5px] font-semibold text-neutral-500 uppercase tracking-wide">{t('Other lines in this request', 'بنود أخرى في هذا الطلب')}</p>
+          <p className="mt-4 text-[11.5px] font-semibold text-neutral-500 uppercase tracking-wide">{t('Other BOQ items in this request', 'بنود جدول الكميات الأخرى في هذا الطلب')}</p>
           <ul className="mt-1.5 space-y-1">
-            {all.filter((l) => !lines.includes(l)).map((l) => <li key={l.key} className="text-[12px] text-neutral-500 truncate">{L({ en: l.itemEn, ar: l.itemAr })} · {L(PURCHASE_TYPES[l.finPurchaseType])}</li>)}
+            {all.filter((l) => !lines.includes(l)).map((l) => <li key={l.key} className="text-[12px] text-neutral-500 truncate">{l.no}. {L({ en: l.itemEn, ar: l.itemAr })} · {L(PURCHASE_TYPES[l.finPurchaseType])}</li>)}
           </ul>
         </aside>
       </div>
@@ -318,9 +326,9 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll }
 
 /* ═══════════════════════════════ Changes since your review ═══════════════════════════════ */
 const IMPACT: Record<FinChange['impact'], { en: string; ar: string; cls: string; hint: [string, string] }> = {
-  rereview: { en: 'Re-review required', ar: 'تلزم إعادة المراجعة', cls: 'bg-error-50 text-error-700 border-error-200', hint: ['Material group, sub-account, asset flag or Purchase type changed.', 'تغيّرت مجموعة المواد أو الحساب الفرعي أو تصنيف الأصل أو نوع الشراء.'] },
-  decide:   { en: 'Finance to decide', ar: 'قرار المالية', cls: 'bg-warning-50 text-warning-800 border-warning-200', hint: ['Quantity changes or new items — decide whether they need another look.', 'تغييرات الكمية أو بنود جديدة — قرر ما إذا كانت تحتاج إلى مراجعة.'] },
-  info:     { en: 'Informational', ar: 'للعلم', cls: 'bg-neutral-100 text-neutral-600 border-neutral-200', hint: ['Scope wording only — no accounting impact.', 'صياغة النطاق فقط — لا أثر محاسبي.'] },
+  rereview: { en: 'Changes the accounting', ar: 'يغيّر المحاسبة', cls: 'bg-error-50 text-error-700 border-error-200', hint: ['The accounting itself changed — you should review these again.', 'تغيّرت المحاسبة نفسها — يُفضّل مراجعتها مرة أخرى.'] },
+  decide:   { en: 'Your call', ar: 'حسب تقديرك', cls: 'bg-warning-50 text-warning-800 border-warning-200', hint: ['Quantities or new items — decide if they matter for accounting.', 'كميات أو بنود جديدة — قرر إن كانت تؤثر على المحاسبة.'] },
+  info:     { en: 'For information', ar: 'للعلم', cls: 'bg-neutral-100 text-neutral-600 border-neutral-200', hint: ['Wording only — no effect on accounting.', 'صياغة فقط — لا أثر على المحاسبة.'] },
 };
 export function ChangesReview({ task, isAr, t, readOnly, onNoReReview, onReopen }: { task: Task; isAr: boolean; t: T; readOnly?: boolean; onNoReReview: () => void; onReopen: () => void }) {
   const changes = task.finChanges ?? [];
@@ -332,18 +340,21 @@ export function ChangesReview({ task, isAr, t, readOnly, onNoReReview, onReopen 
       <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
         <div className="px-5 py-4 border-b border-neutral-200 flex items-start gap-4 flex-wrap">
           <div className="min-w-[260px] flex-1">
-            <p className="text-[15px] font-bold text-neutral-900">{t('Changes since your review', 'التغييرات منذ مراجعتك')}</p>
-            <p className="text-[12.5px] text-neutral-500 mt-0.5">
-              {reviewed ? t(`You approved this request on ${new Date(reviewed.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. ${changes.length} changes were made after that.`, `اعتمدت هذا الطلب في ${new Date(reviewed.at).toLocaleDateString('ar-SA', { day: 'numeric', month: 'short' })}. أُجري ${changes.length} تغييرات بعد ذلك.`) : ''}
+            <p className="text-[15px] font-bold text-neutral-900">{t('This request changed after you approved it', 'تغيّر هذا الطلب بعد اعتمادك له')}</p>
+            <p className="text-[12.5px] text-neutral-600 mt-0.5 max-w-xl">
+              {reviewed ? t(`You approved the GL review on ${new Date(reviewed.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. The requester then made ${changes.length} changes. Check them and decide one thing: do you need to review the accounting again?`, `اعتمدت مراجعة دفتر الأستاذ في ${new Date(reviewed.at).toLocaleDateString('ar-SA', { day: 'numeric', month: 'short' })}. ثم أجرى مقدّم الطلب ${changes.length} تغييرات. راجعها وقرر أمراً واحداً: هل تحتاج إلى مراجعة المحاسبة مرة أخرى؟`) : ''}
             </p>
             <div className="mt-2.5 flex items-center gap-2 flex-wrap">
               {order.filter((k) => n(k)).map((k) => <span key={k} data-impact-count={k} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11.5px] font-semibold ${IMPACT[k].cls}`}>{n(k)} · {isAr ? IMPACT[k].ar : IMPACT[k].en}</span>)}
             </div>
           </div>
           {!readOnly && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col items-end gap-1.5">
+              <div className="flex items-center gap-2">
               <button type="button" data-no-rereview onClick={onNoReReview} className="h-9 px-3.5 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700">{t('No re-review needed', 'لا يلزم إعادة المراجعة')}</button>
               <button type="button" data-reopen onClick={onReopen} className="h-9 px-3.5 rounded-lg border border-neutral-300 bg-white text-neutral-800 text-[13px] font-semibold hover:bg-neutral-50">{t('Re-open my review', 'إعادة فتح مراجعتي')}</button>
+              </div>
+              <p className="text-[11px] text-neutral-500 text-end max-w-[340px]">{t('“No re-review needed” keeps your approval and closes this task. “Re-open my review” opens the GL review again for the changed request.', '«لا يلزم إعادة المراجعة» يُبقي اعتمادك ويغلق المهمة. «إعادة فتح مراجعتي» يفتح مراجعة دفتر الأستاذ مجدداً للطلب المعدّل.')}</p>
             </div>
           )}
         </div>

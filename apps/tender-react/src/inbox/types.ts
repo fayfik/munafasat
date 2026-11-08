@@ -284,7 +284,9 @@ export interface FinLine {
   key: string;
   itemEn: string; itemAr: string;
   descEn?: string; descAr?: string;
-  qty: string; unit: string; amount: number;
+  /** Position in the request's BOQ (1-based). */
+  no?: number;
+  qty: string; unit: string; unitPrice?: number; amount: number;
   finPurchaseType: 'consumable' | 'asset' | 'service' | 'service-asset';
   materialGroup: string;
   glSubOverride?: string;
