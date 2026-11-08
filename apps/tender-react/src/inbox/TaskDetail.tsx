@@ -256,8 +256,9 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
                   onAcceptAll={(keys) => setTaskData(task.id, { techDecisions: { ...(task.techDecisions ?? {}), ...Object.fromEntries(keys.map((k) => [k, 'accepted' as const])) } })} />
               : task.finReview === 'assets'
               ? <AssetsReview task={task} isAr={isAr} t={t} readOnly={terminal}
-                  onDecide={(k, d) => setTaskData(task.id, { finAssetDecisions: { ...(task.finAssetDecisions ?? {}), [k]: d } })}
-                  onConfirmAll={(patch) => setTaskData(task.id, { finAssetDecisions: { ...(task.finAssetDecisions ?? {}), ...patch } })} />
+                  onDecide={(k, d) => { const next = { ...(task.finAssetDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { finAssetDecisions: next }); }}
+                  onConfirmAll={(patch) => setTaskData(task.id, { finAssetDecisions: { ...(task.finAssetDecisions ?? {}), ...patch } })}
+                  onNonAssetsChecked={(v) => setTaskData(task.id, { finNonAssetsChecked: v })} />
               : task.finReview === 'changes'
               ? <ChangesReview task={task} isAr={isAr} t={t} readOnly={terminal}
                   onNoReReview={() => { const a = acts.find((x) => x.id === 'approve'); if (a) run(a); }}

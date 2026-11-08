@@ -713,7 +713,7 @@ async function openRequest(title) {
   });
   await test('Assets task: asset lines only, AUC + Group with, decisions shown in GL task', async () => {
     await openTaskId('TSK-4433-08');
-    expect(await count('[data-asset-line]') === 4, 'expected 4 asset lines');
+    expect(await count('[data-asset-line]') === 4, 'expected 4 asset-flagged BOQ items');
     expect(await count('[data-assets-context]') === 1, 'project context missing');
     const first = page.locator('[data-asset-line]').first();
     await first.locator('[data-cap="auc"]').click();
@@ -723,7 +723,18 @@ async function openRequest(title) {
     expect(await first.getAttribute('data-confirmed') === 'yes', 'confirm failed');
     const approve = page.getByRole('button', { name: 'Approve', exact: true });
     expect(await approve.isDisabled(), 'approve gated until all confirmed');
+    // Non-asset BOQ items are listed too, collapsed; one can be moved into the asset group.
+    expect(await count('[data-nonassets]') === 1, 'non-asset group missing');
+    expect(await count('[data-nonasset-line]') === 0, 'non-asset group should start collapsed');
+    await page.click('[data-nonassets-toggle]'); await wait(150);
+    expect(await count('[data-nonasset-line]') === 5, 'expected 5 non-asset BOQ items');
+    await page.click('[data-mark-asset="L9"]'); await wait(150);
+    expect(await count('[data-asset-line]') === 5 && await count('[data-promoted]') === 1, 'marked item should move to the asset group');
+    expect(await count('[data-nonasset-line]') === 4, 'marked item should leave the non-asset list');
     await page.click('[data-fin-all="assets"]'); await wait(150);
+    expect(await approve.isDisabled(), 'approve still gated until the non-asset items are checked');
+    await page.click('[data-none-assets]'); await wait(150);
+    expect(await page.getAttribute('[data-nonassets]', 'data-checked') === 'yes', 'non-asset check not recorded');
     expect(!(await approve.isDisabled()), 'approve should enable');
     const glRow = page.locator('ul li > button:visible', { hasText: 'REQ-4433' });
     const n = await glRow.count();

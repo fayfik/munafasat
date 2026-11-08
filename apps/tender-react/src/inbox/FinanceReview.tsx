@@ -4,7 +4,7 @@
 //  • ChangesReview — "Changes since your review" for a request GL already approved
 import { useMemo, useState } from 'react';
 import type { Task, FinLine, AssetDecision, FinChange } from './types';
-import { useInbox, assetLinesOf } from './store';
+import { useInbox, assetLinesOf, nonAssetLinesOf } from './store';
 import { CheckIcon, AlertTriangleIcon, CheckCircleIcon, PencilIcon } from '../components/Icons';
 import {
   PURCHASE_TYPES, COMPONENT_ROLES, MATERIAL_GROUPS, mgByCode, glFor, accountingIssues, assetFlagOf, type FinPurchaseType,
@@ -108,6 +108,7 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
                     <span className="font-semibold">{L(l ? { en: l.itemEn, ar: l.itemAr } : undefined)}</span>{' — '}
                     {d.flag === 'asset' ? (d.capitalisation === 'auc' ? t('Asset Under Construction', 'أصل تحت الإنشاء') : t('Direct asset', 'أصل مباشر')) : t('Not an asset', 'ليس أصلاً')}
                     {grp && <span className="text-neutral-500"> · {t('grouped with', 'مجمّع مع')} {L({ en: grp.itemEn, ar: grp.itemAr })}</span>}
+                    {d.promoted && <span className="text-[#21507A]"> · {t('moved to assets by the Assets team', 'نقله فريق الأصول إلى الأصول')}</span>}
                   </li>
                 );
               })}
@@ -219,32 +220,37 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
 }
 
 /* ═══════════════════════════════ Assets ═══════════════════════════════ */
-export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll }: {
+export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll, onNonAssetsChecked }: {
   task: Task; isAr: boolean; t: T; readOnly?: boolean;
-  onDecide: (key: string, d: AssetDecision) => void;
+  onDecide: (key: string, d: AssetDecision | null) => void;
   onConfirmAll: (patch: Record<string, AssetDecision>) => void;
+  onNonAssetsChecked: (v: boolean) => void;
 }) {
   const lines = assetLinesOf(task);
+  const nonAssets = nonAssetLinesOf(task);
+  const [showNon, setShowNon] = useState(false);
+  const checked = !!task.finNonAssetsChecked;
   const all = task.finLines ?? [];
   const dec = task.finAssetDecisions ?? {};
   const L = (o?: { en: string; ar: string }) => (o ? (isAr ? o.ar : o.en) : '—');
   // Suggested treatment: implementation / installation building up an asset → AUC.
   const suggest = (l: FinLine): AssetDecision => ({ flag: 'asset', capitalisation: l.componentRole === 'implementation' || l.componentRole === 'installation' ? 'auc' : 'direct', confirmed: false });
   const cur = (l: FinLine) => dec[l.key] ?? suggest(l);
-  const done = lines.filter((l) => dec[l.key]?.confirmed).length;
+  // Progress counts every BOQ item: confirmed asset items + the non-asset group once checked.
+  const done = lines.filter((l) => dec[l.key]?.confirmed).length + (checked ? nonAssets.length : 0);
   const roles = all.reduce<Record<string, number>>((m, l) => { const r = l.componentRole ?? 'none'; m[r] = (m[r] ?? 0) + 1; return m; }, {});
   const seg = (on: boolean, disabled?: boolean) => `px-3 py-1.5 text-[12px] font-semibold ${on ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`;
   return (
     <div className="space-y-5" data-assets-review>
-      <Progress testId="assets" t={t} readOnly={readOnly} done={done} total={lines.length}
+      <Progress testId="assets" t={t} readOnly={readOnly} done={done} total={all.length}
         title={t('Decide the asset treatment', 'تحديد معالجة الأصول')}
-        sub={t('These are the BOQ items of the request that were flagged as assets. For each one, confirm Asset / Non-asset, how it is capitalised, and which items form one asset.', 'هذه بنود جدول الكميات في الطلب المصنفة كأصول. لكل بند، أكّد أصل / غير أصل وطريقة الرسملة والبنود التي تشكل أصلاً واحداً.')}
+        sub={t('All BOQ items of the request. For items flagged as assets, confirm Asset / Non-asset, capitalisation and grouping. Then check the remaining items — mark any that should be an asset.', 'جميع بنود جدول الكميات في الطلب. للبنود المصنفة كأصول، أكّد أصل / غير أصل والرسملة والتجميع. ثم تحقق من البنود المتبقية — وحدد أي بند يجب أن يكون أصلاً.')}
         allLabel={t('Confirm all as suggested', 'تأكيد الكل كما هو مقترح')}
-        onAll={() => onConfirmAll(Object.fromEntries(lines.filter((l) => !dec[l.key]?.confirmed).map((l) => [l.key, { ...cur(l), confirmed: true }])))} />
+        onAll={lines.some((l) => !dec[l.key]?.confirmed) ? () => onConfirmAll(Object.fromEntries(lines.filter((l) => !dec[l.key]?.confirmed).map((l) => [l.key, { ...cur(l), confirmed: true }]))) : undefined} />
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-5 items-start">
         <div className="space-y-3">
-          <p className="text-[13px] font-semibold text-neutral-700" data-assets-heading>{t(`BOQ items flagged as assets — ${lines.length} of ${all.length}`, `بنود جدول الكميات المصنفة كأصول — ${lines.length} من ${all.length}`)}</p>
+          <p className="text-[13px] font-semibold text-neutral-700" data-assets-heading>{t(`Flagged as assets — ${lines.length} of ${all.length} BOQ items`, `مصنفة كأصول — ${lines.length} من ${all.length} بنود`)}</p>
           {lines.map((l) => {
             const d = cur(l);
             const confirmed = !!dec[l.key]?.confirmed;
@@ -264,7 +270,11 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll }
                       {l.componentRole && <span className="px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600">{t('Role', 'الدور')}: <b className="font-semibold">{L(COMPONENT_ROLES[l.componentRole])}</b></span>}
                     </div>
                   </div>
-                  {confirmed && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-success-50 text-success-700 border border-success-200"><CheckCircleIcon className="w-3 h-3" />{t('Confirmed', 'مؤكد')}</span>}
+                  <div className="flex flex-col items-end gap-1.5">
+                    {dec[l.key]?.promoted && <span data-promoted className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#EEF4FB] text-[#21507A] border border-[#C9DBEC]">{t('Marked as asset by you', 'حددته كأصل')}</span>}
+                    {confirmed && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-success-50 text-success-700 border border-success-200"><CheckCircleIcon className="w-3 h-3" />{t('Confirmed', 'مؤكد')}</span>}
+                    {dec[l.key]?.promoted && !readOnly && <button type="button" data-unpromote={l.key} onClick={() => onDecide(l.key, null)} className="text-[11.5px] font-medium text-neutral-500 hover:text-neutral-800 hover:underline">{t('Move back to non-assets', 'إعادة إلى غير الأصول')}</button>}
+                  </div>
                 </div>
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
@@ -299,11 +309,55 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll }
               </div>
             );
           })}
-          {!lines.length && <p className="text-[13px] text-neutral-500">{t('This request has no asset lines.', 'لا يحتوي هذا الطلب على بنود أصول.')}</p>}
+          {!lines.length && <p className="text-[13px] text-neutral-500">{t('No BOQ items are flagged as assets.', 'لا توجد بنود مصنفة كأصول.')}</p>}
+
+          {/* Not flagged as assets — must be checked; any item can be moved into the asset group */}
+          {nonAssets.length > 0 && (
+            <div data-nonassets data-checked={checked ? 'yes' : 'no'} className={`rounded-xl border bg-white overflow-hidden ${checked ? 'border-success-200' : 'border-neutral-200'}`}>
+              <button type="button" onClick={() => setShowNon((v) => !v)} aria-expanded={showNon} data-nonassets-toggle
+                className="w-full flex items-center gap-3 px-5 py-3.5 text-start hover:bg-neutral-50">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-semibold text-neutral-800">{t(`Not flagged as assets — ${nonAssets.length} BOQ items`, `غير مصنفة كأصول — ${nonAssets.length} بنود`)}</span>
+                  <span className="block text-[12px] text-neutral-500">{checked ? t('You confirmed none of these are assets.', 'أكدت أن أياً منها ليس أصلاً.') : t('Check that none of these should be an asset.', 'تحقق من أن أياً منها لا يجب أن يكون أصلاً.')}</span>
+                </span>
+                {checked
+                  ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-success-50 text-success-700 border border-success-200"><CheckCircleIcon className="w-3 h-3" />{t('Checked', 'تم التحقق')}</span>
+                  : <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-warning-50 text-warning-800 border border-warning-200">{t('To check', 'للتحقق')}</span>}
+                <span className="text-[11.5px] font-semibold text-neutral-500">{showNon ? t('Hide', 'إخفاء') : t('Show', 'عرض')}</span>
+              </button>
+              {showNon && (
+                <div className="border-t border-neutral-100">
+                  <ul className="divide-y divide-neutral-100">
+                    {nonAssets.map((l) => (
+                      <li key={l.key} data-nonasset-line={l.key} className="flex items-center gap-4 px-5 py-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-semibold text-neutral-900"><span className="text-neutral-400 font-medium me-1.5 tabular-nums">{l.no}.</span>{L({ en: l.itemEn, ar: l.itemAr })}</p>
+                          {(l.descEn || l.descAr) && <p className="text-[12px] text-neutral-600 truncate">{isAr ? l.descAr : l.descEn}</p>}
+                          <p className="mt-0.5 text-[11.5px] text-neutral-500">{L(PURCHASE_TYPES[l.finPurchaseType])} · {L(mgByCode(l.materialGroup))} · <span dir="ltr" className="tabular-nums">{sar(l.amount)}</span></p>
+                        </div>
+                        {!readOnly && (
+                          <button type="button" data-mark-asset={l.key} onClick={() => onDecide(l.key, { ...suggest(l), promoted: true })}
+                            className="h-8 px-3 rounded-lg border border-neutral-300 bg-white text-neutral-700 text-[12px] font-semibold hover:bg-neutral-50 flex-shrink-0">{t('Mark as asset', 'تحديد كأصل')}</button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {!readOnly && (
+                    <div className="px-5 py-3 border-t border-neutral-100 bg-neutral-50/60 flex items-center justify-end gap-2">
+                      {checked
+                        ? <button type="button" onClick={() => onNonAssetsChecked(false)} className="text-[12px] font-medium text-neutral-500 hover:text-neutral-800 hover:underline">{t('Undo', 'تراجع')}</button>
+                        : <button type="button" data-none-assets onClick={() => { onNonAssetsChecked(true); setShowNon(false); }}
+                            className="h-8 px-3.5 rounded-lg bg-brand-600 text-white text-[12.5px] font-semibold hover:bg-brand-700 inline-flex items-center gap-1.5"><CheckIcon className="w-3.5 h-3.5" />{t('None of these are assets', 'لا يوجد منها أصل')}</button>}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Project context */}
-        <aside className="rounded-xl border border-neutral-200 bg-white px-5 py-4 xl:sticky xl:top-[120px]" data-assets-context>
+        <aside className="rounded-xl border border-neutral-200 bg-white px-5 py-4 xl:sticky xl:top-[176px]" data-assets-context>
           <p className="text-[13px] font-semibold text-neutral-900">{t('Project context', 'سياق المشروع')}</p>
           <p className="mt-1.5 text-[12.5px] text-neutral-600 leading-relaxed">{isAr ? task.rfp?.scopeAr : task.rfp?.scopeEn}</p>
           <p className="mt-4 text-[11.5px] font-semibold text-neutral-500 uppercase tracking-wide">{t('Component roles (all BOQ items)', 'أدوار المكونات (كل البنود)')}</p>
@@ -313,10 +367,6 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll }
                 <span>{r === 'none' ? t('Not specified', 'غير محدد') : L(COMPONENT_ROLES[r as keyof typeof COMPONENT_ROLES])}</span><span className="tabular-nums text-neutral-500">{n}</span>
               </li>
             ))}
-          </ul>
-          <p className="mt-4 text-[11.5px] font-semibold text-neutral-500 uppercase tracking-wide">{t('Other BOQ items in this request', 'بنود جدول الكميات الأخرى في هذا الطلب')}</p>
-          <ul className="mt-1.5 space-y-1">
-            {all.filter((l) => !lines.includes(l)).map((l) => <li key={l.key} className="text-[12px] text-neutral-500 truncate">{l.no}. {L({ en: l.itemEn, ar: l.itemAr })} · {L(PURCHASE_TYPES[l.finPurchaseType])}</li>)}
           </ul>
         </aside>
       </div>

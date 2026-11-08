@@ -192,6 +192,8 @@ export interface Task {
   finLines?: FinLine[];
   /** Assets team decision per line key. */
   finAssetDecisions?: Record<string, AssetDecision>;
+  /** Assets team confirmed none of the remaining (non-asset) BOQ items should be assets. */
+  finNonAssetsChecked?: boolean;
   /** Changes made to a request Finance already reviewed. */
   finChanges?: FinChange[];
   techEvalReview?: boolean;
@@ -299,6 +301,8 @@ export interface AssetDecision {
   /** Key of another line this one is combined with into one asset. */
   groupWith?: string;
   confirmed: boolean;
+  /** Not flagged as an asset by the requester — the Assets team moved it into the asset group. */
+  promoted?: boolean;
 }
 export interface FinChange {
   id: string;

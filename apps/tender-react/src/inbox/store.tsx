@@ -58,8 +58,14 @@ export function qualReviewKeys(task: Task): string[] {
 
 /** Lines the Assets team reviews: everything flagged as an asset. */
 export function assetLinesOf(task: Task) {
-  return (task.finLines ?? []).filter((l) => (l.assetFlag ?? (l.finPurchaseType === 'asset' || l.finPurchaseType === 'service-asset' ? 'asset' : 'non-asset')) === 'asset');
+  return (task.finLines ?? []).filter((l) => flaggedAsset(l) || task.finAssetDecisions?.[l.key]?.promoted);
 }
+/** BOQ items not flagged as assets (and not moved into the asset group by the Assets team). */
+export function nonAssetLinesOf(task: Task) {
+  return (task.finLines ?? []).filter((l) => !flaggedAsset(l) && !task.finAssetDecisions?.[l.key]?.promoted);
+}
+const flaggedAsset = (l: NonNullable<Task['finLines']>[number]) =>
+  (l.assetFlag ?? (l.finPurchaseType === 'asset' || l.finPurchaseType === 'service-asset' ? 'asset' : 'non-asset')) === 'asset';
 
 export function completionStatus(task: Task): Completion {
   const missing: Bilingual[] = [];
@@ -93,6 +99,7 @@ export function completionStatus(task: Task): Completion {
     for (const l of task.finLines ?? []) { total++; if (task.techDecisions?.[`gl-${l.key}`]) done++; else missing.push({ en: `Accept or modify ${l.itemEn}`, ar: `اقبل أو عدّل ${l.itemAr}` }); }
   } else if (task.finReview === 'assets') {
     for (const l of assetLinesOf(task)) { total++; if (task.finAssetDecisions?.[l.key]?.confirmed) done++; else missing.push({ en: `Confirm ${l.itemEn}`, ar: `أكّد ${l.itemAr}` }); }
+    if (nonAssetLinesOf(task).length) { total++; if (task.finNonAssetsChecked) done++; else missing.push({ en: 'Check the BOQ items not flagged as assets', ar: 'تحقق من البنود غير المصنفة كأصول' }); }
   } else if (task.finReview === 'changes') {
     total = 1; done = 1;
   } else if (task.techEvalReview) {
