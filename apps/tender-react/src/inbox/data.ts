@@ -2,7 +2,7 @@
 // Deterministic mock: dates are offsets from load time so Overdue/Due-soon stay meaningful.
 // This is demonstration data only — nothing here is persisted or connected to SAP.
 
-import type { Bilingual, ChecklistItem, Person, Task, TaskActionDef, RfpDetail, TrailStep } from './types';
+import type { Bilingual, ChecklistItem, Person, Task, TaskActionDef, RfpDetail, TrailStep, FinLine, FinChange } from './types';
 
 const DAY = 86400000;
 const base = Date.now();
@@ -242,21 +242,15 @@ const SPECS: Spec[] = [
       ['EA requirements text added from template', 'تمت إضافة نص متطلبات البنية المؤسسية من القالب'],
     ]) } },
   { n: 7, type: 'review', title: TITLE.reviewFromDept(),
-    summary: sup('GL validation: material group and GL coding checked.', 'التحقق من دفتر الأستاذ: فحص مجموعة المواد وترميز الحسابات.'),
+    summary: sup('Check the accounting classification of each BOQ line — Material Group, GL main and sub-account — and accept or correct it.', 'تحقق من التصنيف المحاسبي لكل بند — مجموعة المواد والحساب الرئيسي والفرعي — واقبله أو صحّحه.'),
     stage: sup('Finance review — GL', 'مراجعة مالية — دفتر الأستاذ'), assignee: P.gl, sla: 1, priority: 'medium', received: 0,
-    actions: APPROVE_RETURN,
-    extra: { parallelGroup: 'pg-specialist', findingsLabel: sup('Review notes', 'ملاحظات المراجعة'), checklist: reviewChecklist([
-      ['Material group checked', 'تم فحص مجموعة المواد'],
-      ['GL coding checked', 'تم فحص ترميز الحسابات'],
-    ]) } },
+    actions: [{ ...APPROVE_RETURN[0], gated: true }, APPROVE_RETURN[1]],
+    extra: { parallelGroup: 'pg-specialist', finReview: 'gl', techDecisions: {} } },
   { n: 8, type: 'review', title: TITLE.reviewFromDept(),
-    summary: sup('Asset item created in ECC and asset-to-PR mapping prepared. Applies when a project item is of type Asset.', 'إنشاء بند الأصل في ECC وإعداد ربط الأصل بطلب الشراء. ينطبق عندما يكون بند المشروع من نوع أصل.'),
+    summary: sup('Decide how each asset line is capitalised — direct asset or Asset Under Construction — and which components form one asset.', 'حدد طريقة رسملة كل بند أصل — أصل مباشر أو أصل تحت الإنشاء — والمكونات التي تشكل أصلاً واحداً.'),
     stage: sup('Finance review — Assets', 'مراجعة مالية — الأصول'), assignee: P.assets, sla: 1, priority: 'medium', received: 0,
-    actions: APPROVE_RETURN,
-    extra: { parallelGroup: 'pg-specialist', findingsLabel: sup('Review notes', 'ملاحظات المراجعة'), checklist: reviewChecklist([
-      ['Asset item created in ECC', 'تم إنشاء بند الأصل في ECC'],
-      ['Asset-to-PR mapping prepared (asset reference)', 'تم إعداد ربط الأصل بطلب الشراء (مرجع الأصل)'],
-    ]) } },
+    actions: [{ ...APPROVE_RETURN[0], gated: true }, APPROVE_RETURN[1]],
+    extra: { parallelGroup: 'pg-specialist', finReview: 'assets', finAssetDecisions: {} } },
   { n: 9, type: 'data-collection', title: TITLE.qualFromDept(),
     summary: sup('Add the qualification criteria for this request: ranges and weights for each main and sub-criterion, and the qualification member.', 'أضف معايير التأهيل لهذا الطلب: النطاقات والأوزان لكل معيار رئيسي وفرعي، وعضو التأهيل.'),
     stage: sup('Qualification — Finance', 'التأهيل — المالية'), assignee: P.finQual, sla: 1, priority: 'medium', received: 0,
@@ -566,6 +560,30 @@ for (const tk of SEED_TASKS) {
   tk.rfp = REQ_RFP;
 }
 
+// ── Finance (GL / Assets) — BOQ lines with their accounting classification ──
+// AI-prepared at request creation; a few lines deliberately disagree so the GL
+// review shows what Finance looks for (Purchase Type vs Material Group, missing sub-account).
+const FIN_OVERLAY: Pick<FinLine, 'finPurchaseType' | 'materialGroup' | 'componentRole'>[] = [
+  { finPurchaseType: 'asset', materialGroup: 'MG-SW-LIC', componentRole: 'licence' },        // Licences — professional
+  { finPurchaseType: 'asset', materialGroup: 'MG-SW-LIC', componentRole: 'licence' },        // Licences — limited
+  { finPurchaseType: 'service-asset', materialGroup: 'MG-IT-IMP', componentRole: 'implementation' }, // Core implementation (capitalised)
+  { finPurchaseType: 'service', materialGroup: 'MG-IT-IMP', componentRole: 'implementation' }, // EWM implementation
+  { finPurchaseType: 'service', materialGroup: 'MG-IT-CONS' },                               // PM services
+  { finPurchaseType: 'asset', materialGroup: 'MG-IT-IMP', componentRole: 'implementation' },  // Data migration — PT disagrees
+  { finPurchaseType: 'service', materialGroup: 'MG-TRN' },                                   // Training
+  { finPurchaseType: 'service', materialGroup: 'MG-IT-INST', componentRole: 'installation' }, // Hypercare — no sub-account
+  { finPurchaseType: 'consumable', materialGroup: 'MG-IT-MNT' },                             // Support & maintenance — PT disagrees
+];
+export function finLinesFor(rfp: RfpDetail): FinLine[] {
+  return rfp.boq.map((l, i) => ({
+    key: `L${i + 1}`, itemEn: l.itemEn, itemAr: l.itemAr, descEn: l.descEn, descAr: l.descAr,
+    qty: l.qty, unit: l.unit, amount: (Number(l.qty) || 1) * l.unitPrice,
+    ...(FIN_OVERLAY[i] ?? { finPurchaseType: 'service', materialGroup: 'MG-IT-CONS' }),
+  }));
+}
+for (const tk of SEED_TASKS) if (tk.finReview && tk.rfp) tk.finLines = finLinesFor(tk.rfp);
+
+
 // ── Request detail page (My Requests) ────────────────────────────────────────
 
 /** The approval stages a request passes through, in order (same as the Inbox tasks). */
@@ -735,3 +753,42 @@ SEED_TASKS.unshift(
   const tk = SEED_TASKS.find((x) => x.id === id);
   if (tk) tk.dueAt = new Date(Date.now() + (h as number) * 3600000).toISOString();
 });
+
+// "Changes since your review" — GL already approved request #4429; the requester then changed it.
+{
+  const gl = SEED_TASKS.find((x) => x.finReview === 'gl');
+  if (gl) {
+    const no = '4429', titleEn = 'Data Center Network Refresh', titleAr = 'تحديث شبكة مركز البيانات';
+    const received = new Date(Date.now() - 50 * 60000);
+    const reviewedAt = new Date(Date.now() - 3 * 24 * 3600000);
+    const changes: FinChange[] = [
+      { id: 'c1', lineEn: 'Scope of work', lineAr: 'نطاق العمل', fieldEn: 'Wording', fieldAr: 'الصياغة', oldV: 'Replace core switches', newV: 'Replace core and distribution switches, including cabling', impact: 'info' },
+      { id: 'c2', lineEn: 'Cisco Catalyst 9300 switch', lineAr: 'محول Cisco Catalyst 9300', fieldEn: 'Quantity', fieldAr: 'الكمية', oldV: '24', newV: '32', impact: 'decide' },
+      { id: 'c3', lineEn: 'Network monitoring licences', lineAr: 'تراخيص مراقبة الشبكة', fieldEn: 'New item', fieldAr: 'بند جديد', oldV: '—', newV: '1 LS · SAR 180,000', impact: 'decide' },
+      { id: 'c4', lineEn: 'Structured cabling', lineAr: 'التمديدات المهيكلة', fieldEn: 'Material group', fieldAr: 'مجموعة المواد', oldV: 'Installation & Delivery · MG-IT-INST', newV: 'Network Equipment · MG-IT-NET', impact: 'rereview' },
+      { id: 'c5', lineEn: 'Structured cabling', lineAr: 'التمديدات المهيكلة', fieldEn: 'Asset flag', fieldAr: 'تصنيف الأصل', oldV: 'Non-asset', newV: 'Asset', impact: 'rereview' },
+      { id: 'c6', lineEn: 'Firewall support (3 years)', lineAr: 'دعم الجدار الناري (3 سنوات)', fieldEn: 'GL sub-account', fieldAr: 'الحساب الفرعي', oldV: '4260-01 Support & Maintenance Contracts', newV: '4250-03 Advisory Fees', impact: 'rereview' },
+    ];
+    const tk: Task = {
+      ...structuredClone(gl),
+      id: `TSK-${no}-07R`,
+      titleEn: `Review changes to request #${no} since your GL review`, titleAr: `مراجعة التغييرات على الطلب رقم ${no} منذ مراجعتك المالية`,
+      summaryEn: `${REQ.requester.name} changed request #${no} after you approved it. Check what changed and decide whether it needs another GL review.`,
+      summaryAr: `عدّل ${REQ.requester.nameAr ?? REQ.requester.name} الطلب رقم ${no} بعد اعتمادك له. تحقق مما تغيّر وقرر ما إذا كان يحتاج إلى مراجعة جديدة.`,
+      entity: { kind: 'RFP', ref: `REQ-${no}`, titleEn, titleAr },
+      project: { en: titleEn, ar: titleAr },
+      amount: 2_350_000,
+      finReview: 'changes', finChanges: changes, finLines: undefined, techDecisions: {},
+      receivedAt: received.toISOString(), dueAt: new Date(+received + 24 * 3600000).toISOString(),
+      priority: 'high',
+      actions: [{ id: 'approve', labelEn: 'No re-review needed', labelAr: 'لا يلزم إعادة المراجعة', variant: 'primary', decision: { en: 'No re-review needed', ar: 'لا يلزم إعادة المراجعة' } }],
+      activity: [
+        { id: 'a0', kind: 'decision', actor: gl.assignee, at: reviewedAt.toISOString(), decision: { en: 'Approved', ar: 'تم الاعتماد' }, system: { en: 'Finance review — GL', ar: 'مراجعة مالية — دفتر الأستاذ' } },
+        { id: 'a1', kind: 'system', actor: REQ.requester, at: new Date(+received - 30 * 60000).toISOString(), system: { en: `Request #${no} changed after Procurement comments (6 changes)`, ar: `تم تعديل الطلب رقم ${no} بعد ملاحظات المشتريات (6 تغييرات)` } },
+        { id: 'aN', kind: 'system', actor: gl.assignee, at: received.toISOString(), system: { en: `Assigned to ${gl.assignee.name} — Changes since your review`, ar: `أُسند إلى ${gl.assignee.nameAr} — تغييرات منذ مراجعتك` } },
+      ],
+    };
+    tk.rfp = requestRfpFor({ refId: `REQ-${no}`, titleEn, titleAr, deptEn: REQ.requester.dept ?? '', deptAr: REQ.requester.deptAr ?? '', amount: 2_350_000, type: 'tendering', costCenter: 'FC-IT-1000' });
+    SEED_TASKS.push(tk);
+  }
+}

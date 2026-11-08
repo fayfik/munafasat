@@ -367,7 +367,7 @@ async function openRequest(title) {
     expect(order === true, `budget widget not below review card (${order})`);
   });
   await test('Inbox: task names match the Tasks-list PDF (RFP → request)', async () => {
-    await page.getByRole('button', { name: /^All\s*16/ }).click(); await wait(300);
+    await page.getByRole('button', { name: /^All\s*17/ }).click(); await wait(300);
     const titles = await page.locator('ul li > button:visible p:first-child, ul li > button:visible h3').allInnerTexts().catch(() => []);
     const body = (await page.locator('ul li > button:visible').allInnerTexts()).join('\n').replace(/\s+/g, ' ');
     for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Review request & add qualification criteria for request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
@@ -375,7 +375,7 @@ async function openRequest(title) {
     expect(!/\bRFP\b/.test(body), 'the word RFP is still listed');
     const top3 = (await page.locator('ul li > button:visible', { hasText: 'REQ-' }).allInnerTexts()).slice(0, 3).join(' | ');
     expect(['#4478', '#4471', '#4433'].every((n) => top3.includes(`Review & approve request ${n}`)), `manager tasks not on top: ${top3.slice(0, 160)}`);
-    expect((body.match(/REQ-44\d\d/g) || []).length === 16, `expected 16 tasks, got ${(body.match(/REQ-44\d\d/g) || []).length}`);
+    expect((body.match(/REQ-44\d\d/g) || []).length === 17, `expected 17 tasks, got ${(body.match(/REQ-44\d\d/g) || []).length}`);
     void titles;
   });
 
@@ -624,6 +624,121 @@ async function openRequest(title) {
     const vals = await page.locator('main input').evaluateAll((els) => els.map((e) => e.value));
     expect(vals.includes('7+ years') || (await text('7+ years').count()) > 0, 'imported range not applied');
     expect(/Main Criteria Total[^\n]*100%/.test(body), 'main total should be 100% after import');
+  });
+
+  // ── Finance accounting (BOQ) ───────────────────────────────────────────────
+  const finRows = () => [['Dell PowerEdge R760 server', '2U rack server'], ['Microsoft 365 E5 annual subscription', 'User licences'], ['SAP S/4HANA implementation', 'Implementation services'], ['Installation and racking', 'On-site delivery']]
+    .map(([n, d], i) => ({ id: 'f' + i, projectItem: 'Hardware', itemName: n, itemDescription: d, unitOfMeasure: 'Each', quantity: 2, unitPrice: 1000, deliveryDate: '', hasBrandName: false, brandJustification: '' }));
+  await test('BOQ finance: hidden by default, AI-prefilled for imported rows, request-level cost center & commitment item', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: finRows() });
+    await page.locator('button', { hasText: 'Bill of Quantities' }).first().click(); await wait(700);
+    expect(/have been filled for 4 items/.test((await page.locator('[data-toast]').allInnerTexts()).join(' ')), 'bulk prefill toast missing');
+    await page.getByRole('radio', { name: 'Grid' }).click(); await wait(300);
+    expect(await count('[data-acct-view]') === 0, 'finance fields should be hidden by default');
+    expect(await count('[data-acct-toggle="row"]') === 4, 'each row needs a Show more');
+    await page.click('[data-acct-toggle="request"]'); await wait(200);
+    expect((await page.locator('[data-acct-cc]').innerText()).includes('CC-2401'), 'cost center missing');
+    expect((await page.locator('[data-acct-ci]').innerText()).startsWith('CI-'), 'commitment item missing');
+    expect(await count('[data-acct-summary]') === 1, 'summary bar missing');
+    await page.locator('[data-acct-toggle="row"]').first().click(); await wait(200);
+    const v = await page.locator('[data-acct-view]').first().innerText();
+    expect(/IT Hardware/.test(v) && /1230/.test(v) && /Asset/.test(v), `row preview values wrong: ${v}`);
+    expect(await count('[data-acct-view] input, [data-acct-view] select') === 0, 'row preview must be view-only');
+    await page.getByRole('radio', { name: 'Table' }).click(); await wait(300);
+    expect(await count('[data-fin="pt"]') === 0, 'table finance columns hidden by default');
+    await page.check('[data-acct-showall]'); await wait(300);
+    expect(await count('[data-fin="pt"]') === 4 && await count('[data-fin="mg"]') === 4, 'finance columns should appear');
+  });
+  await test('BOQ finance: typing an item shows "Determining…" then a toast; PT & MG editable, GL read-only', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: [] });
+    await page.locator('button', { hasText: 'Bill of Quantities' }).first().click(); await wait(600);
+    await page.getByRole('button', { name: /Add manually/ }).click(); await wait(300);
+    await page.getByRole('radio', { name: 'Grid' }).click(); await wait(300);
+    await page.getByPlaceholder('Item name…').fill('Cisco Catalyst 9300 switch');
+    await page.getByPlaceholder('Describe this item…').click(); await wait(200);
+    expect(await count('[data-acct-loading]') === 1, 'loader missing');
+    expect((await page.locator('[data-acct-loading]').innerText()).includes('Determining Purchase type, Material group'), 'loader text');
+    await wait(1100);
+    expect((await page.locator('[data-toast]').allInnerTexts()).some((x) => x.includes('Purchase type, Material group and GL account have been filled')), 'toast missing');
+    expect(await count('[data-acct-form] [data-gl-main]') === 0, 'form finance section should start collapsed');
+    await page.click('[data-acct-toggle="form"]'); await wait(200);
+    const gl = await page.locator('[data-gl-main]').innerText();
+    expect(gl.includes('1230'), `GL main not derived: ${gl}`);
+    expect(await page.locator('[data-gl-main]').getAttribute('aria-disabled') !== null, 'GL must be read-only');
+    expect(await page.locator('[data-acct-form]').getByRole('combobox').count() >= 2 || await page.locator('[data-acct-form] button[aria-haspopup], [data-acct-form] [role="combobox"]').count() >= 2 || (await page.locator('[data-acct-form]').innerText()).includes('Network Equipment'), 'PT / MG should be editable selects');
+  });
+  await test('Review & Confirm: finance route preview with order setting', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: finRows() });
+    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(900);
+    const card = page.locator('[data-finance-routing]');
+    expect(await card.getAttribute('data-finance-routing') === 'mixed', 'should be a mixed request');
+    expect(/goes to Assets, then GL/.test(await page.locator('[data-routing-sentence]').innerText()), 'assets-first sentence');
+    await page.click('[data-acct-toggle="routing"]'); await wait(150);
+    await page.click('[data-routing-order="parallel"]'); await wait(150);
+    expect(/in parallel/.test(await page.locator('[data-routing-sentence]').innerText()), 'parallel sentence');
+    await page.click('[data-routing-order="assets-first"]');
+  });
+
+  // ── Finance Inbox tasks ─────────────────────────────────────────────────────
+  const openTaskId = async (id) => {
+    await page.goto(BASE); await wait(600);
+    await nav('Inbox'); await wait(LOAD);
+    const rows = page.locator('ul li > button:visible', { hasText: 'REQ-' }); const n = await rows.count();
+    for (let i = 0; i < n; i++) { await rows.nth(i).click(); await wait(500); if ((await page.locator('[data-task-eyebrow]').innerText()).includes(id)) return; }
+    throw new Error('task not found ' + id);
+  };
+  await test('GL task: lines with mismatches first, filter, Modify one row, prefilled Return, Approve gated', async () => {
+    await openTaskId('TSK-4433-07');
+    expect(await count('[data-gl-review]') === 1, 'GL review missing');
+    const states = await page.locator('[data-gl-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-issue')));
+    expect(states.length === 9 && states.slice(0, 3).every((x) => x === 'yes') && states.slice(3).every((x) => x === 'no'), `mismatches first: ${states}`);
+    const approve = page.getByRole('button', { name: 'Approve', exact: true });
+    expect(await approve.isDisabled(), 'approve should be gated');
+    await page.click('[data-gl-filter="issues"]'); await wait(150);
+    expect(await count('[data-gl-row]') === 3, 'To check filter');
+    await page.click('[data-gl-filter="all"]'); await wait(150);
+    await page.getByRole('button', { name: 'Return', exact: true }).click(); await wait(300);
+    await page.getByRole('radio', { name: /Yes/ }).first().click().catch(() => {}); await wait(200);
+    const draft = await page.locator('[role="dialog"] textarea').inputValue().catch(() => '');
+    expect(draft.includes('Data migration') && draft.includes('Hypercare'), `return note not prefilled: ${draft.slice(0, 80)}`);
+    await page.keyboard.press('Escape'); await wait(200);
+    await page.click('[data-modify="gl-L6"]'); await wait(150);
+    expect(await count('[data-editing]') === 1, 'only that row opens');
+    await page.selectOption('[data-edit-pt]', 'service');
+    await page.click('[data-save="L6"]'); await wait(200);
+    expect(await page.getAttribute('[data-gl-row="L6"]', 'data-state') === 'modified', 'row should be modified');
+    expect(await page.getAttribute('[data-gl-row="L6"]', 'data-issue') === 'no', 'fix should clear the mismatch');
+    await page.click('[data-fin-all="gl"]'); await wait(200);
+    expect(!(await approve.isDisabled()), 'approve should enable once all lines reviewed');
+  });
+  await test('Assets task: asset lines only, AUC + Group with, decisions shown in GL task', async () => {
+    await openTaskId('TSK-4433-08');
+    expect(await count('[data-asset-line]') === 4, 'expected 4 asset lines');
+    expect(await count('[data-assets-context]') === 1, 'project context missing');
+    const first = page.locator('[data-asset-line]').first();
+    await first.locator('[data-cap="auc"]').click();
+    const key = await first.getAttribute('data-asset-line');
+    await first.locator(`[data-group="${key}"]`).selectOption({ index: 1 });
+    await first.locator(`[data-confirm="${key}"]`).click(); await wait(150);
+    expect(await first.getAttribute('data-confirmed') === 'yes', 'confirm failed');
+    const approve = page.getByRole('button', { name: 'Approve', exact: true });
+    expect(await approve.isDisabled(), 'approve gated until all confirmed');
+    await page.click('[data-fin-all="assets"]'); await wait(150);
+    expect(!(await approve.isDisabled()), 'approve should enable');
+    const glRow = page.locator('ul li > button:visible', { hasText: 'REQ-4433' });
+    const n = await glRow.count();
+    for (let i = 0; i < n; i++) { await glRow.nth(i).click(); await wait(400); if ((await page.locator('[data-task-eyebrow]').innerText()).includes('TSK-4433-07')) break; }
+    const banner = await page.locator('[data-assets-decided]').innerText();
+    expect(banner.includes('Assets decided') && banner.includes('Asset Under Construction') && banner.includes('grouped with'), `banner: ${banner.slice(0, 120)}`);
+  });
+  await test('Changes since your review: impact groups, Re-open my review turns into a GL review', async () => {
+    await openTaskId('TSK-4429-07R');
+    expect(await count('[data-changes-review]') === 1, 'changes panel missing');
+    for (const [k, v] of [['rereview', 3], ['decide', 2], ['info', 1]])
+      expect((await page.locator(`[data-impact-count="${k}"]`).innerText()).startsWith(String(v)), `impact ${k}`);
+    expect(await count('[data-no-rereview]') === 1 && await count('[data-reopen]') === 1, 'two buttons expected');
+    await page.click('[data-reopen]'); await wait(300);
+    expect(await count('[data-gl-review]') === 1, 'should switch to the GL review');
   });
 
   await browser.close();

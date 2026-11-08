@@ -56,6 +56,11 @@ export function qualReviewKeys(task: Task): string[] {
   return (task.rfp?.qualCriteria ?? []).flatMap((m, i) => [`qm-${i}`, ...m.subs.map((_, j) => `qs-${i}-${j}`)]);
 }
 
+/** Lines the Assets team reviews: everything flagged as an asset. */
+export function assetLinesOf(task: Task) {
+  return (task.finLines ?? []).filter((l) => (l.assetFlag ?? (l.finPurchaseType === 'asset' || l.finPurchaseType === 'service-asset' ? 'asset' : 'non-asset')) === 'asset');
+}
+
 export function completionStatus(task: Task): Completion {
   const missing: Bilingual[] = [];
   let done = 0, total = 0;
@@ -84,6 +89,12 @@ export function completionStatus(task: Task): Completion {
     for (const k of qualReviewKeys(task)) { total++; if (task.techDecisions?.[k]) done++; else missing.push({ en: `Accept or modify ${k}`, ar: `اقبل أو عدّل ${k}` }); }
     total++; if (crit.length && crit.reduce((s, m) => s + m.pct, 0) === 100) done++; else missing.push({ en: 'Main criteria must total 100%', ar: 'يجب أن يبلغ مجموع المعايير الرئيسية 100%' });
     total++; if (crit.every((m) => m.subs.reduce((s, c) => s + c.pct, 0) === 100)) done++; else missing.push({ en: 'Each sub-criteria group must total 100%', ar: 'يجب أن تبلغ كل مجموعة معايير فرعية 100%' });
+  } else if (task.finReview === 'gl') {
+    for (const l of task.finLines ?? []) { total++; if (task.techDecisions?.[`gl-${l.key}`]) done++; else missing.push({ en: `Accept or modify ${l.itemEn}`, ar: `اقبل أو عدّل ${l.itemAr}` }); }
+  } else if (task.finReview === 'assets') {
+    for (const l of assetLinesOf(task)) { total++; if (task.finAssetDecisions?.[l.key]?.confirmed) done++; else missing.push({ en: `Confirm ${l.itemEn}`, ar: `أكّد ${l.itemAr}` }); }
+  } else if (task.finReview === 'changes') {
+    total = 1; done = 1;
   } else if (task.techEvalReview) {
     for (const k of techReviewKeys(task)) { total++; if (task.techDecisions?.[k]) done++; else missing.push({ en: `Accept or modify ${k}`, ar: `اقبل أو عدّل ${k}` }); }
     const w = (task.rfp?.evaluation ?? []).reduce((x, c) => x + c.weight, 0);

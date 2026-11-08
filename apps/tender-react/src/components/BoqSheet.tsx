@@ -8,6 +8,8 @@ import type { BOQRow, BOQCategory } from '../types/tender';
 import { BOQ_CATEGORIES, BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
 import { QUALIFICATIONS, NATIONALITIES, nationalityLabel, effectiveQty, fieldApplies, type BoqField } from '../lib/boqManpower';
 import BoqAttachments from './BoqAttachments';
+import { AcctStatusLine, AcctCheckChip } from './BoqAccounting';
+import { PURCHASE_TYPES, MATERIAL_GROUPS, COMPONENT_ROLES, glFor, assetFlagOf, type FinPurchaseType, type ComponentRole } from '../lib/accounting';
 
 /**
  * The BOQ as one spreadsheet-style table. Every cell is edited in place; Enter
@@ -120,9 +122,15 @@ interface Props {
   onMove: (row: BOQRow, origin: DOMRect | null) => void;
   onUpdate: (id: string, patch: Partial<BOQRow>) => void;
   onRemove: (id: string) => void;
+  /** Finance columns (hidden by default — shown from "Finance details › Show on every line"). */
+  showFinance?: boolean;
+  isIt?: boolean;
+  acctPending?: Set<string>;
+  /** Called when Item name / Description is left, to prepare Purchase Type & Material Group. */
+  onAcctBlur?: (id: string) => void;
 }
 
-export default function BoqSheet({ rows, setRows, projectItemOptions, checkingIds, onCheck, onMove, onUpdate, onRemove }: Props) {
+export default function BoqSheet({ rows, setRows, projectItemOptions, checkingIds, onCheck, onMove, onUpdate, onRemove, showFinance = false, isIt = false, acctPending, onAcctBlur }: Props) {
   const t = useT();
   const { isAr } = useLanguage();
   const tableRef = useRef<HTMLTableElement>(null);
@@ -135,8 +143,19 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
   const presentCats = new Set<BOQCategory>(rows.length ? rows.map(rowCatOf) : ['service', 'equipment', 'material']);
   const COLS = ALL_COLS.filter((c) => !c.cats || c.cats.some((x) => presentCats.has(x)));
   const TOTAL_AFTER = COLS.findIndex((c) => c.key === 'unitPrice');
-  const TABLE_W = 40 + COLS.reduce((a, c) => a + c.w, 0) + 124 + DOCS_W + 150 + 40;
-  const colCount = COLS.length + 5; // #, total, docs, etimad, actions
+  // Finance columns: Purchase type & Material group editable (AI-prefilled), GL / asset read-only.
+  const FIN_COLS: { key: string; en: string; ar: string; w: number }[] = showFinance ? [
+    { key: 'pt', en: 'Purchase type', ar: 'نوع الشراء', w: 140 },
+    { key: 'mg', en: 'Material group', ar: 'مجموعة المواد', w: 200 },
+    { key: 'gl', en: 'GL account (main / sub)', ar: 'حساب الأستاذ (رئيسي / فرعي)', w: 220 },
+    { key: 'asset', en: 'Asset?', ar: 'أصل؟', w: 92 },
+    ...(isIt ? [{ key: 'role', en: 'Component role', ar: 'دور المكوّن', w: 140 }] : []),
+    { key: 'check', en: 'Accounting check', ar: 'فحص المحاسبة', w: 130 },
+  ] : [];
+  const FIN_W = FIN_COLS.reduce((a, c) => a + c.w, 0);
+  const TABLE_W = 40 + COLS.reduce((a, c) => a + c.w, 0) + 124 + FIN_W + DOCS_W + 150 + 40;
+  const colCount = COLS.length + FIN_COLS.length + 5; // #, total, docs, etimad, actions
+  const pendingRow = rows.find((r) => acctPending?.has(r.id));
 
   // Open the Etimad details automatically when a check comes back "available".
   const seen = useRef<Map<string, string>>(new Map());
@@ -243,11 +262,14 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
         })}
       </div>
 
+      <div className="mb-2"><AcctStatusLine show={!!pendingRow} name={pendingRow?.itemName} /></div>
+
       <div className="rounded-xl border border-neutral-300 overflow-x-auto bg-white shadow-sm">
         <table ref={tableRef} onKeyDown={onKeyDown} onPaste={onPaste} className="border-separate border-spacing-0 text-start table-fixed" style={{ width: TABLE_W }}>
           <colgroup>
             <col style={{ width: 40 }} />
             {COLS.map((c, i) => [<col key={c.key} style={{ width: c.w }} />, i === TOTAL_AFTER ? <col key="total" style={{ width: 124 }} /> : null])}
+            {FIN_COLS.map((c) => <col key={c.key} style={{ width: c.w }} />)}
             <col style={{ width: DOCS_W }} />
             <col style={{ width: 150 }} />
             <col style={{ width: 40 }} />
@@ -261,6 +283,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                 </Th>,
                 i === TOTAL_AFTER ? <Th key="total" className="text-end">{t('Total (SAR)', 'الإجمالي (ر.س)')}</Th> : null,
               ])}
+              {FIN_COLS.map((c) => <Th key={c.key} className="!bg-ai-50/60">{t(c.en, c.ar)}</Th>)}
               <Th>{t('Docs', 'مستندات')}</Th>
               <Th>{t('Etimad E-Market', 'سوق اعتماد')}</Th>
               <Th><span className="sr-only">{t('Actions', 'إجراءات')}</span></Th>
@@ -284,6 +307,7 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                   {/* # */}
                   <td className="sticky start-0 z-20 bg-neutral-50 border-b border-e border-neutral-200 text-center text-[11px] tabular-nums text-neutral-500" title={missing ? t('Item name and budgeted item are required.', 'اسم البند والبند المعتمد مطلوبان.') : undefined}>
                     <span className="inline-flex items-center gap-1">
+                      {acctPending?.has(row.id) && <span data-acct-spin className="w-3 h-3 rounded-full border-2 border-ai-200 border-t-ai-600 animate-spin" />}
                       {(missing || brandMissing) && row.itemName + row.projectItem !== '' && <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />}
                       {r + 1}
                     </span>
@@ -383,7 +407,8 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                         default:
                           content = (
                             <input {...cellProps} type="text" className={`${inp} ${col.key === 'itemName' ? 'font-medium' : ''}`} value={(row[col.key] as string) ?? ''} title={(row[col.key] as string) || undefined}
-                              placeholder={col.key === 'itemName' ? t('Item name', 'اسم البند') : ''} onChange={(e) => onUpdate(row.id, { [col.key]: e.target.value })} />
+                              placeholder={col.key === 'itemName' ? t('Item name', 'اسم البند') : ''} onChange={(e) => onUpdate(row.id, { [col.key]: e.target.value })}
+                              onBlur={col.key === 'itemName' || col.key === 'itemDescription' ? () => onAcctBlur?.(row.id) : undefined} />
                           );
                       }
                     }
@@ -395,6 +420,35 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
                         </td>
                       ) : null,
                     ];
+                  })}
+                  {/* Finance */}
+                  {FIN_COLS.map((fc) => {
+                    const busy = !!acctPending?.has(row.id);
+                    const L = (o?: { en: string; ar: string }) => (o ? (isAr ? o.ar : o.en) : '');
+                    const { glMain, glSub } = glFor(row.materialGroup);
+                    const flag = assetFlagOf(row);
+                    const aria = { 'aria-label': `${t(fc.en, fc.ar)}, ${t('row', 'صف')} ${r + 1}` };
+                    let node: ReactNode;
+                    if (busy) node = <span className="block px-2 text-[11px] text-ai-600">{t('Determining…', 'جارٍ التحديد…')}</span>;
+                    else if (fc.key === 'pt') node = (
+                      <select {...aria} data-fin="pt" className={`${inp} bg-transparent`} value={row.finPurchaseType ?? ''} onChange={(e) => onUpdate(row.id, { finPurchaseType: (e.target.value || undefined) as FinPurchaseType | undefined, acctSource: 'user' })}>
+                        <option value="">—</option>
+                        {(Object.keys(PURCHASE_TYPES) as FinPurchaseType[]).map((k) => <option key={k} value={k}>{L(PURCHASE_TYPES[k])}</option>)}
+                      </select>);
+                    else if (fc.key === 'mg') node = (
+                      <select {...aria} data-fin="mg" className={`${inp} bg-transparent`} value={row.materialGroup ?? ''} onChange={(e) => onUpdate(row.id, { materialGroup: e.target.value || undefined, acctSource: 'user' })}>
+                        <option value="">—</option>
+                        {MATERIAL_GROUPS.map((m) => <option key={m.code} value={m.code}>{`${L(m)} · ${m.code}`}</option>)}
+                      </select>);
+                    else if (fc.key === 'gl') node = <span className="block px-2 text-[12px] text-neutral-500 truncate tabular-nums" title={t('Follows the Material Group', 'يتبع مجموعة المواد')}>{glMain ? `${glMain.code} / ${glSub?.code ?? '—'}` : '—'}</span>;
+                    else if (fc.key === 'asset') node = <span className="block px-2 text-[12px] text-neutral-600">{flag ? (flag === 'asset' ? t('Asset', 'أصل') : t('Non-asset', 'غير أصل')) : '—'}</span>;
+                    else if (fc.key === 'role') node = (
+                      <select {...aria} className={`${inp} bg-transparent`} value={row.componentRole ?? ''} onChange={(e) => onUpdate(row.id, { componentRole: (e.target.value || undefined) as ComponentRole | undefined })}>
+                        <option value="">—</option>
+                        {(Object.keys(COMPONENT_ROLES) as ComponentRole[]).map((k) => <option key={k} value={k}>{L(COMPONENT_ROLES[k])}</option>)}
+                      </select>);
+                    else node = <span className="block px-2"><AcctCheckChip row={row} /></span>;
+                    return <td key={fc.key} className={`border-b border-e border-neutral-200 bg-ai-50/20 ${fc.key === 'gl' || fc.key === 'asset' ? 'bg-neutral-50' : ''}`}>{node}</td>;
                   })}
                   {/* Attachments */}
                   <td className="border-b border-e border-neutral-200 px-1.5 text-center">

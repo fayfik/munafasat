@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import MyRequests from './pages/MyRequests';
 import RequestDetail from './pages/RequestDetail';
 import { PageLoad } from './components/Loader';
+import { ToastHost } from './components/Toast';
 import TenderForm from './pages/TenderForm';
 import type { SourceType, TenderFormData } from './types/tender';
 
@@ -113,6 +114,7 @@ function AppRoot() {
         </TenderProvider>
       )}
     </AppShell>
+    <ToastHost />
     </InboxProvider>
   );
 }

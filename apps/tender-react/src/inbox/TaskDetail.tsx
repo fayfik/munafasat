@@ -16,6 +16,8 @@ import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPr
 import { BudgetChecker, useBudgetCheck } from './BudgetCheck';
 import TechEvalReview from './TechEvalReview';
 import QualReview from './QualReview';
+import { GlReview, AssetsReview, ChangesReview, glReturnDraft } from './FinanceReview';
+import { finLinesFor } from './data';
 import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
 import { useRequests } from '../context/RequestStore';
@@ -247,7 +249,24 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           {showInfo && <ContextNote task={task} isAr={isAr} t={t} onClose={() => setShowInfo(false)} />}
           {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
-            mainWidget={task.techEvalReview && task.rfp
+            mainWidget={task.finReview === 'gl'
+              ? <GlReview task={task} isAr={isAr} t={t} readOnly={terminal}
+                  onDecide={(k, d) => { const next = { ...(task.techDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { techDecisions: next }); }}
+                  onUpdateLine={(k, patch) => setTaskData(task.id, { finLines: (task.finLines ?? []).map((l) => (l.key === k ? { ...l, ...patch } : l)), techDecisions: { ...(task.techDecisions ?? {}), [`gl-${k}`]: 'modified' } })}
+                  onAcceptAll={(keys) => setTaskData(task.id, { techDecisions: { ...(task.techDecisions ?? {}), ...Object.fromEntries(keys.map((k) => [k, 'accepted' as const])) } })} />
+              : task.finReview === 'assets'
+              ? <AssetsReview task={task} isAr={isAr} t={t} readOnly={terminal}
+                  onDecide={(k, d) => setTaskData(task.id, { finAssetDecisions: { ...(task.finAssetDecisions ?? {}), [k]: d } })}
+                  onConfirmAll={(patch) => setTaskData(task.id, { finAssetDecisions: { ...(task.finAssetDecisions ?? {}), ...patch } })} />
+              : task.finReview === 'changes'
+              ? <ChangesReview task={task} isAr={isAr} t={t} readOnly={terminal}
+                  onNoReReview={() => { const a = acts.find((x) => x.id === 'approve'); if (a) run(a); }}
+                  onReopen={() => setTaskData(task.id, {
+                    finReview: 'gl', finLines: task.rfp ? finLinesFor(task.rfp) : [], techDecisions: {},
+                    actions: [{ id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary', gated: true }, { id: 'return', labelEn: 'Return', labelAr: 'إعادة', variant: 'secondary', needsNote: true }],
+                    activity: [...task.activity, { id: `reopen-${Date.now()}`, kind: 'decision', actor: task.assignee, at: new Date().toISOString(), decision: { en: 'Re-opened GL review', ar: 'أعيد فتح مراجعة دفتر الأستاذ' } }],
+                  })} />
+              : task.techEvalReview && task.rfp
               ? <TechEvalReview task={task} isAr={isAr} t={t} readOnly={terminal}
                   onDecide={(k, d) => { const next = { ...(task.techDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { techDecisions: next }); }}
                   onUpdate={(rfp, k) => setTaskData(task.id, { rfp, techDecisions: { ...(task.techDecisions ?? {}), [k]: 'modified' } })}
@@ -993,7 +1012,7 @@ function nextStepsFor(task: Task, id: TaskAction): NextStep[] {
 
 function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: Task; action: ActionDef; isAr: boolean; t: T; onCancel: () => void; onConfirm: (note: string) => void }) {
   const [choice, setChoice] = useState<'yes' | 'no' | null>(null);
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(() => (action.id === 'return' && task.finReview === 'gl' ? glReturnDraft(task, isAr) : ''));
   const steps = nextStepsFor(task, action.id);
   const verbEn = action.label[0].toLowerCase(), verbAr = action.label[1];
   const yesDesc: Record<string, [string, string]> = {

@@ -36,6 +36,22 @@ export interface BOQRow {
   /** Mandatory-list reference (listed company / product) — captured for Material & Equipment items. */
   mandatoryList?: string;
 
+  /* ── Finance accounting (hidden from the requester by default; AI-suggested) ── */
+  /** Consumable · Asset · Service · Service + Asset. */
+  finPurchaseType?: 'consumable' | 'asset' | 'service' | 'service-asset';
+  /** Material Group code (see lib/accounting MATERIAL_GROUPS). GL main/sub follow it. */
+  materialGroup?: string;
+  /** Sub-account assigned by GL when the Material Group has none. */
+  glSubOverride?: string;
+  /** Asset / Non-asset — derived from Purchase Type unless Finance (Assets) changes it. */
+  assetFlag?: 'asset' | 'non-asset';
+  /** IT requests only — what the line is for (helps Assets decide capitalisation). */
+  componentRole?: 'hardware' | 'licence' | 'implementation' | 'installation';
+  /** Whether Purchase Type / Material Group were AI-suggested or set by the user. */
+  acctSource?: 'ai' | 'user';
+  /** Name + description the suggestion was based on (re-suggest only when they change). */
+  acctBasis?: string;
+
   /* ── Man Power category fields ────────────────────────────────────────────── */
   jobTitle?: string;
   staffCount?: number | '';

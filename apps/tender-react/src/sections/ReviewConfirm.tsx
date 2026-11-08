@@ -14,6 +14,7 @@ import { effectiveQty } from '../lib/boqManpower';
 import RegulatoryRecordsCard from '../components/RegulatoryRecordsCard';
 import { LOCKED_TECH_DOCS } from './TechnicalEvaluation';
 import { downloadRfpPdf } from '../lib/rfpPdf';
+import { FinanceRoutingCard } from '../components/BoqAccounting';
 
 function formatSAR(n: number) {
   return new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -176,6 +177,9 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
           <AiNote error={summaryAi.error} usedSample={summaryAi.usedSample} />
         </SectionCard>
       )}
+
+      {/* ── Finance review route (based on the BOQ asset flags) ── */}
+      {!isEsouq && <FinanceRoutingCard rows={formData.boqItems} />}
 
       {/* ── Project details ──────────────────────────────────────── */}
       <ReviewSection title={isEsouq ? 'Purchase details' : 'Project Setup'} titleAr={isEsouq ? 'تفاصيل الشراء' : 'إعداد المشروع'} sectionIdx={1} status={sectionStatuses[1]}>

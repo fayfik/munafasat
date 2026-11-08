@@ -186,6 +186,14 @@ export interface Task {
   /** Qualification task: prefilled criteria, accept or modify each row. */
   qualReview?: boolean;
   /** Technical member task: accept or modify each technical evaluation item. */
+  /** Finance review widgets: GL line review, Assets line review, or "changes since your review". */
+  finReview?: 'gl' | 'assets' | 'changes';
+  /** BOQ lines with their accounting data, as Finance sees them. */
+  finLines?: FinLine[];
+  /** Assets team decision per line key. */
+  finAssetDecisions?: Record<string, AssetDecision>;
+  /** Changes made to a request Finance already reviewed. */
+  finChanges?: FinChange[];
   techEvalReview?: boolean;
   techDecisions?: Record<string, 'accepted' | 'modified'>;
   budgetCheck?: { fundCenter: string; commitmentItem: string; fiscalYear: number; total: number; consumed: number };
@@ -270,3 +278,30 @@ export type InboxView =
   | 'completed'
   | 'overdue'
   | 'all';
+
+/** A BOQ line with its accounting classification (Finance view). */
+export interface FinLine {
+  key: string;
+  itemEn: string; itemAr: string;
+  descEn?: string; descAr?: string;
+  qty: string; unit: string; amount: number;
+  finPurchaseType: 'consumable' | 'asset' | 'service' | 'service-asset';
+  materialGroup: string;
+  glSubOverride?: string;
+  componentRole?: 'hardware' | 'licence' | 'implementation' | 'installation';
+  assetFlag?: 'asset' | 'non-asset';
+}
+export interface AssetDecision {
+  flag: 'asset' | 'non-asset';
+  capitalisation: 'direct' | 'auc';
+  /** Key of another line this one is combined with into one asset. */
+  groupWith?: string;
+  confirmed: boolean;
+}
+export interface FinChange {
+  id: string;
+  lineEn: string; lineAr: string;
+  fieldEn: string; fieldAr: string;
+  oldV: string; newV: string;
+  impact: 'info' | 'decide' | 'rereview';
+}
