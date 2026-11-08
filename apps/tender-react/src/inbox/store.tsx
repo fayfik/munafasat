@@ -4,6 +4,7 @@
 // these with the Task Command / Workflow / Audit services.
 
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
+import { eaSections } from './eaSections';
 import { SEED_TASKS, ME, buildCommentResponseTask } from './data';
 import type { RfpDetail, Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry } from './types';
 
@@ -95,6 +96,8 @@ export function completionStatus(task: Task): Completion {
     for (const k of qualReviewKeys(task)) { total++; if (task.techDecisions?.[k]) done++; else missing.push({ en: `Accept or modify ${k}`, ar: `اقبل أو عدّل ${k}` }); }
     total++; if (crit.length && crit.reduce((s, m) => s + m.pct, 0) === 100) done++; else missing.push({ en: 'Main criteria must total 100%', ar: 'يجب أن يبلغ مجموع المعايير الرئيسية 100%' });
     total++; if (crit.every((m) => m.subs.reduce((s, c) => s + c.pct, 0) === 100)) done++; else missing.push({ en: 'Each sub-criteria group must total 100%', ar: 'يجب أن تبلغ كل مجموعة معايير فرعية 100%' });
+  } else if (task.eaReview) {
+    for (const sec of eaSections(task)) { total++; if (task.eaDecisions?.[sec.id]) done++; else missing.push({ en: `Accept or comment on ${sec.en}`, ar: `اقبل أو علّق على ${sec.ar}` }); }
   } else if (task.finReview === 'gl') {
     for (const l of task.finLines ?? []) { total++; if (task.techDecisions?.[`gl-${l.key}`]) done++; else missing.push({ en: `Accept or modify ${l.itemEn}`, ar: `اقبل أو عدّل ${l.itemAr}` }); }
   } else if (task.finReview === 'assets') {

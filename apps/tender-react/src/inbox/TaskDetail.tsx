@@ -18,6 +18,8 @@ import TechEvalReview from './TechEvalReview';
 import QualReview from './QualReview';
 import { GlReview, AssetsReview, ChangesReview, glReturnDraft } from './FinanceReview';
 import { finLinesFor } from './data';
+import EaReview from './EaReview';
+import { EA_RETURN_REASONS, eaReturnDraft } from './eaSections';
 import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
 import { useRequests } from '../context/RequestStore';
@@ -249,7 +251,11 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           {showInfo && <ContextNote task={task} isAr={isAr} t={t} onClose={() => setShowInfo(false)} />}
           {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
-            mainWidget={task.finReview === 'gl'
+            mainWidget={task.eaReview && task.rfp
+              ? <EaReview task={task} isAr={isAr} t={t} readOnly={terminal}
+                  onDecide={(k, d) => { const next = { ...(task.eaDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { eaDecisions: next }); }}
+                  onAcceptAll={(ids) => setTaskData(task.id, { eaDecisions: { ...(task.eaDecisions ?? {}), ...Object.fromEntries(ids.map((k) => [k, { state: 'accepted' as const }])) } })} />
+              : task.finReview === 'gl'
               ? <GlReview task={task} isAr={isAr} t={t} readOnly={terminal}
                   onDecide={(k, d) => { const next = { ...(task.techDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { techDecisions: next }); }}
                   onUpdateLine={(k, patch) => setTaskData(task.id, { finLines: (task.finLines ?? []).map((l) => (l.key === k ? { ...l, ...patch } : l)), techDecisions: { ...(task.techDecisions ?? {}), [`gl-${k}`]: 'modified' } })}
@@ -1013,7 +1019,10 @@ function nextStepsFor(task: Task, id: TaskAction): NextStep[] {
 
 function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: Task; action: ActionDef; isAr: boolean; t: T; onCancel: () => void; onConfirm: (note: string) => void }) {
   const [choice, setChoice] = useState<'yes' | 'no' | null>(null);
-  const [note, setNote] = useState(() => (action.id === 'return' && task.finReview === 'gl' ? glReturnDraft(task, isAr) : ''));
+  const [note, setNote] = useState(() => (action.id === 'return' && task.finReview === 'gl' ? glReturnDraft(task, isAr) : action.id === 'return' && task.eaReview ? eaReturnDraft(task, isAr) : ''));
+  // EA returns carry one or more standard reasons (EA meeting).
+  const eaReasons = action.id === 'return' && !!task.eaReview;
+  const [reasons, setReasons] = useState<string[]>([]);
   const steps = nextStepsFor(task, action.id);
   const verbEn = action.label[0].toLowerCase(), verbAr = action.label[1];
   const yesDesc: Record<string, [string, string]> = {
@@ -1023,7 +1032,8 @@ function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: T
   };
   const yd = yesDesc[action.id] ?? [`Confirm “${action.label[0]}” for this task.`, `تأكيد "${action.label[1]}" لهذه المهمة.`];
   const needNote = choice === 'yes' && !!action.needsNote;
-  const ready = choice === 'no' || (choice === 'yes' && (!action.needsNote || note.trim().length > 0));
+  const ready = choice === 'no' || (choice === 'yes' && (!action.needsNote || note.trim().length > 0) && (!eaReasons || reasons.length > 0));
+  const finalNote = () => (eaReasons ? `${t('Reasons', 'الأسباب')}: ${reasons.map((r) => { const x = EA_RETURN_REASONS.find((y) => y.id === r)!; return isAr ? x.ar : x.en; }).join('; ')}\n${note.trim()}`.trim() : note.trim());
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [onCancel]);
   const Opt = ({ v, title, desc }: { v: 'yes' | 'no'; title: string; desc: string }) => (
     <button type="button" role="radio" aria-checked={choice === v} onClick={() => setChoice(v)}
@@ -1061,6 +1071,18 @@ function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: T
               <Opt v="yes" title={t('Yes', 'نعم')} desc={isAr ? yd[1] : yd[0]} />
               <Opt v="no" title={t('No', 'لا')} desc={t(`Go back to the task without ${verbEn === 'approve' ? 'approving' : verbEn === 'reject' ? 'rejecting' : verbEn === 'return' ? 'returning' : 'changing anything'}.`, 'العودة إلى المهمة دون أي تغيير.')} />
             </div>
+            {eaReasons && choice === 'yes' && (
+              <div className="mt-4" data-ea-reasons>
+                <p className="text-[12.5px] font-semibold text-[#1B2350] mb-1.5">{t('Reason for returning', 'سبب الإعادة')}<span className="text-error-600"> *</span></p>
+                <div className="flex flex-wrap gap-1.5">
+                  {EA_RETURN_REASONS.map((r) => {
+                    const on = reasons.includes(r.id);
+                    return <button key={r.id} type="button" aria-pressed={on} data-ea-reason={r.id} onClick={() => setReasons((p) => (on ? p.filter((x) => x !== r.id) : [...p, r.id]))}
+                      className={`px-2.5 py-1 rounded-full border text-[12px] font-medium ${on ? 'bg-[#2A3466] text-white border-[#2A3466]' : 'bg-white text-[#1B2350] border-[#C7CCDD] hover:border-[#8E97B8]'}`}>{isAr ? r.ar : r.en}</button>;
+                  })}
+                </div>
+              </div>
+            )}
             {needNote || (choice === 'yes' && !action.needsNote) ? (
               <div className="mt-4">
                 <label className="block text-[12.5px] font-semibold text-[#1B2350] mb-1.5">{action.needsNote ? (action.id === 'reject' ? t('Rejection reason', 'سبب الرفض') : t('Comments for the requester', 'ملاحظات لمقدّم الطلب')) : t('Note (optional)', 'ملاحظة (اختياري)')}{action.needsNote && <span className="text-error-600"> *</span>}</label>
@@ -1071,7 +1093,7 @@ function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: T
               <button type="button" onClick={onCancel} className="h-12 rounded-lg border border-neutral-200 bg-white text-[15px] font-semibold text-[#1B2350] hover:bg-neutral-50 inline-flex items-center justify-center gap-2">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-4 h-4"><path d="M18 6 6 18M6 6l12 12" /></svg>{t('Cancel', 'إلغاء')}
               </button>
-              <button type="button" disabled={!ready} onClick={() => (choice === 'yes' ? onConfirm(note.trim()) : onCancel())}
+              <button type="button" disabled={!ready} onClick={() => (choice === 'yes' ? onConfirm(finalNote()) : onCancel())}
                 className={`h-12 rounded-lg text-[15px] font-semibold inline-flex items-center justify-center gap-2 transition-colors ${ready ? (action.variant === 'danger' && choice === 'yes' ? 'bg-error-600 text-white hover:bg-error-700' : 'bg-[#2A3466] text-white hover:bg-[#1F2753]') : 'bg-neutral-100 text-neutral-300 border border-neutral-200 cursor-not-allowed'}`}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M2 12l5 5L18 6M9 17l1.5 1.5L22 7" /></svg>{t('Complete', 'إتمام')}
               </button>

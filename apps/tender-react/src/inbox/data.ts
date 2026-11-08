@@ -233,14 +233,10 @@ const SPECS: Spec[] = [
       ['Assessed against the risk management framework', 'تم التقييم وفق إطار إدارة المخاطر'],
     ]) } },
   { n: 6, type: 'review', title: TITLE.reviewFromDept(),
-    summary: sup('EA compliance: planned in the tech architecture, EA principles and standard tools (e.g. SSO).', 'الامتثال للبنية المؤسسية: مخطط ضمن البنية التقنية ومبادئ البنية المؤسسية والأدوات القياسية.'),
+    summary: sup('Review the technical sections of the request — scope, technical requirements, standards and licence quantities — against EA standards. Accept each section or comment on it.', 'راجع الأقسام التقنية في الطلب — النطاق والمتطلبات التقنية والمعايير وكميات التراخيص — وفق معايير البنية المؤسسية. اقبل كل قسم أو علّق عليه.'),
     stage: sup('Specialist review — Enterprise Architecture', 'مراجعة تخصصية — البنية المؤسسية'), assignee: P.ea, sla: 3, priority: 'medium', received: 0,
-    actions: APPROVE_RETURN,
-    extra: { parallelGroup: 'pg-specialist', findingsLabel: sup('Review notes', 'ملاحظات المراجعة'), checklist: reviewChecklist([
-      ['Planned in the technology architecture', 'مخطط ضمن البنية التقنية'],
-      ['Complies with EA principles and standard tools (e.g. SSO)', 'يتوافق مع مبادئ البنية المؤسسية والأدوات القياسية'],
-      ['EA requirements text added from template', 'تمت إضافة نص متطلبات البنية المؤسسية من القالب'],
-    ]) } },
+    actions: [{ ...APPROVE_RETURN[0], gated: true }, APPROVE_RETURN[1]],
+    extra: { parallelGroup: 'pg-specialist', eaReview: true, eaDecisions: {} } },
   { n: 7, type: 'review', title: TITLE.reviewFromDept(),
     summary: sup('Check the accounting classification of each BOQ item — Material Group, GL main and sub-account — and accept or correct it.', 'تحقق من التصنيف المحاسبي لكل بند — مجموعة المواد والحساب الرئيسي والفرعي — واقبله أو صحّحه.'),
     stage: sup('Finance review — GL', 'مراجعة مالية — دفتر الأستاذ'), assignee: P.gl, sla: 1, priority: 'medium', received: 0,
@@ -582,6 +578,13 @@ export function finLinesFor(rfp: RfpDetail): FinLine[] {
   }));
 }
 for (const tk of SEED_TASKS) if (tk.finReview && tk.rfp) tk.finLines = finLinesFor(tk.rfp);
+
+// Technical standards on the demo request (as pulled into its Scope of Work at creation).
+REQ_RFP.deploymentModel = 'saas';
+REQ_RFP.techStandards = [
+  ...['h1', 'h2', 'h4', 'i1', 'i2', 'i3', 's1', 's2', 's3', 's4', 'd1', 'd2', 'd3', 'n1', 'n2', 'n3', 'n4', 'a2', 'p1', 'p2'].map((id) => ({ id, status: 'included' as const })),
+  { id: 'a1', status: 'na' as const, naReason: 'Current-state architecture is already documented in the EA repository (EA-2025-114).', naReasonAr: 'بنية الوضع الحالي موثقة مسبقاً في مستودع البنية المؤسسية (EA-2025-114).' },
+];
 
 
 // ── Request detail page (My Requests) ────────────────────────────────────────

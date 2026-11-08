@@ -200,6 +200,10 @@ export interface TenderFormData {
   scopeTerms: string;
   /** "What does this project include" — selected category ids or custom labels. */
   scopeIncludes: string[];
+  /** Deployment model for technology requests (EA direction: SaaS first). */
+  deploymentModel?: 'saas' | 'on-prem' | 'hybrid';
+  /** Technical standards pulled from the EA / Cybersecurity / PMO library. */
+  techStandards?: { id: string; status: 'included' | 'na'; naReason?: string; ai?: boolean }[];
   /** Requester-added regulatory records (beyond the project's default/locked set). */
   extraRegulatoryRecords: string[];
   boqItems: BOQRow[];

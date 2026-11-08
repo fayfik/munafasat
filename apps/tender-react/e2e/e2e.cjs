@@ -752,6 +752,59 @@ async function openRequest(title) {
     expect(await count('[data-gl-review]') === 1, 'should switch to the GL review');
   });
 
+  // ── Enterprise Architecture ────────────────────────────────────────────────
+  const eaRows = (pairs) => pairs.map(([n, d], i) => ({ id: 'e' + i, projectItem: 'Software', itemName: n, itemDescription: d, unitOfMeasure: 'Each', quantity: 2, unitPrice: 1000, deliveryDate: '', hasBrandName: false, brandJustification: '' }));
+  await test('EA scope: technology items require EA review; consultancy does not', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: eaRows([['SAP S/4HANA subscription', 'Cloud ERP licences'], ['Integration with HR system', 'APIs via iPaaS']]) });
+    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(800);
+    expect(await page.getAttribute('[data-ea-route]', 'data-ea-route') === 'required', 'tech request should need EA');
+    const why = await page.locator('[data-ea-sentence]').innerText();
+    expect(/software licences/i.test(why) && /integration/i.test(why), `reasons: ${why}`);
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: eaRows([['Governance consultancy', 'Advisory on quality and performance measurement']]) });
+    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(800);
+    expect(await page.getAttribute('[data-ea-route]', 'data-ea-route') === 'not-required', 'consultancy should not need EA');
+    expect(/consultancy/i.test(await page.locator('[data-ea-sentence]').innerText()), 'exclusion reason');
+  });
+  await test('Technical standards: AI pre-selects for tech requests; required items only N/A with a reason', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: eaRows([['SAP S/4HANA subscription', 'Cloud ERP licences'], ['Integration with HR system', 'APIs via iPaaS']]) });
+    await page.locator('button', { hasText: 'Scope of Work' }).first().click(); await wait(800);
+    expect(await count('[data-tech-standards]') === 1, 'standards section missing');
+    expect((await page.locator('[data-toast]').allInnerTexts()).some((x) => /technical standards added/.test(x)), 'pre-select toast');
+    await page.click('[data-std-group="hosting"] > button'); await wait(150);
+    expect(await page.getAttribute('[data-std="h1"]', 'data-std-state') === 'included', 'required standard included');
+    expect(await count('[data-std-toggle="h1"]') === 0, 'required standard cannot be unticked');
+    expect(await page.getAttribute('[data-std="h3"]', 'data-std-state') === 'off', 'on-prem spec not selected for SaaS');
+    await page.click('[data-deploy="on-prem"]'); await wait(150);
+    expect(await page.getAttribute('[data-std="h3"]', 'data-std-state') === 'included', 'on-prem spec added for on-premises');
+    await page.click('[data-std-na="h2"]'); await wait(100);
+    expect(await count('[data-std-reason="h2"]') === 1, 'N/A asks for a reason');
+    await page.fill('[data-std-reason="h2"]', 'Hosted by a government cloud provider under a separate contract');
+    expect(await page.getAttribute('[data-std="h2"]', 'data-std-state') === 'na', 'marked N/A');
+  });
+  await test('EA task: only EA sections, comment one, return needs a reason, accept all unlocks Approve', async () => {
+    await openTaskId('TSK-4433-06');
+    const ids = await page.locator('[data-ea-section]').evaluateAll((e) => e.map((x) => x.getAttribute('data-ea-section')));
+    expect(ids.includes('scope') && ids.includes('licences') && ids.includes('std-security') && !ids.includes('std-delivery'), `sections: ${ids}`);
+    expect(await count('[data-ea-outside]') === 1, 'outside-scope group missing');
+    expect(await count('[data-ea-task-why]') === 1, 'why EA reviews missing');
+    const approve = page.getByRole('button', { name: 'Approve', exact: true });
+    expect(await approve.isDisabled(), 'approve gated');
+    await page.click('[data-ea-comment="licences"]');
+    await page.fill('[data-ea-comment-text="licences"]', 'Professional licences: 500 requested, 420 agreed in the assessment.');
+    await page.click('[data-ea-save="licences"]'); await wait(150);
+    expect(await page.getAttribute('[data-ea-section="licences"]', 'data-state') === 'comment', 'comment saved');
+    await page.getByRole('button', { name: 'Return', exact: true }).click(); await wait(300);
+    await page.getByRole('radio', { name: /Yes/ }).first().click(); await wait(150);
+    expect((await page.locator('[role="dialog"] textarea').inputValue()).includes('500 requested'), 'return prefilled with comment');
+    const done = page.locator('[role="dialog"]').getByRole('button', { name: 'Complete' });
+    expect(await done.isDisabled(), 'return needs a reason');
+    await page.click('[data-ea-reason="quantity"]'); await wait(100);
+    expect(!(await done.isDisabled()), 'reason picked → can return');
+    await page.keyboard.press('Escape'); await wait(200);
+    await page.click('[data-ea-all]'); await wait(150);
+    expect(!(await approve.isDisabled()), 'approve should enable once every section is reviewed');
+  });
+
   await browser.close();
   const pass = results.filter((r) => r.ok).length;
   console.log(`\n${pass}/${results.length} passed\n`);

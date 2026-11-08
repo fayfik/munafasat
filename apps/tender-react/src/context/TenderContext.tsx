@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { STD_LIBRARY } from '../lib/eaStandards';
 import { useRequests } from './RequestStore';
 import { PROJECTS } from '../data/mockData';
 import type {
@@ -180,6 +181,8 @@ function fixedQual(saved: QualMainCriteria[] | undefined): QualMainCriteria[] {
     };
   });
 }
+
+const REQUIRED_STD = new Set(STD_LIBRARY.filter((x) => x.required).map((x) => x.id));
 
 export function TenderProvider({ children, requestId: givenId, initialForm, initialStatus, initialSourceType, initialSeed, noPersist }: ProviderProps) {
   const store = useRequests();
@@ -428,7 +431,9 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
         // Scope now also captures contract duration & location (moved from Deliverables).
         const scopeOk = formData.scopeOfWork.trim().length >= 30;
         const contractOk = !!(formData.executionLocation && formData.startDate && formData.contractDuration);
-        if (scopeOk && contractOk) return 'completed';
+        // A required technical standard marked "not applicable" needs a reason.
+        const stdOk = !(formData.techStandards ?? []).some((x) => x.status === 'na' && REQUIRED_STD.has(x.id) && !x.naReason?.trim());
+        if (scopeOk && contractOk && stdOk) return 'completed';
         if (formData.scopeOfWork.trim().length > 0 || formData.executionLocation || formData.startDate || formData.contractDuration) return 'missing';
         return 'not-started';
       }

@@ -8,6 +8,7 @@ import { FormField, SectionCard, Textarea, AIButton, Input, Select } from '../co
 import { SparklesIcon } from '../components/Icons';
 import ProjectIncludesSelect, { deriveIncludesFromItems, workflowStages, DEPARTMENTS, WorkflowDrawer } from '../components/ProjectIncludesSelect';
 import DatePicker from '../components/DatePicker';
+import TechStandards, { eaScopeForForm } from '../components/TechStandards';
 
 function calcEndDate(start: string, duration: string, type: string): string {
   if (!start || !duration) return '';
@@ -133,7 +134,14 @@ export default function ScopeOfWork() {
     .map((it) => it.name);
   const lockedIncludes = deriveIncludesFromItems([...budgetedNames, ...formData.boqItems.map((b) => b.itemName)].filter(Boolean));
   const allIncludes = [...new Set([...lockedIncludes, ...formData.scopeIncludes])];
-  const approvalDepts = workflowStages(allIncludes).filter((d) => d !== 'requester');
+  // EA reviews by what is being bought (EA meeting): add / drop EA based on the items, not only the category.
+  const ea = eaScopeForForm(formData);
+  const approvalDepts = (() => {
+    const list = workflowStages(allIncludes).filter((d) => d !== 'requester' && d !== 'ea');
+    if (!ea.required) return list;
+    const at = list.includes('cyber') ? list.indexOf('cyber') + 1 : list.indexOf('finance') + 1;
+    return [...list.slice(0, at), 'ea' as const, ...list.slice(at)];
+  })();
 
   return (
     <div className="space-y-5">
@@ -212,6 +220,9 @@ export default function ScopeOfWork() {
           <AiNote error={scopeAi.error} usedSample={scopeAi.usedSample} />
         </div>
       </SectionCard>
+
+      {/* Technical standards (EA / Cybersecurity / PMO) — technology requests only */}
+      <TechStandards />
 
       {/* Terms & Conditions */}
       <SectionCard

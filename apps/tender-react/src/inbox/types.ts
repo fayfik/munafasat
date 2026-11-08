@@ -196,6 +196,10 @@ export interface Task {
   finNonAssetsChecked?: boolean;
   /** Changes made to a request Finance already reviewed. */
   finChanges?: FinChange[];
+  /** Enterprise Architecture: structured review of the sections EA owns. */
+  eaReview?: boolean;
+  /** EA decision per section — accepted, or a comment for the requester. */
+  eaDecisions?: Record<string, { state: 'accepted' | 'comment'; comment?: string }>;
   techEvalReview?: boolean;
   techDecisions?: Record<string, 'accepted' | 'modified'>;
   budgetCheck?: { fundCenter: string; commitmentItem: string; fiscalYear: number; total: number; consumed: number };
@@ -253,6 +257,9 @@ export interface RfpDetail {
   techSplit?: number;                          // technical share of the overall score %
   techDocs?: { en: string; ar: string }[];      // additional technical documents (beyond the locked set)
   techRequirements?: { reqEn: string; reqAr: string; descEn: string; descAr: string }[];
+  /** Technical standards pulled from the EA / Cybersecurity / PMO library. */
+  techStandards?: { id: string; status: 'included' | 'na'; naReason?: string; naReasonAr?: string }[];
+  deploymentModel?: 'saas' | 'on-prem' | 'hybrid';
   evalCommittee?: CommitteeMember[];
   qualification: { reqEn: string; reqAr: string; evidenceEn?: string; evidenceAr?: string }[];
   qualCriteria?: { nameEn: string; nameAr: string; pct: number; subs: { nameEn: string; nameAr: string; range: string; pct: number }[] }[];
