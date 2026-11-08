@@ -19,7 +19,7 @@ import QualReview from './QualReview';
 import { GlReview, AssetsReview, ChangesReview, glReturnDraft } from './FinanceReview';
 import { finLinesFor } from './data';
 import EaReview from './EaReview';
-import BoqLineDrawer, { BoqViewButton, viewFromRfpLine } from '../components/BoqLineDrawer';
+import BoqLineDetails, { BoqViewButton, useBoqOpen, viewFromRfpLine } from '../components/BoqLineDetails';
 import { EA_RETURN_REASONS, eaReturnDraft } from './eaSections';
 import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
@@ -499,7 +499,7 @@ function CommitteeChips({ members, isAr }: { members?: RfpDetail['evalCommittee'
 
 export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T }) {
   const [preview, setPreview] = useState<PreviewDoc | null>(null);
-  const [boqView, setBoqView] = useState<number | null>(null);
+  const boqOpen = useBoqOpen();
   if (!rfp) return <div className="rounded-xl border border-neutral-200 bg-white p-6 text-[13px] text-neutral-500 shadow-sm">{t('No request record linked to this task.', 'لا يوجد سجل منافسة مرتبط بهذه المهمة.')}</div>;
   const boqTotal = rfp.boq.reduce((s, l) => s + lineTotalOf(l), 0);
   const estValue = boqTotal > 0 ? boqTotal : (amount ?? 0);
@@ -518,7 +518,7 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
 
   // ── Bill of quantities ──
   const viewLabel = t('View item details', 'عرض تفاصيل البند');
-  const boqDrawer = <BoqLineDrawer lines={rfp.boq.map((l) => viewFromRfpLine(l, isAr, t))} index={boqView} onIndex={setBoqView} onClose={() => setBoqView(null)} isAr={isAr} t={t} grandTotal={boqTotal} />;
+  const boqDetails = (i: number, cols: number) => boqOpen.isOpen(i) && <tr><td colSpan={cols} className="p-0"><BoqLineDetails line={viewFromRfpLine(rfp.boq[i], isAr, t)} isAr={isAr} t={t} grandTotal={boqTotal} /></td></tr>;
   const boqChart = (
     <div className="flex flex-col lg:flex-row gap-5">
       <div className="flex items-center gap-4 lg:flex-col lg:items-center flex-shrink-0">
@@ -550,12 +550,12 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
           </tr></thead>
           <tbody className="divide-y divide-neutral-100">
             {rfp.boq.map((l, i) => (
-              <Commentable key={i} id={`boq-${i}`} label={{ en: l.itemEn, ar: l.itemAr }}><tr className="bg-white">
+              <Fragment key={i}><Commentable id={`boq-${i}`} label={{ en: l.itemEn, ar: l.itemAr }}><tr className={boqOpen.isOpen(i) ? 'bg-brand-50/40' : 'bg-white'}>
                 <td className="ps-3 pe-2 py-2 text-[12.5px] text-neutral-800"><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} />{isAr ? l.itemAr : l.itemEn}</span></td>
                 <td className="px-2 py-2 text-center text-[12px] text-neutral-600 whitespace-nowrap">{l.qty} {l.unit}</td>
                 <td className="px-2 py-2 text-end text-[12.5px] font-semibold text-neutral-800 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(lineTotalOf(l))}</td>
-                <td className="px-1 py-1 text-center"><BoqViewButton index={i} onClick={() => setBoqView(i)} label={viewLabel} /></td>
-              </tr></Commentable>
+                <td className="px-1 py-1 text-center"><BoqViewButton index={i} open={boqOpen.isOpen(i)} onClick={() => boqOpen.toggle(i)} label={viewLabel} /></td>
+              </tr></Commentable>{boqDetails(i, 4)}</Fragment>
             ))}
           </tbody>
           <tfoot className="bg-neutral-50 border-t-2 border-neutral-200">
@@ -565,7 +565,6 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
           </tfoot>
         </table>
       </div>
-      {boqDrawer}
     </div>
   );
   const boqTable = (
@@ -596,7 +595,7 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
                   </tr>
                 )}
                 {lines.map(({ l, i }) => (
-                  <Commentable key={i} id={`boq-${i}`} label={{ en: l.itemEn, ar: l.itemAr }}><tr className="bg-white border-b border-neutral-100 align-top">
+                  <Fragment key={i}><Commentable id={`boq-${i}`} label={{ en: l.itemEn, ar: l.itemAr }}><tr className={`border-b border-neutral-100 align-top ${boqOpen.isOpen(i) ? 'bg-brand-50/40' : 'bg-white'}`}>
                     <td className="px-3 py-2.5 text-center text-neutral-400 tabular-nums">{i + 1}</td>
                     <td className="px-3 py-2.5 max-w-[320px]">
                       <p className="font-semibold text-neutral-800">{isAr ? l.itemAr : l.itemEn}</p>
@@ -607,8 +606,8 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
                     <td className="px-3 py-2.5 text-end text-neutral-700 tabular-nums whitespace-nowrap">{l.qty} <span className="text-neutral-400">{l.unit}</span></td>
                     <td className="px-3 py-2.5 text-end text-neutral-600 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(l.unitPrice)}</td>
                     <td className="px-3 py-2.5 text-end font-semibold text-neutral-900 tabular-nums whitespace-nowrap" dir="ltr">{fmtSAR(lineTotalOf(l))}</td>
-                    <td className="px-1 py-2 text-center"><BoqViewButton index={i} onClick={() => setBoqView(i)} label={viewLabel} /></td>
-                  </tr></Commentable>
+                    <td className="px-1 py-2 text-center"><BoqViewButton index={i} open={boqOpen.isOpen(i)} onClick={() => boqOpen.toggle(i)} label={viewLabel} /></td>
+                  </tr></Commentable>{boqDetails(i, 8)}</Fragment>
                 ))}
               </Fragment>
             );
@@ -620,7 +619,6 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
           <tr className="bg-brand-50 border-t border-brand-200 text-[13px]"><td colSpan={6} className="px-3 py-2 text-end font-bold text-brand-800">{t('Grand total', 'الإجمالي الكلي')}</td><td className="px-3 py-2 text-end tabular-nums font-bold text-brand-800" dir="ltr">{fmtSAR(boqTotal * 1.15)}</td><td /></tr>
         </tfoot>
       </table>
-      {boqDrawer}
     </div>
   );
 

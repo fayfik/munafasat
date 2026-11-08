@@ -3,7 +3,7 @@
 // activity; nothing is persisted or sent to SAP. A real deployment would back
 // these with the Task Command / Workflow / Audit services.
 
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { eaSections } from './eaSections';
 import { SEED_TASKS, ME, buildCommentResponseTask } from './data';
 import type { RfpDetail, Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry } from './types';
@@ -176,14 +176,61 @@ interface InboxCtx {
   setCriterion: (id: string, critId: string, patch: Partial<EvalCriterion>) => void;
   uploadDoc: (id: string, docId: string, fileName: string) => void;
   resolveCheck: (id: string, checkId: string) => void;
+  /** New-task notifications (push-in + bell). */
+  notices: TaskNotice[];
+  markNoticesRead: () => void;
+  dismissNotice: (id: string) => void;
+  markSeen: (taskId: string) => void;
+  /** Ask the Inbox to open a task (from a notification). */
+  focusTaskId: string | null;
+  focusTask: (taskId: string | null) => void;
 }
 
 const Ctx = createContext<InboxCtx | null>(null);
+
+/* ── Process flow ───────────────────────────────────────────────────────────
+   Steps (from the approval process): 1 Department approval → 2 Technical member
+   → 3–8 Specialist & Finance reviews (parallel) → 9 Qualification Finance →
+   10 Qualification Procurement → 11 Procurement Team Lead → (12 Officer) → 13 DOA
+   → 14 Estimated price. Ids are TSK-<request>-<step>[R][-R]. */
+const PARALLEL = [3, 4, 5, 6, 7, 8];
+export function flowStep(t: Pick<Task, 'id'>): number {
+  const m = /^TSK-\d+-(\d+)(R)?(-R)?$/.exec(t.id);
+  if (!m) return 99;
+  return Number(m[1]) + (m[2] ? 0.5 : 0) + (m[3] ? 0.25 : 0);
+}
+const reqOf = (t: Pick<Task, 'id'>) => /^TSK-(\d+)-/.exec(t.id)?.[1] ?? '';
+/** Inbox order: by process step, then request, then due date. */
+export function flowCompare(a: Task, b: Task) {
+  return flowStep(a) - flowStep(b) || +new Date(a.dueAt) - +new Date(b.dueAt) || reqOf(a).localeCompare(reqOf(b));
+}
+function nextFlowSteps(step: number, action: string, done: (n: number) => boolean): number[] {
+  if (step === 1) return action === 'approve' ? [2] : [];
+  if (step === 2) return action === 'approve' ? PARALLEL : [];
+  if (PARALLEL.includes(step)) return action === 'approve' && PARALLEL.every((n) => n === step || done(n)) ? [9] : [];
+  if (step === 9) return [10];
+  if (step === 10) return [11];
+  if (step === 11) return action === 'approve' ? [13] : action === 'complete' ? [12] : [];
+  if (step === 12) return action === 'submit' ? [13] : [];
+  if (step === 13) return [14];
+  return [];
+}
+
+export interface TaskNotice { id: string; taskId: string; at: string; fromEn: string; fromAr: string; read?: boolean }
 
 const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : `a_${Math.random().toString(36).slice(2)}`);
 
 export function InboxProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>(() => SEED_TASKS.map((t) => ({ ...t })));
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+  const [notices, setNotices] = useState<TaskNotice[]>([]);
+  const [focusTaskId, focusTask] = useState<string | null>(null);
+  const markNoticesRead = useCallback(() => setNotices((ns) => ns.map((n) => ({ ...n, read: true }))), []);
+  const dismissNotice = useCallback((id: string) => setNotices((ns) => ns.map((n) => (n.id === id ? { ...n, read: true } : n))), []);
+  const markSeen = useCallback((taskId: string) => {
+    setTasks((xs) => (xs.some((t) => t.id === taskId && t.arrivedAt) ? xs.map((t) => (t.id === taskId ? { ...t, arrivedAt: undefined } : t)) : xs));
+  }, []);
 
   const patch = useCallback((id: string, fn: (t: Task) => Task) => {
     setTasks((xs) => xs.map((t) => (t.id === id ? fn({ ...t }) : t)));
@@ -249,6 +296,22 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   }, [patch]);
 
   const decide = useCallback<InboxCtx['decide']>((id, action, note, decisionLabel) => {
+    // Which tasks arrive in the inbox because of this decision (process flow).
+    const before = tasksRef.current;
+    const src0 = before.find((t) => t.id === id);
+    const arrivals: string[] = [];
+    if (src0) {
+      const req = reqOf(src0);
+      const isDone = (n: number) => before.some((t) => reqOf(t) === req && flowStep(t) === n && t.state === 'completed');
+      if (action === 'return' && src0.reviewComments && !src0.respondComments) arrivals.push(`${id}-R`);
+      else if (action === 'submit' && src0.respondComments && id.endsWith('-R')) arrivals.push(id.slice(0, -2));
+      else if (['approve', 'complete', 'submit'].includes(action)) {
+        for (const n of nextFlowSteps(Math.floor(flowStep(src0)), action, isDone)) {
+          const nx = before.find((t) => reqOf(t) === req && flowStep(t) === n && t.state !== 'completed');
+          if (nx) arrivals.push(nx.id);
+        }
+      }
+    }
     setTasks((xs) => {
       let completedDepId: string | null = null;
       const label: Record<string, Bilingual> = {
@@ -306,6 +369,11 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       }
       return next;
     });
+    if (arrivals.length && src0) {
+      const now = new Date().toISOString();
+      setTasks((xs) => xs.map((t) => (arrivals.includes(t.id) ? { ...t, arrivedAt: now, receivedAt: now } : t)));
+      setNotices((ns) => [...arrivals.map((taskId) => ({ id: uid(), taskId, at: now, fromEn: src0.stageEn, fromAr: src0.stageAr })), ...ns].slice(0, 20));
+    }
   }, []);
 
   const api = useMemo<InboxCtx>(() => {
@@ -317,8 +385,9 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       getTask: (id) => tasks.find((t) => t.id === id),
       blocked: (t) => isBlocked(t, tasks),
       addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
+      notices, markNoticesRead, dismissNotice, markSeen, focusTaskId, focusTask,
     };
-  }, [tasks, addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck]);
+  }, [tasks, addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, notices, markNoticesRead, dismissNotice, markSeen, focusTaskId]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

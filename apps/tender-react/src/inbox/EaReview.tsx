@@ -7,7 +7,8 @@ import type { Task } from './types';
 import { CheckIcon, ChevronDownIcon, PencilIcon } from '../components/Icons';
 import { stdById, eaScope, type Answers } from '../lib/eaStandards';
 import { DeploymentHero, ProjectProfile, StandardsList } from '../components/TechStandards';
-import BoqLineDrawer, { BoqViewButton, viewFromRfpLine } from '../components/BoqLineDrawer';
+import { Fragment } from 'react';
+import BoqLineDetails, { BoqViewButton, useBoqOpen, viewFromRfpLine } from '../components/BoqLineDetails';
 import { eaSections, LICENCE_RX, type EaSection } from './eaSections';
 
 type T = (en: string, ar: string) => string;
@@ -25,7 +26,8 @@ export default function EaReview({ task, isAr, t, readOnly, onDecide, onAcceptAl
   const [commenting, setCommenting] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [refOpen, setRefOpen] = useState(false);
-  const [boqView, setBoqView] = useState<number | null>(null);
+  const boqOpen = useBoqOpen();
+  const boqGrand = rfp.boq.reduce((n, l) => n + (Number(l.qty) || 1) * l.unitPrice, 0);
   const L = (en?: string, ar?: string) => (isAr ? ar ?? en ?? '' : en ?? '');
   const done = secs.filter((s) => dec[s.id]).length;
   const comments = secs.filter((s) => dec[s.id]?.state === 'comment').length;
@@ -51,9 +53,10 @@ export default function EaReview({ task, isAr, t, readOnly, onDecide, onAcceptAl
         <table className="w-full text-start text-[12.5px]">
           <thead><tr className="text-[11px] text-neutral-500"><th className="text-start font-medium py-1">{t('BOQ item', 'البند')}</th><th className="text-end font-medium py-1">{t('Quantity', 'الكمية')}</th><th className="text-end font-medium py-1">{t('Amount', 'المبلغ')}</th><th className="w-9" /></tr></thead>
           <tbody>{rfp.boq.map((l, i) => ({ l, i })).filter(({ l }) => LICENCE_RX.test(`${l.itemEn} ${l.descEn ?? ''}`)).map(({ l, i }) => (
-            <tr key={i} className="border-t border-neutral-100"><td className="py-1.5 pe-3"><span className="text-neutral-400 me-1.5">{i + 1}.</span>{L(l.itemEn, l.itemAr)}<span className="block text-[11.5px] text-neutral-500">{L(l.descEn, l.descAr)}</span></td>
+            <Fragment key={i}><tr className="border-t border-neutral-100"><td className="py-1.5 pe-3"><span className="text-neutral-400 me-1.5">{i + 1}.</span>{L(l.itemEn, l.itemAr)}<span className="block text-[11.5px] text-neutral-500">{L(l.descEn, l.descAr)}</span></td>
               <td className="py-1.5 text-end font-semibold tabular-nums whitespace-nowrap">{l.qty} {l.unit}</td><td className="py-1.5 text-end tabular-nums whitespace-nowrap" dir="ltr">{sar((Number(l.qty) || 1) * l.unitPrice)}</td>
-              <td className="py-1 ps-1 text-end"><BoqViewButton index={i} onClick={() => setBoqView(i)} label={t('View item details', 'عرض تفاصيل البند')} /></td></tr>
+              <td className="py-1 ps-1 text-end"><BoqViewButton index={i} open={boqOpen.isOpen(i)} onClick={() => boqOpen.toggle(i)} label={t('View item details', 'عرض تفاصيل البند')} /></td></tr>
+              {boqOpen.isOpen(i) && <tr><td colSpan={4} className="p-0 pb-1"><div className="rounded-lg overflow-hidden border border-neutral-100"><BoqLineDetails line={viewFromRfpLine(l, isAr, t)} isAr={isAr} t={t} grandTotal={boqGrand} /></div></td></tr>}</Fragment>
           ))}</tbody>
         </table>
         <p className="mt-1.5 text-[11.5px] text-neutral-500">{t('Check the quantities against what was agreed in the assessment — quantities above it affect the budget.', 'تحقق من الكميات مقابل ما تم الاتفاق عليه في التقييم — الكميات الأعلى تؤثر على الميزانية.')}</p>
@@ -80,7 +83,6 @@ export default function EaReview({ task, isAr, t, readOnly, onDecide, onAcceptAl
 
   return (
     <div className="space-y-5" data-ea-review>
-      <BoqLineDrawer lines={rfp.boq.map((l) => viewFromRfpLine(l, isAr, t))} index={boqView} onIndex={setBoqView} onClose={() => setBoqView(null)} isAr={isAr} t={t} grandTotal={rfp.boq.reduce((n, l) => n + (Number(l.qty) || 1) * l.unitPrice, 0)} />
       <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white px-5 py-4 flex items-center gap-4 flex-wrap">
         <div className="min-w-[280px] flex-1">
           <p className="text-[14px] font-bold text-neutral-900">{t('Review the technical sections', 'مراجعة الأقسام التقنية')}</p>

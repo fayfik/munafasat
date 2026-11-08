@@ -10,7 +10,7 @@ import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiExecutiveSummary } from '../lib/aiTender';
 import { isStale, needsJustification } from '../lib/etimadCheck';
 import { BOQ_CATEGORY_META, deriveCategory } from '../lib/boqCategory';
-import BoqLineDrawer, { BoqViewButton, type BoqLineView } from '../components/BoqLineDrawer';
+import BoqLineDetails, { BoqViewButton, useBoqOpen, type BoqLineView } from '../components/BoqLineDetails';
 import { effectiveQty } from '../lib/boqManpower';
 import RegulatoryRecordsCard from '../components/RegulatoryRecordsCard';
 import { LOCKED_TECH_DOCS } from './TechnicalEvaluation';
@@ -58,7 +58,7 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
   const deptName = selectedCC ? (isAr ? selectedCC.nameAr : selectedCC.name) : (isAr ? 'القسم الطالب' : 'Requesting Department');
 
   const lineTotal = (r: typeof formData.boqItems[number]) => effectiveQty(r) * (Number(r.unitPrice) || 0);
-  const [boqView, setBoqView] = useState<number | null>(null);
+  const boqOpen = useBoqOpen();
   const boqName = (n: string) => (isAr ? (selectedProject?.items.find((x) => x.name === n)?.nameAr ?? n) : n);
   const boqViews: BoqLineView[] = formData.boqItems.map((r) => {
     const cat = r.category ?? deriveCategory(r.itemName);
@@ -278,14 +278,17 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
                 {formData.boqItems.map((r, i) => {
                   const m = BOQ_CATEGORY_META[r.category ?? deriveCategory(r.itemName)];
                   return (
-                    <tr key={r.id} className="bg-white hover:bg-neutral-50/70 cursor-pointer" onClick={() => setBoqView(i)}>
+                    <Fragment key={r.id}>
+                    <tr className={`cursor-pointer ${boqOpen.isOpen(i) ? 'bg-brand-50/40' : 'bg-white hover:bg-neutral-50/70'}`} onClick={() => boqOpen.toggle(i)} aria-expanded={boqOpen.isOpen(i)}>
                       <td className="px-3 py-2 text-neutral-800 font-medium max-w-[320px]"><span className="block truncate">{boqName(r.itemName) || <span className="text-neutral-300">—</span>}</span></td>
                       <td className="px-3 py-2"><Badge variant={m.badge}>{isAr ? m.ar : m.en}</Badge></td>
                       <td className="px-3 py-2 text-end tabular-nums text-neutral-600">{effectiveQty(r) || '—'}</td>
                       <td className="px-3 py-2 text-end tabular-nums text-neutral-600" dir="ltr">{Number(r.unitPrice) > 0 ? formatSAR(Number(r.unitPrice)) : '—'}</td>
                       <td className="px-3 py-2 text-end tabular-nums font-semibold text-neutral-900" dir="ltr">{lineTotal(r) > 0 ? formatSAR(lineTotal(r)) : '—'}</td>
-                      <td className="px-2 py-1 text-center"><BoqViewButton index={i} onClick={() => setBoqView(i)} label={t('View item details', 'عرض تفاصيل البند')} /></td>
+                      <td className="px-2 py-1 text-center"><BoqViewButton index={i} open={boqOpen.isOpen(i)} onClick={() => boqOpen.toggle(i)} label={t('View item details', 'عرض تفاصيل البند')} /></td>
                     </tr>
+                    {boqOpen.isOpen(i) && <tr><td colSpan={6} className="p-0"><BoqLineDetails line={boqViews[i]} isAr={isAr} t={t} grandTotal={boqSubtotal} /></td></tr>}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -306,7 +309,6 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
             </table>
           </div>
         )}
-        <BoqLineDrawer lines={boqViews} index={boqView} onIndex={setBoqView} onClose={() => setBoqView(null)} isAr={isAr} t={t} grandTotal={boqSubtotal} />
       </ReviewSection>
 
       {/* ── Payment schedule — stage cards + proportion bar ──────── */}

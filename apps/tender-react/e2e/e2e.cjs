@@ -324,6 +324,24 @@ async function openRequest(title) {
     expect(await text("What's next?").count() === 0, 'dialog did not close');
   });
 
+  await test('Inbox: next task arrives with a push notification and a ringing bell', async () => {
+    expect(await count('[data-task-push="TSK-4433-02"]') === 1, 'push card for the next step');
+    expect(Number(await page.getAttribute('[data-bell]', 'data-unread')) >= 1, 'bell unread count');
+    expect(await count('[data-bell] .bell-ring') === 1, 'bell animates');
+    await page.click('[data-task-push="TSK-4433-02"] [data-push-open]'); await wait(LOAD);
+    expect((await page.locator('[data-task-eyebrow]').innerText()).includes('TSK-4433-02'), 'opened the new task');
+    await page.click('[data-bell]'); await wait(150);
+    expect(await count('[data-bell-panel] li') >= 1, 'bell list');
+    await page.click('[data-bell]'); await wait(100);
+  });
+  await test('Inbox: tasks are listed in process-flow order', async () => {
+    await page.getByRole('button', { name: /^All/ }).first().click(); await wait(300);
+    const ids = await page.locator('li[data-task-id]').evaluateAll((e) => e.map((x) => x.getAttribute('data-task-id')));
+    const step = (id) => { const m = /^TSK-\d+-(\d+)(R)?(-R)?$/.exec(id); return m ? Number(m[1]) + (m[2] ? 0.5 : 0) + (m[3] ? 0.25 : 0) : 99; };
+    const steps = ids.map(step);
+    expect(steps.every((v, i) => i === 0 || v >= steps[i - 1]), `order: ${ids.join(', ')}`);
+    expect(ids.indexOf('TSK-4433-06') < ids.indexOf('TSK-4433-09') && ids.indexOf('TSK-4433-13') < ids.indexOf('TSK-4433-14'), 'flow order');
+  });
 
   // ── Budget checker (manager approval) ─────────────────────────────────────
   const openTask = async (ref) => { await page.locator('ul li > button:visible', { hasText: ref }).first().click(); await wait(LOAD); };
@@ -391,8 +409,8 @@ async function openRequest(title) {
     await dlg.getByRole('button', { name: 'Complete', exact: true }).click(); await wait(500);
     const row = page.locator('ul li > button:visible', { hasText: 'Review comments for request #4471 added by Faisal Al-Dossari' });
     expect(await row.count() === 1, 'requester task not created');
-    const first = await page.locator('ul li > button:visible', { hasText: 'REQ-' }).first().innerText();
-    expect(first.includes('Review comments for request #4471'), 'returned task should be listed first');
+    const ids = await page.locator('li[data-task-id]').evaluateAll((e) => e.map((x) => x.getAttribute('data-task-id')));
+    expect(ids.indexOf('TSK-4471-01-R') > -1 && ids.indexOf('TSK-4471-01-R') < ids.indexOf('TSK-4433-02'), `returned task should sit with step 1: ${ids.slice(0, 6)}`);
     await row.click(); await wait(LOAD);
     expect(await page.getByRole('button', { name: 'Resubmit for approval' }).count() === 1, 'resubmit CTA missing');
     expect(await text('Please split the hosting line by environment.').count() > 0, 'return note not carried over');
@@ -818,12 +836,13 @@ async function openRequest(title) {
     expect(await count('[data-review-boq]') === 1, 'BOQ table');
     expect(!/\bsubtotal\b/.test(await page.locator('[data-review-boq]').locator('xpath=..').innerText()), 'donut removed');
     await page.click('[data-review-boq] [data-boq-view="0"]'); await wait(250);
-    expect(await count('[data-boq-drawer]') === 1, 'drawer open');
-    expect(/SAP S\/4HANA subscription/.test(await page.locator('[data-boq-drawer-title]').innerText()), 'drawer title');
-    await page.click('[data-boq-next]'); await wait(150);
-    expect(/Integration with HR/.test(await page.locator('[data-boq-drawer-title]').innerText()), 'next item');
-    await page.keyboard.press('Escape'); await wait(200);
-    expect(await count('[data-boq-drawer]') === 0, 'drawer closed');
+    expect(await count('[data-review-boq] [data-boq-details-inline]') === 1, 'inline details open');
+    expect(await count('[data-boq-drawer]') === 0, 'no drawer');
+    expect(await page.getAttribute('[data-review-boq] [data-boq-view="0"]', 'data-open') === 'true', 'eye expanded');
+    await page.click('[data-review-boq] [data-boq-view="1"]'); await wait(150);
+    expect(await count('[data-review-boq] [data-boq-details-inline]') === 2, 'accordion keeps both open');
+    await page.click('[data-review-boq] [data-boq-view="0"]'); await page.click('[data-review-boq] [data-boq-view="1"]'); await wait(150);
+    expect(await count('[data-review-boq] [data-boq-details-inline]') === 0, 'collapsed');
     expect(await count('[data-std-review]') === 1, 'tech standards summary');
     expect(await page.getAttribute('[data-std-review] [data-deploy-result]', 'data-deploy-result') === 'saas', 'deployment');
     expect(await count('[data-std-review] [data-answer]') === 9, 'answer tiles');
@@ -834,13 +853,13 @@ async function openRequest(title) {
     const btn = page.locator('[data-boq-view]').first();
     if (await btn.count() === 0) throw new Error('no view icon in inbox request tab');
     await btn.click(); await wait(250);
-    expect(await count('[data-boq-drawer]') === 1, 'inbox drawer');
-    await page.keyboard.press('Escape'); await wait(150);
+    expect(await count('[data-boq-details-inline]') === 1, 'inbox inline details');
+    await btn.click(); await wait(150);
     await openRequest('Cloud Infrastructure Migration');
     await tab('BOQ items'); await wait(LOAD);
     await page.locator('tbody [data-boq-view]').first().click(); await wait(250);
-    expect(await count('[data-boq-drawer]') === 1, 'request detail drawer');
-    await page.keyboard.press('Escape'); await wait(150);
+    expect(await count('[data-boq-details]') === 1, 'request detail accordion');
+    expect(await count('[data-boq-drawer]') === 0, 'no drawer');
   });
   await test('EA task: Hosting & deployment shows deployment card, answer tiles and a clean standards list', async () => {
     await openTaskId('TSK-4433-06');
@@ -848,9 +867,8 @@ async function openRequest(title) {
     expect(await h.locator('[data-deploy-result="saas"]').count() === 1, 'deployment card');
     expect(await h.locator('[data-answer]').count() === 9, 'answer tiles');
     expect(await h.locator('[data-std-row]').count() >= 3, 'standards rows');
-    await page.click('[data-ea-section="licences"] [data-boq-view]'); await wait(250);
-    expect(await count('[data-boq-drawer]') === 1, 'licence drawer');
-    await page.keyboard.press('Escape'); await wait(150);
+    await page.locator('[data-ea-section="licences"] [data-boq-view]').first().click(); await wait(250);
+    expect(await count('[data-ea-section="licences"] [data-boq-details-inline]') === 1, 'licence inline details');
   });
   await test('EA task: only EA sections, comment one, return needs a reason, accept all unlocks Approve', async () => {
     await openTaskId('TSK-4433-06');

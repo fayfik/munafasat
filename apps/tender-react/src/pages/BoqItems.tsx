@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import type { RfpDetail } from '../inbox/types';
 import { SearchIcon, XIcon, ChevronDownIcon, ChevronRightIcon } from '../components/Icons';
-import BoqLineDrawer, { BoqViewButton, viewFromRfpLine } from '../components/BoqLineDrawer';
+import { BoqViewButton } from '../components/BoqLineDetails';
 
 type T = (en: string, ar: string) => string;
 type Line = RfpDetail['boq'][number];
@@ -33,7 +33,6 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
   const [view, setView] = useState<View>('table');
   // Expanded items (accordion): click a row to see its details inline.
   const [open, setOpen] = useState<Set<number>>(new Set());
-  const [viewIdx, setViewIdx] = useState<number | null>(null);
   const viewLabel = t('View item details', 'عرض تفاصيل البند');
   const toggle = (idx: number) => setOpen((o) => { const x = new Set(o); if (x.has(idx)) x.delete(idx); else x.add(idx); return x; });
   const reveal = (idx: number) => { setOpen((o) => new Set(o).add(idx)); setTimeout(() => document.getElementById(`boq-item-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); };
@@ -195,7 +194,7 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
                     <td className="px-3 py-3 text-end whitespace-nowrap tabular-nums font-semibold text-neutral-900" dir="ltr">{sar(i.total)}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-neutral-600">{fmtD(i.delivery)}</td>
                     <td className="px-3 py-3"><Share v={i.total / (total || 1)} color={color(i.budget)} /></td>
-                    <td className="px-1 py-2 text-center"><BoqViewButton index={i.idx} onClick={() => setViewIdx(i.idx)} label={viewLabel} /></td>
+                    <td className="px-1 py-2 text-center"><BoqViewButton index={i.idx} onClick={() => toggle(i.idx)} open={open.has(i.idx)} label={viewLabel} /></td>
                   </tr>
                   {isOpen && <tr className="bg-brand-50/20"><td colSpan={10} className="p-0"><ItemDetails item={i} total={total} color={color(i.budget)} fmtD={fmtD} t={t} /></td></tr>}
                   </Fragment>
@@ -232,7 +231,7 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
                       <Cat c={i.category} t={t} />
                       <span className="w-36 text-end text-[13px] font-semibold text-neutral-900 tabular-nums" dir="ltr">{sar(i.total)}</span>
                     </button>
-                    <BoqViewButton index={i.idx} onClick={() => setViewIdx(i.idx)} label={viewLabel} />
+                    <BoqViewButton index={i.idx} onClick={() => toggle(i.idx)} open={open.has(i.idx)} label={viewLabel} />
                     </div>
                     {isOpen && <ItemDetails item={i} total={total} color={color(i.budget)} fmtD={fmtD} t={t} />}
                     </div>
@@ -243,7 +242,6 @@ export default function BoqItems({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boole
           </div>
         )}
       </div>
-      <BoqLineDrawer lines={rfp.boq.map((l) => viewFromRfpLine(l, isAr, t))} index={viewIdx} onIndex={setViewIdx} onClose={() => setViewIdx(null)} isAr={isAr} t={t} grandTotal={total} />
     </div>
   );
 }

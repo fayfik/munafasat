@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { NotificationBell, TaskPushHost } from './TaskNotifications';
 import { TopProgress, useLoading } from './Loader';
 import { useRequests } from '../context/RequestStore';
 import { useInbox } from '../inbox/store';
@@ -20,6 +21,8 @@ interface AppShellProps {
 }
 
 export default function AppShell({ currentPage, onNavigate, onNewRequest, children }: AppShellProps) {
+  const { focusTask } = useInbox();
+  const openTask = (id: string) => { focusTask(id); onNavigate('inbox'); };
   const { lang, setLang, isAr } = useLanguage();
   const t = useT();
 
@@ -68,16 +71,8 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
           </button>
 
           {/* Notifications */}
-          <button
-            className="relative w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-white/90 hover:bg-white/15 hover:text-white"
-            title={t('Notifications', 'الإشعارات')}
-            aria-label={t('Notifications', 'الإشعارات')}
-          >
-            <BellIcon className="w-4 h-4" />
-            {returnedCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-warning-400 ring-2 ring-brand-700" />
-            )}
-          </button>
+          <NotificationBell onOpenTask={openTask} />
+          <TaskPushHost onOpenTask={openTask} />
 
           {/* User pill */}
           <div className="flex items-center gap-2 ps-3 ms-1 border-s border-white/25">

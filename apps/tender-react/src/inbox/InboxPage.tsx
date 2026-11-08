@@ -1,12 +1,12 @@
 // Munafasat Inbox — Outlook / ClickUp style two-pane workspace.
 // Left: the task list (always visible). Right: the selected task's detail, or an
 // empty state until a task is chosen.
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLoading, Sk, SkeletonCards } from '../components/Loader';
 import { useLanguage, useT } from '../context/LanguageContext';
 import { SearchIcon, NavInboxIcon, ClockIcon, AlertTriangleIcon } from '../components/Icons';
 import type { InboxView, Task } from './types';
-import { useInbox, dueInfo } from './store';
+import { useInbox, dueInfo, flowCompare } from './store';
 import { StateChip, PRIORITY_META } from './meta';
 import TaskDetail from './TaskDetail';
 
@@ -20,7 +20,7 @@ const FILTERS: { key: InboxView; en: string; ar: string }[] = [
 export default function InboxPage() {
   const t = useT();
   const { isAr } = useLanguage();
-  const { tasks, countsByView, tasksForView, getTask } = useInbox();
+  const { tasks, countsByView, tasksForView, getTask, focusTaskId, focusTask, markSeen } = useInbox();
   const [view, setView] = useState<InboxView>('needs-action');
   const [q, setQ] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -30,9 +30,17 @@ export default function InboxPage() {
     const ql = q.trim().toLowerCase();
     return tasksForView(view)
       .filter((x) => !ql || [x.titleEn, x.titleAr, x.entity.ref, x.requester.name, x.supplier?.en].filter(Boolean).join(' ').toLowerCase().includes(ql))
-      // Returned-to-me tasks first (e.g. review comments to answer), then by due date.
-      .sort((a, b) => (Number(b.state === 'returned') - Number(a.state === 'returned')) || +new Date(a.dueAt) - +new Date(b.dueAt));
+      // Process-flow order: Department approval → Technical member → Specialist & Finance → Qualification → Procurement → DOA → Price.
+      .sort(flowCompare);
   }, [tasksForView, view, q]);
+
+  // Opened from a notification: show it in "All" so it's always in the list.
+  useEffect(() => {
+    if (!focusTaskId) return;
+    if (!tasksForView(view).some((x) => x.id === focusTaskId)) setView('all');
+    setSelectedId(focusTaskId); markSeen(focusTaskId); focusTask(null);
+  }, [focusTaskId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const select = (id: string) => { setSelectedId(id); markSeen(id); };
 
   const selected = selectedId ? getTask(selectedId) : undefined;
   const listBusy = useLoading([], 500);
@@ -78,7 +86,7 @@ export default function InboxPage() {
             </div>
           ) : (
             <ul className="divide-y divide-neutral-100 py-1">
-              {listBusy ? <TaskRowsSkeleton /> : rows.map((task) => <TaskRow key={task.id} task={task} isAr={isAr} t={t} active={selectedId === task.id} onSelect={() => setSelectedId(task.id)} tasks={tasks} />)}
+              {listBusy ? <TaskRowsSkeleton /> : rows.map((task) => <TaskRow key={task.id} task={task} isAr={isAr} t={t} active={selectedId === task.id} onSelect={() => select(task.id)} tasks={tasks} />)}
             </ul>
           )}
         </div>
@@ -101,12 +109,15 @@ function TaskRow({ task, isAr, t, active, onSelect, tasks }: { task: Task; isAr:
   // Status shows only when it differs from the default "Pending".
   const showState = task.state !== 'available';
   return (
-    <li>
+    <li data-task-id={task.id} data-new={task.arrivedAt ? '' : undefined}>
       <button type="button" onClick={onSelect}
-        className={`w-full text-start px-5 py-4 transition-colors relative ${active ? 'bg-brand-50/70' : 'hover:bg-neutral-50'}`}>
+        className={`w-full text-start px-5 py-4 transition-colors relative ${active ? 'bg-brand-50/70' : task.arrivedAt ? 'task-arrived hover:bg-neutral-50' : 'hover:bg-neutral-50'}`}>
         {active && <span className={`absolute ${isAr ? 'right-0' : 'left-0'} top-3 bottom-3 w-[3px] rounded-full bg-brand-600`} />}
         <div className="flex items-start justify-between gap-4">
-          <p className={`text-[14px] leading-snug line-clamp-2 ${active ? 'font-semibold text-brand-900' : 'font-normal text-neutral-800'}`}>{isAr ? task.titleAr : task.titleEn}</p>
+          <p className={`text-[14px] leading-snug line-clamp-2 ${active ? 'font-semibold text-brand-900' : 'font-normal text-neutral-800'}`}>
+            {task.arrivedAt && <span className="me-1.5 inline-flex items-center gap-1 px-1.5 py-px rounded bg-brand-600 text-white text-[10px] font-bold align-[2px]" data-new-pill><span className="w-1 h-1 rounded-full bg-white animate-pulse" />{t('New', 'جديدة')}</span>}
+            {isAr ? task.titleAr : task.titleEn}
+          </p>
           <span className={`flex-shrink-0 mt-0.5 text-[12px] font-medium inline-flex items-center gap-1 whitespace-nowrap ${d.overdue ? 'text-error-600' : d.soon ? 'text-warning-700' : 'text-neutral-400'}`}>
             {d.overdue && <AlertTriangleIcon className="w-3 h-3" />}
             {d.overdue ? t(`${Math.abs(d.days)}d late`, `${Math.abs(d.days)}ي متأخرة`) : d.days <= 0 ? t('Today', 'اليوم') : t(`${d.days}d left`, `${d.days}ي متبقية`)}

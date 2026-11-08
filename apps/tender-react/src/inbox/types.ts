@@ -162,6 +162,8 @@ export interface Task {
   receivedAt: string;           // ISO
   dueAt: string;                // ISO
   completedAt?: string;         // ISO
+  /** Set when the task just arrived in the inbox because an earlier step completed (cleared once opened). */
+  arrivedAt?: string;
   decision?: Bilingual;         // recorded outcome when completed/rejected
 
   // Ownership routing for the inbox views

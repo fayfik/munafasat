@@ -2,7 +2,7 @@
 //  • GlReview      — accounting classification per BOQ line, Accept / Modify, mismatches first
 //  • AssetsReview  — asset lines only: Asset / Non-asset, capitalisation, "Group with…"
 //  • ChangesReview — "Changes since your review" for a request GL already approved
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import type { Task, FinLine, AssetDecision, FinChange } from './types';
 import { useInbox, assetLinesOf, nonAssetLinesOf } from './store';
 import { CheckIcon, AlertTriangleIcon, CheckCircleIcon, PencilIcon } from '../components/Icons';
@@ -10,7 +10,7 @@ import {
   PURCHASE_TYPES, COMPONENT_ROLES, MATERIAL_GROUPS, mgByCode, glFor, accountingIssues, assetFlagOf, type FinPurchaseType,
 } from '../lib/accounting';
 import type { BOQRow } from '../types/tender';
-import BoqLineDrawer, { BoqViewButton, type BoqLineView } from '../components/BoqLineDrawer';
+import BoqLineDetails, { BoqViewButton, useBoqOpen, type BoqLineView } from '../components/BoqLineDetails';
 
 /** BOQ line drawer content for finance lines (adds the accounting fields). */
 function finViews(lines: FinLine[], task: Task, isAr: boolean, t: (en: string, ar: string) => string): BoqLineView[] {
@@ -89,7 +89,9 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
   const dec = task.techDecisions ?? {};
   const [filter, setFilter] = useState<'all' | 'gl' | 'issues'>('all');
   const [editing, setEditing] = useState<string | null>(null);
-  const [view, setView] = useState<number | null>(null);
+  const boqOpen = useBoqOpen();
+  const views = finViews(lines, task, isAr, t);
+  const grand = lines.reduce((n, x) => n + x.amount, 0);
   const [draft, setDraft] = useState<{ pt: FinPurchaseType; mg: string; sub: string }>({ pt: 'service', mg: '', sub: '' });
   const L = (o?: { en: string; ar: string }) => (o ? (isAr ? o.ar : o.en) : '—');
   // Mismatches first, then by original order.
@@ -111,7 +113,6 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
   );
   return (
     <div className="space-y-5" data-gl-review>
-      <BoqLineDrawer lines={finViews(lines, task, isAr, t)} index={view} onIndex={setView} onClose={() => setView(null)} isAr={isAr} t={t} grandTotal={lines.reduce((n, x) => n + x.amount, 0)} />
       <Progress testId="gl" t={t} readOnly={readOnly} done={decided} total={keys.length}
         title={t('Review the accounting classification', 'مراجعة التصنيف المحاسبي')}
         sub={t('Each BOQ line was classified by AI when the request was created. Accept it, or Modify the Purchase type, Material group or sub-account. Lines that disagree are shown first.', 'صُنّف كل بند بالذكاء الاصطناعي عند إنشاء الطلب. اقبله أو عدّل نوع الشراء أو مجموعة المواد أو الحساب الفرعي. تظهر البنود غير المتسقة أولاً.')}
@@ -205,11 +206,12 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
                   );
                 }
                 return (
-                  <tr key={l.key} data-gl-row={l.key} data-state={dec[k] ?? ''} data-issue={issues.length ? 'yes' : 'no'}
+                  <Fragment key={l.key}>
+                  <tr data-gl-row={l.key} data-state={dec[k] ?? ''} data-issue={issues.length ? 'yes' : 'no'}
                     className={`border-t border-neutral-100 align-top ${issues.length ? 'bg-warning-50/50' : ''}`}>
                     <td className={`px-4 py-3 ${issues.length ? 'border-s-[3px] border-s-warning-400' : ''}`}>
                       <div className="flex items-start gap-1.5"><p className="flex-1 text-[13px] font-semibold text-neutral-900"><span className="text-neutral-400 font-medium me-1.5 tabular-nums">{l.no}.</span>{L({ en: l.itemEn, ar: l.itemAr })}</p>
-                        <span className="-mt-1"><BoqViewButton index={lines.indexOf(l)} onClick={() => setView(lines.indexOf(l))} label={t('View item details', 'عرض تفاصيل البند')} /></span></div>
+                        <span className="-mt-1"><BoqViewButton index={lines.indexOf(l)} open={boqOpen.isOpen(lines.indexOf(l))} onClick={() => boqOpen.toggle(lines.indexOf(l))} label={t('View item details', 'عرض تفاصيل البند')} /></span></div>
                       {(l.descEn || l.descAr) && <p className="text-[11.5px] text-neutral-600">{isAr ? l.descAr : l.descEn}</p>}
                       <p className="text-[11.5px] text-neutral-500">{l.qty} {l.unit} · <span dir="ltr">{sar(l.amount)}</span>{flagOf(l) === 'asset' && <span className="ms-1.5 px-1.5 py-0.5 rounded bg-[#EEF4FB] text-[#21507A] text-[10px] font-semibold">{t('Asset', 'أصل')}</span>}</p>
                       {issues.map((i) => <p key={i.code} className="mt-1 flex items-start gap-1 text-[11.5px] text-warning-800"><AlertTriangleIcon className="w-3 h-3 mt-0.5 flex-shrink-0" />{isAr ? i.ar : i.en}</p>)}
@@ -233,6 +235,8 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
                       )}
                     </td>
                   </tr>
+                  {boqOpen.isOpen(lines.indexOf(l)) && <tr><td colSpan={5} className="p-0"><BoqLineDetails line={views[lines.indexOf(l)]} isAr={isAr} t={t} grandTotal={grand} /></td></tr>}
+                  </Fragment>
                 );
               })}
               {!shown.length && <tr><td colSpan={5} className="px-4 py-8 text-center text-[13px] text-neutral-500">{t('No lines in this view.', 'لا توجد بنود في هذا العرض.')}</td></tr>}
@@ -254,10 +258,13 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll, 
   const lines = assetLinesOf(task);
   const nonAssets = nonAssetLinesOf(task);
   const [showNon, setShowNon] = useState(false);
-  const [view, setView] = useState<number | null>(null);
-  const viewBtn = (l: FinLine) => <BoqViewButton index={all.indexOf(l)} onClick={() => setView(all.indexOf(l))} label={t('View item details', 'عرض تفاصيل البند')} />;
   const checked = !!task.finNonAssetsChecked;
   const all = task.finLines ?? [];
+  const boqOpen = useBoqOpen();
+  const views = finViews(all, task, isAr, t);
+  const grand = all.reduce((n, x) => n + x.amount, 0);
+  const viewBtn = (l: FinLine) => <BoqViewButton index={all.indexOf(l)} open={boqOpen.isOpen(all.indexOf(l))} onClick={() => boqOpen.toggle(all.indexOf(l))} label={t('View item details', 'عرض تفاصيل البند')} />;
+  const details = (l: FinLine) => boqOpen.isOpen(all.indexOf(l)) && <div className="mt-3 rounded-lg overflow-hidden border border-neutral-100"><BoqLineDetails line={views[all.indexOf(l)]} isAr={isAr} t={t} grandTotal={grand} /></div>;
   const dec = task.finAssetDecisions ?? {};
   const L = (o?: { en: string; ar: string }) => (o ? (isAr ? o.ar : o.en) : '—');
   // Suggested treatment: implementation / installation building up an asset → AUC.
@@ -268,7 +275,6 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll, 
   const seg = (on: boolean, disabled?: boolean) => `px-3 py-1.5 text-[12px] font-semibold ${on ? 'bg-brand-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`;
   return (
     <div className="space-y-5" data-assets-review>
-      <BoqLineDrawer lines={finViews(all, task, isAr, t)} index={view} onIndex={setView} onClose={() => setView(null)} isAr={isAr} t={t} grandTotal={all.reduce((n, x) => n + x.amount, 0)} />
       <Progress testId="assets" t={t} readOnly={readOnly} done={done} total={all.length}
         title={t('Decide the asset treatment', 'تحديد معالجة الأصول')}
         sub={t('All BOQ items of the request. For items flagged as assets, confirm Asset / Non-asset, capitalisation and grouping. Then check the remaining items — mark any that should be an asset.', 'جميع بنود جدول الكميات في الطلب. للبنود المصنفة كأصول، أكّد أصل / غير أصل والرسملة والتجميع. ثم تحقق من البنود المتبقية — وحدد أي بند يجب أن يكون أصلاً.')}
@@ -303,6 +309,7 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll, 
                     {dec[l.key]?.promoted && !readOnly && <button type="button" data-unpromote={l.key} onClick={() => onDecide(l.key, null)} className="text-[11.5px] font-medium text-neutral-500 hover:text-neutral-800 hover:underline">{t('Move back to non-assets', 'إعادة إلى غير الأصول')}</button>}
                   </div>
                 </div>
+                {details(l)}
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <span className="block text-[11.5px] font-medium text-neutral-600 mb-1">{t('Asset / Non-asset', 'أصل / غير أصل')}</span>
@@ -356,7 +363,7 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll, 
                 <div className="border-t border-neutral-100">
                   <ul className="divide-y divide-neutral-100">
                     {nonAssets.map((l) => (
-                      <li key={l.key} data-nonasset-line={l.key} className="flex items-center gap-4 px-5 py-3">
+                      <li key={l.key} data-nonasset-line={l.key} className="px-5 py-3"><div className="flex items-center gap-4">
                         <div className="min-w-0 flex-1">
                           <p className="text-[13px] font-semibold text-neutral-900 flex items-center gap-1"><span className="text-neutral-400 font-medium me-0.5 tabular-nums">{l.no}.</span>{L({ en: l.itemEn, ar: l.itemAr })}<span className="-my-1.5">{viewBtn(l)}</span></p>
                           {(l.descEn || l.descAr) && <p className="text-[12px] text-neutral-600 truncate">{isAr ? l.descAr : l.descEn}</p>}
@@ -366,7 +373,7 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll, 
                           <button type="button" data-mark-asset={l.key} onClick={() => onDecide(l.key, { ...suggest(l), promoted: true })}
                             className="h-8 px-3 rounded-lg border border-neutral-300 bg-white text-neutral-700 text-[12px] font-semibold hover:bg-neutral-50 flex-shrink-0">{t('Mark as asset', 'تحديد كأصل')}</button>
                         )}
-                      </li>
+                      </div>{details(l)}</li>
                     ))}
                   </ul>
                   {!readOnly && (
