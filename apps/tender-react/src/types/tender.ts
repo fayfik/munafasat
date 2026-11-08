@@ -202,6 +202,8 @@ export interface TenderFormData {
   scopeIncludes: string[];
   /** Deployment model for technology requests (EA direction: SaaS first). */
   deploymentModel?: 'saas' | 'on-prem' | 'hybrid';
+  /** Answers to the Technical standards project questions (question id → yes/no). */
+  techAnswers?: Partial<Record<string, boolean>>;
   /** Technical standards pulled from the EA / Cybersecurity / PMO library. */
   techStandards?: { id: string; status: 'included' | 'na'; naReason?: string; ai?: boolean }[];
   /** Requester-added regulatory records (beyond the project's default/locked set). */

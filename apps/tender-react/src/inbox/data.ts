@@ -581,8 +581,9 @@ for (const tk of SEED_TASKS) if (tk.finReview && tk.rfp) tk.finLines = finLinesF
 
 // Technical standards on the demo request (as pulled into its Scope of Work at creation).
 REQ_RFP.deploymentModel = 'saas';
+REQ_RFP.techAnswers = { saas: true, 'own-servers': false, build: true, integrates: true, migration: true, 'personal-data': true, 'external-users': false, critical: true, ai: false };
 REQ_RFP.techStandards = [
-  ...['h1', 'h2', 'h4', 'i1', 'i2', 'i3', 's1', 's2', 's3', 's4', 'd1', 'd2', 'd3', 'n1', 'n2', 'n3', 'n4', 'a2', 'p1', 'p2'].map((id) => ({ id, status: 'included' as const })),
+  ...['h1', 'h2', 'h4', 'i1', 'i2', 'i3', 's1', 's2', 's3', 's4', 'd1', 'd2', 'd3', 'd4', 'n1', 'n2', 'n3', 'n4', 'a2', 'p1', 'p2'].map((id) => ({ id, status: 'included' as const })),
   { id: 'a1', status: 'na' as const, naReason: 'Current-state architecture is already documented in the EA repository (EA-2025-114).', naReasonAr: 'بنية الوضع الحالي موثقة مسبقاً في مستودع البنية المؤسسية (EA-2025-114).' },
 ];
 

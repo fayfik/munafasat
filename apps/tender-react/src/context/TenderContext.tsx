@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { STD_LIBRARY } from '../lib/eaStandards';
+import { stdQuestionsOpen } from '../components/TechStandards';
 import { useRequests } from './RequestStore';
 import { PROJECTS } from '../data/mockData';
 import type {
@@ -433,7 +434,8 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
         const contractOk = !!(formData.executionLocation && formData.startDate && formData.contractDuration);
         // A required technical standard marked "not applicable" needs a reason.
         const stdOk = !(formData.techStandards ?? []).some((x) => x.status === 'na' && REQUIRED_STD.has(x.id) && !x.naReason?.trim());
-        if (scopeOk && contractOk && stdOk) return 'completed';
+        const qOk = stdQuestionsOpen(formData) === 0;
+        if (scopeOk && contractOk && stdOk && qOk) return 'completed';
         if (formData.scopeOfWork.trim().length > 0 || formData.executionLocation || formData.startDate || formData.contractDuration) return 'missing';
         return 'not-started';
       }

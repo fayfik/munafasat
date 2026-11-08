@@ -260,6 +260,8 @@ export interface RfpDetail {
   /** Technical standards pulled from the EA / Cybersecurity / PMO library. */
   techStandards?: { id: string; status: 'included' | 'na'; naReason?: string; naReasonAr?: string }[];
   deploymentModel?: 'saas' | 'on-prem' | 'hybrid';
+  /** Requester's answers to the Technical standards questions. */
+  techAnswers?: Partial<Record<string, boolean>>;
   evalCommittee?: CommitteeMember[];
   qualification: { reqEn: string; reqAr: string; evidenceEn?: string; evidenceAr?: string }[];
   qualCriteria?: { nameEn: string; nameAr: string; pct: number; subs: { nameEn: string; nameAr: string; range: string; pct: number }[] }[];

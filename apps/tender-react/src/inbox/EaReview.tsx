@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import type { Task } from './types';
 import { CheckIcon, ChevronDownIcon, PencilIcon } from '../components/Icons';
-import { stdById, eaScope } from '../lib/eaStandards';
+import { stdById, eaScope, STD_QUESTIONS } from '../lib/eaStandards';
 import { eaSections, LICENCE_RX, type EaSection } from './eaSections';
 
 type T = (en: string, ar: string) => string;
@@ -59,6 +59,14 @@ export default function EaReview({ task, isAr, t, readOnly, onDecide, onAcceptAl
     return (
       <div>
         {s.group === 'hosting' && rfp.deploymentModel && <p className="mb-1.5 text-[12.5px] text-neutral-700">{t('Deployment model', 'نموذج النشر')}: <b>{rfp.deploymentModel === 'saas' ? 'SaaS' : rfp.deploymentModel === 'on-prem' ? t('On-premises', 'محلي') : t('Hybrid', 'هجين')}</b></p>}
+        {s.group === 'hosting' && rfp.techAnswers && (
+          <div className="mb-2" data-ea-answers>
+            <p className="text-[11.5px] text-neutral-500 mb-1">{t('Requester’s answers about the project', 'إجابات مقدّم الطلب عن المشروع')}</p>
+            <div className="flex flex-wrap gap-1.5">{STD_QUESTIONS.filter((q) => rfp.techAnswers![q.id] !== undefined).map((q) => (
+              <span key={q.id} className={`px-2 py-0.5 rounded-full text-[11.5px] border ${rfp.techAnswers![q.id] ? 'border-success-200 bg-success-50 text-success-800' : 'border-neutral-200 bg-neutral-50 text-neutral-600'}`}>{L(q.en, q.ar)} <b>{rfp.techAnswers![q.id] ? t('Yes', 'نعم') : t('No', 'لا')}</b></span>
+            ))}</div>
+          </div>
+        )}
         <ul className="space-y-1">{std.map((x) => { const d = stdById(x.id)!; return (
           <li key={x.id} className="flex items-start gap-2 text-[12.5px]">
             {x.status === 'na'
