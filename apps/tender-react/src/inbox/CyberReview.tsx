@@ -81,7 +81,7 @@ export default function CyberReview({ task, isAr, t, readOnly, onOpenRequest }: 
           {!readOnly && (
             <div className="flex items-center gap-2">
               {!cr.classification && cr.requesterClass && <Button size="sm" variant="secondary" data-testid="confirm-class" onClick={() => setTaskData(task.id, { cyberReview: { ...cr, classification: cr.requesterClass } })}>{t('Confirm classification', 'تأكيد التصنيف')}</Button>}
-              <Button size="sm" variant="primary" data-testid="modify" onClick={() => setPanel(true)}>{t('Modify', 'تعديل')}</Button>
+              <Button size="sm" variant="secondary" data-testid="modify" onClick={() => setPanel(true)}>{t('Modify', 'تعديل')}</Button>
             </div>
           )}
         </div>
