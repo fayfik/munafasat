@@ -108,7 +108,7 @@ export function AIButton({ onClick, loading, label, className = '' }: AIButtonPr
 // ─── Input ────────────────────────────────────────────────────────────────────
 
 const INPUT_BASE =
-  'block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-900 placeholder-neutral-400 shadow-sm transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none disabled:bg-neutral-50 disabled:text-neutral-400 read-only:bg-neutral-50 read-only:text-neutral-500 read-only:cursor-default';
+  'block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-900 placeholder-neutral-400 shadow-sm transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none disabled:bg-neutral-100 disabled:text-neutral-400 disabled:border-neutral-200 disabled:shadow-none disabled:cursor-not-allowed [&:is(input,textarea):read-only]:bg-neutral-100 [&:is(input,textarea):read-only]:text-neutral-500 [&:is(input,textarea):read-only]:border-neutral-200 [&:is(input,textarea):read-only]:shadow-none [&:is(input,textarea):read-only]:cursor-default';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
@@ -193,7 +193,7 @@ export function Select({ className = '', error, children, value, onChange, disab
         onClick={() => !disabled && setOpen((o) => !o)}
         className={`${INPUT_BASE} flex items-center justify-between gap-2 text-start cursor-pointer ${
           isPlaceholder ? 'text-neutral-400' : 'text-neutral-900'
-        } ${error ? 'border-error-500' : ''} ${disabled ? 'bg-neutral-50 text-neutral-400 cursor-default' : ''} ${className}`}
+        } ${error ? 'border-error-500' : ''} ${disabled ? '!bg-neutral-100 !text-neutral-400 !border-neutral-200 shadow-none !cursor-not-allowed' : 'bg-white'} ${className}`}
       >
         <span className="flex-1 truncate">{selected?.label ?? ''}</span>
         <ChevronDownIcon
