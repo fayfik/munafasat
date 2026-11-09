@@ -204,6 +204,8 @@ export interface TenderFormData {
   deploymentModel?: 'saas' | 'on-prem' | 'hybrid';
   /** Answers to the Technical standards project questions (question id → yes/no). */
   techAnswers?: Partial<Record<string, boolean>>;
+  /** Answers + deployment the current standards were built from (rebuild when they change). */
+  techStdKey?: string;
   /** Technical standards pulled from the EA / Cybersecurity / PMO library. */
   techStandards?: { id: string; status: 'included' | 'na'; naReason?: string; ai?: boolean }[];
   /** Requester-added regulatory records (beyond the project's default/locked set). */

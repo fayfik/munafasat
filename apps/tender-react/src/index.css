@@ -470,3 +470,6 @@ section[data-cm-has] { background-color: #fff; outline: 2px solid rgba(42, 97, 1
 @keyframes task-arrived { from { background-color: #EEF4E8; } to { background-color: transparent; } }
 .task-arrived { animation: task-arrived 2.4s ease-out; }
 @media (prefers-reduced-motion: reduce) { .push-in, .push-in-rtl, .bell-ring, .bell-ping, .task-arrived { animation: none; } }
+
+@keyframes q-flash { 0%, 60% { box-shadow: 0 0 0 3px rgba(224, 142, 0, 0.45); } 100% { box-shadow: 0 0 0 0 rgba(224, 142, 0, 0); } }
+.q-flash { animation: q-flash 1.6s ease-out; border-radius: 0.6rem; }

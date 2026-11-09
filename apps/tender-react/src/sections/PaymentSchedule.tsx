@@ -120,7 +120,7 @@ export default function PaymentSchedule() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" id="q-payment">
       <SectionCard
         title="Payment Schedule"
         titleAr="جدول الدفعات"

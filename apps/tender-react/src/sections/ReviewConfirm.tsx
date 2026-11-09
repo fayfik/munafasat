@@ -17,7 +17,9 @@ import RegulatoryRecordsCard from '../components/RegulatoryRecordsCard';
 import { LOCKED_TECH_DOCS } from './TechnicalEvaluation';
 import { downloadRfpPdf } from '../lib/rfpPdf';
 import { FinanceRoutingCard } from '../components/BoqAccounting';
-import { EaRouteCard, TechStandardsReview, eaScopeForForm } from '../components/TechStandards';
+import TechStandards, { EaRouteCard, eaScopeForForm, stdQuestionsOpen, stdIssues } from '../components/TechStandards';
+import { qualityIssues } from '../lib/quality';
+import { focusField } from '../components/QualityGate';
 
 function formatSAR(n: number) {
   return new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -117,6 +119,41 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
           </div>
         </div>
       )}
+
+      {/* ── Before you submit: anything a reviewer would return ───── */}
+      {!isEsouq && (() => {
+        const items = SECTIONS.flatMap((sec, idx) => qualityIssues(sec.id, formData).map((q) => ({ q, idx, sec })));
+        const openQ = eaScopeForForm(formData).required ? stdQuestionsOpen(formData) : 0;
+        const naMissing = stdIssues(formData);
+        if (!items.length && !openQ && !naMissing) return null;
+        const go = (idx: number, field: string) => { if (idx >= 0) goToSection(idx); setTimeout(() => focusField(field), idx >= 0 ? 450 : 0); };
+        return (
+          <div className="rounded-xl border border-warning-200 bg-warning-50/60 px-5 py-4" data-before-submit>
+            <p className="text-[13.5px] font-semibold text-warning-900">{t('Before you submit', 'قبل التقديم')}</p>
+            <p className="text-[12.5px] text-warning-800 mt-0.5">{t('These would likely get the request returned. Submit unlocks once they’re fixed.', 'من المرجح أن تؤدي هذه إلى إعادة الطلب. يُتاح التقديم بعد إصلاحها.')}</p>
+            <ul className="mt-3 space-y-2">
+              {openQ > 0 && (
+                <li className="flex items-center gap-3 rounded-lg bg-white border border-warning-200 px-3.5 py-2.5" data-before-item="tech-questions">
+                  <span className="flex-1 text-[13px] text-neutral-800">{t(`Answer ${openQ} question${openQ === 1 ? '' : 's'} in Technical standards`, `أجب عن ${openQ} من الأسئلة في المعايير التقنية`)}</span>
+                  <button type="button" onClick={() => go(-1, 'q-techStandards')} className="text-[12.5px] font-semibold text-brand-700 hover:underline">{t('Answer', 'إجابة')}</button>
+                </li>
+              )}
+              {naMissing > 0 && (
+                <li className="flex items-center gap-3 rounded-lg bg-white border border-warning-200 px-3.5 py-2.5" data-before-item="na-reason">
+                  <span className="flex-1 text-[13px] text-neutral-800">{t('Give a reason for each required standard marked not applicable', 'اذكر سبب كل معيار إلزامي محدد كغير منطبق')}</span>
+                  <button type="button" onClick={() => go(-1, 'q-techStandards')} className="text-[12.5px] font-semibold text-brand-700 hover:underline">{t('Fix', 'إصلاح')}</button>
+                </li>
+              )}
+              {items.map(({ q, idx, sec }) => (
+                <li key={`${sec.id}-${q.id}`} className="flex items-center gap-3 rounded-lg bg-white border border-warning-200 px-3.5 py-2.5" data-before-item={q.id}>
+                  <span className="flex-1 min-w-0 text-[13px] text-neutral-800">{isAr ? q.ar : q.en}<span className="text-neutral-400"> · {isAr ? sec.titleAr : sec.title}</span></span>
+                  <button type="button" onClick={() => go(idx, q.field)} className="text-[12.5px] font-semibold text-brand-700 hover:underline">{t('Fix', 'إصلاح')}</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
 
       {/* ── Request overview hero ─────────────────────────────────── */}
       <div className="rounded-2xl overflow-hidden border border-neutral-200 shadow-sm bg-white">
@@ -254,11 +291,14 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
         </ReviewSection>
       )}
 
-      {/* ── Technical standards (built from the project questions) ── */}
+      {/* ── Technical standards — worked out from the earlier steps; asks only what's missing ── */}
       {!isEsouq && eaScopeForForm(formData).required && (
-        <ReviewSection title="Technical standards" titleAr="المعايير التقنية" sectionIdx={2} status={sectionStatuses[2]}>
-          <TechStandardsReview />
+        <div id="q-techStandards">
+        <ReviewSection title="Technical standards" titleAr="المعايير التقنية" sectionIdx={-1}
+          status={stdQuestionsOpen(formData) === 0 && stdIssues(formData) === 0 ? 'completed' : 'missing'}>
+          <TechStandards />
         </ReviewSection>
+        </div>
       )}
 
       {/* ── Bill of Quantities — table with a view icon per line ─── */}
@@ -782,7 +822,7 @@ function ReviewSection({ title, titleAr, sectionIdx, status, children }: { title
           <StatusDot status={status} />
           <span className="text-sm font-semibold text-neutral-800 truncate">{isAr ? titleAr : title}</span>
         </button>
-        <button onClick={() => goToSection(sectionIdx)} className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium transition-colors flex-shrink-0"><PencilIcon className="w-3 h-3" />{t('Edit', 'تعديل')}</button>
+        {sectionIdx >= 0 && <button onClick={() => goToSection(sectionIdx)} className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium transition-colors flex-shrink-0"><PencilIcon className="w-3 h-3" />{t('Edit', 'تعديل')}</button>}
       </div>
       {!collapsed && <div className="px-5 py-4">{children}</div>}
     </div>

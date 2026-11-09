@@ -205,7 +205,7 @@ export default function TechnicalEvaluation() {
   const weightOver = evalWeightTotal > 100;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" id="q-evaluation">
       {/* Committee Members */}
       <SectionCard
         title="Technical Evaluation Member"

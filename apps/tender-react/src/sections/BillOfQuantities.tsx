@@ -1043,7 +1043,7 @@ export default function BillOfQuantities() {
   const uploadingEmpty = showUploadZone && formData.boqItems.length === 0 && !showAddForm;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" id="q-boq">
       <SectionCard
         title="Bill of Quantities"
         titleAr="جدول الكميات"

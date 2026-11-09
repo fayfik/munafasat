@@ -140,26 +140,38 @@ export interface StdQuestion {
   /** Asked only when this returns true (project-dependent). */
   ask?: (ctx: QCtx) => boolean;
   /** Suggested answer from the request's items, with the item it came from. */
-  guess?: (ctx: QCtx) => { yes: boolean; basis: string } | null;
+  guess?: (ctx: QCtx) => Guess | null;
 }
-export interface QCtx { scope: EaScope; texts: string[]; answers: Answers }
+/** A piece of the request the answers are read from, with where it came from. */
+export interface SrcText { src: { en: string; ar: string }; text: string }
+export interface QCtx { scope: EaScope; texts: SrcText[]; answers: Answers }
+export interface Guess { yes: boolean; basis: string; src?: { en: string; ar: string } }
 
 const has = (c: QCtx, id: string) => c.scope.reasons.some((r) => r.id === id);
-const hit = (c: QCtx, rx: RegExp) => c.texts.find((t) => rx.test(t));
-const yesIf = (c: QCtx, rx: RegExp) => { const b = hit(c, rx); return b ? { yes: true, basis: b } : null; };
+/** Short quote around the match, so the requester sees what the answer was read from. */
+function snippet(text: string, rx: RegExp) {
+  const m = new RegExp(rx.source, rx.flags.replace('g', '')).exec(text);
+  if (!m || text.length <= 70) return text.trim();
+  const a = Math.max(0, m.index - 28), b = Math.min(text.length, m.index + m[0].length + 34);
+  return `${a > 0 ? '…' : ''}${text.slice(a, b).replace(/^\S*\s/, a > 0 ? '' : '$&').trim()}${b < text.length ? '…' : ''}`;
+}
+const hitSrc = (c: QCtx, rx: RegExp) => c.texts.find((t) => rx.test(t.text));
+const hit = (c: QCtx, rx: RegExp) => { const h = hitSrc(c, rx); return h ? snippet(h.text, rx) : undefined; };
+const found = (c: QCtx, rx: RegExp, yes: boolean): Guess | null => { const h = hitSrc(c, rx); return h ? { yes, basis: snippet(h.text, rx), src: h.src } : null; };
+const yesIf = (c: QCtx, rx: RegExp, noRx?: RegExp): Guess | null => found(c, rx, true) ?? (noRx ? found(c, noRx, false) : null);
 const infraOnly = (c: QCtx) => has(c, 'infra') && !has(c, 'licence') && !has(c, 'solution');
 const licenceOnly = (c: QCtx) => has(c, 'licence') && !has(c, 'solution') && !has(c, 'integration') && !has(c, 'infra');
 
 export const STD_QUESTIONS: StdQuestion[] = [
   { id: 'saas', short: 'Cloud service (SaaS)', shortAr: 'خدمة سحابية (SaaS)', tone: 'brand', en: 'Is it delivered as a cloud service (SaaS)?', ar: 'هل يُقدَّم كخدمة سحابية (SaaS)؟',
     descEn: 'The vendor hosts and runs it; you use it over the internet. EA direction is SaaS first.', descAr: 'يستضيفه المورد ويشغّله وتستخدمه عبر الإنترنت. توجه البنية المؤسسية هو SaaS أولاً.',
-    ask: (c) => !infraOnly(c), guess: (c) => yesIf(c, /saas|cloud|subscription/i) },
+    ask: (c) => !infraOnly(c), guess: (c) => yesIf(c, /saas|cloud|subscription|hosted by the vendor/i, /on[- ]?prem|our (own )?(servers|data ?cent(er|re))/i) },
   { id: 'own-servers', short: 'Runs on our servers', shortAr: 'يعمل على خوادمنا', tone: 'info', en: 'Will any part run on our own servers?', ar: 'هل سيعمل أي جزء على خوادمنا؟',
     descEn: 'For example an on-site gateway, a local database or a connector installed in our data centre.', descAr: 'مثل بوابة محلية أو قاعدة بيانات محلية أو موصل مثبت في مركز بياناتنا.',
-    ask: (c) => c.answers.saas === true, guess: (c) => yesIf(c, /on[- ]?prem|gateway|data cent(er|re)|server/i) },
+    ask: (c) => c.answers.saas === true, guess: (c) => yesIf(c, /on[- ]?prem|gateway|installed (in|on) our|data ?cent(er|re)|local server/i, /fully (hosted|managed) by the vendor|no on[- ]?prem/i) },
   { id: 'build', short: 'New build or upgrade', shortAr: 'تنفيذ جديد أو ترقية', tone: 'success', en: 'Is it a new implementation or an upgrade?', ar: 'هل هو تنفيذ جديد أو ترقية؟',
     descEn: 'Answer No if you are only renewing or adding licences for something already running.', descAr: 'أجب بلا إذا كنت تجدد أو تضيف تراخيص لنظام قائم فقط.',
-    ask: (c) => !infraOnly(c), guess: (c) => (licenceOnly(c) ? { yes: false, basis: hit(c, /licen[cs]e|subscription|renewal/i) ?? '' } : yesIf(c, /implement|upgrade|deploy|configur|new system|platform/i)) },
+    ask: (c) => !infraOnly(c), guess: (c) => (licenceOnly(c) ? found(c, /licen[cs]e|subscription|renewal/i, false) : yesIf(c, /implement|upgrade|deploy|configur|new system|platform|roll-?out/i)) },
   { id: 'integrates', short: 'Internal integrations', shortAr: 'تكامل مع الأنظمة الداخلية', tone: 'ai', en: 'Does it connect to our internal systems?', ar: 'هل يتكامل مع أنظمتنا الداخلية؟',
     descEn: 'SAP, HR, Etimad, the identity provider or any other system we run.', descAr: 'ساب أو الموارد البشرية أو اعتماد أو مزود الهوية أو أي نظام آخر لدينا.',
     guess: (c) => yesIf(c, /integrat|interface|\bapi|ipaas|connector|\bsap\b|\bhr\b/i) },
@@ -171,7 +183,7 @@ export const STD_QUESTIONS: StdQuestion[] = [
     guess: (c) => yesIf(c, /\bhr\b|payroll|employee|customer|crm|citizen|patient|personal|erp|s\/4hana/i) },
   { id: 'external-users', short: 'External users', shortAr: 'مستخدمون خارجيون', tone: 'info', en: 'Will people outside the organisation use it?', ar: 'هل سيستخدمه أشخاص من خارج الجهة؟',
     descEn: 'Suppliers, citizens or partners logging in from the internet.', descAr: 'موردون أو مواطنون أو شركاء يسجلون الدخول عبر الإنترنت.',
-    guess: (c) => yesIf(c, /portal|citizen|public|customer|supplier|website|mobile app/i) },
+    guess: (c) => yesIf(c, /portal|citizens?|public[- ]facing|website|mobile app|external users/i, /internal (staff|users|use)|employees only/i) },
   { id: 'critical', short: 'Business-critical', shortAr: 'حرج للأعمال', tone: 'warning', en: 'Would an outage stop critical work?', ar: 'هل يوقف تعطله أعمالاً حرجة؟',
     descEn: 'If it is down for a day, core operations or services to the public are affected.', descAr: 'إذا تعطل يوماً تتأثر العمليات الأساسية أو الخدمات المقدمة للجمهور.',
     guess: (c) => yesIf(c, /erp|s\/4hana|core|finance|payroll|network|firewall|data cent(er|re)/i) },

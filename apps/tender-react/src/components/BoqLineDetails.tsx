@@ -1,7 +1,8 @@
 // BOQ line — view mode. One common component for every read-only BOQ table
 // (Review & Confirm, Inbox request tab, request detail BOQ items, EA licences,
 // GL / Assets tasks). Opened inline (accordion) by the eye icon on a row.
-// Simple label / value pairs in three groups: Item · Amount · Finance.
+// Simple label / value pairs in two groups: Item · Amount. Purchase type and Material
+// group sit with the item; GL details show only in Finance tasks (showGl).
 import { useState, type ReactNode } from 'react';
 import type { BOQRow } from '../types/tender';
 import {
@@ -34,7 +35,7 @@ export interface BoqLineView {
   total?: number;
   delivery?: string;
   /** Item-specific fields (brand, mandatory list, manpower, Etimad, attachments…). */
-  extra?: { label: string; value: ReactNode; full?: boolean; ltr?: boolean }[];
+  extra?: { label: ReactNode; value: ReactNode; full?: boolean; ltr?: boolean }[];
   finance?: BoqFinance;
 }
 
@@ -62,7 +63,7 @@ export function useBoqOpen() {
   return { isOpen: (i: number) => open.has(i), toggle };
 }
 
-function Field({ label, value, full, ltr, strong }: { label: string; value: ReactNode; full?: boolean; ltr?: boolean; strong?: boolean }) {
+function Field({ label, value, full, ltr, strong }: { label: ReactNode; value: ReactNode; full?: boolean; ltr?: boolean; strong?: boolean }) {
   const empty = value === '' || value == null;
   return (
     <div className={full ? 'col-span-full' : ''}>
@@ -88,7 +89,8 @@ function Group({ title, aside, children }: { title: string; aside?: ReactNode; c
 }
 
 /** Inline view-mode details under an expanded BOQ row. */
-export default function BoqLineDetails({ line: l, isAr, t }: { line: BoqLineView; isAr: boolean; t: T; grandTotal?: number }) {
+/** View mode for one BOQ line. `showGl` adds GL account / sub-account / asset flag — Finance tasks only. */
+export default function BoqLineDetails({ line: l, isAr, t, showGl }: { line: BoqLineView; isAr: boolean; t: T; grandTotal?: number; showGl?: boolean }) {
   const L = (o?: { en: string; ar: string }) => (o ? (isAr ? o.ar : o.en) : '');
   const fmtD = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(isAr ? 'ar-SA' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
   const f = l.finance;
@@ -104,6 +106,14 @@ export default function BoqLineDetails({ line: l, isAr, t }: { line: BoqLineView
           {l.description && <Field label={t('Description', 'الوصف')} value={<span className="whitespace-pre-line">{l.description}</span>} full />}
           <Field label={t('Category', 'التصنيف')} value={l.category && <span className="inline-flex items-center gap-1.5"><span className={`w-2 h-2 rounded-full ${DOT[l.category.tone]}`} />{l.category.label}</span>} />
           <Field label={t('Budgeted item', 'البند المعتمد')} value={l.budget} />
+          <Field label={<>{t('Purchase type', 'نوع الشراء')}{f?.ai && <span className="ms-1.5 px-1 rounded bg-ai-50 text-ai-700 text-[9.5px] font-bold align-[1px]" title={t('AI-suggested', 'مقترح بالذكاء الاصطناعي')}>AI</span>}</>} value={L(f?.purchaseType ? PURCHASE_TYPES[f.purchaseType] : undefined)} />
+          <Field label={t('Material group', 'مجموعة المواد')} value={mg && <>{L(mg)}<span className="block text-neutral-400 text-[11.5px]" dir="ltr">{mg.code}</span></>} />
+          {showGl && <>
+            <Field label={t('GL account', 'حساب الأستاذ')} value={glMain && <><span dir="ltr">{glMain.code}</span><span className="block text-neutral-400 text-[11.5px]">{L(glMain)}</span></>} />
+            <Field label={t('GL sub-account', 'الحساب الفرعي')} value={glSub ? <><span dir="ltr">{glSub.code}</span><span className="block text-neutral-400 text-[11.5px]">{L(glSub)}</span></> : f?.glSubOverride} />
+            <Field label={t('Asset / Non-asset', 'أصل / غير أصل')} value={f?.assetFlag ? (f.assetFlag === 'asset' ? t('Asset', 'أصل') : t('Non-asset', 'غير أصل')) : ''} />
+            {f?.componentRole && <Field label={t('Component role', 'دور المكوّن')} value={L(COMPONENT_ROLES[f.componentRole])} />}
+          </>}
           <Field label={t('Unit of measure', 'وحدة القياس')} value={l.unit} />
           <Field label={t('Delivery date', 'موعد التسليم')} value={fmtD(l.delivery)} />
           {l.extra?.map((x, i) => <Field key={i} {...x} />)}
@@ -116,17 +126,6 @@ export default function BoqLineDetails({ line: l, isAr, t }: { line: BoqLineView
           <Field label={t('Line total (incl. VAT)', 'إجمالي البند (شامل الضريبة)')} value={total ? sar(total * 1.15) : ''} ltr strong />
         </Group>
 
-        <Group title={t('Finance', 'المالية')}
-          aside={f?.ai ? <span className="text-[10.5px] font-semibold text-ai-700 bg-ai-50 px-1.5 py-0.5 rounded">{t('AI-suggested', 'مقترح بالذكاء الاصطناعي')}</span> : undefined}>
-          <Field label={t('Purchase type', 'نوع الشراء')} value={L(f?.purchaseType ? PURCHASE_TYPES[f.purchaseType] : undefined)} />
-          <Field label={t('Material group', 'مجموعة المواد')} value={mg && <>{L(mg)}<span className="block text-neutral-400 text-[11.5px]" dir="ltr">{mg.code}</span></>} />
-          <Field label={t('GL account', 'حساب الأستاذ')} value={glMain && <><span dir="ltr">{glMain.code}</span><span className="block text-neutral-400 text-[11.5px]">{L(glMain)}</span></>} />
-          <Field label={t('GL sub-account', 'الحساب الفرعي')} value={glSub ? <><span dir="ltr">{glSub.code}</span><span className="block text-neutral-400 text-[11.5px]">{L(glSub)}</span></> : f?.glSubOverride} />
-          <Field label={t('Asset / Non-asset', 'أصل / غير أصل')} value={f?.assetFlag ? (f.assetFlag === 'asset' ? t('Asset', 'أصل') : t('Non-asset', 'غير أصل')) : ''} />
-          {f?.componentRole && <Field label={t('Component role', 'دور المكوّن')} value={L(COMPONENT_ROLES[f.componentRole])} />}
-          {f?.costCenter && <Field label={t('Cost center', 'مركز التكلفة')} value={f.costCenter} />}
-          {f?.commitmentItem && <Field label={t('Commitment item', 'بند الالتزام')} value={f.commitmentItem} />}
-        </Group>
       </div>
     </div>
   );

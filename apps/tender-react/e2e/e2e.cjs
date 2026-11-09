@@ -709,6 +709,9 @@ async function openRequest(title) {
   await test('GL task: lines with mismatches first, filter, Modify one row, prefilled Return, Approve gated', async () => {
     await openTaskId('TSK-4433-07');
     expect(await count('[data-gl-review]') === 1, 'GL review missing');
+    await page.locator('[data-gl-review] [data-boq-view]').first().click(); await wait(200);
+    expect((await page.locator('[data-gl-review] [data-boq-details]').first().innerText()).includes('GL account'), 'GL details shown in the GL task');
+    await page.locator('[data-gl-review] [data-boq-view]').first().click(); await wait(100);
     const states = await page.locator('[data-gl-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-issue')));
     expect(states.length === 9 && states.slice(0, 3).every((x) => x === 'yes') && states.slice(3).every((x) => x === 'no'), `mismatches first: ${states}`);
     const approve = page.getByRole('button', { name: 'Approve', exact: true });
@@ -784,51 +787,55 @@ async function openRequest(title) {
     expect(await page.getAttribute('[data-ea-route]', 'data-ea-route') === 'not-required', 'consultancy should not need EA');
     expect(/consultancy/i.test(await page.locator('[data-ea-sentence]').innerText()), 'exclusion reason');
   });
-  await test('Technical standards: one-by-one project questions build the deployment model and sections', async () => {
-    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: eaRows([['SAP S/4HANA subscription', 'Cloud ERP licences'], ['Integration with HR system', 'APIs via iPaaS']]) });
-    await page.locator('button', { hasText: 'Scope of Work' }).first().click(); await wait(800);
-    expect(await count('[data-tech-standards]') === 1, 'standards section missing');
-    expect(await count('[data-q]') === 1, 'one question at a time');
-    expect(await page.getAttribute('[data-q]', 'data-q') === 'saas', 'first question is SaaS');
-    expect(await count('[data-q-answer="yes"][data-suggested]') === 1, 'SaaS suggested Yes from the items');
-    expect(await count('[data-std-group]') === 0, 'sections not built before answers');
-    const answers = { saas: 'yes', 'own-servers': 'yes', build: 'yes', integrates: 'yes', migration: 'no', 'personal-data': 'yes', 'external-users': 'no', critical: 'yes', ai: 'no' };
-    for (let i = 0; i < 12 && await count('[data-q]'); i++) {
-      const id = await page.getAttribute('[data-q]', 'data-q');
-      await page.click(`[data-q-answer="${answers[id] ?? 'no'}"]`); await wait(120);
-    }
-    expect(await page.getAttribute('[data-tech-standards]', 'data-std-phase') === 'built', 'built after last answer');
-    expect(await page.getAttribute('[data-deploy-result]', 'data-deploy-result') === 'hybrid', 'SaaS + own servers = hybrid');
-    expect((await page.locator('[data-toast]').allInnerTexts()).some((x) => /built from your answers/.test(x)), 'build toast');
-    await page.click('[data-std-group="hosting"] > button'); await wait(150);
-    expect(await page.getAttribute('[data-std="h3"]', 'data-std-state') === 'included', 'on-prem spec for hybrid');
-    expect(await count('[data-std-toggle="h1"]') === 0, 'required standard cannot be unticked');
+  await test('Technical standards: worked out in Review & Confirm from earlier steps; asks only what is missing', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002',
+      scopeOfWork: 'Implement SAP S/4HANA as a cloud subscription hosted by the vendor. Integrate with the HR system and Etimad through APIs. Migrate open items and three years of history from the legacy ECC system. Employee and payroll data will be processed. Internal staff use only.',
+      boqItems: eaRows([['SAP S/4HANA subscription', 'Cloud ERP licences'], ['Integration with HR system', 'APIs via iPaaS']]) });
+    await page.locator('button', { hasText: 'Scope of Work' }).first().click(); await wait(600);
+    expect(await count('[data-tech-standards]') === 0, 'not in Scope of Work any more');
+    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(900);
+    expect(await count('[data-tech-standards]') === 1, 'in Review & Confirm');
+    for (const id of ['saas', 'integrates', 'migration', 'personal-data', 'external-users']) expect(await page.getAttribute(`[data-answer="${id}"]`, 'data-source') === 'derived', `${id} derived from the request`);
+    expect(await page.getAttribute('[data-answer="external-users"]', 'data-yes') === null, 'internal use → No');
+    expect(await count('[data-before-item="tech-questions"]') === 1, 'open questions listed before submit');
+    for (let i = 0; i < 10 && await count('[data-q]'); i++) { await page.click('[data-q-answer="no"]'); await wait(150); }
+    await wait(200);
+    expect(await page.getAttribute('[data-tech-standards]', 'data-std-phase') === 'built', 'standards built');
+    expect(await page.getAttribute('[data-tech-standards] [data-deploy-result]', 'data-deploy-result') === 'saas', 'SaaS from scope');
     await page.click('[data-std-group="data"] > button'); await wait(150);
     expect(await page.getAttribute('[data-std="d4"]', 'data-std-state') === 'included', 'PDPL from personal data');
-    expect(/confidential/i.test(await page.locator('[data-std-because="d4"]').innerText()), 'because tag');
-    expect(await page.getAttribute('[data-std="d2"]', 'data-std-state') === 'off', 'no migration std');
-    // Change one answer → rebuild
-    await page.click('[data-q-edit]'); await wait(100);
-    await page.click('[data-q-change="own-servers"]'); await wait(100);
-    await page.click('[data-q-answer="no"]'); await wait(150);
-    expect(await page.getAttribute('[data-deploy-result]', 'data-deploy-result') === 'saas', 'rebuilt as SaaS');
+    expect(await page.getAttribute('[data-std="d2"]', 'data-std-state') === 'included', 'migration std');
+    // Change a derived answer → rebuilt
+    await page.click('[data-answer="saas"]'); await wait(150);
+    await page.click('[data-q="saas"] [data-q-answer="no"]'); await wait(300);
+    expect(await page.getAttribute('[data-tech-standards] [data-deploy-result]', 'data-deploy-result') === 'on-prem', 'rebuilt as on-prem');
+    expect(await page.getAttribute('[data-answer="saas"]', 'data-source') === 'user', 'now the requester’s answer');
     await page.click('[data-std-group="hosting"] > button'); await wait(150);
-    expect(await page.getAttribute('[data-std="h3"]', 'data-std-state') === 'off', 'on-prem spec dropped');
+    expect(await page.getAttribute('[data-std="h3"]', 'data-std-state') === 'included', 'on-prem spec added');
     await page.click('[data-std-na="h2"]'); await wait(100);
-    expect(await count('[data-std-reason="h2"]') === 1, 'N/A asks for a reason');
+    expect(await count('[data-before-item="na-reason"]') === 1, 'N/A needs a reason before submit');
     await page.fill('[data-std-reason="h2"]', 'Hosted by a government cloud provider under a separate contract');
-    expect(await page.getAttribute('[data-std="h2"]', 'data-std-state') === 'na', 'marked N/A');
+    expect(await count('[data-before-item="na-reason"]') === 0, 'reason given');
   });
-  await test('Technical standards: questions depend on the project (licence renewal skips migration)', async () => {
+  await test('Technical standards: licence renewal reads "not a new build" and skips migration', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: eaRows([['Microsoft 365 licence renewal', 'Annual subscription renewal']]) });
-    await page.locator('button', { hasText: 'Scope of Work' }).first().click(); await wait(800);
-    const seen = [];
-    for (let i = 0; i < 12 && await count('[data-q]'); i++) {
-      const id = await page.getAttribute('[data-q]', 'data-q'); seen.push(id);
-      if (id === 'build') expect(await count('[data-q-answer="no"][data-suggested]') === 1, 'renewal suggests not a new build');
-      await page.click(`[data-q-answer="${id === 'saas' ? 'yes' : 'no'}"]`); await wait(120);
-    }
-    expect(!seen.includes('migration') && seen.includes('build'), `asked: ${seen}`);
+    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(900);
+    expect(await page.getAttribute('[data-answer="build"]', 'data-source') === 'derived' && await page.getAttribute('[data-answer="build"]', 'data-yes') === null, 'build = No from the BOQ');
+    expect(await count('[data-answer="migration"], [data-q="migration"]') === 0, 'migration not asked');
+  });
+  await test('Continue is blocked when a step would be returned (short Scope of Work)', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', scopeOfWork: 'Implement ERP system.', executionLocation: 'Riyadh', startDate: '2027-01-01', contractDuration: '12' });
+    await page.locator('button', { hasText: 'Scope of Work' }).first().click(); await wait(600);
+    expect(await count('[data-detail-meter="sow"]') === 1, 'word meter under the scope');
+    await page.click('[data-continue]'); await wait(300);
+    expect(await count('[data-quality-gate] [data-quality-issue="sow"]') === 1, 'gate lists the short scope');
+    await page.click('[data-quality-fix]'); await wait(700);
+    expect(await count('[data-quality-gate]') === 0, 'gate closed');
+    expect(/Scope of Work/.test(await page.locator('h2').first().innerText()), 'still on Scope of Work');
+    await page.locator('#q-scopeOfWork textarea').fill('Implement SAP S/4HANA Finance, Procurement and Funds Management for the IT department. The vendor delivers blueprint, configuration, data migration, integration with Etimad and HR, testing, training and three months of hypercare. Hosting and hardware are out of scope. Work is delivered in Riyadh with weekly status reporting to the PMO.');
+    expect(await page.getAttribute('[data-detail-meter="sow"]', 'data-ok') !== null, 'meter turns green');
+    await page.click('[data-continue]'); await wait(600);
+    expect(await count('[data-quality-gate]') === 0 && /Bill of Quantities/.test(await page.locator('h2').first().innerText()), 'moved on to BOQ');
   });
   await test('Review & Confirm: no BOQ chart, view icon opens the item drawer; technical standards summary', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', techAnswers: { saas: true, 'own-servers': false, build: true, integrates: true, migration: false, 'personal-data': true, 'external-users': false, critical: true, ai: false }, deploymentModel: 'saas', techStandards: [{ id: 'h1', status: 'included' }, { id: 'd4', status: 'included', ai: true }, { id: 'a1', status: 'na', naReason: 'Documented already' }], boqItems: eaRows([['SAP S/4HANA subscription', 'Cloud ERP licences'], ['Integration with HR system', 'APIs via iPaaS']]) });
@@ -838,7 +845,8 @@ async function openRequest(title) {
     await page.click('[data-review-boq] [data-boq-view="0"]'); await wait(250);
     expect(await count('[data-review-boq] [data-boq-details-inline]') === 1, 'inline details open');
     const dt = await page.locator('[data-review-boq] [data-boq-details]').innerText();
-    for (const k of ['Item name', 'Description', 'Unit of measure', 'Line total (incl. VAT)', 'Purchase type', 'Material group', 'GL account', 'Asset / Non-asset', 'Cost center']) expect(dt.includes(k), `view mode missing ${k}`);
+    for (const k of ['Item name', 'Description', 'Category', 'Budgeted item', 'Purchase type', 'Material group', 'Unit of measure', 'Line total (incl. VAT)']) expect(dt.includes(k), `view mode missing ${k}`);
+    expect(!dt.includes('GL account') && !/\bFINANCE\b|\bFinance\b/.test(dt), 'no Finance group / GL outside finance tasks');
     expect(await count('[data-boq-drawer]') === 0, 'no drawer');
     expect(await page.getAttribute('[data-review-boq] [data-boq-view="0"]', 'data-open') === 'true', 'eye expanded');
     await page.click('[data-review-boq] [data-boq-view="1"]'); await wait(150);
@@ -846,8 +854,8 @@ async function openRequest(title) {
     await page.click('[data-review-boq] [data-boq-view="0"]'); await page.click('[data-review-boq] [data-boq-view="1"]'); await wait(150);
     expect(await count('[data-review-boq] [data-boq-details-inline]') === 0, 'collapsed');
     expect(await count('[data-std-review]') === 1, 'tech standards summary');
-    expect(await page.getAttribute('[data-std-review] [data-deploy-result]', 'data-deploy-result') === 'saas', 'deployment');
-    expect(await count('[data-std-review] [data-answer]') === 9, 'answer tiles');
+    expect(await page.getAttribute('[data-tech-standards] [data-deploy-result]', 'data-deploy-result') === 'saas', 'deployment');
+    expect(await count('[data-tech-standards] [data-answer]') === 9, 'answer tiles');
   });
   await test('BOQ view icon in Inbox request tab and request detail BOQ items', async () => {
     await openTaskId('TSK-4433-06');

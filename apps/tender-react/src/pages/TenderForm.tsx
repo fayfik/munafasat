@@ -19,6 +19,8 @@ import TechnicalEvaluation from '../sections/TechnicalEvaluation';
 import QualificationCriteria from '../sections/QualificationCriteria';
 import Attachments from '../sections/Attachments';
 import ReviewConfirm from '../sections/ReviewConfirm';
+import QualityGate from '../components/QualityGate';
+import { qualityIssues, type QualityIssue } from '../lib/quality';
 
 const SECTION_COMPONENTS = [
   ProcurementRouteStep,
@@ -60,6 +62,13 @@ export default function TenderForm({ onBack }: Props) {
   const isLastSection = posInVisible === visibleIdxs.length - 1;
   const isFirstSection = posInVisible <= 0;
   const nextOrig = visibleIdxs[posInVisible + 1] ?? currentSection;
+  // Block Continue when this step would likely be returned (thin scope, one-line BOQ…).
+  const [gate, setGate] = useState<QualityIssue[]>([]);
+  const goNext = () => {
+    const issues = formData.sourceType === 'souq-etimad' ? [] : qualityIssues(SECTIONS[currentSection].id, formData);
+    if (issues.length) { setGate(issues); return; }
+    goToSection(nextOrig);
+  };
   const prevOrig = visibleIdxs[posInVisible - 1] ?? currentSection;
 
   const selectedProject = PROJECTS.find((p) => p.id === formData.projectId);
@@ -276,7 +285,7 @@ export default function TenderForm({ onBack }: Props) {
               <div className="flex items-center gap-3">
                 {!submitted && <Button variant="secondary" size="md" onClick={() => saveNow()} loading={isSaving}>{t('Save Draft', 'حفظ كمسودة')}</Button>}
                 {!isLastSection ? (
-                  <Button variant="primary" size="md" onClick={() => goToSection(nextOrig)}>
+                  <Button variant="primary" size="md" onClick={goNext} data-continue>
                     {t('Continue', 'متابعة')}
                     <svg className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -295,6 +304,7 @@ export default function TenderForm({ onBack }: Props) {
           </div>
         </main>
       </div>
+      <QualityGate issues={gate} onClose={() => setGate([])} />
     </div>
   );
 }

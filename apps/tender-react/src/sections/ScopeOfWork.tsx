@@ -8,7 +8,9 @@ import { FormField, SectionCard, Textarea, AIButton, Input, Select } from '../co
 import { SparklesIcon } from '../components/Icons';
 import ProjectIncludesSelect, { deriveIncludesFromItems, workflowStages, DEPARTMENTS, WorkflowDrawer } from '../components/ProjectIncludesSelect';
 import DatePicker from '../components/DatePicker';
-import TechStandards, { eaScopeForForm } from '../components/TechStandards';
+import { eaScopeForForm } from '../components/TechStandards';
+import { DetailMeter } from '../components/QualityGate';
+import { MIN_WORDS } from '../lib/quality';
 
 function calcEndDate(start: string, duration: string, type: string): string {
   if (!start || !duration) return '';
@@ -195,7 +197,7 @@ export default function ScopeOfWork() {
                 </div>
               </div>
             ) : (
-              <Textarea
+              <div id="q-scopeOfWork" className="rounded-lg"><Textarea
                 value={formData.scopeOfWork}
                 onChange={(e) => updateField('scopeOfWork', e.target.value)}
                 rows={10}
@@ -203,11 +205,11 @@ export default function ScopeOfWork() {
                   'Describe the scope of work, including all deliverables, technical requirements, and responsibilities of the contractor…',
                   'اصف نطاق العمل، بما يشمل جميع المخرجات والمتطلبات الفنية ومسؤوليات المقاول…'
                 )}
-              />
+              /></div>
             )}
-            {formData.scopeOfWork && (
+            {(
               <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-neutral-400">{formData.scopeOfWork.length} {t('characters', 'حرف')}</p>
+                <DetailMeter text={formData.scopeOfWork} min={MIN_WORDS.scopeOfWork} id="sow" />
                 {formData.scopeOfWork === aiScopeText && (
                   <span className="text-xs text-ai-600 flex items-center gap-1">
                     <SparklesIcon className="w-3 h-3" />
@@ -221,8 +223,6 @@ export default function ScopeOfWork() {
         </div>
       </SectionCard>
 
-      {/* Technical standards (EA / Cybersecurity / PMO) — technology requests only */}
-      <TechStandards />
 
       {/* Terms & Conditions */}
       <SectionCard

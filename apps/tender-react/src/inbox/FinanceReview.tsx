@@ -228,7 +228,7 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
                       )}
                     </td>
                   </tr>
-                  {boqOpen.isOpen(lines.indexOf(l)) && <tr><td colSpan={5} className="p-0"><BoqLineDetails line={views[lines.indexOf(l)]} isAr={isAr} t={t} /></td></tr>}
+                  {boqOpen.isOpen(lines.indexOf(l)) && <tr><td colSpan={5} className="p-0"><BoqLineDetails line={views[lines.indexOf(l)]} isAr={isAr} t={t} showGl /></td></tr>}
                   </Fragment>
                 );
               })}
@@ -257,7 +257,7 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll, 
   const views = finViews(all, task, isAr, t);
   const grand = all.reduce((n, x) => n + x.amount, 0);
   const viewBtn = (l: FinLine) => <BoqViewButton index={all.indexOf(l)} open={boqOpen.isOpen(all.indexOf(l))} onClick={() => boqOpen.toggle(all.indexOf(l))} label={t('View item details', 'عرض تفاصيل البند')} />;
-  const details = (l: FinLine) => boqOpen.isOpen(all.indexOf(l)) && <div className="mt-3 rounded-lg overflow-hidden border border-neutral-100"><BoqLineDetails line={views[all.indexOf(l)]} isAr={isAr} t={t} /></div>;
+  const details = (l: FinLine) => boqOpen.isOpen(all.indexOf(l)) && <div className="mt-3 rounded-lg overflow-hidden border border-neutral-100"><BoqLineDetails line={views[all.indexOf(l)]} isAr={isAr} t={t} showGl /></div>;
   const dec = task.finAssetDecisions ?? {};
   const L = (o?: { en: string; ar: string }) => (o ? (isAr ? o.ar : o.en) : '—');
   // Suggested treatment: implementation / installation building up an asset → AUC.

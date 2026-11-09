@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { DetailMeter } from '../components/QualityGate';
+import { MIN_WORDS } from '../lib/quality';
 import { useTender } from '../context/TenderContext';
 import { useT, useLanguage } from '../context/LanguageContext';
 import { ALL_COST_CENTERS, PROJECTS } from '../data/mockData';
@@ -228,12 +230,15 @@ export default function ProjectSetup() {
             titleAr={isEsouq ? 'الغرض من الشراء' : 'الغرض من المنافسة'}
             action={<AIButton onClick={handleAIGeneratePurpose} loading={purposeAiLoading} label={t('Generate Purpose', 'توليد الغرض')} />}
           >
+            <div id="q-tenderingPurpose" className="rounded-lg">
             <Textarea
               rows={3}
               value={formData.tenderingPurpose}
               onChange={(e) => updateField('tenderingPurpose', e.target.value)}
               placeholder={isEsouq ? t('Describe why these items are being purchased…', 'صف سبب شراء هذه البنود…') : t('Describe the purpose of this tender…', 'صف الغرض من هذه المنافسة…')}
             />
+            {!isEsouq && <DetailMeter text={formData.tenderingPurpose} min={MIN_WORDS.purpose} id="purpose" />}
+            </div>
             <AiNote error={purposeAi.error} usedSample={purposeAi.usedSample} />
           </SectionCard>
 

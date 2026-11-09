@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { STD_LIBRARY } from '../lib/eaStandards';
 import { stdQuestionsOpen } from '../components/TechStandards';
+import { qualityIssues } from '../lib/quality';
 import { useRequests } from './RequestStore';
 import { PROJECTS } from '../data/mockData';
 import type {
@@ -432,10 +433,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
         // Scope now also captures contract duration & location (moved from Deliverables).
         const scopeOk = formData.scopeOfWork.trim().length >= 30;
         const contractOk = !!(formData.executionLocation && formData.startDate && formData.contractDuration);
-        // A required technical standard marked "not applicable" needs a reason.
-        const stdOk = !(formData.techStandards ?? []).some((x) => x.status === 'na' && REQUIRED_STD.has(x.id) && !x.naReason?.trim());
-        const qOk = stdQuestionsOpen(formData) === 0;
-        if (scopeOk && contractOk && stdOk && qOk) return 'completed';
+        if (scopeOk && contractOk) return 'completed';
         if (formData.scopeOfWork.trim().length > 0 || formData.executionLocation || formData.startDate || formData.contractDuration) return 'missing';
         return 'not-started';
       }
@@ -528,7 +526,12 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
     if (sec.id === 'attachments' || sec.id === 'review') return true;
     if (formData.sourceType === 'souq-etimad' && !ESOUQ_REQUIRED.includes(sec.id)) return true;
     return sectionStatuses[idx] === 'completed';
-  });
+  }) && (formData.sourceType === 'souq-etimad' || (
+    // Nothing a reviewer would return, and the technical standards are settled.
+    SECTIONS.every((sec) => qualityIssues(sec.id, formData).length === 0)
+    && stdQuestionsOpen(formData) === 0
+    && !(formData.techStandards ?? []).some((x) => x.status === 'na' && REQUIRED_STD.has(x.id) && !x.naReason?.trim())
+  ));
 
   const submit = useCallback(async () => {
     if (!readyToSubmit || isSubmitting) return;
