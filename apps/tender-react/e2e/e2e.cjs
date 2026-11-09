@@ -648,25 +648,19 @@ async function openRequest(title) {
   // ── Finance accounting (BOQ) ───────────────────────────────────────────────
   const finRows = () => [['Dell PowerEdge R760 server', '2U rack server'], ['Microsoft 365 E5 annual subscription', 'User licences'], ['SAP S/4HANA implementation', 'Implementation services'], ['Installation and racking', 'On-site delivery']]
     .map(([n, d], i) => ({ id: 'f' + i, projectItem: 'Hardware', itemName: n, itemDescription: d, unitOfMeasure: 'Each', quantity: 2, unitPrice: 1000, deliveryDate: '', hasBrandName: false, brandJustification: '' }));
-  await test('BOQ finance: hidden by default, AI-prefilled for imported rows, request-level cost center & commitment item', async () => {
+  await test('BOQ finance: no accordion — Purchase type & Material group shown on every line, AI-prefilled, no GL', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: finRows() });
     await page.locator('button', { hasText: 'Bill of Quantities' }).first().click(); await wait(700);
     expect(/have been filled for 4 items/.test((await page.locator('[data-toast]').allInnerTexts()).join(' ')), 'bulk prefill toast missing');
     await page.getByRole('radio', { name: 'Grid' }).click(); await wait(300);
-    expect(await count('[data-acct-view]') === 0, 'finance fields should be hidden by default');
-    expect(await count('[data-acct-toggle="row"]') === 4, 'each row needs a Show more');
-    await page.click('[data-acct-toggle="request"]'); await wait(200);
-    expect((await page.locator('[data-acct-cc]').innerText()).includes('CC-2401'), 'cost center missing');
-    expect((await page.locator('[data-acct-ci]').innerText()).startsWith('CI-'), 'commitment item missing');
-    expect(await count('[data-acct-summary]') === 1, 'summary bar missing');
-    await page.locator('[data-acct-toggle="row"]').first().click(); await wait(200);
-    const v = await page.locator('[data-acct-view]').first().innerText();
-    expect(/IT Hardware/.test(v) && /1230/.test(v) && /Asset/.test(v), `row preview values wrong: ${v}`);
-    expect(await count('[data-acct-view] input, [data-acct-view] select') === 0, 'row preview must be view-only');
+    expect(await count('[data-acct-toggle]') === 0, 'no Show more / accordion');
+    expect(await count('[data-acct-request]') === 0, 'no request-level finance card');
+    expect(await count('[data-acct-row]') === 4, 'PT / MG on every line');
+    const v = await page.locator('[data-acct-row]').first().innerText();
+    expect(/Purchase type/.test(v) && /IT Hardware/.test(v) && !/1230|GL/.test(v), `row values wrong: ${v}`);
     await page.getByRole('radio', { name: 'Table' }).click(); await wait(300);
-    expect(await count('[data-fin="pt"]') === 0, 'table finance columns hidden by default');
-    await page.check('[data-acct-showall]'); await wait(300);
-    expect(await count('[data-fin="pt"]') === 4 && await count('[data-fin="mg"]') === 4, 'finance columns should appear');
+    expect(await count('[data-fin="pt"]') === 4 && await count('[data-fin="mg"]') === 4, 'table shows PT / MG columns');
+    expect(!(await page.locator('table thead').first().innerText()).includes('GL account'), 'no GL column');
   });
   await test('BOQ finance: typing an item shows "Determining…" then a toast; PT & MG editable, GL read-only', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: [] });
@@ -678,13 +672,11 @@ async function openRequest(title) {
     expect(await count('[data-acct-loading]') === 1, 'loader missing');
     expect((await page.locator('[data-acct-loading]').innerText()).includes('Determining Purchase type, Material group'), 'loader text');
     await wait(1100);
-    expect((await page.locator('[data-toast]').allInnerTexts()).some((x) => x.includes('Purchase type, Material group and GL account have been filled')), 'toast missing');
-    expect(await count('[data-acct-form] [data-gl-main]') === 0, 'form finance section should start collapsed');
-    await page.click('[data-acct-toggle="form"]'); await wait(200);
-    const gl = await page.locator('[data-gl-main]').innerText();
-    expect(gl.includes('1230'), `GL main not derived: ${gl}`);
-    expect(await page.locator('[data-gl-main]').getAttribute('aria-disabled') !== null, 'GL must be read-only');
-    expect(await page.locator('[data-acct-form]').getByRole('combobox').count() >= 2 || await page.locator('[data-acct-form] button[aria-haspopup], [data-acct-form] [role="combobox"]').count() >= 2 || (await page.locator('[data-acct-form]').innerText()).includes('Network Equipment'), 'PT / MG should be editable selects');
+    expect((await page.locator('[data-toast]').allInnerTexts()).some((x) => x.includes('Purchase type and Material group have been filled')), 'toast missing');
+    expect(await count('[data-acct-toggle]') === 0 && await count('[data-gl-main]') === 0, 'no accordion, no GL in the form');
+    const pos = await page.evaluate(() => { const u = [...document.querySelectorAll('label, span')].find((e) => e.textContent.trim() === 'Unit of Measure'); const f = document.querySelector('[data-acct-form]'); return u && f ? (u.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING ? 'after' : 'before') : 'missing'; });
+    expect(pos === 'after', `PT / MG should sit below Unit of measure (${pos})`);
+    expect((await page.locator('[data-acct-form]').innerText()).includes('Purchase type'), 'PT field');
   });
   await test('Review & Confirm: finance route preview with order setting', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: finRows() });

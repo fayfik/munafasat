@@ -20,9 +20,9 @@ import EtimadPanel from '../components/EtimadPanel';
 import ConfirmDeleteAll from '../components/ConfirmDeleteAll';
 import BoqSheet from '../components/BoqSheet';
 import { useBoqLayout, setBoqLayout } from '../lib/boqLayout';
-import { suggestAccounting, isItRequest } from '../lib/accounting';
+import { suggestAccounting, isItRequest, PURCHASE_TYPES, mgByCode } from '../lib/accounting';
 import { toast } from '../components/Toast';
-import { AcctStatusLine, AcctFormSection, AcctRowPreview, AcctView, RequestAcctCard, type AcctValue } from '../components/BoqAccounting';
+import { AcctStatusLine, AcctInlineFields, AcctRowPreview, type AcctValue } from '../components/BoqAccounting';
 import EsouqBillOfQuantities from './EsouqBillOfQuantities';
 
 const BOQ_COLUMNS = [
@@ -234,14 +234,13 @@ export default function BillOfQuantities() {
   // ── Finance accounting: AI-prepared Purchase Type & Material Group (GL follows MG) ──
   const ACCT_DELAY = 900;
   const isIt = isItRequest(formData);
-  const [showAllAcct, setShowAllAcct] = useState(false);
   const [acctPending, setAcctPending] = useState<Set<string>>(new Set());
   const [formAcctPending, setFormAcctPending] = useState(false);
   const newItemRef = useRef(newItem);
   newItemRef.current = newItem;
   const rowsRef = useRef(formData.boqItems);
   rowsRef.current = formData.boqItems;
-  const filledMsg = () => t('Purchase type, Material group and GL account have been filled.', 'تمت تعبئة نوع الشراء ومجموعة المواد وحساب الأستاذ العام.');
+  const filledMsg = () => t('Purchase type and Material group have been filled.', 'تمت تعبئة نوع الشراء ومجموعة المواد.');
   const basisOf = (name: string, desc: string) => `${name.trim()}|${desc.trim()}`;
   // Add / edit form: runs when the user leaves Item name or Description.
   function suggestForForm() {
@@ -287,14 +286,11 @@ export default function BillOfQuantities() {
       const sug = suggestAccounting(r.itemName, r.itemDescription);
       return sug ? { ...r, ...sug, acctSource: 'ai' as const, acctBasis: basisOf(r.itemName, r.itemDescription) } : r;
     }));
-    toast(todo.size === 1 ? filledMsg() : t(`Purchase type, Material group and GL account have been filled for ${todo.size} items.`, `تمت تعبئة نوع الشراء ومجموعة المواد وحساب الأستاذ العام لـ ${todo.size} بنود.`));
+    toast(todo.size === 1 ? filledMsg() : t(`Purchase type and Material group have been filled for ${todo.size} items.`, `تمت تعبئة نوع الشراء ومجموعة المواد لـ ${todo.size} بنود.`));
   }, [formData.boqItems]); // eslint-disable-line react-hooks/exhaustive-deps
   const acctValue: AcctValue = { finPurchaseType: newItem.finPurchaseType, materialGroup: newItem.materialGroup, componentRole: newItem.componentRole, acctSource: newItem.acctSource, acctBasis: newItem.acctBasis };
-  const acctFormBlock = (
-    <div className="space-y-2">
-      <AcctFormSection value={acctValue} isIt={isIt} pending={formAcctPending} onChange={(patch) => setNewItem((p) => ({ ...p, ...patch }))} />
-    </div>
-  );
+  // Purchase type + Material group — plain fields under Unit of measure (AI-prefilled, editable).
+  const acctFields = <AcctInlineFields value={acctValue} pending={formAcctPending} onChange={(patch) => setNewItem((p) => ({ ...p, ...patch }))} />;
 
   // Remembers that the user picked "Add manually" while the BOQ has no items yet.
   const [manualMode, setManualMode] = useState(false);
@@ -728,6 +724,7 @@ export default function BillOfQuantities() {
                       rows={3} />
                   </FormField>
                   <AcctStatusLine show={formAcctPending} />
+                  {acctFields}
 
                   <div className="grid grid-cols-2 gap-4">
                     <FormField label="Minimum Accepted Qualification" labelAr="الحد الأدنى للمؤهل المقبول" required>
@@ -842,6 +839,9 @@ export default function BillOfQuantities() {
                     </FormField>
                   </div>
 
+                  {/* 4b. Purchase type + Material group */}
+                  {acctFields}
+
                   {/* 5. Delivery Date + Has Brand Name */}
                   <div className="grid grid-cols-2 gap-4 items-start">
                     <FormField label="Delivery Date" labelAr="موعد التسليم">
@@ -895,9 +895,6 @@ export default function BillOfQuantities() {
                   </FormField>
                 </>
               )}
-
-              {/* Finance details — hidden by default; AI-prepared from name & description */}
-              {acctFormBlock}
 
               {/* Etimad availability warning — shown when a saved item is on Etimad.
                   The item is NOT added; the user chooses what to do with it. */}
@@ -1009,6 +1006,8 @@ export default function BillOfQuantities() {
             <VRow label="Unit Price (SAR)" labelAr="سعر الوحدة" value={price > 0 ? `SAR ${formatSAR(price)}` : ''} dir="ltr" />
           </>) : (<>
             <VRow label="Unit of Measure" labelAr="وحدة القياس" value={row.unitOfMeasure} />
+            <VRow label="Purchase type" labelAr="نوع الشراء" value={row.finPurchaseType ? t(PURCHASE_TYPES[row.finPurchaseType].en, PURCHASE_TYPES[row.finPurchaseType].ar) : ''} />
+            <VRow label="Material group" labelAr="مجموعة المواد" value={mgByCode(row.materialGroup) ? `${t(mgByCode(row.materialGroup)!.en, mgByCode(row.materialGroup)!.ar)} · ${row.materialGroup}` : ''} />
             <VRow label="Quantity" labelAr="الكمية" value={row.quantity !== '' && row.quantity != null ? String(row.quantity) : ''} />
             <VRow label="Unit Price (SAR)" labelAr="سعر الوحدة" value={price > 0 ? `SAR ${formatSAR(price)}` : ''} dir="ltr" />
             {(cat === 'material' || cat === 'equipment') && <VRow label="Mandatory List" labelAr="القائمة الإلزامية" value={row.mandatoryList} full />}
@@ -1028,7 +1027,6 @@ export default function BillOfQuantities() {
             <VRow label="Attachments" labelAr="المرفقات" full value={<BoqAttachments readOnly attachments={row.attachments ?? []} onChange={() => {}} />} />
           )}
         </dl>
-        <div className="px-4 pb-3"><AcctRowPreview row={row} isIt={isIt} /></div>
       </div>
     );
   }
@@ -1356,11 +1354,6 @@ export default function BillOfQuantities() {
           </div>
         )}
 
-        {/* Finance details (request level) — collapsed by default */}
-        {formData.boqItems.some((r) => r.itemName.trim()) && (
-          <div className="mb-3"><RequestAcctCard formData={formData} showAll={showAllAcct} onShowAll={setShowAllAcct} /></div>
-        )}
-
         {/* B · spreadsheet */}
         {formData.boqItems.length > 0 && layout === 'sheet' && (
           <BoqSheet
@@ -1372,7 +1365,7 @@ export default function BillOfQuantities() {
             onMove={(row, origin) => requestMove(row, origin)}
             onUpdate={updateBoqRow}
             onRemove={removeBoqRow}
-            showFinance={showAllAcct}
+            showFinance
             isIt={isIt}
             acctPending={acctPending}
             onAcctBlur={suggestForRow}
@@ -1467,7 +1460,7 @@ export default function BillOfQuantities() {
                                     <BoqAttachments readOnly attachments={row.attachments ?? []} onChange={() => {}} />
                                   </div>
                                 )}
-                                {!showAllAcct && <AcctRowPreview row={row} isIt={isIt} />}
+                                <AcctRowPreview row={row} />
                               </div>
 
                               {/* Qty */}
@@ -1537,7 +1530,6 @@ export default function BillOfQuantities() {
                                 </button>
                               </div>
                             </div>
-                            {showAllAcct && <div className="px-5 pb-3"><AcctView row={row} isIt={isIt} /></div>}
                             {row.etimadCheck && !isStale(row) && (
                               <div className="px-5 pb-3.5">
                                 <EtimadPanel
@@ -1596,7 +1588,7 @@ export default function BillOfQuantities() {
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-neutral-900 truncate">{itemLabel(row.itemName) || <span className="text-neutral-300 font-normal">{t('Unnamed item', 'بند بلا اسم')}</span>}</p>
                                 {row.projectItem && <p className="text-[11px] text-neutral-500 truncate">{groupLabel(row.projectItem)}</p>}
-                                {!showAllAcct && <AcctRowPreview row={row} isIt={isIt} />}
+                                <AcctRowPreview row={row} />
                               </div>
                               <div className="text-center text-sm text-neutral-700 tabular-nums">{row.quantity !== '' ? row.quantity : '—'}<span className="block text-[10px] text-neutral-500">{row.unitOfMeasure}</span></div>
                               <div className="text-end text-sm text-neutral-700 tabular-nums" dir="ltr">{unitPrice > 0 ? `SAR ${formatSAR(unitPrice)}` : '—'}</div>
@@ -1615,7 +1607,6 @@ export default function BillOfQuantities() {
                                 <button type="button" onClick={() => { if (editingId === row.id) closeItemForm(); if (viewingId === row.id) setViewingId(null); removeBoqRow(row.id); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-error-500 hover:bg-error-50 transition-colors" title={t('Delete item', 'حذف البند')}><TrashIcon className="w-3.5 h-3.5" /></button>
                               </div>
                             </div>
-                            {showAllAcct && <div className="px-4 pt-2"><AcctView row={row} isIt={isIt} /></div>}
                             {((row.attachments?.length ?? 0) > 0 || (row.etimadCheck && !isStale(row))) && (
                               <div className="px-4 pt-0 pb-3 space-y-2">
                                 {(row.attachments?.length ?? 0) > 0 && <BoqAttachments readOnly attachments={row.attachments ?? []} onChange={() => {}} />}

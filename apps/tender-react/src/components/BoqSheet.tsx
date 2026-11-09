@@ -143,14 +143,10 @@ export default function BoqSheet({ rows, setRows, projectItemOptions, checkingId
   const presentCats = new Set<BOQCategory>(rows.length ? rows.map(rowCatOf) : ['service', 'equipment', 'material']);
   const COLS = ALL_COLS.filter((c) => !c.cats || c.cats.some((x) => presentCats.has(x)));
   const TOTAL_AFTER = COLS.findIndex((c) => c.key === 'unitPrice');
-  // Finance columns: Purchase type & Material group editable (AI-prefilled), GL / asset read-only.
+  // Purchase type & Material group — always shown, editable (AI-prefilled). GL is Finance's, not shown here.
   const FIN_COLS: { key: string; en: string; ar: string; w: number }[] = showFinance ? [
     { key: 'pt', en: 'Purchase type', ar: 'نوع الشراء', w: 140 },
     { key: 'mg', en: 'Material group', ar: 'مجموعة المواد', w: 200 },
-    { key: 'gl', en: 'GL account (main / sub)', ar: 'حساب الأستاذ (رئيسي / فرعي)', w: 220 },
-    { key: 'asset', en: 'Asset?', ar: 'أصل؟', w: 92 },
-    ...(isIt ? [{ key: 'role', en: 'Component role', ar: 'دور المكوّن', w: 140 }] : []),
-    { key: 'check', en: 'Accounting check', ar: 'فحص المحاسبة', w: 130 },
   ] : [];
   const FIN_W = FIN_COLS.reduce((a, c) => a + c.w, 0);
   const TABLE_W = 40 + COLS.reduce((a, c) => a + c.w, 0) + 124 + FIN_W + DOCS_W + 150 + 40;

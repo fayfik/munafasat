@@ -101,15 +101,20 @@ export function AcctView({ row, isIt }: { row: BOQRow; isIt: boolean }) {
   );
 }
 
-/** Row-level preview: a "Show more" link that reveals the view-only accounting values. */
-export function AcctRowPreview({ row, isIt, forceOpen }: { row: BOQRow; isIt: boolean; forceOpen?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const isOpen = open || !!forceOpen;
-  const issues = accountingIssues(row).length;
+/** Row-level: Purchase type + Material group, always visible, view-only (no accordion, no GL). */
+export function AcctRowPreview({ row }: { row: BOQRow; isIt?: boolean; forceOpen?: boolean }) {
+  const t = useT();
+  const { isAr } = useLanguage();
+  const L = (o?: { en: string; ar: string }) => (o ? (isAr ? o.ar : o.en) : '');
+  const mg = mgByCode(row.materialGroup);
+  const item = (k: string, v?: string) => (
+    <span className="min-w-0"><span className="text-neutral-400">{k}</span> <span className={v ? 'text-neutral-700 font-medium' : 'text-neutral-300'}>{v || '—'}</span></span>
+  );
   return (
-    <div className="mt-1.5" data-acct-row={row.id}>
-      {!forceOpen && <ShowMore open={isOpen} onClick={() => setOpen((v) => !v)} issues={issues} testId="row" />}
-      {isOpen && <div className="mt-1.5 slide-up"><AcctView row={row} isIt={isIt} /></div>}
+    <div className="mt-1.5 flex items-center gap-x-4 gap-y-0.5 flex-wrap text-[12px]" data-acct-row={row.id}>
+      {item(t('Purchase type', 'نوع الشراء'), row.finPurchaseType ? L(PURCHASE_TYPES[row.finPurchaseType]) : undefined)}
+      {item(t('Material group', 'مجموعة المواد'), mg ? `${L(mg)} · ${mg.code}` : undefined)}
+      {row.acctSource === 'ai' && <span className="inline-flex items-center gap-0.5 px-1 rounded bg-ai-50 text-ai-700 text-[10px] font-bold"><SparklesIcon className="w-2.5 h-2.5" />AI</span>}
     </div>
   );
 }
@@ -176,6 +181,39 @@ export function AcctFormSection({ value, onChange, isIt, pending }: { value: Acc
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Purchase type + Material group as plain form fields (no accordion, no GL — GL is Finance's). */
+export function AcctInlineFields({ value, onChange, pending }: { value: AcctValue; onChange: (patch: Partial<AcctValue>) => void; pending: boolean }) {
+  const t = useT();
+  const { isAr } = useLanguage();
+  const L = (o?: { en: string; ar: string }) => (o ? (isAr ? o.ar : o.en) : '');
+  const ai = value.acctSource === 'ai';
+  const label = (en: string, ar: string) => (
+    <span className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-700 mb-1.5">{t(en, ar)}
+      {ai && <span className="inline-flex items-center gap-0.5 px-1 rounded bg-ai-50 text-ai-700 text-[10px] font-bold" title={t('Suggested by AI from the name and description', 'مقترح بالذكاء الاصطناعي من الاسم والوصف')}><SparklesIcon className="w-2.5 h-2.5" />AI</span>}
+    </span>
+  );
+  return (
+    <div className="grid grid-cols-2 gap-4" data-acct-form>
+      <label className="block">
+        {label('Purchase type', 'نوع الشراء')}
+        <Select value={value.finPurchaseType ?? ''} disabled={pending} aria-label={t('Purchase type', 'نوع الشراء')}
+          onChange={(e) => onChange({ finPurchaseType: (e.target.value || undefined) as FinPurchaseType | undefined, acctSource: 'user' })}>
+          <option value="">{pending ? t('Determining…', 'جارٍ التحديد…') : t('Select…', 'اختر…')}</option>
+          {(Object.keys(PURCHASE_TYPES) as FinPurchaseType[]).map((k) => <option key={k} value={k}>{L(PURCHASE_TYPES[k])}</option>)}
+        </Select>
+      </label>
+      <label className="block">
+        {label('Material group', 'مجموعة المواد')}
+        <Select value={value.materialGroup ?? ''} disabled={pending} aria-label={t('Material group', 'مجموعة المواد')}
+          onChange={(e) => onChange({ materialGroup: e.target.value || undefined, acctSource: 'user' })}>
+          <option value="">{pending ? t('Determining…', 'جارٍ التحديد…') : t('Select…', 'اختر…')}</option>
+          {MATERIAL_GROUPS.map((m) => <option key={m.code} value={m.code}>{`${L(m)} · ${m.code}`}</option>)}
+        </Select>
+      </label>
     </div>
   );
 }
