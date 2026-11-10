@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REQ-4478 · Manager approval — Munafasat</title>
+<link rel="canonical" href="department-approval.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo"><img src="assets/icon-m.svg" alt=""></div>
+      <span class="brand-name">Munafasat</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="bell" type="button" aria-label="Notifications, unread"><img src="assets/notifications.svg" alt=""></button>
+      <div class="me">
+        <div class="me-avatar t-label">MH</div>
+        <div class="me-text">
+          <div class="t-body-medium me-name">Mohammed H.</div>
+          <div class="t-caption me-role">IT &amp; Digital</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="body">
+    <nav class="nav-rail" aria-label="Main">
+      <a class="nav-item" href="#" aria-label="Dashboard"><img src="assets/icon-grid.svg" alt=""></a>
+      <a class="nav-item" href="#" aria-label="My requests"><img src="assets/icon-file.svg" alt=""></a>
+      <a class="nav-item" href="#" aria-label="Inbox" aria-current="page"><img src="assets/icon-inbox.svg" alt=""></a>
+      <a class="nav-item" href="#" aria-label="Reports"><img src="assets/icon-chart.svg" alt=""></a>
+    </nav>
+
+    <div class="workspace">
+
+      <!-- Inbox -->
+      <section class="inbox" aria-labelledby="inbox-title">
+        <div class="inbox-header">
+          <div class="inbox-title-row">
+            <h2 class="inbox-title" id="inbox-title"><span class="t-heading">Inbox</span><span class="count-pill t-caption-medium">7</span></h2>
+            <button class="icon-btn" type="button" aria-label="Search tasks"><img src="assets/icon-search.svg" alt=""></button>
+          </div>
+          <div class="segment" role="tablist" aria-label="Filter tasks">
+            <button class="segment-tab" role="tab" aria-selected="true" type="button"><span class="segment-label">Needs action</span><span class="segment-count">7</span></button>
+            <button class="segment-tab" role="tab" aria-selected="false" type="button" disabled title="No overdue tasks" tabindex="-1"><span class="segment-label">Overdue</span></button>
+            <button class="segment-tab" role="tab" aria-selected="false" type="button" tabindex="-1"><span class="segment-label">Done</span></button>
+            <button class="segment-tab" role="tab" aria-selected="false" type="button" tabindex="-1"><span class="segment-label">All</span></button>
+          </div>
+        </div>
+
+        <div class="inbox-list">
+          <div class="group-head t-caption"><span>Due within a day</span><span>4</span></div>
+
+          <a class="inbox-item unread" href="department-approval.html" aria-current="true">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-unread.svg" alt="Unread"></span>
+              <span class="item-title">REQ-4478: Manager Approval</span>
+              <span class="item-due soon">1d left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">SIEM &amp; SOC Managed Services</span><span class="item-sep">·</span><span class="item-person">Khalid Al-Qahtani</span></div>
+          </a>
+
+          <a class="inbox-item unread" href="#">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-unread.svg" alt="Unread"></span>
+              <span class="item-title">REQ-4471: Manager Approval</span>
+              <span class="item-due soon">1d left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">Cloud Infrastructure Migration</span><span class="item-sep">·</span><span class="item-person">Fatima Al-Zahrani</span></div>
+          </a>
+
+          <a class="inbox-item" href="#">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-read.svg" alt=""></span>
+              <span class="item-title">REQ-4433: Manager Approval</span>
+              <span class="item-due soon">1d left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
+          </a>
+
+          <a class="inbox-item" href="#">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-read.svg" alt=""></span>
+              <span class="item-title">REQ-4431: Changed after your GL approval</span>
+              <span class="item-due soon">11h left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
+          </a>
+
+          <div class="group-head t-caption"><span>Later this week</span><span>3</span></div>
+
+          <a class="inbox-item unread" href="cyber-review.html">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-unread.svg" alt="Unread"></span>
+              <span class="item-title">Cyber security review</span>
+              <span class="item-due">1d 12h left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
+          </a>
+
+          <a class="inbox-item" href="#">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-read.svg" alt=""></span>
+              <span class="item-title">REQ-4433: Manager Approval</span>
+              <span class="item-due">2d left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
+          </a>
+
+          <a class="inbox-item" href="#">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-read.svg" alt=""></span>
+              <span class="item-title">REQ-4431: Changed after your GL approval</span>
+              <span class="item-due">2d left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
+          </a>
+        </div>
+      </section>
+
+      <!-- Task detail -->
+      <main class="detail">
+        <div class="detail-scroll">
+          <div class="detail-header">
+            <div class="eyebrow">
+              <span class="t-body-small muted">REQ-4478</span>
+              <span class="status-pill t-caption-medium"><img src="assets/dot.svg" alt="">Pending your decision</span>
+              <span class="t-caption muted">Step 4 of 15 · next: Technical member review</span>
+            </div>
+
+            <div class="title-row">
+              <div class="title">
+                <h1 class="t-display">SIEM &amp; SOC Managed Services</h1>
+                <button class="icon-btn info-btn" type="button" aria-label="About this task" aria-describedby="task-tip"><img src="assets/icon-info.svg" alt=""></button>
+                <div class="tooltip" role="tooltip" id="task-tip">Khalid Al-Qahtani submitted this request. Review it, comment on any section or field, then approve, return or reject.</div>
+              </div>
+              <div class="decision">
+                <button class="btn btn-danger" type="button">Reject</button>
+                <button class="btn btn-secondary" type="button"><img src="assets/icon-return.svg" alt="">Return</button>
+                <button class="btn btn-primary" type="button"><img src="assets/icon-approve.svg" alt="">Approve</button>
+              </div>
+            </div>
+
+            <div class="props">
+              <div class="props-col">
+                <div class="prop">
+                  <div class="prop-key t-body-small"><img src="assets/icon-cash.svg" alt="">Amount</div>
+                  <div class="prop-value">
+                    <span class="t-body-medium">SAR 5,400,000.00</span>
+                    <span class="t-body-small muted">SAR 6,210,000.00 (incl. VAT)</span>
+                  </div>
+                </div>
+                <div class="prop">
+                  <div class="prop-key t-body-small"><img src="assets/icon-clock.svg" alt="">Due</div>
+                  <div class="prop-value">
+                    <span class="t-body">10 Nov 2026</span>
+                    <span class="t-label amber">1d left</span>
+                  </div>
+                </div>
+              </div>
+              <div class="props-col">
+                <div class="prop">
+                  <div class="prop-key t-body-small"><img src="assets/icon-user.svg" alt="">Requester</div>
+                  <div class="prop-value">
+                    <span class="person-chip"><span class="avatar t-micro">KA</span><span class="t-body">Khalid Al-Qahtani</span></span>
+                    <span class="t-body-small muted">Information Security</span>
+                  </div>
+                </div>
+                <div class="prop">
+                  <div class="prop-key t-body-small"><img src="assets/icon-route.svg" alt="">Route</div>
+                  <div class="prop-value">
+                    <span class="t-body">Competitive tender</span>
+                    <span class="t-body-small muted">FC-SEC-2200</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="content">
+            <div class="segment" role="tablist" aria-label="Task sections">
+              <button class="segment-tab" role="tab" type="button" id="tab-action" aria-selected="true" aria-controls="panel-action">Required action</button>
+              <button class="segment-tab" role="tab" type="button" id="tab-details" aria-selected="false" aria-controls="panel-details" tabindex="-1">Request details</button>
+              <button class="segment-tab" role="tab" type="button" id="tab-activity" aria-selected="false" aria-controls="panel-activity" tabindex="-1">Activity</button>
+            </div>
+
+            <section class="panel" id="panel-action" role="tabpanel" aria-labelledby="tab-action">
+              <div class="read-row">
+                <div class="icon-tile"><img src="assets/icon-file-tile.svg" alt=""></div>
+                <div class="read-text">
+                  <span class="t-title">Read the full request</span>
+                  <span class="t-body-small muted">Comment on any section or field as you go.</span>
+                </div>
+                <button class="btn btn-secondary" type="button" data-open-tab="tab-details">Open request</button>
+              </div>
+
+              <div class="budget">
+                <div class="budget-top">
+                  <div class="budget-title">
+                    <span class="t-title">Budget check</span>
+                    <span class="ok-chip t-caption-medium"><img src="assets/icon-check.svg" alt="">Within budget</span>
+                  </div>
+                  <span class="t-caption muted">SAP Funds Mgmt · OPEX-MANAGED-SVC · FY2026</span>
+                </div>
+                <div class="figures">
+                  <div class="figure">
+                    <span class="t-caption muted">Available</span>
+                    <span class="figure-value"><span class="t-body-small muted">SAR</span><span class="t-stat">12,000,000</span></span>
+                  </div>
+                  <div class="figure">
+                    <span class="t-caption muted">This request</span>
+                    <span class="figure-value"><span class="t-body-small muted">SAR</span><span class="t-stat brand">5,400,000</span></span>
+                  </div>
+                  <div class="figure">
+                    <span class="t-caption muted">Left if approved</span>
+                    <span class="figure-value"><span class="t-body-small muted">SAR</span><span class="t-stat">1,950,000</span></span>
+                  </div>
+                </div>
+                <div class="bar" role="img" aria-label="Budget: consumed and committed 4,650,000, this request 5,400,000, remaining 1,950,000 of 12,000,000 SAR">
+                  <span class="consumed"></span><span class="request"></span><span class="remaining"></span>
+                </div>
+                <div class="legend t-caption">
+                  <span><img src="assets/legend-consumed.svg" alt="">Consumed &amp; committed · 4,650,000</span>
+                  <span><img src="assets/legend-request.svg" alt="">This request</span>
+                  <span><img src="assets/legend-remaining.svg" alt="">Remaining</span>
+                </div>
+              </div>
+
+              <div class="note t-body-small">
+                <img src="assets/icon-alert.svg" alt="">
+                <p style="margin: 0"><strong>Requester note:</strong> SOC coverage must start before the current contract ends in Q1 — please prioritise.&nbsp; <a href="#">Reply</a></p>
+              </div>
+            </section>
+
+            <section class="panel" id="panel-details" role="tabpanel" aria-labelledby="tab-details" hidden>
+              <p class="t-body secondary" style="margin: 0; max-width: 640px">Supply, delivery and support of SIEM &amp; SOC managed services for Information Security, against the approved bill of quantities.</p>
+              <div class="kv t-body">
+                <div><span class="t-caption muted">Requesting department</span>Information Security</div>
+                <div><span class="t-caption muted">Cost center</span>FC-SEC-2200</div>
+                <div><span class="t-caption muted">Contract duration</span>12 months</div>
+                <div><span class="t-caption muted">Evaluation split</span>Technical 70% · Commercial 30%</div>
+                <div><span class="t-caption muted">Suppliers invited</span>5</div>
+                <div><span class="t-caption muted">Planned award</span>Q1 2027</div>
+              </div>
+            </section>
+
+            <section class="panel" id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" hidden>
+              <ol class="timeline">
+                <li><div class="rail"><span class="node done"></span><span class="line"></span></div><div class="step"><div class="t-body-medium">Request submitted</div><div class="t-caption muted">Khalid Al-Qahtani · 09 Nov, 09:46 PM</div></div></li>
+                <li><div class="rail"><span class="node done"></span><span class="line"></span></div><div class="step"><div class="t-body-medium">Assigned for manager approval</div><div class="t-caption muted">09 Nov, 10:06 PM</div></div></li>
+                <li><div class="rail"><span class="node now"></span><span class="line"></span></div><div class="step"><div class="t-body-medium" style="color: var(--brand-800)">Manager approval — you are here</div><div class="t-caption muted">Due 10 Nov 2026</div></div></li>
+                <li><div class="rail"><span class="node"></span></div><div class="step"><div class="t-body secondary">Technical member review</div><div class="t-caption muted">Sara Al-Zahrani</div></div></li>
+              </ol>
+            </section>
+          </div>
+        </div>
+      </main>
+
+      <aside class="util-rail" aria-label="Task tools">
+        <button class="util-btn" type="button" aria-label="Comments" title="Comments" aria-pressed="false"><img src="assets/rail-comments.svg" alt=""></button>
+        <button class="util-btn" type="button" aria-label="History" title="History" aria-pressed="false"><img src="assets/rail-history.svg" alt=""></button>
+      </aside>
+    </div>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REQ-4433 · Cyber security review — Munafasat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo"><img src="assets/icon-m.svg" alt=""></div>
+      <span class="brand-name">Munafasat</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="bell" type="button" aria-label="Notifications, unread"><img src="assets/notifications.svg" alt=""></button>
+      <div class="me">
+        <div class="me-avatar t-label">MH</div>
+        <div class="me-text">
+          <div class="t-body-medium me-name">Mohammed H.</div>
+          <div class="t-caption me-role">Cyber Security</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="body">
+    <nav class="nav-rail" aria-label="Main">
+      <a class="nav-item" href="#" aria-label="Dashboard"><img src="assets/icon-grid.svg" alt=""></a>
+      <a class="nav-item" href="#" aria-label="My requests"><img src="assets/icon-file.svg" alt=""></a>
+      <a class="nav-item" href="#" aria-label="Inbox" aria-current="page"><img src="assets/icon-inbox.svg" alt=""></a>
+      <a class="nav-item" href="#" aria-label="Reports"><img src="assets/icon-chart.svg" alt=""></a>
+    </nav>
+
+    <div class="workspace">
+
+      <!-- Inbox -->
+      <section class="inbox" aria-labelledby="inbox-title">
+        <div class="inbox-header">
+          <div class="inbox-title-row">
+            <h2 class="inbox-title" id="inbox-title"><span class="t-heading">Inbox</span><span class="count-pill t-caption-medium">7</span></h2>
+            <button class="icon-btn" type="button" aria-label="Search tasks"><img src="assets/icon-search.svg" alt=""></button>
+          </div>
+          <div class="segment" role="tablist" aria-label="Filter tasks">
+            <button class="segment-tab" role="tab" aria-selected="true" type="button"><span class="segment-label">Needs action</span><span class="segment-count">7</span></button>
+            <button class="segment-tab" role="tab" aria-selected="false" type="button" disabled title="No overdue tasks" tabindex="-1"><span class="segment-label">Overdue</span></button>
+            <button class="segment-tab" role="tab" aria-selected="false" type="button" tabindex="-1"><span class="segment-label">Done</span></button>
+            <button class="segment-tab" role="tab" aria-selected="false" type="button" tabindex="-1"><span class="segment-label">All</span></button>
+          </div>
+        </div>
+
+        <div class="inbox-list">
+          <div class="group-head t-caption"><span>Due within a day</span><span>4</span></div>
+
+          <a class="inbox-item unread" href="department-approval.html">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-unread.svg" alt="Unread"></span>
+              <span class="item-title">REQ-4478: Manager Approval</span>
+              <span class="item-due soon">1d left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">SIEM &amp; SOC Managed Services</span><span class="item-sep">·</span><span class="item-person">Khalid Al-Qahtani</span></div>
+          </a>
+
+          <a class="inbox-item unread" href="#">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-unread.svg" alt="Unread"></span>
+              <span class="item-title">REQ-4471: Manager Approval</span>
+              <span class="item-due soon">1d left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">Cloud Infrastructure Migration</span><span class="item-sep">·</span><span class="item-person">Fatima Al-Zahrani</span></div>
+          </a>
+
+          <a class="inbox-item" href="#">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-read.svg" alt=""></span>
+              <span class="item-title">REQ-4433: Manager Approval</span>
+              <span class="item-due soon">1d left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
+          </a>
+
+          <a class="inbox-item" href="#">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-read.svg" alt=""></span>
+              <span class="item-title">REQ-4431: Changed after your GL approval</span>
+              <span class="item-due soon">11h left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
+          </a>
+
+          <div class="group-head t-caption"><span>Later this week</span><span>3</span></div>
+
+          <a class="inbox-item unread" href="cyber-review.html" aria-current="true">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-unread.svg" alt="Unread"></span>
+              <span class="item-title">Cyber security review</span>
+              <span class="item-due">1d 12h left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
+          </a>
+
+          <a class="inbox-item" href="#">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-read.svg" alt=""></span>
+              <span class="item-title">REQ-4433: Manager Approval</span>
+              <span class="item-due">2d left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
+          </a>
+
+          <a class="inbox-item" href="#">
+            <div class="item-row">
+              <span class="dot-slot"><img src="assets/dot-read.svg" alt=""></span>
+              <span class="item-title">REQ-4431: Changed after your GL approval</span>
+              <span class="item-due">2d left</span>
+            </div>
+            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
+          </a>
+        </div>
+      </section>
+
+      <!-- Task detail -->
+      <main class="detail">
+        <div class="detail-scroll">
+          <div class="detail-header">
+            <div class="eyebrow">
+              <span class="t-body-small muted">REQ-4433</span>
+              <span class="status-pill t-caption-medium"><img src="assets/dot.svg" alt=""><span id="status-label">Pending your decision</span></span>
+              <span class="t-caption muted">0 of 4 specialist reviews done · parallel with BCM, Op. Risk, EA</span>
+            </div>
+
+            <div class="title-row">
+              <div class="title">
+                <h1 class="t-display">Core ERP Modernization</h1>
+                <button class="icon-btn info-btn" type="button" aria-label="About this task" aria-describedby="task-tip"><img src="assets/icon-info.svg" alt=""></button>
+                <div class="tooltip" role="tooltip" id="task-tip">Cyber security review: confirm the NCA requirements are captured in the request, then approve or return it to the requester.</div>
+              </div>
+              <div class="decision">
+                <!-- Before pick-up: only "Pick up". After: Return + Approve (Approve gated on the checks). -->
+                <button class="btn btn-secondary" type="button" id="btn-return" hidden><img src="assets/icon-return.svg" alt="">Return</button>
+                <button class="btn btn-primary" type="button" id="btn-approve" hidden disabled title="Complete both checks to approve"><img src="assets/icon-approve.svg" alt="">Approve</button>
+                <button class="btn btn-primary" type="button" id="btn-pickup">Pick up</button>
+              </div>
+            </div>
+
+            <div class="props">
+              <div class="props-col">
+                <div class="prop">
+                  <div class="prop-key t-body-small"><img src="assets/icon-cash.svg" alt="">Amount</div>
+                  <div class="prop-value">
+                    <span class="t-body-medium">SAR 9,940,000.00</span>
+                    <span class="t-body-small muted">SAR 11,431,000.00 (incl. VAT)</span>
+                  </div>
+                </div>
+                <div class="prop">
+                  <div class="prop-key t-body-small"><img src="assets/icon-clock.svg" alt="">Due</div>
+                  <div class="prop-value">
+                    <span class="t-body">11 Nov 2026</span>
+                    <span class="t-body-small muted">1d 12h left</span>
+                  </div>
+                </div>
+              </div>
+              <div class="props-col">
+                <div class="prop">
+                  <div class="prop-key t-body-small"><img src="assets/icon-user.svg" alt="">Requester</div>
+                  <div class="prop-value">
+                    <span class="person-chip"><span class="avatar t-micro">IA</span><span class="t-body">Ibrahim Al-Rashid</span></span>
+                    <span class="t-body-small muted">IT &amp; Digital</span>
+                  </div>
+                </div>
+                <div class="prop center">
+                  <div class="prop-key t-body-small"><img src="assets/icon-userplus.svg" alt="">Assignee</div>
+                  <div class="prop-value" id="assignee">
+                    <button class="assign-btn" type="button" id="btn-assign"><img src="assets/icon-plus.svg" alt="">Assign</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="content">
+            <div class="segment" role="tablist" aria-label="Task sections">
+              <button class="segment-tab" role="tab" type="button" id="tab-action" aria-selected="true" aria-controls="panel-action">Required action</button>
+              <button class="segment-tab" role="tab" type="button" id="tab-details" aria-selected="false" aria-controls="panel-details" tabindex="-1">Request details</button>
+              <button class="segment-tab" role="tab" type="button" id="tab-activity" aria-selected="false" aria-controls="panel-activity" tabindex="-1">Activity</button>
+            </div>
+
+            <section class="panel" id="panel-action" role="tabpanel" aria-labelledby="tab-action">
+              <div class="read-row">
+                <div class="icon-tile"><img src="assets/icon-file-tile.svg" alt=""></div>
+                <div class="read-text">
+                  <span class="t-title">Read the full request</span>
+                  <span class="t-body-small muted">Comment on any section or field as you go.</span>
+                </div>
+                <button class="btn btn-secondary" type="button" data-open-tab="tab-details">Open request</button>
+              </div>
+
+              <div>
+                <div class="checks-head">
+                  <span class="t-title" id="checks-title">Cyber security checks</span>
+                  <span class="t-body-small muted"><span id="done-count">0</span> of 2 done</span>
+                </div>
+                <div class="progress"><div class="progress-track"><div class="progress-fill" id="progress"></div></div></div>
+                <label class="check">
+                  <input type="checkbox" class="cyber-check" disabled>
+                  <span class="label t-body">NCA requirements are captured in the request</span>
+                  <span class="t-caption muted">Required</span>
+                </label>
+                <label class="check">
+                  <input type="checkbox" class="cyber-check" disabled>
+                  <span class="label t-body">Cyber security section and evaluation criteria are added</span>
+                  <span class="t-caption muted">Required</span>
+                </label>
+              </div>
+
+              <div>
+                <label for="notes" class="t-title" style="display: block">Review notes</label>
+                <span class="t-body-small muted">Sent to procurement with your decision.</span>
+                <div class="notes-field">
+                  <textarea id="notes" placeholder="Record your findings and recommendation…" disabled></textarea>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel" id="panel-details" role="tabpanel" aria-labelledby="tab-details" hidden>
+              <p class="t-body secondary" style="margin: 0; max-width: 640px">Enterprise ERP system upgrade for IT &amp; Digital. Hover any section or field to comment on it.</p>
+              <div class="kv t-body">
+                <div><span class="t-caption muted">Project</span>Enterprise ERP System Upgrade</div>
+                <div><span class="t-caption muted">Requesting department</span>IT &amp; Digital</div>
+              </div>
+            </section>
+
+            <section class="panel" id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" hidden>
+              <ol class="timeline">
+                <li><div class="rail"><span class="node now"></span><span class="line"></span></div><div class="step"><div class="t-body-medium" style="color: var(--brand-800)">Cyber Security — this review</div><div class="t-caption muted">Due 11 Nov 2026</div></div></li>
+                <li><div class="rail"><span class="node"></span><span class="line"></span></div><div class="step"><div class="t-body secondary">Enterprise Risk (BCM)</div><div class="t-caption muted">Turki Al-Anazi · in parallel</div></div></li>
+                <li><div class="rail"><span class="node"></span><span class="line"></span></div><div class="step"><div class="t-body secondary">Operational Risk</div><div class="t-caption muted">Reem Al-Dossary · in parallel</div></div></li>
+                <li><div class="rail"><span class="node"></span></div><div class="step"><div class="t-body secondary">Enterprise Architecture</div><div class="t-caption muted">Majed Al-Zahrani · in parallel</div></div></li>
+              </ol>
+            </section>
+          </div>
+        </div>
+      </main>
+
+      <aside class="util-rail" aria-label="Task tools">
+        <button class="util-btn" type="button" aria-label="Comments" title="Comments" aria-pressed="false"><img src="assets/rail-comments.svg" alt=""></button>
+        <button class="util-btn" type="button" aria-label="History" title="History" aria-pressed="false"><img src="assets/rail-history.svg" alt=""></button>
+      </aside>
+    </div>
+  </div>
+</div>
+<script src="app.js"></script>
+<script src="cyber-review.js"></script>
+</body>
+</html>
