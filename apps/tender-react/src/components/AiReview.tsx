@@ -93,9 +93,8 @@ export default function AiReviewPanel() {
     const pct = Math.min(100, Math.round((tick / total) * 100));
     const ROW = 64;
     return (
-      <div className="min-h-[calc(100vh-240px)] flex items-center justify-center">
-      <div className="w-full max-w-[640px] rounded-3xl bg-[#EFEDE8] overflow-hidden relative pop-in" data-ai-review data-ai-loader>
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(60% 55% at 50% 52%, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%)' }} />
+      <div className="rounded-2xl border border-neutral-200 overflow-hidden relative" style={{ background: 'linear-gradient(180deg, #FCFDFE 0%, #F2F5F9 100%)' }} data-ai-review data-ai-loader>
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(55% 50% at 50% 50%, rgba(255,255,255,0.95), rgba(255,255,255,0) 72%)' }} />
         <div className="relative px-6 pt-5 flex items-start gap-3.5">
           <span className="relative w-10 h-10 rounded-xl bg-ai-600 text-white flex items-center justify-center flex-shrink-0 ai-orb"><SparklesIcon className="w-5 h-5" /></span>
           <div className="min-w-0 flex-1">
@@ -119,7 +118,7 @@ export default function AiReviewPanel() {
               <div key={w.key} data-ai-wheel-item={w.key} data-state={center ? 'active' : done ? 'done' : 'queued'}
                 className="absolute left-1/2 top-1/2 w-[min(440px,86%)] transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
                 style={{ transform: `translate(-50%, calc(-50% + ${off * ROW}px)) scale(${scale})`, opacity: center ? 1 : Math.max(0, 1 - a * 0.28), zIndex: 10 - a }}>
-                <div className={`flex items-center gap-3.5 rounded-2xl px-4 ${center ? 'py-4 bg-white shadow-[0_18px_40px_-16px_rgba(16,24,40,0.35)]' : 'py-3 bg-white/70 backdrop-blur-sm'}`}>
+                <div className={`flex items-center gap-3.5 rounded-2xl px-4 ${center ? 'py-4 bg-white shadow-[0_18px_40px_-16px_rgba(16,24,40,0.35)]' : 'py-3 bg-white/80 border border-neutral-200/70'}`}>
                   <span className={done && !center ? 'opacity-70' : ''}><DeptIcon dept={w.dept} size={center ? 'lg' : 'md'} /></span>
                   <span className="min-w-0 flex-1">
                     <span className={`block truncate ${center ? 'text-[17px] font-semibold text-neutral-900' : 'text-[14.5px] text-neutral-600'}`}>{t(w.en, w.ar)}</span>
@@ -135,7 +134,7 @@ export default function AiReviewPanel() {
 
         {/* Departments finish one after another */}
         <div className="relative px-6 pb-5">
-          <div className="h-1 rounded-full bg-black/5 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-ai-500 to-brand-500 transition-all duration-500 ease-out" style={{ width: `${pct}%` }} /></div>
+          <div className="h-1 rounded-full bg-neutral-200/70 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-ai-500 to-brand-500 transition-all duration-500 ease-out" style={{ width: `${pct}%` }} /></div>
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
             {DEPTS.map((d, i) => {
               const idx = wheel.map((w, k) => (w.dept === d.id ? k : -1)).filter((k) => k >= 0);
@@ -153,7 +152,6 @@ export default function AiReviewPanel() {
             })}
           </div>
         </div>
-      </div>
       </div>
     );
   }
