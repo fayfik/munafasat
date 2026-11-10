@@ -694,7 +694,8 @@ async function openRequest(title) {
     expect(Date.now() - t0 < 4800, 'whole review done in about 7 seconds');
     expect(await count('.review-reveal [data-review-boq]') === 1, 'page sections load after the review');
     for (const d of ['finance', 'ea', 'cyber', 'procurement']) expect(await count(`[data-ai-tab="${d}"]`) === 1, `tab ${d}`);
-    expect(/recommendations from 4 departments/.test(await page.locator('[data-ai-summary]').innerText()), 'summary');
+    expect(/recommendations/.test(await page.locator('[data-ai-summary]').innerText()), 'summary');
+    expect(await page.getAttribute('[data-ai-tab="general"]', 'aria-selected') === 'true', 'opens on General');
     await page.click('[data-ai-tab="finance"]'); await wait(150);
     await page.click('[data-ai-fix="fin-pay"]'); await wait(700);
     expect(/Payment Schedule/.test(await page.locator('h2').first().innerText()), 'opened the Payment Schedule step');
@@ -855,7 +856,9 @@ async function openRequest(title) {
     expect(await count('[data-tech-standards]') === 1, 'in Review & Confirm');
     for (const id of ['saas', 'integrates', 'migration', 'personal-data', 'external-users']) expect(await page.getAttribute(`[data-answer="${id}"]`, 'data-source') === 'derived', `${id} derived from the request`);
     expect(await page.getAttribute('[data-answer="external-users"]', 'data-yes') === null, 'internal use → No');
-    expect(await count('[data-before-item="tech-questions"]') === 1, 'open questions listed before submit');
+    await page.click('[data-ai-tab="general"]'); await wait(200);
+    expect(await count('[data-before-item="tech-questions"]') === 1, 'open questions listed in the General tab');
+    await page.click('[data-ai-tab="ea"]'); await wait(300);
     for (let i = 0; i < 10 && await count('[data-q]'); i++) { await page.click('[data-q-answer="no"]'); await wait(150); }
     await wait(200);
     expect(await page.getAttribute('[data-tech-standards]', 'data-std-phase') === 'built', 'standards built');
@@ -871,8 +874,13 @@ async function openRequest(title) {
     await page.click('[data-std-group="hosting"] > button'); await wait(150);
     expect(await page.getAttribute('[data-std="h3"]', 'data-std-state') === 'included', 'on-prem spec added');
     await page.click('[data-std-na="h2"]'); await wait(100);
+    await page.click('[data-ai-tab="general"]'); await wait(200);
     expect(await count('[data-before-item="na-reason"]') === 1, 'N/A needs a reason before submit');
+    await page.click('[data-ai-tab="ea"]'); await wait(300);
+    await page.click('[data-std-group="hosting"] > button').catch(() => {}); await wait(150);
+    if (!(await count('[data-std-reason="h2"]'))) { await page.click('[data-std-group="hosting"] > button'); await wait(150); }
     await page.fill('[data-std-reason="h2"]', 'Hosted by a government cloud provider under a separate contract');
+    await page.click('[data-ai-tab="general"]'); await wait(200);
     expect(await count('[data-before-item="na-reason"]') === 0, 'reason given');
   });
   await test('Technical standards: licence renewal reads "not a new build" and skips migration', async () => {

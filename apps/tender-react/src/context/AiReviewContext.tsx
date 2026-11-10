@@ -7,6 +7,8 @@ import { useLanguage } from './LanguageContext';
 import type { TenderFormData } from '../types/tender';
 
 export type RecState = 'open' | 'applied' | 'dismissed';
+/** A reviewer tab: a department, or General (completeness / manager checks). */
+export type TabId = Dept | 'general';
 type Phase = 'idle' | 'running' | 'done';
 
 interface Ctx {
@@ -24,8 +26,8 @@ interface Ctx {
   apply: (id: string) => void;
   dismiss: (id: string) => void;
   reopen: (id: string) => void;
-  tab: Dept | null;
-  setTab: (d: Dept) => void;
+  tab: TabId | null;
+  setTab: (d: TabId) => void;
 }
 
 const C = createContext<Ctx | null>(null);
@@ -37,7 +39,7 @@ export function AiReviewProvider({ children }: { children: ReactNode }) {
   const [recs, setRecs] = useState<AiRec[]>([]);
   const [state, setState] = useState<Record<string, RecState>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [tab, setTab] = useState<Dept | null>(null);
+  const [tab, setTab] = useState<TabId | null>(null);
   const reviewed = useRef<string | null>(null);
   const appliedSince = useRef(false);
   const fdRef = useRef(formData);

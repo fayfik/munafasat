@@ -11,6 +11,8 @@ import { focusField } from './QualityGate';
 import { toast } from './Toast';
 import { SparklesIcon, CheckIcon } from './Icons';
 import TechStandards, { eaScopeForForm, stdQuestionsOpen, stdIssues } from './TechStandards';
+import { qualityIssues } from '../lib/quality';
+import type { TabId } from '../context/AiReviewContext';
 
 /** The checks that roll through the loader, and how long each stays in the centre (≈ 6.8 s in all). */
 const WHEEL: { key: string; dept: Dept; en: string; ar: string; ms: number }[] = [
@@ -53,7 +55,7 @@ const sectionTitle = (id: string, isAr: boolean) => { const s = SECTIONS.find((x
 /* ── Review & Confirm panel ──────────────────────────────────────────────── */
 export default function AiReviewPanel() {
   const { phase, recs, state, stale, start, finish, ensureFresh, open, dismiss, reopen, tab: savedTab, setTab } = useAiReview();
-  const { formData } = useTender();
+  const { formData, sectionStatuses, goToSection } = useTender();
   const t = useT();
   const { isAr } = useLanguage();
   const [tick, setTick] = useState(0); // loader clock
@@ -76,11 +78,7 @@ export default function AiReviewPanel() {
   }, [phase]);
   useEffect(() => {
     if (phase !== 'running' || tick < total + 1) return;
-    finish();
-    if (!savedTab) {
-      const first = DEPTS.find((d) => recs.some((r) => r.dept === d.id && r.severity === 'return')) ?? DEPTS.find((d) => recs.some((r) => r.dept === d.id));
-      if (first) setTab(first.id);
-    }
+    finish(); // opens on General when something is missing, else the first department with findings
   }, [tick, phase, total, finish, recs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const count = (d: Dept) => recs.filter((r) => r.dept === d).length;
@@ -95,7 +93,8 @@ export default function AiReviewPanel() {
     const pct = Math.min(100, Math.round((tick / total) * 100));
     const ROW = 64;
     return (
-      <div className="rounded-2xl bg-[#EFEDE8] overflow-hidden relative" data-ai-review data-ai-loader>
+      <div className="min-h-[calc(100vh-240px)] flex items-center justify-center">
+      <div className="w-full max-w-[640px] rounded-3xl bg-[#EFEDE8] overflow-hidden relative pop-in" data-ai-review data-ai-loader>
         <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(60% 55% at 50% 52%, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%)' }} />
         <div className="relative px-6 pt-5 flex items-start gap-3.5">
           <span className="relative w-10 h-10 rounded-xl bg-ai-600 text-white flex items-center justify-center flex-shrink-0 ai-orb"><SparklesIcon className="w-5 h-5" /></span>
@@ -145,7 +144,7 @@ export default function AiReviewPanel() {
               return (
                 <div key={d.id} data-ai-dept-row={d.id} data-state={st} className={`flex items-center gap-2 rounded-xl px-2.5 py-2 transition-all duration-300 ${st === 'active' ? 'bg-white shadow-sm' : st === 'done' ? 'bg-white/70' : 'bg-white/30 opacity-60'}`}>
                   <DeptIcon dept={d.id} size="sm" />
-                  <span className="flex-1 min-w-0 text-[12px] font-medium text-neutral-700 truncate">{t(d.en, d.ar)}</span>
+                  <span className="flex-1 min-w-0 text-[12px] font-medium text-neutral-700 truncate">{d.id === 'ea' ? t('EA', 'البنية المؤسسية') : t(d.en, d.ar)}</span>
                   {st === 'done'
                     ? <span className="pop-in text-[11px] font-semibold text-neutral-600 tabular-nums">{n ? t(`${n} found`, `${n}`) : '✓'}</span>
                     : st === 'active' ? <span className="w-3 h-3 rounded-full border-2 border-neutral-200 border-t-ai-600 animate-spin" /> : null}
@@ -155,112 +154,163 @@ export default function AiReviewPanel() {
           </div>
         </div>
       </div>
+      </div>
     );
   }
 
   // Results
-  const totalRecs = recs.length;
-  const returns = recs.filter((r) => r.severity === 'return' && !state[r.id]).length;
-  const resolved = recs.filter((r) => state[r.id]).length;
-  const tab: Dept = savedTab ?? (DEPTS.find((d) => recs.some((r) => r.dept === d.id && !state[r.id]))?.id ?? 'finance');
-  const list = recs.filter((r) => r.dept === tab);
-  const dept = DEPTS.find((d) => d.id === tab)!;
-  return (
-    <div className="ai-review-card rounded-2xl p-[1.5px]" data-ai-review data-ai-results>
-      <div className="rounded-[15px] bg-white overflow-hidden">
-        <div className="px-5 pt-4 pb-3 flex items-center gap-3.5 flex-wrap">
-          <span className="w-10 h-10 rounded-xl bg-ai-600 text-white flex items-center justify-center flex-shrink-0"><SparklesIcon className="w-5 h-5" /></span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-bold text-neutral-900">{t('AI pre-review', 'المراجعة المسبقة بالذكاء الاصطناعي')}</p>
-            <p className="text-[12.5px] text-neutral-500" data-ai-summary>
-              {totalRecs === 0 ? t('No concerns from any department — ready to submit.', 'لا ملاحظات من أي إدارة — جاهز للتقديم.')
-                : <>{t(`${totalRecs} recommendations from 4 departments`, `${totalRecs} توصية من 4 إدارات`)}{returns > 0 && <span className="text-error-700 font-semibold"> · {t(`${returns} would get the request returned`, `${returns} قد تؤدي إلى إعادة الطلب`)}</span>}{resolved > 0 && <span className="text-success-700"> · {t(`${resolved} resolved`, `${resolved} تمت معالجتها`)}</span>}</>}
-            </p>
-          </div>
-          <button type="button" onClick={start} data-ai-rerun className="h-8 px-3 rounded-lg border border-neutral-300 text-[12px] font-semibold text-neutral-700 hover:bg-neutral-50 inline-flex items-center gap-1.5">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3.5 h-3.5"><path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7" /></svg>
-            {t('Review again', 'مراجعة مجدداً')}
-          </button>
-        </div>
-        {stale && (
-          <div className="mx-5 mb-3 rounded-lg bg-warning-50 border border-warning-200 px-3 py-2 text-[12px] text-warning-900 flex items-center gap-2" data-ai-stale>
-            <span className="flex-1">{t('The request changed since this review.', 'تغيّر الطلب منذ هذه المراجعة.')}</span>
-            <button type="button" onClick={start} className="font-semibold underline">{t('Review again', 'مراجعة مجدداً')}</button>
-          </div>
-        )}
+  const reqIdxs = SECTIONS.map((_, i) => i).filter((i) => !['review', 'attachments'].includes(SECTIONS[i].id));
+  const general: { id: string; title: string; why: string; meta?: string; go: () => void; label: string }[] = [
+    ...reqIdxs.filter((i) => sectionStatuses[i] === 'missing' || sectionStatuses[i] === 'not-started').map((i) => ({
+      id: `incomplete-${SECTIONS[i].id}`,
+      title: t(`${SECTIONS[i].title} is incomplete`, `${SECTIONS[i].titleAr} غير مكتمل`),
+      why: t('Required fields are still empty. Your manager returns incomplete requests.', 'ما زالت هناك حقول مطلوبة فارغة. يعيد مديرك الطلبات غير المكتملة.'),
+      go: () => goToSection(i), label: t('Complete', 'إكمال'),
+    })),
+    ...SECTIONS.flatMap((sec, i) => qualityIssues(sec.id, formData).map((q) => ({
+      id: q.id, title: isAr ? q.ar : q.en, why: isAr ? q.whyAr : q.whyEn, meta: isAr ? q.metaAr : q.metaEn,
+      go: () => { goToSection(i); setTimeout(() => focusField(q.field), 450); }, label: t('Fix', 'إصلاح'),
+    }))),
+    ...(eaScopeForForm(formData).required && stdQuestionsOpen(formData) > 0 ? [{
+      id: 'tech-questions', title: t(`Answer ${stdQuestionsOpen(formData)} question${stdQuestionsOpen(formData) === 1 ? '' : 's'} for the technical standards`, `أجب عن ${stdQuestionsOpen(formData)} من أسئلة المعايير التقنية`),
+      why: t('A few things your request doesn’t say yet — EA needs them to pick the standards.', 'أمور لم يذكرها طلبك بعد — تحتاجها البنية المؤسسية لاختيار المعايير.'),
+      go: () => { setTab('ea'); setTimeout(() => focusField('q-techStandards'), 120); }, label: t('Answer', 'إجابة'),
+    }] : []),
+    ...(stdIssues(formData) > 0 ? [{
+      id: 'na-reason', title: t('Give a reason for each required standard marked not applicable', 'اذكر سبب كل معيار إلزامي محدد كغير منطبق'),
+      why: t('EA only accepts "not applicable" with a reason.', 'لا تقبل البنية المؤسسية "غير منطبق" دون سبب.'),
+      go: () => { setTab('ea'); setTimeout(() => focusField('q-techStandards'), 120); }, label: t('Fix', 'إصلاح'),
+    }] : []),
+  ];
+  const totalRecs = recs.length + general.length;
+  const returns = recs.filter((r) => r.severity === 'return' && !state[r.id]).length + general.length;
+  const tab: TabId = savedTab ?? (general.length ? 'general' : DEPTS.find((d) => recs.some((r) => r.dept === d.id && !state[r.id]))?.id ?? 'finance');
+  const list = tab === 'general' ? [] : recs.filter((r) => r.dept === tab);
+  const dept = DEPTS.find((d) => d.id === tab);
+  const tabs: { id: TabId; label: string; n: number; total: number }[] = [
+    { id: 'general', label: t('General', 'عام'), n: general.length, total: general.length },
+    ...DEPTS.map((d) => ({ id: d.id as TabId, label: t(d.role.en, d.role.ar), n: openCount(d.id), total: count(d.id) })),
+  ];
+  const DOT: Record<Severity, string> = { return: 'bg-error-500', improve: 'bg-warning-500', tip: 'bg-neutral-300' };
 
-        {/* Tabs — one per reviewing department */}
-        <p className="px-5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Recommendations by reviewer', 'التوصيات حسب المراجِع')}</p>
-        <div role="tablist" className="px-3 flex gap-1 border-b border-neutral-200 overflow-x-auto">
-          {DEPTS.map((d) => {
-            const on = d.id === tab;
-            const n = count(d.id), o = openCount(d.id);
+  const Row = ({ id, title, why, meta, sev, section, action, state: st, attrs, delay = 0 }: { id: string; title: string; why: string; meta?: ReactNode; sev: Severity; section?: string; action: ReactNode; state?: string; attrs?: Record<string, string>; delay?: number }) => (
+    <li key={id} {...attrs} data-state={st ?? 'open'} className="rise-in py-4 flex items-start gap-4" style={{ animationDelay: `${delay}ms` }}>
+      <span className={`mt-[7px] w-2 h-2 rounded-full flex-shrink-0 ${st === 'applied' ? 'bg-success-500' : st === 'dismissed' ? 'bg-neutral-200' : DOT[sev]}`} />
+      <div className="min-w-0 flex-1">
+        <p className={`text-[14px] font-semibold leading-snug ${st === 'dismissed' ? 'text-neutral-400 line-through' : 'text-neutral-900'}`}>{title}</p>
+        <p className="mt-1 text-[13px] text-neutral-500 leading-relaxed">{why}</p>
+        <p className="mt-1.5 text-[12px] text-neutral-400">{t(SEV[sev].en, SEV[sev].ar)}{section ? ` · ${section}` : ''}{meta ? <> · {meta}</> : null}</p>
+      </div>
+      <div className="flex-shrink-0 flex items-center gap-1.5 pt-0.5">{action}</div>
+    </li>
+  );
+  const FixBtn = ({ onClick, children, attrs }: { onClick: () => void; children: ReactNode; attrs?: Record<string, string> }) => (
+    <button type="button" onClick={onClick} {...attrs} className="h-8 px-3.5 rounded-full border border-brand-200 bg-white text-brand-700 text-[12.5px] font-semibold hover:bg-brand-50 inline-flex items-center gap-1.5 transition-colors">{children}</button>
+  );
+
+  return (
+    <div className="rounded-2xl border border-neutral-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]" data-ai-review data-ai-results>
+      <div className="px-6 pt-5 pb-4 flex items-start gap-3">
+        <span className="w-8 h-8 rounded-lg bg-ai-50 text-ai-600 flex items-center justify-center flex-shrink-0"><SparklesIcon className="w-4 h-4" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold text-neutral-900">{t('AI pre-review', 'المراجعة المسبقة بالذكاء الاصطناعي')}</p>
+          <p className="mt-0.5 text-[13px] text-neutral-500" data-ai-summary>
+            {totalRecs === 0 ? t('Nothing to fix — every reviewer would accept this request.', 'لا شيء لإصلاحه — سيقبل كل مراجِع هذا الطلب.')
+              : returns > 0 ? t(`${totalRecs} recommendations · ${returns} to fix before you submit`, `${totalRecs} توصية · ${returns} للإصلاح قبل التقديم`)
+                : t(`${totalRecs} recommendations · nothing blocking`, `${totalRecs} توصية · لا شيء يمنع التقديم`)}
+          </p>
+        </div>
+        <button type="button" onClick={start} data-ai-rerun className="text-[12.5px] font-semibold text-neutral-500 hover:text-neutral-800 inline-flex items-center gap-1.5 pt-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3.5 h-3.5"><path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7" /></svg>
+          {t('Review again', 'مراجعة مجدداً')}
+        </button>
+      </div>
+      {stale && (
+        <div className="mx-6 mb-3 rounded-lg bg-neutral-50 px-3.5 py-2 text-[12.5px] text-neutral-600 flex items-center gap-2" data-ai-stale>
+          <span className="flex-1">{t('The request changed since this review.', 'تغيّر الطلب منذ هذه المراجعة.')}</span>
+          <button type="button" onClick={start} className="font-semibold text-brand-700 hover:underline">{t('Review again', 'مراجعة مجدداً')}</button>
+        </div>
+      )}
+
+      {/* Reviewer tabs — soft pills */}
+      <div className="px-6">
+        <div role="tablist" className="flex gap-1 p-1 rounded-xl bg-neutral-100/80 overflow-x-auto">
+          {tabs.map((x) => {
+            const on = x.id === tab;
             return (
-              <button key={d.id} role="tab" aria-selected={on} data-ai-tab={d.id} onClick={() => setTab(d.id)}
-                className={`relative flex items-center gap-2 px-3 py-2.5 text-[13px] whitespace-nowrap transition-colors ${on ? 'text-neutral-900 font-semibold' : 'text-neutral-500 hover:text-neutral-800'}`}>
-                <DeptIcon dept={d.id} size="sm" />
-                {t(d.role.en, d.role.ar)}
-                <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center tabular-nums ${o ? 'bg-neutral-900 text-white' : n ? 'bg-success-50 text-success-700' : 'bg-neutral-100 text-neutral-500'}`} data-ai-tab-count={o}>
-                  {o || (n ? '✓' : 0)}
-                </span>
-                {on && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-brand-600 tab-ink" />}
+              <button key={x.id} role="tab" aria-selected={on} data-ai-tab={x.id} onClick={() => setTab(x.id)}
+                className={`flex-1 min-w-fit flex items-center justify-center gap-2 h-9 px-3.5 rounded-lg text-[13px] whitespace-nowrap transition-all ${on ? 'bg-white shadow-sm text-neutral-900 font-semibold' : 'text-neutral-500 hover:text-neutral-800'}`}>
+                {x.id === 'general'
+                  ? <span className="w-5 h-5 rounded-md bg-neutral-200 text-neutral-600 flex items-center justify-center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" /></svg></span>
+                  : <DeptIcon dept={x.id as Dept} size="sm" />}
+                {x.label}
+                <span className={`text-[12px] tabular-nums ${x.n ? (on ? 'text-neutral-900' : 'text-neutral-500') : 'text-success-600'}`} data-ai-tab-count={x.n}>{x.n || '✓'}</span>
               </button>
             );
           })}
         </div>
+      </div>
 
-        <div className="px-5 py-4" role="tabpanel" key={tab}>
-          {list.length === 0 && tab === 'ea' && eaScopeForForm(formData).required ? null : list.length === 0 ? (
-            <div className="py-6 flex flex-col items-center text-center fade-in" data-ai-empty>
-              <span className="w-10 h-10 rounded-full bg-success-50 text-success-600 flex items-center justify-center pop-in"><CheckIcon className="w-5 h-5" /></span>
-              <p className="mt-2 text-[13.5px] font-semibold text-neutral-800">{t(`No concerns from ${dept.en}`, `لا ملاحظات من ${dept.ar}`)}</p>
-              <p className="text-[12px] text-neutral-500">{t('This part of the request looks ready for their review.', 'هذا الجزء من الطلب يبدو جاهزاً لمراجعتهم.')}</p>
+      <div className="px-6 pt-2 pb-4" role="tabpanel" key={tab}>
+        {tab === 'general' ? (
+          general.length === 0 ? (
+            <div className="py-8 text-center fade-in" data-ai-empty>
+              <span className="mx-auto w-10 h-10 rounded-full bg-success-50 text-success-600 flex items-center justify-center pop-in"><CheckIcon className="w-5 h-5" /></span>
+              <p className="mt-2 text-[14px] font-semibold text-neutral-800">{t('Every step is complete', 'جميع الخطوات مكتملة')}</p>
+              <p className="text-[12.5px] text-neutral-500">{t('Nothing your manager would send back.', 'لا شيء سيعيده مديرك.')}</p>
             </div>
           ) : (
-            <ul className="space-y-2.5">
-              {list.map((r, i) => {
-                const s = state[r.id];
-                return (
-                  <li key={r.id} data-ai-rec={r.id} data-state={s ?? 'open'} className={`rise-in rounded-xl border px-4 py-3.5 transition-colors ${s === 'applied' ? 'border-success-200 bg-success-50/40' : s === 'dismissed' ? 'border-neutral-200 bg-neutral-50/60 opacity-70' : 'border-neutral-200 bg-white hover:border-neutral-300'}`} style={{ animationDelay: `${i * 55}ms` }}>
-                    <div className="flex items-start gap-3.5">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`px-1.5 py-0.5 rounded border text-[10.5px] font-semibold ${SEV[r.severity].cls}`}>{t(SEV[r.severity].en, SEV[r.severity].ar)}</span>
-                          <span className="text-[11px] text-neutral-400">{sectionTitle(r.section, isAr)}</span>
-                        </div>
-                        <p className={`mt-1 text-[13.5px] font-semibold leading-snug ${s === 'dismissed' ? 'text-neutral-500 line-through' : 'text-neutral-900'}`}>{isAr ? r.title.ar : r.title.en}</p>
-                        <p className="mt-0.5 text-[12.5px] text-neutral-600 leading-relaxed">{isAr ? r.why.ar : r.why.en}</p>
-                      </div>
-                      <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                        {!s && (
-                          <button type="button" data-ai-fix={r.id} onClick={() => open(r.id)}
-                            className="h-8 px-3.5 rounded-lg bg-brand-600 text-white text-[12.5px] font-semibold hover:bg-brand-700 inline-flex items-center gap-1.5 shadow-sm">
-                            {r.apply ? <SparklesIcon className="w-3.5 h-3.5" /> : null}{r.apply ? t('Fix it', 'إصلاح') : t('Show me', 'أرني')}
-                          </button>
-                        )}
-                        {s === 'applied' && <span className="pop-in inline-flex items-center gap-1 text-[12px] font-semibold text-success-700"><CheckIcon className="w-3.5 h-3.5" />{t('Applied', 'تم التطبيق')}</span>}
-                        {s === 'dismissed' && <span className="text-[12px] text-neutral-500">{t('Dismissed', 'تم التجاهل')} · <button type="button" onClick={() => reopen(r.id)} className="font-semibold text-brand-700 hover:underline">{t('Undo', 'تراجع')}</button></span>}
-                        {!s && <button type="button" onClick={() => dismiss(r.id)} className="text-[11.5px] text-neutral-400 hover:text-neutral-700">{t('Dismiss', 'تجاهل')}</button>}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {tab === 'ea' && eaScopeForForm(formData).required && (
-            <section id="q-techStandards" className={`rise-in rounded-xl border border-neutral-200 px-4 py-4 ${list.length ? 'mt-4' : ''}`} style={{ animationDelay: `${list.length * 55 + 60}ms` }} data-ai-standards>
-              <div className="flex items-center gap-2.5 mb-3">
-                <DeptIcon dept="ea" size="sm" />
-                <p className="flex-1 text-[14px] font-bold text-neutral-900">{t('Technical standards', 'المعايير التقنية')}</p>
-                {stdOpen > 0
-                  ? <span className="px-2 py-0.5 rounded-full bg-warning-50 text-warning-800 text-[11px] font-semibold">{t(`${stdOpen} to complete`, `${stdOpen} للإكمال`)}</span>
-                  : <span className="px-2 py-0.5 rounded-full bg-success-50 text-success-700 text-[11px] font-semibold">{t('Ready for EA', 'جاهزة للبنية المؤسسية')}</span>}
+            <>
+              <p className="pt-3 text-[12.5px] text-neutral-500">{t('Missing or thin details your manager would send back. Submit unlocks once these are done.', 'تفاصيل ناقصة أو مختصرة سيعيدها مديرك. يُتاح التقديم بعد إكمالها.')}</p>
+              <ul className="divide-y divide-neutral-100" data-before-submit>
+                {general.map((g, i) => (
+                  <Row key={g.id} id={g.id} title={g.title} why={g.why} meta={g.meta} sev="return" attrs={{ 'data-before-item': g.id, 'data-ai-general-item': g.id }} delay={i * 60}
+                    action={<FixBtn onClick={g.go}>{g.label}</FixBtn>} />
+                ))}
+              </ul>
+            </>
+          )
+        ) : (
+          <>
+            {list.length === 0 && !(tab === 'ea' && eaScopeForForm(formData).required) && (
+              <div className="py-8 text-center fade-in" data-ai-empty>
+                <span className="mx-auto w-10 h-10 rounded-full bg-success-50 text-success-600 flex items-center justify-center pop-in"><CheckIcon className="w-5 h-5" /></span>
+                <p className="mt-2 text-[14px] font-semibold text-neutral-800">{t(`No concerns from ${dept?.en}`, `لا ملاحظات من ${dept?.ar}`)}</p>
+                <p className="text-[12.5px] text-neutral-500">{t('This part of the request looks ready for their review.', 'هذا الجزء من الطلب يبدو جاهزاً لمراجعتهم.')}</p>
               </div>
-              <TechStandards />
-            </section>
-          )}
-        </div>
+            )}
+            {list.length > 0 && (
+              <ul className="divide-y divide-neutral-100">
+                {list.map((r, i) => {
+                  const st = state[r.id];
+                  return (
+                    <Row key={r.id} delay={i * 60} id={r.id} title={isAr ? r.title.ar : r.title.en} why={isAr ? r.why.ar : r.why.en} sev={r.severity} section={sectionTitle(r.section, isAr)} state={st}
+                      attrs={{ 'data-ai-rec': r.id }}
+                      action={!st ? (<>
+                        <FixBtn onClick={() => open(r.id)} attrs={{ 'data-ai-fix': r.id }}>{r.apply && <SparklesIcon className="w-3.5 h-3.5" />}{r.apply ? t('Fix it', 'إصلاح') : t('Show me', 'أرني')}</FixBtn>
+                        <button type="button" onClick={() => dismiss(r.id)} title={t('Dismiss', 'تجاهل')} aria-label={t('Dismiss', 'تجاهل')} className="w-8 h-8 rounded-full text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 flex items-center justify-center">
+                          <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+                        </button>
+                      </>) : st === 'applied'
+                        ? <span className="pop-in inline-flex items-center gap-1 text-[12.5px] font-semibold text-success-700"><CheckIcon className="w-3.5 h-3.5" />{t('Applied', 'تم التطبيق')}</span>
+                        : <button type="button" onClick={() => reopen(r.id)} className="text-[12.5px] font-semibold text-neutral-500 hover:text-neutral-800">{t('Undo dismiss', 'تراجع')}</button>} />
+                  );
+                })}
+              </ul>
+            )}
+            {tab === 'ea' && eaScopeForForm(formData).required && (
+              <section id="q-techStandards" className={`rise-in ${list.length ? 'mt-2 pt-5 border-t border-neutral-100' : 'pt-4'}`} data-ai-standards>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <p className="flex-1 text-[14px] font-semibold text-neutral-900">{t('Technical standards', 'المعايير التقنية')}</p>
+                  {stdOpen > 0
+                    ? <span className="text-[12px] text-warning-700">{t(`${stdOpen} to complete`, `${stdOpen} للإكمال`)}</span>
+                    : <span className="text-[12px] text-success-700">{t('Ready for EA', 'جاهزة للبنية المؤسسية')}</span>}
+                </div>
+                <TechStandards />
+              </section>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
