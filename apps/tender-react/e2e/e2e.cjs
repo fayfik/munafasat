@@ -683,8 +683,8 @@ async function openRequest(title) {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', scopeOfWork: 'Implement SAP S/4HANA cloud subscription. Integrate with HR. Employee payroll data.', paymentStages: [], evaluationCriteria: [], technicalPassingPercentage: '',
       boqItems: [['SAP S/4HANA subscription', 'Cloud ERP licences'], ['Integration with HR system', 'APIs via iPaaS']].map(([n, d], i) => ({ id: 'ai' + i, projectItem: 'Software', itemName: n, itemDescription: d, unitOfMeasure: 'Each', quantity: 2, unitPrice: 1000, deliveryDate: '', hasBrandName: false, brandJustification: '' })) });
     await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(500);
-    expect(await count('[data-ai-loader] [data-ai-dept-row]') === 4, 'loader lists the four departments');
-    expect(await page.getAttribute('[data-ai-dept-row="finance"]', 'data-state') === 'active', 'Finance reviewed first');
+    expect(await count('[data-ai-loader] [data-ai-dept-row]') === 7, 'loader lists the seven reviewers');
+    expect(await page.getAttribute('[data-ai-dept-row="manager"]', 'data-state') === 'active', 'Manager reviewed first');
     expect(await count('[data-ai-wheel] [data-ai-wheel-item][data-state="active"]') === 1, 'one check in the centre of the wheel');
     expect(await count('[data-review-boq]') === 0 && await count('.review-reveal') === 0, 'rest of the page waits for the review');
     await wait(2800);
@@ -693,9 +693,16 @@ async function openRequest(title) {
     await page.waitForSelector('[data-ai-results]', { timeout: 6000 }); await wait(300);
     expect(Date.now() - t0 < 4800, 'whole review done in about 7 seconds');
     expect(await count('.review-reveal [data-review-boq]') === 1, 'page sections load after the review');
-    for (const d of ['finance', 'ea', 'cyber', 'procurement']) expect(await count(`[data-ai-tab="${d}"]`) === 1, `tab ${d}`);
+    expect(await page.getAttribute('[data-ai-tab="general"]', 'aria-selected') === 'true', 'opens on General (before any tab click)');
+    const tabIds = await page.locator('[data-ai-tab]').evaluateAll((e) => e.map((x) => x.getAttribute('data-ai-tab')));
+    expect(tabIds.join(',') === 'general,manager,risk,ea,cyber,finance,finqual,procurement', `reviewer order: ${tabIds}`);
+    await page.click('[data-ai-tab="procurement"]'); await wait(200);
+    expect(!/at least 3/.test(await page.locator('[role="tabpanel"]').innerText()), 'committee needs one member, not three');
+    await page.click('[data-ai-tab="risk"]'); await wait(200);
+    expect(await count('[data-ai-rec="risk-sla"]') === 1, 'risk reviewer finds the missing SLA');
+    await page.click('[data-ai-tab="finqual"]'); await wait(200);
+    expect(await count('[data-ai-rec="fq-pass"]') === 1, 'qualification passing % sits with the finance qualification member');
     expect(/recommendations/.test(await page.locator('[data-ai-summary]').innerText()), 'summary');
-    expect(await page.getAttribute('[data-ai-tab="general"]', 'aria-selected') === 'true', 'opens on General');
     await page.click('[data-ai-tab="finance"]'); await wait(150);
     await page.click('[data-ai-fix="fin-pay"]'); await wait(700);
     expect(/Payment Schedule/.test(await page.locator('h2').first().innerText()), 'opened the Payment Schedule step');

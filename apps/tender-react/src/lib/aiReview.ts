@@ -9,7 +9,7 @@ import { words, MIN_WORDS } from './quality';
 import { suggestAccounting } from './accounting';
 import { resolveAnswers } from '../components/TechStandards';
 
-export type Dept = 'finance' | 'ea' | 'cyber' | 'procurement';
+export type Dept = 'manager' | 'risk' | 'ea' | 'cyber' | 'finance' | 'finqual' | 'procurement';
 export type Severity = 'return' | 'improve' | 'tip';
 
 export interface Bi { en: string; ar: string }
@@ -34,15 +34,14 @@ export interface AiRec {
   manual?: Bi;
 }
 
-export const DEPTS: { id: Dept; en: string; ar: string; role: Bi; checks: Bi[] }[] = [
-  { id: 'finance', en: 'Finance', ar: 'المالية', role: { en: 'Finance officer', ar: 'مسؤول المالية' },
-    checks: [{ en: 'Payment schedule and advance payment', ar: 'جدول الدفعات والدفعة المقدمة' }, { en: 'Material groups on BOQ lines', ar: 'مجموعات المواد في بنود الجدول' }, { en: 'Budget and line totals', ar: 'الميزانية وإجماليات البنود' }] },
-  { id: 'ea', en: 'Enterprise Architecture', ar: 'البنية المؤسسية', role: { en: 'EA officer', ar: 'مسؤول البنية المؤسسية' },
-    checks: [{ en: 'Scope of Work clarity', ar: 'وضوح نطاق العمل' }, { en: 'Integration and architecture requirements', ar: 'متطلبات التكامل والبنية' }, { en: 'Technical standards', ar: 'المعايير التقنية' }] },
-  { id: 'cyber', en: 'Cybersecurity', ar: 'الأمن السيبراني', role: { en: 'Cybersecurity', ar: 'الأمن السيبراني' },
-    checks: [{ en: 'Security testing and NCA controls', ar: 'الاختبارات الأمنية وضوابط الهيئة' }, { en: 'Personal data protection', ar: 'حماية البيانات الشخصية' }, { en: 'Confidentiality terms', ar: 'شروط السرية' }] },
-  { id: 'procurement', en: 'Procurement', ar: 'المشتريات', role: { en: 'Procurement member', ar: 'عضو المشتريات' },
-    checks: [{ en: 'Evaluation criteria and weights', ar: 'معايير التقييم والأوزان' }, { en: 'Passing scores and committee', ar: 'درجات الاجتياز واللجنة' }, { en: 'Delivery dates and brand names', ar: 'مواعيد التسليم والعلامات التجارية' }] },
+export const DEPTS: { id: Dept; en: string; ar: string; short: Bi; role: Bi }[] = [
+  { id: 'manager', en: 'Manager', ar: 'المدير', short: { en: 'Manager', ar: 'المدير' }, role: { en: 'Line manager', ar: 'المدير المباشر' } },
+  { id: 'risk', en: 'Risk', ar: 'المخاطر', short: { en: 'Risk', ar: 'المخاطر' }, role: { en: 'Risk officer', ar: 'مسؤول المخاطر' } },
+  { id: 'ea', en: 'Enterprise Architecture', ar: 'البنية المؤسسية', short: { en: 'EA', ar: 'البنية المؤسسية' }, role: { en: 'EA officer', ar: 'مسؤول البنية المؤسسية' } },
+  { id: 'cyber', en: 'Cybersecurity', ar: 'الأمن السيبراني', short: { en: 'Cybersecurity', ar: 'الأمن السيبراني' }, role: { en: 'Cybersecurity', ar: 'الأمن السيبراني' } },
+  { id: 'finance', en: 'Finance', ar: 'المالية', short: { en: 'Finance', ar: 'المالية' }, role: { en: 'Finance officer', ar: 'مسؤول المالية' } },
+  { id: 'finqual', en: 'Finance qualification', ar: 'التأهيل المالي', short: { en: 'Finance qual.', ar: 'التأهيل المالي' }, role: { en: 'Finance qualification member', ar: 'عضو التأهيل المالي' } },
+  { id: 'procurement', en: 'Procurement', ar: 'المشتريات', short: { en: 'Procurement', ar: 'المشتريات' }, role: { en: 'Procurement member', ar: 'عضو المشتريات' } },
 ];
 
 const uid = () => crypto.randomUUID();
@@ -189,17 +188,17 @@ export function reviewRequest(f: TenderFormData, isAr: boolean): AiRec[] {
       apply: () => ({ technicalPassingPercentage: '70' }) });
   }
   if (!f.qualificationPassingPercentage) {
-    out.push({ id: 'pr-qpass', dept: 'procurement', severity: 'improve', section: 'qualification', field: 'q-qualPassing',
+    out.push({ id: 'fq-pass', dept: 'finqual', severity: 'improve', section: 'qualification', field: 'q-qualPassing',
       title: { en: 'Qualification passing percentage is not set', ar: 'نسبة اجتياز التأهيل غير محددة' },
       why: { en: 'Vendors are qualified against this score before technical evaluation. 60% is the usual threshold.', ar: 'يُؤهَّل الموردون وفق هذه الدرجة قبل التقييم الفني. 60% هي النسبة المعتادة.' },
       proposal: { kind: 'value', label: { en: 'Qualification passing percentage', ar: 'نسبة اجتياز التأهيل' }, current: '—', value: '60%' },
       apply: () => ({ qualificationPassingPercentage: '60' }) });
   }
-  if (f.technicalCommitteeMembers.length < 3) {
+  if (f.technicalCommitteeMembers.length < 1) {
     out.push({ id: 'pr-committee', dept: 'procurement', severity: 'return', section: 'technical-evaluation', field: 'q-evaluation',
-      title: { en: `Technical committee has ${f.technicalCommitteeMembers.length} member${f.technicalCommitteeMembers.length === 1 ? '' : 's'} — at least 3 are needed`, ar: `اللجنة الفنية تضم ${f.technicalCommitteeMembers.length} عضواً — يلزم 3 على الأقل` },
-      why: { en: 'Government Tenders and Procurement Law requires a technical committee of at least three members.', ar: 'يشترط نظام المنافسات والمشتريات الحكومية لجنة فنية من ثلاثة أعضاء على الأقل.' },
-      manual: { en: 'Add committee members from the department who can evaluate the offers.', ar: 'أضف أعضاء من الإدارة قادرين على تقييم العروض.' } });
+      title: { en: 'No technical committee member selected', ar: 'لم يُحدد عضو للجنة الفنية' },
+      why: { en: 'Procurement can’t route the offers for evaluation until a technical committee member is selected.', ar: 'لا تستطيع المشتريات إحالة العروض للتقييم قبل تحديد عضو اللجنة الفنية.' },
+      manual: { en: 'Select at least one technical committee member who can evaluate the offers.', ar: 'حدد عضواً واحداً على الأقل في اللجنة الفنية قادراً على تقييم العروض.' } });
   }
   const noDate = items.filter((r) => !r.deliveryDate);
   if (noDate.length) {
@@ -214,6 +213,84 @@ export function reviewRequest(f: TenderFormData, isAr: boolean): AiRec[] {
       title: { en: `${brand.length} brand-name line${brand.length === 1 ? '' : 's'} without a justification`, ar: `${brand.length} من البنود بعلامة تجارية دون مبرر` },
       why: { en: 'Naming a brand restricts competition; the law requires a written justification.', ar: 'تحديد علامة تجارية يقيد المنافسة؛ ويشترط النظام مبرراً مكتوباً.' },
       manual: { en: 'Add the justification, or remove the brand and describe the specification instead.', ar: 'أضف المبرر، أو احذف العلامة التجارية وصِف المواصفات بدلاً منها.' } });
+  }
+
+  /* ── Manager ───────────────────────────────────────────────────────────── */
+  if (!f.startDate || !f.contractDuration) {
+    out.push({ id: 'mgr-duration', dept: 'manager', severity: 'return', section: 'scope-of-work', field: 'q-scopeOfWork',
+      title: { en: 'Start date or contract duration is missing', ar: 'تاريخ البدء أو مدة العقد غير محدد' },
+      why: { en: 'Your manager approves the budget against a period — without dates it can’t be phased.', ar: 'يعتمد مديرك الميزانية على فترة زمنية — بدون تواريخ لا يمكن توزيعها.' },
+      manual: { en: 'Set the expected start date and contract duration in the Scope of Work step.', ar: 'حدد تاريخ البدء المتوقع ومدة العقد في خطوة نطاق العمل.' } });
+  }
+  if (!f.executionLocation?.trim()) {
+    out.push({ id: 'mgr-location', dept: 'manager', severity: 'improve', section: 'scope-of-work', field: 'q-scopeOfWork',
+      title: { en: 'Execution location is not specified', ar: 'موقع التنفيذ غير محدد' },
+      why: { en: 'Vendors price travel and on-site work from it; managers ask for it before approving.', ar: 'يسعّر الموردون السفر والعمل الميداني بناءً عليه؛ ويطلبه المديرون قبل الاعتماد.' },
+      manual: { en: 'Add where the work is delivered (city, site or remote).', ar: 'أضف مكان تنفيذ العمل (المدينة أو الموقع أو عن بُعد).' } });
+  }
+  const purposeWords = words(f.tenderingPurpose);
+  if (purposeWords >= MIN_WORDS.purpose && !/objective|strateg|vision|kpi|target|هدف|استراتيج|رؤية/i.test(f.tenderingPurpose)) {
+    const add = L(' This supports the department’s annual objectives and Vision 2030 digital-transformation targets; without it, the current manual process continues with its cost and delay.', ' يدعم ذلك أهداف الإدارة السنوية ومستهدفات التحول الرقمي لرؤية 2030؛ وبدونه يستمر الإجراء اليدوي الحالي بتكلفته وتأخيره.');
+    out.push({ id: 'mgr-objective', dept: 'manager', severity: 'tip', section: 'project-setup', field: 'q-tenderingPurpose',
+      title: { en: 'Link the purpose to an objective', ar: 'اربط الغرض بهدف' },
+      why: { en: 'Managers approve faster when the request says which objective it serves and what happens without it.', ar: 'يعتمد المديرون أسرع عندما يذكر الطلب الهدف الذي يخدمه وما يحدث بدونه.' },
+      proposal: { kind: 'text', label: { en: 'Sentence to add to the purpose', ar: 'الجملة المضافة إلى الغرض' }, current: f.tenderingPurpose, value: add.trim(), append: true },
+      apply: (cur) => ({ tenderingPurpose: `${cur.tenderingPurpose.trim()}${add}` }) });
+  }
+  if (!f.attachments.length) {
+    out.push({ id: 'mgr-quote', dept: 'manager', severity: 'tip', section: 'attachments',
+      title: { en: 'No quote or market study attached', ar: 'لا يوجد عرض سعر أو دراسة سوق مرفقة' },
+      why: { en: 'A recent quote backs up the estimated amounts your manager is approving.', ar: 'عرض السعر الحديث يدعم المبالغ التقديرية التي يعتمدها مديرك.' },
+      manual: { en: 'Attach a recent quote, a market study or the last purchase order for similar items.', ar: 'أرفق عرض سعر حديثاً أو دراسة سوق أو آخر أمر شراء لبنود مماثلة.' } });
+  }
+
+  /* ── Risk ──────────────────────────────────────────────────────────────── */
+  const allReqs = (cur: TenderFormData) => cur.technicalRequirements;
+  if (ea.answers.critical && !has(reqs, /disaster|recovery|continuity|\bdr\b|backup|rto|rpo/i)) {
+    const r: TechRequirementRow = { id: uid(), requirement: L('Disaster recovery & business continuity', 'التعافي من الكوارث واستمرارية الأعمال'), description: L('DR site in KSA with RTO ≤ 4 hours and RPO ≤ 1 hour; DR test before go-live and yearly.', 'موقع تعافٍ داخل المملكة بزمن استعادة ≤ 4 ساعات ونقطة استعادة ≤ ساعة؛ اختبار التعافي قبل الإطلاق وسنوياً.') };
+    out.push({ id: 'risk-dr', dept: 'risk', severity: 'return', section: 'technical-evaluation', field: 'q-evaluation',
+      title: { en: 'Business-critical, but no disaster-recovery requirement', ar: 'حرج للأعمال دون متطلب للتعافي من الكوارث' },
+      why: { en: 'Operational Risk and BCM return critical systems without recovery time targets and a DR test.', ar: 'تعيد إدارة المخاطر واستمرارية الأعمال الأنظمة الحرجة دون أهداف زمن استعادة واختبار تعافٍ.' },
+      proposal: { kind: 'rows', label: { en: 'Requirement to add', ar: 'المتطلب المضاف' }, rows: [{ title: r.requirement, sub: r.description }] },
+      apply: (cur) => ({ technicalRequirements: [...allReqs(cur), r] }) });
+  }
+  if (items.length && !has(reqs, /sla|service level|penalt|availability/i)) {
+    const r: TechRequirementRow = { id: uid(), requirement: L('Service levels & penalties', 'مستويات الخدمة والغرامات'), description: L('Response and resolution times by priority, 99.5% availability, monthly SLA report; penalties up to 10% of the monthly fee.', 'أزمنة الاستجابة والحل حسب الأولوية، توفر 99.5%، تقرير شهري لمستوى الخدمة؛ غرامات حتى 10% من الرسوم الشهرية.') };
+    out.push({ id: 'risk-sla', dept: 'risk', severity: 'improve', section: 'technical-evaluation', field: 'q-evaluation',
+      title: { en: 'No service levels or penalties', ar: 'لا توجد مستويات خدمة أو غرامات' },
+      why: { en: 'Without measurable SLAs and penalties there is no lever if the vendor under-delivers.', ar: 'بدون مستويات خدمة قابلة للقياس وغرامات لا توجد وسيلة إذا قصّر المورد.' },
+      proposal: { kind: 'rows', label: { en: 'Requirement to add', ar: 'المتطلب المضاف' }, rows: [{ title: r.requirement, sub: r.description }] },
+      apply: (cur) => ({ technicalRequirements: [...allReqs(cur), r] }) });
+  }
+  if (ea.answers.saas && !has(reqs, /exit|data return|export|portab|lock-?in/i)) {
+    const r: TechRequirementRow = { id: uid(), requirement: L('Exit plan & data return', 'خطة الخروج وإعادة البيانات'), description: L('On termination the vendor returns all data in an open format within 30 days and supports the transition to a new provider.', 'عند إنهاء العقد يعيد المورد جميع البيانات بصيغة مفتوحة خلال 30 يوماً ويدعم الانتقال إلى مزود جديد.') };
+    out.push({ id: 'risk-exit', dept: 'risk', severity: 'tip', section: 'technical-evaluation', field: 'q-evaluation',
+      title: { en: 'Cloud service without an exit plan', ar: 'خدمة سحابية دون خطة خروج' },
+      why: { en: 'Avoids lock-in: the organisation keeps its data and can change provider.', ar: 'يتجنب الارتباط بمورد واحد: تحتفظ الجهة ببياناتها ويمكنها تغيير المزود.' },
+      proposal: { kind: 'rows', label: { en: 'Requirement to add', ar: 'المتطلب المضاف' }, rows: [{ title: r.requirement, sub: r.description }] },
+      apply: (cur) => ({ technicalRequirements: [...allReqs(cur), r] }) });
+  }
+
+  /* ── Finance qualification member ──────────────────────────────────────── */
+  if (!f.qualificationCommitteeMembers.length) {
+    out.push({ id: 'fq-committee', dept: 'finqual', severity: 'return', section: 'qualification', field: 'q-qualPassing',
+      title: { en: 'No qualification committee member selected', ar: 'لم يُحدد عضو للجنة التأهيل' },
+      why: { en: 'Vendors can’t be qualified until a qualification committee member is selected.', ar: 'لا يمكن تأهيل الموردين قبل تحديد عضو لجنة التأهيل.' },
+      manual: { en: 'Select at least one qualification committee member.', ar: 'حدد عضواً واحداً على الأقل في لجنة التأهيل.' } });
+  }
+  const badSub = f.qualificationCriteria.filter((m) => m.subCriteria.length && m.subCriteria.reduce((t, c) => t + (Number(c.percentage) || 0), 0) !== 100);
+  if (badSub.length) {
+    out.push({ id: 'fq-subtotal', dept: 'finqual', severity: 'return', section: 'qualification', field: 'q-qualPassing',
+      title: { en: `${badSub.length} qualification criteri${badSub.length === 1 ? 'on’s' : 'a’s'} sub-criteria don’t total 100%`, ar: `${badSub.length} من معايير التأهيل لا يبلغ مجموع معاييرها الفرعية 100%` },
+      why: { en: 'The financial qualification score is calculated from these weights — they must add up.', ar: 'تُحسب درجة التأهيل المالي من هذه الأوزان — ويجب أن يكتمل مجموعها.' },
+      manual: { en: `Adjust the sub-criteria of ${badSub.map((m) => (isAr ? m.nameAr : m.name)).join(', ')}.`, ar: `عدّل المعايير الفرعية لـ ${badSub.map((m) => m.nameAr).join('، ')}.` } });
+  }
+  const noRange = f.qualificationCriteria.flatMap((m) => m.subCriteria).filter((c) => !c.range?.trim());
+  if (noRange.length) {
+    out.push({ id: 'fq-range', dept: 'finqual', severity: 'improve', section: 'qualification', field: 'q-qualPassing',
+      title: { en: `${noRange.length} sub-criteri${noRange.length === 1 ? 'on has' : 'a have'} no range`, ar: `${noRange.length} من المعايير الفرعية بلا نطاق` },
+      why: { en: 'Without a range (e.g. "SAR 2M+" or "7+ years") the finance member can’t score vendors consistently.', ar: 'بدون نطاق (مثل "2 مليون ريال فأكثر" أو "7 سنوات فأكثر") لا يستطيع عضو المالية تقييم الموردين بشكل متسق.' },
+      manual: { en: 'Fill in the range for each sub-criterion, or import values from a similar request.', ar: 'املأ النطاق لكل معيار فرعي، أو استورد القيم من طلب مماثل.' } });
   }
   return out;
 }

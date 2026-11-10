@@ -14,23 +14,32 @@ import TechStandards, { eaScopeForForm, stdQuestionsOpen, stdIssues } from './Te
 import { qualityIssues } from '../lib/quality';
 import type { TabId } from '../context/AiReviewContext';
 
-/** The checks that roll through the loader, and how long each stays in the centre (≈ 6.8 s in all). */
+/** The checks that roll through the loader, one per reviewer, and how long each stays in the centre (≈ 6.9 s). */
 const WHEEL: { key: string; dept: Dept; en: string; ar: string; ms: number }[] = [
-  { key: 'finance-0', dept: 'finance', en: 'Payment schedule and budget', ar: 'جدول الدفعات والميزانية', ms: 1000 },
-  { key: 'ea-0', dept: 'ea', en: 'Scope of Work clarity', ar: 'وضوح نطاق العمل', ms: 1000 },
-  { key: 'ea-1', dept: 'ea', en: 'Technical standards from the EA library', ar: 'المعايير التقنية من مكتبة البنية المؤسسية', ms: 3000 },
-  { key: 'cyber-0', dept: 'cyber', en: 'Security testing and personal data', ar: 'الاختبارات الأمنية والبيانات الشخصية', ms: 1000 },
-  { key: 'procurement-0', dept: 'procurement', en: 'Evaluation criteria and committee', ar: 'معايير التقييم واللجنة', ms: 800 },
+  { key: 'manager-0', dept: 'manager', en: 'Purpose, dates and supporting quotes', ar: 'الغرض والتواريخ وعروض الأسعار', ms: 600 },
+  { key: 'risk-0', dept: 'risk', en: 'Continuity, service levels and exit', ar: 'الاستمرارية ومستويات الخدمة والخروج', ms: 600 },
+  { key: 'ea-0', dept: 'ea', en: 'Scope of Work clarity', ar: 'وضوح نطاق العمل', ms: 700 },
+  { key: 'ea-1', dept: 'ea', en: 'Technical standards from the EA library', ar: 'المعايير التقنية من مكتبة البنية المؤسسية', ms: 2200 },
+  { key: 'cyber-0', dept: 'cyber', en: 'Security testing and personal data', ar: 'الاختبارات الأمنية والبيانات الشخصية', ms: 700 },
+  { key: 'finance-0', dept: 'finance', en: 'Payment schedule and budget', ar: 'جدول الدفعات والميزانية', ms: 800 },
+  { key: 'finqual-0', dept: 'finqual', en: 'Qualification weights and ranges', ar: 'أوزان التأهيل ونطاقاته', ms: 600 },
+  { key: 'procurement-0', dept: 'procurement', en: 'Evaluation criteria and committee', ar: 'معايير التقييم واللجنة', ms: 700 },
 ];
 
 /* ── Department look ─────────────────────────────────────────────────────── */
 export const DEPT_TONE: Record<Dept, { tile: string; text: string; bar: string; ring: string }> = {
+  manager: { tile: 'bg-neutral-100 text-neutral-700', text: 'text-neutral-700', bar: 'bg-neutral-500', ring: 'ring-neutral-200' },
+  risk: { tile: 'bg-[#FDF1E8] text-[#B4501A]', text: 'text-[#B4501A]', bar: 'bg-[#E07B39]', ring: 'ring-[#F5D5BE]' },
+  finqual: { tile: 'bg-[#E6F4F1] text-[#1F7A6B]', text: 'text-[#1F7A6B]', bar: 'bg-[#2A9D8F]', ring: 'ring-[#BFE3DC]' },
   finance: { tile: 'bg-success-50 text-success-700', text: 'text-success-700', bar: 'bg-success-500', ring: 'ring-success-200' },
   ea: { tile: 'bg-[#EAF2FA] text-[#2B6CB0]', text: 'text-[#2B6CB0]', bar: 'bg-[#2B6CB0]', ring: 'ring-[#C9DBEC]' },
   cyber: { tile: 'bg-error-50 text-error-600', text: 'text-error-600', bar: 'bg-error-500', ring: 'ring-error-200' },
   procurement: { tile: 'bg-warning-50 text-warning-700', text: 'text-warning-700', bar: 'bg-warning-500', ring: 'ring-warning-200' },
 };
 const DEPT_PATH: Record<Dept, string> = {
+  manager: 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0',
+  risk: 'M12 3l9.5 17h-19L12 3zM12 10v4M12 17h.01',
+  finqual: 'M12 3l2.4 1.8 3-.2.9 2.9 2.5 1.7-1 2.8 1 2.8-2.5 1.7-.9 2.9-3-.2L12 21l-2.4-1.8-3 .2-.9-2.9-2.5-1.7 1-2.8-1-2.8 2.5-1.7.9-2.9 3 .2L12 3zM9 12l2 2 4-4',
   finance: 'M3 7h18v10H3zM3 10h18M7 14h3M16 14h1',
   ea: 'M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5',
   cyber: 'M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3zM10 11.5V10a2 2 0 114 0v1.5M9 11.5h6v4H9z',
@@ -135,7 +144,7 @@ export default function AiReviewPanel() {
         {/* Departments finish one after another */}
         <div className="relative px-6 pb-5">
           <div className="h-1 rounded-full bg-neutral-200/70 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-ai-500 to-brand-500 transition-all duration-500 ease-out" style={{ width: `${pct}%` }} /></div>
-          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
             {DEPTS.map((d, i) => {
               const idx = wheel.map((w, k) => (w.dept === d.id ? k : -1)).filter((k) => k >= 0);
               const st = tick > idx[idx.length - 1] ? 'done' : tick >= idx[0] ? 'active' : 'queued';
@@ -143,7 +152,7 @@ export default function AiReviewPanel() {
               return (
                 <div key={d.id} data-ai-dept-row={d.id} data-state={st} className={`flex items-center gap-2 rounded-xl px-2.5 py-2 transition-all duration-300 ${st === 'active' ? 'bg-white shadow-sm' : st === 'done' ? 'bg-white/70' : 'bg-white/30 opacity-60'}`}>
                   <DeptIcon dept={d.id} size="sm" />
-                  <span className="flex-1 min-w-0 text-[12px] font-medium text-neutral-700 truncate">{d.id === 'ea' ? t('EA', 'البنية المؤسسية') : t(d.en, d.ar)}</span>
+                  <span className="flex-1 min-w-0 text-[12px] font-medium text-neutral-700 truncate">{t(d.short.en, d.short.ar)}</span>
                   {st === 'done'
                     ? <span className="pop-in text-[11px] font-semibold text-neutral-600 tabular-nums">{n ? t(`${n} found`, `${n}`) : '✓'}</span>
                     : st === 'active' ? <span className="w-3 h-3 rounded-full border-2 border-neutral-200 border-t-ai-600 animate-spin" /> : null}
@@ -230,26 +239,31 @@ export default function AiReviewPanel() {
         </div>
       )}
 
-      {/* Reviewer tabs — soft pills */}
-      <div className="px-6">
-        <div role="tablist" className="flex gap-1 p-1 rounded-xl bg-neutral-100/80 overflow-x-auto">
-          {tabs.map((x) => {
+      {/* Reviewers — a side rail that scales to any number of reviewers (becomes a scrolling row when narrow) */}
+      <div className="@container border-t border-neutral-100">
+      <div className="flex flex-col @[760px]:flex-row">
+        <div role="tablist" aria-orientation="vertical" data-ai-rail
+          className="flex @[760px]:flex-col gap-1 overflow-x-auto @[760px]:overflow-visible p-3 @[760px]:w-60 shrink-0 @[760px]:border-e border-neutral-100 @[760px]:bg-neutral-50/50">
+          {tabs.map((x, i) => {
             const on = x.id === tab;
             return (
-              <button key={x.id} role="tab" aria-selected={on} data-ai-tab={x.id} onClick={() => setTab(x.id)}
-                className={`flex-1 min-w-fit flex items-center justify-center gap-2 h-9 px-3.5 rounded-lg text-[13px] whitespace-nowrap transition-all ${on ? 'bg-white shadow-sm text-neutral-900 font-semibold' : 'text-neutral-500 hover:text-neutral-800'}`}>
-                {x.id === 'general'
-                  ? <span className="w-5 h-5 rounded-md bg-neutral-200 text-neutral-600 flex items-center justify-center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" /></svg></span>
-                  : <DeptIcon dept={x.id as Dept} size="sm" />}
-                {x.label}
-                <span className={`text-[12px] tabular-nums ${x.n ? (on ? 'text-neutral-900' : 'text-neutral-500') : 'text-success-600'}`} data-ai-tab-count={x.n}>{x.n || '✓'}</span>
-              </button>
+              <div key={x.id} className="contents">
+                {i === 1 && <p className="hidden @[760px]:block px-2.5 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Reviewers', 'المراجِعون')}</p>}
+                <button role="tab" aria-selected={on} data-ai-tab={x.id} onClick={() => setTab(x.id)} title={x.label}
+                  className={`flex items-center gap-2.5 min-h-10 py-1.5 px-2.5 rounded-lg text-[13px] whitespace-nowrap @[760px]:whitespace-normal text-start transition-colors flex-shrink-0 ${on ? 'bg-white shadow-sm ring-1 ring-neutral-200 text-neutral-900 font-semibold' : 'text-neutral-600 hover:bg-white/70 hover:text-neutral-900'}`}>
+                  {x.id === 'general'
+                    ? <span className="w-6 h-6 rounded-md bg-neutral-200 text-neutral-600 flex items-center justify-center flex-shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" /></svg></span>
+                    : <DeptIcon dept={x.id as Dept} size="sm" />}
+                  <span className="flex-1 min-w-0 leading-tight">{x.label}</span>
+                  <span className={`min-w-[22px] h-[22px] px-1.5 rounded-full text-[11.5px] font-semibold tabular-nums flex items-center justify-center ${x.n ? (on ? 'bg-neutral-900 text-white' : 'bg-neutral-200/80 text-neutral-700') : 'text-success-600'}`} data-ai-tab-count={x.n}>{x.n || '✓'}</span>
+                </button>
+              </div>
             );
           })}
         </div>
-      </div>
 
-      <div className="px-6 pt-2 pb-4" role="tabpanel" key={tab}>
+      <div className="flex-1 min-w-0 px-6 pt-2 pb-4" role="tabpanel" key={tab}>
+        <p className="pt-3 text-[15px] font-semibold text-neutral-900" data-ai-pane-title>{tabs.find((x) => x.id === tab)?.label}</p>
         {tab === 'general' ? (
           general.length === 0 ? (
             <div className="py-8 text-center fade-in" data-ai-empty>
@@ -309,6 +323,8 @@ export default function AiReviewPanel() {
             )}
           </>
         )}
+      </div>
+      </div>
       </div>
     </div>
   );
