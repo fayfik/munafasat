@@ -687,6 +687,9 @@ async function openRequest(title) {
     expect(await page.getAttribute('[data-ai-dept-row="finance"]', 'data-state') === 'active', 'Finance reviewed first');
     expect(await count('[data-ai-wheel] [data-ai-wheel-item][data-state="active"]') === 1, 'one check in the centre of the wheel');
     expect(await count('[data-review-boq]') === 0 && await count('.review-reveal') === 0, 'rest of the page waits for the review');
+    await wait(3200);
+    expect(await page.getAttribute('[data-ai-wheel-item][data-state="active"]', 'data-ai-wheel-item') === 'finance-1', 'each check stays ~3 s in the centre');
+    await page.click('[data-ai-skip]');
     await page.waitForSelector('[data-ai-results]', { timeout: 9000 }); await wait(300);
     expect(await count('.review-reveal [data-review-boq]') === 1, 'page sections load after the review');
     for (const d of ['finance', 'ea', 'cyber', 'procurement']) expect(await count(`[data-ai-tab="${d}"]`) === 1, `tab ${d}`);

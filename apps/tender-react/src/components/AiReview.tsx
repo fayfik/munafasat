@@ -12,7 +12,7 @@ import { toast } from './Toast';
 import { SparklesIcon, CheckIcon } from './Icons';
 import TechStandards, { eaScopeForForm, stdQuestionsOpen, stdIssues } from './TechStandards';
 
-const STEP_MS = 420; // per check on the wheel
+const STEP_MS = 3000; // each check stays in the centre of the wheel for 3 seconds
 
 /* ── Department look ─────────────────────────────────────────────────────── */
 export const DEPT_TONE: Record<Dept, { tile: string; text: string; bar: string; ring: string }> = {
@@ -107,7 +107,7 @@ export default function AiReviewPanel() {
             const nf = DEPTS.find((d) => d.id === w.dept)!;
             return (
               <div key={w.key} data-ai-wheel-item={w.key} data-state={center ? 'active' : done ? 'done' : 'queued'}
-                className="absolute left-1/2 top-1/2 w-[min(440px,86%)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                className="absolute left-1/2 top-1/2 w-[min(440px,86%)] transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
                 style={{ transform: `translate(-50%, calc(-50% + ${off * ROW}px)) scale(${scale})`, opacity: center ? 1 : Math.max(0, 1 - a * 0.28), zIndex: 10 - a }}>
                 <div className={`flex items-center gap-3.5 rounded-2xl px-4 ${center ? 'py-4 bg-white shadow-[0_18px_40px_-16px_rgba(16,24,40,0.35)]' : 'py-3 bg-white/70 backdrop-blur-sm'}`}>
                   <span className={done && !center ? 'opacity-70' : ''}><DeptIcon dept={w.dept} size={center ? 'lg' : 'md'} /></span>
