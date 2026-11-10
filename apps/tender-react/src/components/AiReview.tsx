@@ -12,7 +12,14 @@ import { toast } from './Toast';
 import { SparklesIcon, CheckIcon } from './Icons';
 import TechStandards, { eaScopeForForm, stdQuestionsOpen, stdIssues } from './TechStandards';
 
-const STEP_MS = 3000; // each check stays in the centre of the wheel for 3 seconds
+/** The checks that roll through the loader, and how long each stays in the centre (≈ 6.8 s in all). */
+const WHEEL: { key: string; dept: Dept; en: string; ar: string; ms: number }[] = [
+  { key: 'finance-0', dept: 'finance', en: 'Payment schedule and budget', ar: 'جدول الدفعات والميزانية', ms: 1000 },
+  { key: 'ea-0', dept: 'ea', en: 'Scope of Work clarity', ar: 'وضوح نطاق العمل', ms: 1000 },
+  { key: 'ea-1', dept: 'ea', en: 'Technical standards from the EA library', ar: 'المعايير التقنية من مكتبة البنية المؤسسية', ms: 3000 },
+  { key: 'cyber-0', dept: 'cyber', en: 'Security testing and personal data', ar: 'الاختبارات الأمنية والبيانات الشخصية', ms: 1000 },
+  { key: 'procurement-0', dept: 'procurement', en: 'Evaluation criteria and committee', ar: 'معايير التقييم واللجنة', ms: 800 },
+];
 
 /* ── Department look ─────────────────────────────────────────────────────── */
 export const DEPT_TONE: Record<Dept, { tile: string; text: string; bar: string; ring: string }> = {
@@ -55,13 +62,17 @@ export default function AiReviewPanel() {
   useEffect(() => { if (!ran.current) { ran.current = true; ensureFresh(); } }, [ensureFresh]);
 
   // Loader timeline: every check scrolls through the centre of a "watch wheel", one at a time.
-  const wheel = DEPTS.flatMap((d) => d.checks.map((c, j) => ({ key: `${d.id}-${j}`, dept: d.id, en: c.en, ar: c.ar })));
+  const wheel = WHEEL;
   const total = wheel.length;
   useEffect(() => {
     if (phase !== 'running') return;
     setTick(0);
-    const id = setInterval(() => setTick((x) => x + 1), STEP_MS);
-    return () => clearInterval(id);
+    // Each check stays for its own time (some 1 s, the standards 3 s), then the wheel rolls on.
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let at = 0;
+    wheel.forEach((w, i) => { at += w.ms; timers.push(setTimeout(() => setTick((x) => Math.max(x, i + 1)), at)); });
+    timers.push(setTimeout(() => setTick((x) => Math.max(x, total + 1)), at + 250));
+    return () => timers.forEach(clearTimeout);
   }, [phase]);
   useEffect(() => {
     if (phase !== 'running' || tick < total + 1) return;
@@ -128,8 +139,8 @@ export default function AiReviewPanel() {
           <div className="h-1 rounded-full bg-black/5 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-ai-500 to-brand-500 transition-all duration-500 ease-out" style={{ width: `${pct}%` }} /></div>
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
             {DEPTS.map((d, i) => {
-              const doneAt = (i + 1) * 3;
-              const st = tick >= doneAt ? 'done' : tick >= i * 3 ? 'active' : 'queued';
+              const idx = wheel.map((w, k) => (w.dept === d.id ? k : -1)).filter((k) => k >= 0);
+              const st = tick > idx[idx.length - 1] ? 'done' : tick >= idx[0] ? 'active' : 'queued';
               const n = count(d.id);
               return (
                 <div key={d.id} data-ai-dept-row={d.id} data-state={st} className={`flex items-center gap-2 rounded-xl px-2.5 py-2 transition-all duration-300 ${st === 'active' ? 'bg-white shadow-sm' : st === 'done' ? 'bg-white/70' : 'bg-white/30 opacity-60'}`}>
