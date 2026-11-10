@@ -10,8 +10,9 @@ import { DEPTS, type AiRec, type Dept, type Severity } from '../lib/aiReview';
 import { focusField } from './QualityGate';
 import { toast } from './Toast';
 import { SparklesIcon, CheckIcon } from './Icons';
+import TechStandards, { eaScopeForForm, stdQuestionsOpen, stdIssues } from './TechStandards';
 
-const STEP_MS = 1050;
+const STEP_MS = 420; // per check on the wheel
 
 /* ── Department look ─────────────────────────────────────────────────────── */
 export const DEPT_TONE: Record<Dept, { tile: string; text: string; bar: string; ring: string }> = {
@@ -45,6 +46,7 @@ const sectionTitle = (id: string, isAr: boolean) => { const s = SECTIONS.find((x
 /* ── Review & Confirm panel ──────────────────────────────────────────────── */
 export default function AiReviewPanel() {
   const { phase, recs, state, stale, start, finish, ensureFresh, open, dismiss, reopen, tab: savedTab, setTab } = useAiReview();
+  const { formData } = useTender();
   const t = useT();
   const { isAr } = useLanguage();
   const [tick, setTick] = useState(0); // loader clock
@@ -52,69 +54,94 @@ export default function AiReviewPanel() {
 
   useEffect(() => { if (!ran.current) { ran.current = true; ensureFresh(); } }, [ensureFresh]);
 
-  // Loader timeline: one department after another, each cycling through its checks.
+  // Loader timeline: every check scrolls through the centre of a "watch wheel", one at a time.
+  const wheel = DEPTS.flatMap((d) => d.checks.map((c, j) => ({ key: `${d.id}-${j}`, dept: d.id, en: c.en, ar: c.ar })));
+  const total = wheel.length;
   useEffect(() => {
     if (phase !== 'running') return;
     setTick(0);
-    const id = setInterval(() => setTick((x) => x + 1), STEP_MS / 3);
+    const id = setInterval(() => setTick((x) => x + 1), STEP_MS);
     return () => clearInterval(id);
   }, [phase]);
-  const total = DEPTS.length * 3;
   useEffect(() => {
     if (phase !== 'running' || tick < total + 1) return;
     finish();
-    const first = DEPTS.find((d) => recs.some((r) => r.dept === d.id && r.severity === 'return')) ?? DEPTS.find((d) => recs.some((r) => r.dept === d.id));
-    if (first) setTab(first.id);
-  }, [tick, phase, total, finish, recs]);
+    if (!savedTab) {
+      const first = DEPTS.find((d) => recs.some((r) => r.dept === d.id && r.severity === 'return')) ?? DEPTS.find((d) => recs.some((r) => r.dept === d.id));
+      if (first) setTab(first.id);
+    }
+  }, [tick, phase, total, finish, recs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const count = (d: Dept) => recs.filter((r) => r.dept === d).length;
-  const openCount = (d: Dept) => recs.filter((r) => r.dept === d && !state[r.id]).length;
+  const stdOpen = eaScopeForForm(formData).required ? stdQuestionsOpen(formData) + stdIssues(formData) : 0;
+  const openCount = (d: Dept) => recs.filter((r) => r.dept === d && !state[r.id]).length + (d === 'ea' ? stdOpen : 0);
 
   if (phase === 'idle') return null;
 
   if (phase === 'running') {
-    const activeIdx = Math.min(DEPTS.length - 1, Math.floor(tick / 3));
+    const cur = Math.min(total - 1, tick);
+    const curDept = DEPTS.find((d) => d.id === wheel[cur].dept)!;
     const pct = Math.min(100, Math.round((tick / total) * 100));
+    const ROW = 64;
     return (
-      <div className="ai-review-card rounded-2xl p-[1.5px]" data-ai-review data-ai-loader>
-        <div className="rounded-[15px] bg-white px-5 py-5">
-          <div className="flex items-center gap-3.5">
-            <span className="relative w-11 h-11 rounded-xl bg-ai-600 text-white flex items-center justify-center flex-shrink-0 ai-orb">
-              <SparklesIcon className="w-5 h-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[15.5px] font-bold text-neutral-900">{t('Reviewing your request before it goes out', 'مراجعة طلبك قبل إرساله')}</p>
-              <p className="text-[12.5px] text-neutral-500">{t('AI reads every section the way each reviewing department would.', 'يقرأ الذكاء الاصطناعي كل قسم كما ستقرؤه كل إدارة مراجِعة.')}</p>
-            </div>
-            <button type="button" onClick={() => { setTick(total + 1); }} className="text-[12px] font-semibold text-neutral-500 hover:text-neutral-800" data-ai-skip>{t('Skip', 'تخطي')}</button>
+      <div className="rounded-2xl bg-[#EFEDE8] overflow-hidden relative" data-ai-review data-ai-loader>
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(60% 55% at 50% 52%, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%)' }} />
+        <div className="relative px-6 pt-5 flex items-start gap-3.5">
+          <span className="relative w-10 h-10 rounded-xl bg-ai-600 text-white flex items-center justify-center flex-shrink-0 ai-orb"><SparklesIcon className="w-5 h-5" /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[15.5px] font-bold text-neutral-900">{t('Reviewing your request before it goes out', 'مراجعة طلبك قبل إرساله')}</p>
+            <p key={curDept.id} className="text-[12.5px] text-neutral-500 ticker-in">{t(`Reading it as the ${curDept.role.en} would…`, `قراءته كما سيقرؤه ${curDept.role.ar}…`)}</p>
           </div>
-          <div className="mt-4 h-1 rounded-full bg-neutral-100 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-ai-500 to-brand-500 transition-all duration-300 ease-out" style={{ width: `${pct}%` }} /></div>
-          <ul className="mt-4 space-y-2">
+          <button type="button" onClick={() => setTick(total + 1)} className="text-[12px] font-semibold text-neutral-500 hover:text-neutral-800" data-ai-skip>{t('Skip', 'تخطي')}</button>
+        </div>
+
+        {/* Watch-style wheel: the check being run sits large in the centre; done ones roll up, the next ones wait below */}
+        <div className="relative h-[330px] mt-1" style={{ maskImage: 'linear-gradient(to bottom, transparent 0, #000 22%, #000 78%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, #000 22%, #000 78%, transparent 100%)' }} data-ai-wheel>
+          {wheel.map((w, i) => {
+            const off = i - cur;
+            const a = Math.abs(off);
+            if (a > 3) return null;
+            const done = i < cur || tick >= total;
+            const center = off === 0 && tick < total;
+            const scale = center ? 1.06 : 1 - a * 0.07;
+            const nf = DEPTS.find((d) => d.id === w.dept)!;
+            return (
+              <div key={w.key} data-ai-wheel-item={w.key} data-state={center ? 'active' : done ? 'done' : 'queued'}
+                className="absolute left-1/2 top-1/2 w-[min(440px,86%)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                style={{ transform: `translate(-50%, calc(-50% + ${off * ROW}px)) scale(${scale})`, opacity: center ? 1 : Math.max(0, 1 - a * 0.28), zIndex: 10 - a }}>
+                <div className={`flex items-center gap-3.5 rounded-2xl px-4 ${center ? 'py-4 bg-white shadow-[0_18px_40px_-16px_rgba(16,24,40,0.35)]' : 'py-3 bg-white/70 backdrop-blur-sm'}`}>
+                  <span className={done && !center ? 'opacity-70' : ''}><DeptIcon dept={w.dept} size={center ? 'lg' : 'md'} /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate ${center ? 'text-[17px] font-semibold text-neutral-900' : 'text-[14.5px] text-neutral-600'}`}>{t(w.en, w.ar)}</span>
+                    {center && <span className="block text-[11.5px] text-neutral-400">{t(`${nf.en} perspective`, `منظور ${nf.ar}`)}</span>}
+                  </span>
+                  {center && <span className="w-4 h-4 rounded-full border-2 border-neutral-200 border-t-ai-600 animate-spin" />}
+                  {done && !center && <span className="w-5 h-5 rounded-full bg-success-500 text-white flex items-center justify-center"><CheckIcon className="w-3 h-3" /></span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Departments finish one after another */}
+        <div className="relative px-6 pb-5">
+          <div className="h-1 rounded-full bg-black/5 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-ai-500 to-brand-500 transition-all duration-500 ease-out" style={{ width: `${pct}%` }} /></div>
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
             {DEPTS.map((d, i) => {
-              const st = i < activeIdx || tick >= total ? 'done' : i === activeIdx ? 'active' : 'queued';
-              const check = d.checks[Math.min(2, tick - i * 3)] ?? d.checks[0];
+              const doneAt = (i + 1) * 3;
+              const st = tick >= doneAt ? 'done' : tick >= i * 3 ? 'active' : 'queued';
               const n = count(d.id);
               return (
-                <li key={d.id} data-ai-dept-row={d.id} data-state={st}
-                  className={`flex items-center gap-3 rounded-xl border px-3.5 py-2.5 transition-all duration-300 ${st === 'active' ? `border-transparent bg-white shadow-[0_8px_24px_-12px_rgba(16,24,40,0.35)] ring-2 ${DEPT_TONE[d.id].ring}` : st === 'done' ? 'border-neutral-100 bg-neutral-50/60' : 'border-neutral-100 bg-white opacity-55'}`}>
-                  <span className={st === 'queued' ? 'grayscale opacity-60' : ''}><DeptIcon dept={d.id} /></span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold text-neutral-800">{t(`${d.en} perspective`, `منظور ${d.ar}`)}</p>
-                    <p key={st === 'active' ? check.en : st} className="text-[12px] text-neutral-500 truncate ticker-in">
-                      {st === 'active' ? t(`Checking ${check.en.toLowerCase()}…`, `جارٍ فحص ${check.ar}…`) : st === 'done' ? t('Reviewed', 'تمت المراجعة') : t('Waiting', 'في الانتظار')}
-                    </p>
-                  </div>
-                  {st === 'active' && <span className="w-4 h-4 rounded-full border-2 border-neutral-200 border-t-ai-600 animate-spin" />}
-                  {st === 'done' && (
-                    <span className="pop-in inline-flex items-center gap-1.5 text-[11.5px] font-semibold">
-                      <span className={n ? 'text-neutral-700' : 'text-success-700'}>{n ? t(`${n} found`, `${n} ملاحظات`) : t('All clear', 'لا ملاحظات')}</span>
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center ${n ? 'bg-neutral-200 text-neutral-600' : 'bg-success-500 text-white'}`}><CheckIcon className="w-3 h-3" /></span>
-                    </span>
-                  )}
-                </li>
+                <div key={d.id} data-ai-dept-row={d.id} data-state={st} className={`flex items-center gap-2 rounded-xl px-2.5 py-2 transition-all duration-300 ${st === 'active' ? 'bg-white shadow-sm' : st === 'done' ? 'bg-white/70' : 'bg-white/30 opacity-60'}`}>
+                  <DeptIcon dept={d.id} size="sm" />
+                  <span className="flex-1 min-w-0 text-[12px] font-medium text-neutral-700 truncate">{t(d.en, d.ar)}</span>
+                  {st === 'done'
+                    ? <span className="pop-in text-[11px] font-semibold text-neutral-600 tabular-nums">{n ? t(`${n} found`, `${n}`) : '✓'}</span>
+                    : st === 'active' ? <span className="w-3 h-3 rounded-full border-2 border-neutral-200 border-t-ai-600 animate-spin" /> : null}
+                </div>
               );
             })}
-          </ul>
+          </div>
         </div>
       </div>
     );
@@ -172,7 +199,7 @@ export default function AiReviewPanel() {
         </div>
 
         <div className="px-5 py-4" role="tabpanel" key={tab}>
-          {list.length === 0 ? (
+          {list.length === 0 && tab === 'ea' && eaScopeForForm(formData).required ? null : list.length === 0 ? (
             <div className="py-6 flex flex-col items-center text-center fade-in" data-ai-empty>
               <span className="w-10 h-10 rounded-full bg-success-50 text-success-600 flex items-center justify-center pop-in"><CheckIcon className="w-5 h-5" /></span>
               <p className="mt-2 text-[13.5px] font-semibold text-neutral-800">{t(`No concerns from ${dept.en}`, `لا ملاحظات من ${dept.ar}`)}</p>
@@ -209,6 +236,18 @@ export default function AiReviewPanel() {
                 );
               })}
             </ul>
+          )}
+          {tab === 'ea' && eaScopeForForm(formData).required && (
+            <section id="q-techStandards" className={`rise-in rounded-xl border border-neutral-200 px-4 py-4 ${list.length ? 'mt-4' : ''}`} style={{ animationDelay: `${list.length * 55 + 60}ms` }} data-ai-standards>
+              <div className="flex items-center gap-2.5 mb-3">
+                <DeptIcon dept="ea" size="sm" />
+                <p className="flex-1 text-[14px] font-bold text-neutral-900">{t('Technical standards', 'المعايير التقنية')}</p>
+                {stdOpen > 0
+                  ? <span className="px-2 py-0.5 rounded-full bg-warning-50 text-warning-800 text-[11px] font-semibold">{t(`${stdOpen} to complete`, `${stdOpen} للإكمال`)}</span>
+                  : <span className="px-2 py-0.5 rounded-full bg-success-50 text-success-700 text-[11px] font-semibold">{t('Ready for EA', 'جاهزة للبنية المؤسسية')}</span>}
+              </div>
+              <TechStandards />
+            </section>
           )}
         </div>
       </div>

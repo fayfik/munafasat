@@ -17,7 +17,8 @@ import RegulatoryRecordsCard from '../components/RegulatoryRecordsCard';
 import { LOCKED_TECH_DOCS } from './TechnicalEvaluation';
 import { downloadRfpPdf } from '../lib/rfpPdf';
 import { FinanceRoutingCard } from '../components/BoqAccounting';
-import TechStandards, { EaRouteCard, eaScopeForForm, stdQuestionsOpen, stdIssues } from '../components/TechStandards';
+import { EaRouteCard, eaScopeForForm, stdQuestionsOpen, stdIssues, useAutoBuildStandards } from '../components/TechStandards';
+import { useAiReview } from '../context/AiReviewContext';
 import { qualityIssues } from '../lib/quality';
 import { focusField } from '../components/QualityGate';
 import AiReviewPanel from '../components/AiReview';
@@ -37,6 +38,8 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
   const { isAr } = useLanguage();
   const t = useT();
   const { userName } = useRequests();
+  const { phase: aiPhase, setTab: setAiTab } = useAiReview();
+  useAutoBuildStandards();
   const [aiSummaryVisible, setAiSummaryVisible] = useState(false);
   const summaryAi = useAiAction();
   const aiSummaryLoading = summaryAi.loading;
@@ -124,13 +127,16 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
       {/* ── AI pre-review: Finance, EA, Cybersecurity, Procurement ── */}
       {!isEsouq && <AiReviewPanel />}
 
+      {/* The rest of the page loads once the AI review has finished */}
+      {(isEsouq || aiPhase === 'done') && <div className="review-reveal space-y-5">
+
       {/* ── Before you submit: anything a reviewer would return ───── */}
       {!isEsouq && (() => {
         const items = SECTIONS.flatMap((sec, idx) => qualityIssues(sec.id, formData).map((q) => ({ q, idx, sec })));
         const openQ = eaScopeForForm(formData).required ? stdQuestionsOpen(formData) : 0;
         const naMissing = stdIssues(formData);
         if (!items.length && !openQ && !naMissing) return null;
-        const go = (idx: number, field: string) => { if (idx >= 0) goToSection(idx); setTimeout(() => focusField(field), idx >= 0 ? 450 : 0); };
+        const go = (idx: number, field: string) => { if (idx < 0) setAiTab('ea'); else goToSection(idx); setTimeout(() => focusField(field), idx >= 0 ? 450 : 120); };
         return (
           <div className="rounded-xl border border-warning-200 bg-warning-50/60 px-5 py-4" data-before-submit>
             <p className="text-[13.5px] font-semibold text-warning-900">{t('Before you submit', 'قبل التقديم')}</p>
@@ -293,16 +299,6 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
             </div>
           )}
         </ReviewSection>
-      )}
-
-      {/* ── Technical standards — worked out from the earlier steps; asks only what's missing ── */}
-      {!isEsouq && eaScopeForForm(formData).required && (
-        <div id="q-techStandards">
-        <ReviewSection title="Technical standards" titleAr="المعايير التقنية" sectionIdx={-1}
-          status={stdQuestionsOpen(formData) === 0 && stdIssues(formData) === 0 ? 'completed' : 'missing'}>
-          <TechStandards />
-        </ReviewSection>
-        </div>
       )}
 
       {/* ── Bill of Quantities — table with a view icon per line ─── */}
@@ -548,6 +544,7 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
           </div>
         ) : <p className="text-sm text-neutral-400 italic">{t('No attachments uploaded (optional)', 'لا توجد مرفقات (اختياري)')}</p>}
       </ReviewSection>
+      </div>}
     </div>
   );
 }

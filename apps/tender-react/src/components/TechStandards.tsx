@@ -171,6 +171,26 @@ export function stdQuestionsOpen(f: TenderFormData) {
   return r.qs.filter((q) => r.answers[q.id] === undefined).length;
 }
 
+/** Keeps the standards built from the answers (Review & Confirm) — rebuilds when the answers change,
+ *  keeping the requester's N/A notes and own picks. */
+export function useAutoBuildStandards() {
+  const { formData, updateField } = useTender();
+  const { scope, answers, qs } = resolveAnswers(formData);
+  const complete = scope.required && qs.every((q) => answers[q.id] !== undefined);
+  const deployment: Deployment = deploymentFrom(scope, answers);
+  const key = JSON.stringify([deployment, answers]);
+  useEffect(() => {
+    if (!complete || formData.techStdKey === key) return;
+    const sel = formData.techStandards ?? [];
+    const want = suggestStandards(deployment, answers);
+    const keptUser = sel.filter((s) => !s.ai && !stdById(s.id)?.required && !want.some((w) => w.id === s.id));
+    const next = [...want.map((w) => { const prev = sel.find((x) => x.id === w.id); return prev ? { ...prev, ai: w.ai } : w; }), ...keptUser];
+    updateField('techStandards', next);
+    updateField('deploymentModel', deployment);
+    updateField('techStdKey', key);
+  }, [complete, key]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 /** Review & Confirm → Technical standards. Built automatically from the request; asks only what's missing. */
 export default function TechStandards() {
   const { formData, updateField } = useTender();
@@ -187,16 +207,6 @@ export default function TechStandards() {
   const sel = formData.techStandards ?? [];
   const key = JSON.stringify([deployment, answers]);
 
-  // Build (or rebuild) the standards whenever the answers change — keeps the requester's N/A notes and own picks.
-  useEffect(() => {
-    if (!complete || formData.techStdKey === key) return;
-    const want = suggestStandards(deployment, answers);
-    const keptUser = sel.filter((s) => !s.ai && !stdById(s.id)?.required && !want.some((w) => w.id === s.id));
-    const next = [...want.map((w) => { const prev = sel.find((x) => x.id === w.id); return prev ? { ...prev, ai: w.ai } : w; }), ...keptUser];
-    updateField('techStandards', next);
-    updateField('deploymentModel', deployment);
-    updateField('techStdKey', key);
-  }, [complete, key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!scope.required) return null;
 

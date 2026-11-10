@@ -591,6 +591,14 @@ async function openRequest(title) {
     await page.evaluate((f) => localStorage.setItem('munafasat:etimad-draft', JSON.stringify(f)), seed);
     await page.goto(BASE + '?open=etimad-draft'); await wait(1500);
   };
+  // Review & Confirm: skip the AI review animation, wait for the page, optionally open a reviewer tab.
+  const openReview = async (tab) => {
+    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(400);
+    if (await count('[data-ai-skip]')) await page.click('[data-ai-skip]');
+    await page.waitForSelector('[data-ai-results]', { timeout: 8000 }).catch(() => {});
+    await wait(800);
+    if (tab) { await page.click(`[data-ai-tab="${tab}"]`); await wait(300); }
+  };
   const boqRows = () => Array.from({ length: 2 }, (_, i) => ({ id: 'r' + i, projectItem: 'Hardware', itemName: 'Server ' + (i + 1), itemDescription: 'Rack server', unitOfMeasure: 'Each', quantity: '2', unitPrice: '1000', deliveryDate: '', hasBrandName: false, brandJustification: '' }));
   const delSel = 'button[aria-label*="Delete" i], button[title*="Delete" i], button[aria-label*="Remove" i], button[title*="Remove" i]';
   for (const view of ['Table', 'Grouped', 'Grid']) {
@@ -677,7 +685,10 @@ async function openRequest(title) {
     await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(500);
     expect(await count('[data-ai-loader] [data-ai-dept-row]') === 4, 'loader lists the four departments');
     expect(await page.getAttribute('[data-ai-dept-row="finance"]', 'data-state') === 'active', 'Finance reviewed first');
-    await page.waitForSelector('[data-ai-results]', { timeout: 9000 });
+    expect(await count('[data-ai-wheel] [data-ai-wheel-item][data-state="active"]') === 1, 'one check in the centre of the wheel');
+    expect(await count('[data-review-boq]') === 0 && await count('.review-reveal') === 0, 'rest of the page waits for the review');
+    await page.waitForSelector('[data-ai-results]', { timeout: 9000 }); await wait(300);
+    expect(await count('.review-reveal [data-review-boq]') === 1, 'page sections load after the review');
     for (const d of ['finance', 'ea', 'cyber', 'procurement']) expect(await count(`[data-ai-tab="${d}"]`) === 1, `tab ${d}`);
     expect(/recommendations from 4 departments/.test(await page.locator('[data-ai-summary]').innerText()), 'summary');
     await page.click('[data-ai-tab="finance"]'); await wait(150);
@@ -731,7 +742,7 @@ async function openRequest(title) {
   });
   await test('Review & Confirm: finance route preview with order setting', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: finRows() });
-    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(900);
+    await openReview();
     const card = page.locator('[data-finance-routing]');
     expect(await card.getAttribute('data-finance-routing') === 'mixed', 'should be a mixed request');
     expect(/goes to Assets, then GL/.test(await page.locator('[data-routing-sentence]').innerText()), 'assets-first sentence');
@@ -821,12 +832,12 @@ async function openRequest(title) {
   const eaRows = (pairs) => pairs.map(([n, d], i) => ({ id: 'e' + i, projectItem: 'Software', itemName: n, itemDescription: d, unitOfMeasure: 'Each', quantity: 2, unitPrice: 1000, deliveryDate: '', hasBrandName: false, brandJustification: '' }));
   await test('EA scope: technology items require EA review; consultancy does not', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: eaRows([['SAP S/4HANA subscription', 'Cloud ERP licences'], ['Integration with HR system', 'APIs via iPaaS']]) });
-    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(800);
+    await openReview();
     expect(await page.getAttribute('[data-ea-route]', 'data-ea-route') === 'required', 'tech request should need EA');
     const why = await page.locator('[data-ea-sentence]').innerText();
     expect(/software licences/i.test(why) && /integration/i.test(why), `reasons: ${why}`);
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: eaRows([['Governance consultancy', 'Advisory on quality and performance measurement']]) });
-    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(800);
+    await openReview();
     expect(await page.getAttribute('[data-ea-route]', 'data-ea-route') === 'not-required', 'consultancy should not need EA');
     expect(/consultancy/i.test(await page.locator('[data-ea-sentence]').innerText()), 'exclusion reason');
   });
@@ -836,7 +847,7 @@ async function openRequest(title) {
       boqItems: eaRows([['SAP S/4HANA subscription', 'Cloud ERP licences'], ['Integration with HR system', 'APIs via iPaaS']]) });
     await page.locator('button', { hasText: 'Scope of Work' }).first().click(); await wait(600);
     expect(await count('[data-tech-standards]') === 0, 'not in Scope of Work any more');
-    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(900);
+    await openReview('ea');
     expect(await count('[data-tech-standards]') === 1, 'in Review & Confirm');
     for (const id of ['saas', 'integrates', 'migration', 'personal-data', 'external-users']) expect(await page.getAttribute(`[data-answer="${id}"]`, 'data-source') === 'derived', `${id} derived from the request`);
     expect(await page.getAttribute('[data-answer="external-users"]', 'data-yes') === null, 'internal use → No');
@@ -862,7 +873,7 @@ async function openRequest(title) {
   });
   await test('Technical standards: licence renewal reads "not a new build" and skips migration', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', boqItems: eaRows([['Microsoft 365 licence renewal', 'Annual subscription renewal']]) });
-    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(900);
+    await openReview('ea');
     expect(await page.getAttribute('[data-answer="build"]', 'data-source') === 'derived' && await page.getAttribute('[data-answer="build"]', 'data-yes') === null, 'build = No from the BOQ');
     expect(await count('[data-answer="migration"], [data-q="migration"]') === 0, 'migration not asked');
   });
@@ -882,7 +893,7 @@ async function openRequest(title) {
   });
   await test('Review & Confirm: no BOQ chart, view icon opens the item drawer; technical standards summary', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', techAnswers: { saas: true, 'own-servers': false, build: true, integrates: true, migration: false, 'personal-data': true, 'external-users': false, critical: true, ai: false }, deploymentModel: 'saas', techStandards: [{ id: 'h1', status: 'included' }, { id: 'd4', status: 'included', ai: true }, { id: 'a1', status: 'na', naReason: 'Documented already' }], boqItems: eaRows([['SAP S/4HANA subscription', 'Cloud ERP licences'], ['Integration with HR system', 'APIs via iPaaS']]) });
-    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(900);
+    await openReview();
     expect(await count('[data-review-boq]') === 1, 'BOQ table');
     expect(!/\bsubtotal\b/.test(await page.locator('[data-review-boq]').locator('xpath=..').innerText()), 'donut removed');
     await page.click('[data-review-boq] [data-boq-view="0"]'); await wait(250);
@@ -896,7 +907,8 @@ async function openRequest(title) {
     expect(await count('[data-review-boq] [data-boq-details-inline]') === 2, 'accordion keeps both open');
     await page.click('[data-review-boq] [data-boq-view="0"]'); await page.click('[data-review-boq] [data-boq-view="1"]'); await wait(150);
     expect(await count('[data-review-boq] [data-boq-details-inline]') === 0, 'collapsed');
-    expect(await count('[data-std-review]') === 1, 'tech standards summary');
+    await page.click('[data-ai-tab="ea"]'); await wait(300);
+    expect(await count('[data-ai-standards] [data-std-review]') === 1, 'tech standards inside the EA review tab');
     expect(await page.getAttribute('[data-tech-standards] [data-deploy-result]', 'data-deploy-result') === 'saas', 'deployment');
     expect(await count('[data-tech-standards] [data-answer]') === 9, 'answer tiles');
   });

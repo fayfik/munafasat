@@ -484,3 +484,22 @@ section[data-cm-has] { background-color: #fff; outline: 2px solid rgba(42, 97, 1
 @keyframes tab-ink { from { transform: scaleX(0.3); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
 .tab-ink { animation: tab-ink 0.25s ease-out; }
 @media (prefers-reduced-motion: reduce) { .ai-review-card, .ai-orb, .ticker-in, .tab-ink { animation: none; } }
+
+/* Review & Confirm: sections arrive one after another once the AI review is done */
+.review-reveal > * { opacity: 0; animation: rise-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.review-reveal > *:nth-child(1) { animation-delay: 70ms; }
+.review-reveal > *:nth-child(2) { animation-delay: 140ms; }
+.review-reveal > *:nth-child(3) { animation-delay: 210ms; }
+.review-reveal > *:nth-child(4) { animation-delay: 280ms; }
+.review-reveal > *:nth-child(5) { animation-delay: 350ms; }
+.review-reveal > *:nth-child(6) { animation-delay: 420ms; }
+.review-reveal > *:nth-child(7) { animation-delay: 490ms; }
+.review-reveal > *:nth-child(8) { animation-delay: 560ms; }
+.review-reveal > *:nth-child(9) { animation-delay: 630ms; }
+.review-reveal > *:nth-child(10) { animation-delay: 700ms; }
+.review-reveal > *:nth-child(11) { animation-delay: 770ms; }
+.review-reveal > *:nth-child(12) { animation-delay: 840ms; }
+.review-reveal > *:nth-child(13) { animation-delay: 910ms; }
+.review-reveal > *:nth-child(14) { animation-delay: 980ms; }
+.review-reveal > *:nth-child(15) { animation-delay: 1050ms; }
+@media (prefers-reduced-motion: reduce) { .review-reveal > * { opacity: 1; animation: none; } }
