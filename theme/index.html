@@ -132,7 +132,7 @@
             <div class="eyebrow">
               <span class="t-body-small muted">REQ-4478</span>
               <span class="status-pill t-caption-medium"><img src="assets/dot.svg" alt="">Pending your decision</span>
-              <span class="t-caption muted">Step 4 of 15 · next: Technical member review</span>
+              <span class="t-caption muted">Step 2 of 15 · next: Technical member review</span>
             </div>
 
             <div class="title-row">
@@ -235,19 +235,21 @@
 
               <div class="note t-body-small">
                 <img src="assets/icon-alert.svg" alt="">
-                <p style="margin: 0"><strong>Requester note:</strong> SOC coverage must start before the current contract ends in Q1 — please prioritise.&nbsp; <a href="#">Reply</a></p>
+                <p style="margin: 0"><strong>Requester note:</strong> SOC coverage must start before the current contract ends in Q1 — please prioritise.&nbsp; <a href="#comments" data-open-reply="c1">Reply</a></p>
               </div>
             </section>
 
             <section class="panel" id="panel-details" role="tabpanel" aria-labelledby="tab-details" hidden>
-              <p class="t-body secondary" style="margin: 0; max-width: 640px">Supply, delivery and support of SIEM &amp; SOC managed services for Information Security, against the approved bill of quantities.</p>
+              <p class="t-body secondary" style="margin: 0; max-width: 640px">Hover a field to comment on it. Supply, delivery and support of SIEM &amp; SOC managed services for Information Security, against the approved bill of quantities.</p>
               <div class="kv t-body">
-                <div><span class="t-caption muted">Requesting department</span>Information Security</div>
-                <div><span class="t-caption muted">Cost center</span>FC-SEC-2200</div>
-                <div><span class="t-caption muted">Contract duration</span>12 months</div>
-                <div><span class="t-caption muted">Evaluation split</span>Technical 70% · Commercial 30%</div>
-                <div><span class="t-caption muted">Suppliers invited</span>5</div>
-                <div><span class="t-caption muted">Planned award</span>Q1 2027</div>
+                <div data-anchor="dept" data-label="Requesting department"><span class="t-caption muted">Requesting department</span>Information Security</div>
+                <div data-anchor="cost" data-label="Cost center"><span class="t-caption muted">Cost center</span>FC-SEC-2200</div>
+                <div data-anchor="duration" data-label="Contract duration"><span class="t-caption muted">Contract duration</span>12 months</div>
+                <div data-anchor="split" data-label="Evaluation split"><span class="t-caption muted">Evaluation split</span>Technical 70% · Commercial 30%</div>
+                <div data-anchor="suppliers" data-label="Suppliers invited"><span class="t-caption muted">Suppliers invited</span>5</div>
+                <div data-anchor="award" data-label="Planned award"><span class="t-caption muted">Planned award</span>Q1 2027</div>
+                <div data-anchor="scope" data-label="Scope of work"><span class="t-caption muted">Scope of work</span>Supply, implementation, testing and handover, with training and warranty</div>
+                <div data-anchor="route" data-label="Procurement route"><span class="t-caption muted">Procurement route</span>Competitive tender</div>
               </div>
             </section>
 
@@ -258,18 +260,176 @@
                 <li><div class="rail"><span class="node now"></span><span class="line"></span></div><div class="step"><div class="t-body-medium" style="color: var(--brand-800)">Manager approval — you are here</div><div class="t-caption muted">Due 10 Nov 2026</div></div></li>
                 <li><div class="rail"><span class="node"></span></div><div class="step"><div class="t-body secondary">Technical member review</div><div class="t-caption muted">Sara Al-Zahrani</div></div></li>
               </ol>
+              <a class="link-btn resolve" href="#process" data-open-panel="process" style="align-self:flex-start;margin-left:18px">See the full process</a>
             </section>
           </div>
         </div>
       </main>
 
+      <aside class="side-panel" id="side-panel" aria-label="Comments and process" hidden>
+        <div class="panel-head">
+          <div class="segment" role="tablist" aria-label="Panel view">
+            <button class="segment-tab" role="tab" type="button" id="ptab-comments" aria-selected="true" aria-controls="pview-comments">Comments<span class="segment-count" data-comment-count></span></button>
+            <button class="segment-tab" role="tab" type="button" id="ptab-process" aria-selected="false" aria-controls="pview-process" tabindex="-1">Process</button>
+          </div>
+          <button class="icon-btn panel-close" type="button" id="panel-close" aria-label="Collapse panel" title="Collapse panel"><img src="assets/icon-panel-close.svg" alt=""></button>
+        </div>
+
+        <section class="panel-view" id="pview-comments" role="tabpanel" aria-labelledby="ptab-comments">
+          <div class="panel-body">
+            <div class="panel-summary" id="comments-summary"></div>
+            <ul class="thread" id="thread" aria-live="polite"></ul>
+            <div class="panel-empty" id="comments-empty" hidden>
+              <div class="icon-tile"><img src="assets/rail-comments.svg" alt=""></div>
+              <div class="t-title" style="color: var(--ink-primary)">No comments yet</div>
+              <div class="t-body-small">Post the first one, or comment on a field in Request details.</div>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="composer-context" id="composer-context" hidden></div>
+            <div class="composer-box">
+              <label for="composer-input" class="sr-only">Comment</label>
+              <textarea id="composer-input" rows="1" placeholder="Add a comment…"></textarea>
+              <div class="composer-foot">
+                <span class="t-caption muted"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to post</span>
+                <button class="btn btn-primary" type="button" id="composer-post" disabled>Post</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-view" id="pview-process" role="tabpanel" aria-labelledby="ptab-process" hidden>
+          <div class="panel-body">
+            <div class="process-intro">
+              <span class="t-body-small muted">Completed, current and upcoming steps for this request.</span>
+              <div class="process-progress"><div class="progress-track"><div class="progress-fill" id="process-fill"></div></div><span class="t-caption-medium" id="process-step" style="color: var(--brand-800)"></span></div>
+            </div>
+            <ol class="steps" id="steps"></ol>
+            <button class="link-btn resolve show-more" type="button" id="steps-more" hidden><span>Show more steps</span><img src="assets/icon-chevron-down.svg" alt=""></button>
+          </div>
+        </section>
+      </aside>
+
       <aside class="util-rail" aria-label="Task tools">
-        <button class="util-btn" type="button" aria-label="Comments" title="Comments" aria-pressed="false"><img src="assets/rail-comments.svg" alt=""></button>
-        <button class="util-btn" type="button" aria-label="History" title="History" aria-pressed="false"><img src="assets/rail-history.svg" alt=""></button>
+        <button class="util-btn" type="button" data-view="comments" aria-controls="side-panel" aria-expanded="false" aria-label="Comments" title="Comments"><img src="assets/rail-comments.svg" alt=""><span class="util-badge" data-comment-count></span></button>
+        <button class="util-btn" type="button" data-view="process" aria-controls="side-panel" aria-expanded="false" aria-label="Process" title="Process"><img src="assets/rail-history.svg" alt=""></button>
       </aside>
     </div>
   </div>
 </div>
+<script type="application/json" id="task-data">{
+ "me": {
+  "name": "Mohammed H.",
+  "initials": "MH",
+  "me": true
+ },
+ "comments": [
+  {
+   "id": "c1",
+   "author": {
+    "name": "Khalid Al-Qahtani",
+    "initials": "KA",
+    "role": "Requester"
+   },
+   "at": "09 Nov, 21:51",
+   "text": "SOC coverage must start before the current contract ends in Q1 — please prioritise.",
+   "replies": []
+  }
+ ],
+ "process": {
+  "stepLabel": "Step 2 of 15",
+  "done": 1,
+  "total": 15,
+  "visibleUpcoming": 2,
+  "steps": [
+   {
+    "name": "Request submitted",
+    "who": "Khalid Al-Qahtani",
+    "when": "09 Nov 2026",
+    "state": "done"
+   },
+   {
+    "name": "Department approval",
+    "who": "Mohammed H. (you)",
+    "when": "due 10 Nov 2026",
+    "note": "Awaiting your decision.",
+    "state": "current"
+   },
+   {
+    "name": "Technical member review",
+    "who": "Sara Al-Zahrani",
+    "state": "upcoming"
+   },
+   {
+    "group": "Specialist reviews · in parallel",
+    "state": "upcoming",
+    "items": [
+     {
+      "name": "Cyber Security",
+      "who": "Noura Al-Shamrani",
+      "state": "upcoming"
+     },
+     {
+      "name": "Enterprise Risk (BCM)",
+      "who": "Turki Al-Anazi",
+      "state": "upcoming"
+     },
+     {
+      "name": "Operational Risk",
+      "who": "Reem Al-Dossary",
+      "state": "upcoming"
+     },
+     {
+      "name": "Enterprise Architecture",
+      "who": "Majed Al-Zahrani",
+      "state": "upcoming"
+     }
+    ]
+   },
+   {
+    "name": "Finance review — GL",
+    "who": "Khalid Al-Otaibi",
+    "state": "upcoming"
+   },
+   {
+    "name": "Finance review — Assets",
+    "who": "Lama Al-Subaie",
+    "state": "upcoming"
+   },
+   {
+    "name": "Qualification — Finance",
+    "who": "Abdulrahman Al-Shehri",
+    "state": "upcoming"
+   },
+   {
+    "name": "Qualification — Procurement",
+    "who": "Hana Al-Ghamdi",
+    "state": "upcoming"
+   },
+   {
+    "name": "Procurement review — Team Lead",
+    "who": "Abdullah Al-Qahtani",
+    "state": "upcoming"
+   },
+   {
+    "name": "Procurement review — Officer",
+    "who": "Mohammed Al-Harbi",
+    "state": "upcoming"
+   },
+   {
+    "name": "DOA approval",
+    "who": "Abdullah Al-Qahtani",
+    "state": "upcoming"
+   },
+   {
+    "name": "Estimated price approval",
+    "who": "Saad Al-Malki",
+    "state": "upcoming"
+   }
+  ]
+ }
+}</script>
 <script src="app.js"></script>
+<script src="panel.js"></script>
 </body>
 </html>

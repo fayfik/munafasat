@@ -230,8 +230,12 @@
             <section class="panel" id="panel-details" role="tabpanel" aria-labelledby="tab-details" hidden>
               <p class="t-body secondary" style="margin: 0; max-width: 640px">Enterprise ERP system upgrade for IT &amp; Digital. Hover any section or field to comment on it.</p>
               <div class="kv t-body">
-                <div><span class="t-caption muted">Project</span>Enterprise ERP System Upgrade</div>
-                <div><span class="t-caption muted">Requesting department</span>IT &amp; Digital</div>
+                <div data-anchor="project" data-label="Project"><span class="t-caption muted">Project</span>Enterprise ERP System Upgrade</div>
+                <div data-anchor="dept" data-label="Requesting department"><span class="t-caption muted">Requesting department</span>IT &amp; Digital</div>
+                <div data-anchor="requester" data-label="Requester"><span class="t-caption muted">Requester</span>Ibrahim Al-Rashid</div>
+                <div data-anchor="amount" data-label="Request amount"><span class="t-caption muted">Request amount</span>SAR 9,940,000.00</div>
+                <div data-anchor="vat" data-label="Incl. VAT"><span class="t-caption muted">Incl. VAT</span>SAR 11,431,000.00</div>
+                <div data-anchor="due" data-label="Review due"><span class="t-caption muted">Review due</span>11 Nov 2026</div>
               </div>
             </section>
 
@@ -242,19 +246,177 @@
                 <li><div class="rail"><span class="node"></span><span class="line"></span></div><div class="step"><div class="t-body secondary">Operational Risk</div><div class="t-caption muted">Reem Al-Dossary · in parallel</div></div></li>
                 <li><div class="rail"><span class="node"></span></div><div class="step"><div class="t-body secondary">Enterprise Architecture</div><div class="t-caption muted">Majed Al-Zahrani · in parallel</div></div></li>
               </ol>
+              <a class="link-btn resolve" href="#process" data-open-panel="process" style="align-self:flex-start;margin-left:18px">See the full process</a>
             </section>
           </div>
         </div>
       </main>
 
+      <aside class="side-panel" id="side-panel" aria-label="Comments and process" hidden>
+        <div class="panel-head">
+          <div class="segment" role="tablist" aria-label="Panel view">
+            <button class="segment-tab" role="tab" type="button" id="ptab-comments" aria-selected="true" aria-controls="pview-comments">Comments<span class="segment-count" data-comment-count></span></button>
+            <button class="segment-tab" role="tab" type="button" id="ptab-process" aria-selected="false" aria-controls="pview-process" tabindex="-1">Process</button>
+          </div>
+          <button class="icon-btn panel-close" type="button" id="panel-close" aria-label="Collapse panel" title="Collapse panel"><img src="assets/icon-panel-close.svg" alt=""></button>
+        </div>
+
+        <section class="panel-view" id="pview-comments" role="tabpanel" aria-labelledby="ptab-comments">
+          <div class="panel-body">
+            <div class="panel-summary" id="comments-summary"></div>
+            <ul class="thread" id="thread" aria-live="polite"></ul>
+            <div class="panel-empty" id="comments-empty" hidden>
+              <div class="icon-tile"><img src="assets/rail-comments.svg" alt=""></div>
+              <div class="t-title" style="color: var(--ink-primary)">No comments yet</div>
+              <div class="t-body-small">Post the first one, or comment on a field in Request details.</div>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="composer-context" id="composer-context" hidden></div>
+            <div class="composer-box">
+              <label for="composer-input" class="sr-only">Comment</label>
+              <textarea id="composer-input" rows="1" placeholder="Add a comment…"></textarea>
+              <div class="composer-foot">
+                <span class="t-caption muted"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to post</span>
+                <button class="btn btn-primary" type="button" id="composer-post" disabled>Post</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-view" id="pview-process" role="tabpanel" aria-labelledby="ptab-process" hidden>
+          <div class="panel-body">
+            <div class="process-intro">
+              <span class="t-body-small muted">Completed, current and upcoming steps for this request.</span>
+              <div class="process-progress"><div class="progress-track"><div class="progress-fill" id="process-fill"></div></div><span class="t-caption-medium" id="process-step" style="color: var(--brand-800)"></span></div>
+            </div>
+            <ol class="steps" id="steps"></ol>
+            <button class="link-btn resolve show-more" type="button" id="steps-more" hidden><span>Show more steps</span><img src="assets/icon-chevron-down.svg" alt=""></button>
+          </div>
+        </section>
+      </aside>
+
       <aside class="util-rail" aria-label="Task tools">
-        <button class="util-btn" type="button" aria-label="Comments" title="Comments" aria-pressed="false"><img src="assets/rail-comments.svg" alt=""></button>
-        <button class="util-btn" type="button" aria-label="History" title="History" aria-pressed="false"><img src="assets/rail-history.svg" alt=""></button>
+        <button class="util-btn" type="button" data-view="comments" aria-controls="side-panel" aria-expanded="false" aria-label="Comments" title="Comments"><img src="assets/rail-comments.svg" alt=""><span class="util-badge" data-comment-count></span></button>
+        <button class="util-btn" type="button" data-view="process" aria-controls="side-panel" aria-expanded="false" aria-label="Process" title="Process"><img src="assets/rail-history.svg" alt=""></button>
       </aside>
     </div>
   </div>
 </div>
+<script type="application/json" id="task-data">{
+ "me": {
+  "name": "Mohammed H.",
+  "initials": "MH",
+  "me": true
+ },
+ "comments": [
+  {
+   "id": "c1",
+   "author": {
+    "name": "Ibrahim Al-Rashid",
+    "initials": "IA",
+    "role": "Requester",
+    "alt": true
+   },
+   "at": "08 Nov, 09:15",
+   "text": "Requesting approval for the ERP upgrade — the current ECC 6.0 support ends in 2027.",
+   "replies": []
+  }
+ ],
+ "process": {
+  "stepLabel": "Step 4 of 15",
+  "done": 3,
+  "total": 15,
+  "visibleUpcoming": 2,
+  "steps": [
+   {
+    "name": "Request submitted",
+    "who": "Ibrahim Al-Rashid",
+    "when": "09 Nov 2026",
+    "state": "done"
+   },
+   {
+    "name": "Department approval",
+    "who": "Faisal Al-Dossari",
+    "state": "done"
+   },
+   {
+    "name": "Technical member review",
+    "who": "Sara Al-Zahrani",
+    "state": "done"
+   },
+   {
+    "group": "Specialist reviews · in parallel",
+    "state": "upcoming",
+    "items": [
+     {
+      "name": "Cyber Security",
+      "who": "Unassigned",
+      "note": "Waiting for pick-up",
+      "state": "current"
+     },
+     {
+      "name": "Enterprise Risk (BCM)",
+      "who": "Turki Al-Anazi",
+      "state": "upcoming"
+     },
+     {
+      "name": "Operational Risk",
+      "who": "Reem Al-Dossary",
+      "state": "upcoming"
+     },
+     {
+      "name": "Enterprise Architecture",
+      "who": "Majed Al-Zahrani",
+      "state": "upcoming"
+     }
+    ]
+   },
+   {
+    "name": "Finance review — GL",
+    "who": "Khalid Al-Otaibi",
+    "state": "upcoming"
+   },
+   {
+    "name": "Finance review — Assets",
+    "who": "Lama Al-Subaie",
+    "state": "upcoming"
+   },
+   {
+    "name": "Qualification — Finance",
+    "who": "Abdulrahman Al-Shehri",
+    "state": "upcoming"
+   },
+   {
+    "name": "Qualification — Procurement",
+    "who": "Hana Al-Ghamdi",
+    "state": "upcoming"
+   },
+   {
+    "name": "Procurement review — Team Lead",
+    "who": "Abdullah Al-Qahtani",
+    "state": "upcoming"
+   },
+   {
+    "name": "Procurement review — Officer",
+    "who": "Mohammed Al-Harbi",
+    "state": "upcoming"
+   },
+   {
+    "name": "DOA approval",
+    "who": "Abdullah Al-Qahtani",
+    "state": "upcoming"
+   },
+   {
+    "name": "Estimated price approval",
+    "who": "Saad Al-Malki",
+    "state": "upcoming"
+   }
+  ]
+ }
+}</script>
 <script src="app.js"></script>
+<script src="panel.js"></script>
 <script src="cyber-review.js"></script>
 </body>
 </html>

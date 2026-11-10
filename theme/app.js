@@ -30,12 +30,3 @@ document.querySelectorAll('[role="tablist"]').forEach((list) => {
 document.querySelectorAll('[data-open-tab]').forEach((btn) => {
   btn.addEventListener('click', () => document.getElementById(btn.dataset.openTab)?.click());
 });
-
-// Right utility rail toggles (panels not designed yet).
-document.querySelectorAll('.util-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const on = btn.getAttribute('aria-pressed') !== 'true';
-    document.querySelectorAll('.util-btn').forEach((b) => b.setAttribute('aria-pressed', 'false'));
-    btn.setAttribute('aria-pressed', String(on));
-  });
-});
