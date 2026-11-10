@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTender } from '../context/TenderContext';
 import { useLanguage, useT } from '../context/LanguageContext';
-import { SectionCard, PeoplePicker, InfoBanner, AIButton } from '../components/ui';
+import { SectionCard, PeoplePicker, InfoBanner, AIButton, Input } from '../components/ui';
 import { SparklesIcon, AlertTriangleIcon, CheckCircleIcon } from '../components/Icons';
 import { useAiAction, AiNote, num, str } from '../lib/useAiAction';
 import { aiQualification, type AiQual } from '../lib/aiTender';
@@ -248,6 +248,30 @@ export default function QualificationCriteria() {
           <div className="w-48 h-2 bg-neutral-200 rounded-full overflow-hidden">
             <div className={`h-full rounded-full transition-all ${mainPctOk ? 'bg-success-500' : mainPctOver ? 'bg-error-500' : 'bg-warning-500'}`} style={{ width: `${Math.min(qualPctTotal, 100)}%` }} />
           </div>
+        </div>
+
+        <div className="mt-5 pt-5 border-t border-neutral-100" id="q-qualPassing">
+          {/* Passing percentage — same pattern as the Technical evaluation step */}
+          <div className="flex items-center justify-between gap-4 flex-wrap rounded-xl border border-brand-200 bg-brand-50/40 px-4 py-3.5">
+            <div className="min-w-0 flex-1">
+              <label htmlFor="qualification-passing-pct" className="text-[13.5px] font-bold text-neutral-900">
+                {t('Qualification Passing Percentage', 'نسبة اجتياز التأهيل')} <span className="text-error-600">*</span>
+              </label>
+              <p className="text-[12px] text-neutral-500 mt-0.5 leading-relaxed">
+                {t('Minimum score out of 100% a vendor must achieve to qualify.', 'الحد الأدنى للدرجة من 100% التي يجب على المورد تحقيقها ليتأهل.')}
+              </p>
+            </div>
+            <div className="relative w-28 flex-shrink-0">
+              <Input id="qualification-passing-pct" type="number" min={0} max={100}
+                value={formData.qualificationPassingPercentage ?? ''}
+                onChange={(e) => updateField('qualificationPassingPercentage', e.target.value)}
+                placeholder="60" className="text-end pe-7 text-base font-bold" />
+              <span className="absolute end-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm font-medium pointer-events-none">%</span>
+            </div>
+          </div>
+          {Number(formData.qualificationPassingPercentage) > 100 && (
+            <p className="text-xs text-error-600 mt-1.5">{t('Cannot exceed 100%', 'لا يمكن أن يتجاوز 100%')}</p>
+          )}
         </div>
 
         <InfoBanner variant="info" className="mt-4">

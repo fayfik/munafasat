@@ -20,6 +20,7 @@ import QualificationCriteria from '../sections/QualificationCriteria';
 import Attachments from '../sections/Attachments';
 import ReviewConfirm from '../sections/ReviewConfirm';
 import QualityGate from '../components/QualityGate';
+import { AiFixPanel } from '../components/AiReview';
 import { qualityIssues, type QualityIssue } from '../lib/quality';
 
 const SECTION_COMPONENTS = [
@@ -272,6 +273,7 @@ export default function TenderForm({ onBack }: Props) {
             </div>
 
             <div className="space-y-5">
+              <AiFixPanel />
               {CurrentSection === ReviewConfirm ? <ReviewConfirm onExit={onBack} /> : <CurrentSection />}
             </div>
 

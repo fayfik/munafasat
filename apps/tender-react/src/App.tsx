@@ -12,6 +12,7 @@ import RequestDetail from './pages/RequestDetail';
 import { PageLoad } from './components/Loader';
 import { ToastHost } from './components/Toast';
 import TenderForm from './pages/TenderForm';
+import { AiReviewProvider } from './context/AiReviewContext';
 import type { SourceType, TenderFormData } from './types/tender';
 
 export type FullPage = AppPage | 'tender-form' | 'procure-intake' | 'request-detail';
@@ -110,7 +111,7 @@ function AppRoot() {
           initialSourceType={target.kind === 'new' ? target.sourceType : undefined}
           initialSeed={target.kind === 'new' ? target.seed : undefined}
         >
-          <TenderForm onBack={() => setPage('my-requests')} />
+          <AiReviewProvider><TenderForm onBack={() => setPage('my-requests')} /></AiReviewProvider>
         </TenderProvider>
       )}
     </AppShell>

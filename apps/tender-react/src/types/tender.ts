@@ -226,6 +226,8 @@ export interface TenderFormData {
   technicalPassingPercentage: string;
   qualificationCommitteeMembers: Person[];
   qualificationCriteria: QualMainCriteria[];
+  /** Minimum qualification score (out of 100%) a vendor needs to qualify. */
+  qualificationPassingPercentage?: string;
   attachments: FileAttachment[];
   /** Etimad E-Market draft that receives BOQ items moved out of this tender. */
   linkedEtimadRequestId?: string;

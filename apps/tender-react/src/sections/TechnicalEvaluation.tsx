@@ -7,7 +7,7 @@ import { FormField, SectionCard, Textarea, Input, AIButton, PeoplePicker, InfoBa
 import { PlusIcon, TrashIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon, XIcon, DocumentIcon } from '../components/Icons';
 import ImportCriteriaDrawer, { type DrawerItem } from '../components/ImportCriteriaDrawer';
 import ConfirmDeleteAll from '../components/ConfirmDeleteAll';
-import { SIMILAR_PROJECTS, EVAL_LIBRARY, type LibEvalCriterion } from '../lib/criteriaLibrary';
+import { SIMILAR_PROJECTS, EVAL_LIBRARY, TECH_REQ_LIBRARY, type LibEvalCriterion, type LibTechReq } from '../lib/criteriaLibrary';
 
 // Mandatory documents — always required, can't be removed (locked).
 export const LOCKED_TECH_DOCS: { en: string; ar: string }[] = [
@@ -168,6 +168,28 @@ export default function TechnicalEvaluation() {
     if (additions.length) updateField('evaluationCriteria', [...formData.evaluationCriteria, ...additions]);
   }
 
+  // Technical requirements — import from similar requests (same pattern as evaluation criteria).
+  const [showReqImport, setShowReqImport] = useState(false);
+  const reqItemsFor = (pid: string): DrawerItem[] => (TECH_REQ_LIBRARY[pid] ?? []).map((r) => ({
+    key: r.id, title: r.requirement, titleAr: r.requirementAr, sub: r.description, subAr: r.descriptionAr,
+    addedBy: r.addedBy, addedByAr: r.addedByAr, addedOn: r.addedOn,
+  }));
+  const allLibReq: LibTechReq[] = Object.values(TECH_REQ_LIBRARY).flat();
+  const existingReqKeys = new Set(
+    allLibReq.filter((c) => formData.technicalRequirements.some((r) => {
+      const d = r.requirement.trim(); return d === c.requirement.trim() || d === c.requirementAr.trim();
+    })).map((c) => c.id),
+  );
+  function importReqs(keys: string[]) {
+    const have = new Set(formData.technicalRequirements.map((r) => r.requirement.trim()));
+    const additions = keys
+      .map((k) => allLibReq.find((c) => c.id === k))
+      .filter((c): c is LibTechReq => !!c)
+      .map((c) => ({ id: crypto.randomUUID(), requirement: isAr ? c.requirementAr : c.requirement, description: isAr ? c.descriptionAr : c.description }))
+      .filter((r) => !have.has(r.requirement.trim()));
+    if (additions.length) updateField('technicalRequirements', [...formData.technicalRequirements.filter((r) => r.requirement.trim() || r.description.trim()), ...additions]);
+  }
+
   function generateDocs() {
     docsAi.run(() => aiTechDocs(formData, isAr),
       (r) => updateField('technicalDocumentsList', arr<unknown>(r).map(str).filter(Boolean).filter((d) => !LOCKED_DOC_STRINGS.includes(d))),
@@ -306,6 +328,11 @@ export default function TechnicalEvaluation() {
         descriptionAr="حدد المتطلبات الفنية المحددة التي يجب على الموردين استيفاؤها."
         action={
           <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setShowReqImport(true)} data-import-reqs
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-200 bg-brand-50 text-brand-700 text-[12px] font-semibold hover:bg-brand-100 transition-colors">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="8" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /><path d="M17 14v6M14 17h6" /></svg>
+              {t('Import from similar projects', 'استيراد من مشاريع مماثلة')}
+            </button>
             <AIButton onClick={generateReqs} loading={reqLoading} label={t('AI Suggest Requirements', 'اقتراح المتطلبات')} />
             <DeleteAllMenu count={formData.technicalRequirements.length} onDeleteAll={() => updateField('technicalRequirements', [])} t={t}
               contextLabel="Technical requirements" contextLabelAr="المتطلبات الفنية"
@@ -504,6 +531,19 @@ export default function TechnicalEvaluation() {
         </div>
       </SectionCard>
 
+      <ImportCriteriaDrawer
+        open={showReqImport}
+        onClose={() => setShowReqImport(false)}
+        title="Import technical requirements"
+        titleAr="استيراد المتطلبات الفنية"
+        projects={SIMILAR_PROJECTS}
+        itemsFor={reqItemsFor}
+        existingKeys={existingReqKeys}
+        onImport={importReqs}
+        noun={{ en: 'requirements', ar: 'متطلبات' }}
+        isAr={isAr}
+        t={t}
+      />
       <ImportCriteriaDrawer
         open={showEvalImport}
         onClose={() => setShowEvalImport(false)}

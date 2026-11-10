@@ -7,14 +7,17 @@ export interface LibProject {
   name: string; nameAr: string;
   code: string;
   entity: string; entityAr: string; // owning department / entity
+  /** The request these were taken from, and who created it. */
+  requestNo: string;
+  createdBy: string; createdByAr: string;
 }
 
 export const SIMILAR_PROJECTS: LibProject[] = [
-  { id: 'lib-erp',    name: 'Enterprise ERP Implementation',   nameAr: 'تنفيذ نظام تخطيط الموارد',        code: 'PRJ-2024-118', entity: 'Finance & IT',          entityAr: 'المالية وتقنية المعلومات' },
-  { id: 'lib-cloud',  name: 'Cloud Infrastructure Migration',  nameAr: 'ترحيل البنية التحتية السحابية',   code: 'PRJ-2024-074', entity: 'IT Infrastructure',     entityAr: 'البنية التحتية التقنية' },
-  { id: 'lib-portal', name: 'Digital Services Portal',         nameAr: 'بوابة الخدمات الرقمية',          code: 'PRJ-2023-203', entity: 'Digital Transformation', entityAr: 'التحول الرقمي' },
-  { id: 'lib-cyber',  name: 'Cybersecurity Enhancement Program', nameAr: 'برنامج تعزيز الأمن السيبراني',   code: 'PRJ-2024-051', entity: 'Cybersecurity Office',  entityAr: 'مكتب الأمن السيبراني' },
-  { id: 'lib-dc',     name: 'Data Center Modernization',       nameAr: 'تحديث مركز البيانات',            code: 'PRJ-2023-162', entity: 'IT Infrastructure',     entityAr: 'البنية التحتية التقنية' },
+  { id: 'lib-erp',    name: 'Enterprise ERP Implementation',   nameAr: 'تنفيذ نظام تخطيط الموارد',        code: 'PRJ-2024-118', entity: 'Finance & IT',          entityAr: 'المالية وتقنية المعلومات', requestNo: 'REQ-2024-0412', createdBy: 'Fatima Al-Zahrani', createdByAr: 'فاطمة الزهراني' },
+  { id: 'lib-cloud',  name: 'Cloud Infrastructure Migration',  nameAr: 'ترحيل البنية التحتية السحابية',   code: 'PRJ-2024-074', entity: 'IT Infrastructure',     entityAr: 'البنية التحتية التقنية', requestNo: 'REQ-2024-0288', createdBy: 'Khalid Al-Otaibi', createdByAr: 'خالد العتيبي' },
+  { id: 'lib-portal', name: 'Digital Services Portal',         nameAr: 'بوابة الخدمات الرقمية',          code: 'PRJ-2023-203', entity: 'Digital Transformation', entityAr: 'التحول الرقمي', requestNo: 'REQ-2023-0731', createdBy: 'Sara Al-Qahtani', createdByAr: 'سارة القحطاني' },
+  { id: 'lib-cyber',  name: 'Cybersecurity Enhancement Program', nameAr: 'برنامج تعزيز الأمن السيبراني',   code: 'PRJ-2024-051', entity: 'Cybersecurity Office',  entityAr: 'مكتب الأمن السيبراني', requestNo: 'REQ-2024-0195', createdBy: 'Omar Al-Shehri', createdByAr: 'عمر الشهري' },
+  { id: 'lib-dc',     name: 'Data Center Modernization',       nameAr: 'تحديث مركز البيانات',            code: 'PRJ-2023-162', entity: 'IT Infrastructure',     entityAr: 'البنية التحتية التقنية', requestNo: 'REQ-2023-0604', createdBy: 'Ahmed Al-Rashidi', createdByAr: 'أحمد الراشدي' },
 ];
 
 export interface LibEvalCriterion {
@@ -123,3 +126,40 @@ export function formatLibDate(iso: string, isAr: boolean): string {
     return new Date(iso + 'T00:00:00').toLocaleDateString(isAr ? 'ar-SA' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   } catch { return iso; }
 }
+
+/* ── Technical requirements used in past requests ─────────────────────────── */
+export interface LibTechReq {
+  id: string;
+  requirement: string; requirementAr: string;
+  description: string; descriptionAr: string;
+  addedBy: string; addedByAr: string;
+  addedOn: string;
+}
+
+export const TECH_REQ_LIBRARY: Record<string, LibTechReq[]> = {
+  'lib-erp': [
+    { id: 'tr-erp-1', requirement: 'Arabic & English user interface', requirementAr: 'واجهة مستخدم بالعربية والإنجليزية', description: 'All screens, reports and notifications available in Arabic (RTL) and English, switchable per user.', descriptionAr: 'جميع الشاشات والتقارير والإشعارات متاحة بالعربية (من اليمين لليسار) والإنجليزية مع إمكانية التبديل لكل مستخدم.', addedBy: 'Fatima Al-Zahrani', addedByAr: 'فاطمة الزهراني', addedOn: '2024-09-12' },
+    { id: 'tr-erp-2', requirement: 'Integration with Etimad and SADAD', requirementAr: 'التكامل مع اعتماد وسداد', description: 'Real-time interfaces for purchase orders, invoices and payments using documented REST APIs.', descriptionAr: 'واجهات فورية لأوامر الشراء والفواتير والمدفوعات باستخدام واجهات REST موثقة.', addedBy: 'Fatima Al-Zahrani', addedByAr: 'فاطمة الزهراني', addedOn: '2024-09-12' },
+    { id: 'tr-erp-3', requirement: 'Role-based access with SSO', requirementAr: 'صلاحيات حسب الدور مع الدخول الموحد', description: 'Single sign-on through the corporate identity provider (SAML 2.0) with segregation of duties.', descriptionAr: 'دخول موحد عبر مزود الهوية المؤسسي (SAML 2.0) مع فصل المهام.', addedBy: 'Ahmed Al-Rashidi', addedByAr: 'أحمد الراشدي', addedOn: '2024-09-13' },
+    { id: 'tr-erp-4', requirement: 'Data migration with reconciliation', requirementAr: 'ترحيل البيانات مع المطابقة', description: 'Migrate master and open-item data with reconciliation reports signed off per load.', descriptionAr: 'ترحيل البيانات الرئيسية والبنود المفتوحة مع تقارير مطابقة معتمدة لكل تحميل.', addedBy: 'Ahmed Al-Rashidi', addedByAr: 'أحمد الراشدي', addedOn: '2024-09-13' },
+  ],
+  'lib-cloud': [
+    { id: 'tr-cl-1', requirement: 'Hosting in a KSA cloud region', requirementAr: 'الاستضافة في منطقة سحابية داخل المملكة', description: 'Production, DR and backups hosted in a CST-licensed cloud region inside Saudi Arabia.', descriptionAr: 'استضافة بيئة الإنتاج والتعافي والنسخ الاحتياطية في منطقة سحابية مرخصة من هيئة الاتصالات داخل المملكة.', addedBy: 'Khalid Al-Otaibi', addedByAr: 'خالد العتيبي', addedOn: '2024-06-03' },
+    { id: 'tr-cl-2', requirement: '99.9% availability SLA', requirementAr: 'اتفاقية توفر بنسبة 99.9%', description: 'Monthly availability of 99.9% with service credits and a monthly SLA report.', descriptionAr: 'توفر شهري بنسبة 99.9% مع خصومات خدمة وتقرير شهري لمستوى الخدمة.', addedBy: 'Khalid Al-Otaibi', addedByAr: 'خالد العتيبي', addedOn: '2024-06-03' },
+    { id: 'tr-cl-3', requirement: 'Infrastructure as code', requirementAr: 'البنية التحتية كرمز', description: 'All environments provisioned through version-controlled Terraform templates handed over at closure.', descriptionAr: 'تجهيز جميع البيئات عبر قوالب Terraform مُدارة بالإصدارات وتسليمها عند الإغلاق.', addedBy: 'Nora Al-Dosari', addedByAr: 'نورة الدوسري', addedOn: '2024-06-05' },
+  ],
+  'lib-portal': [
+    { id: 'tr-po-1', requirement: 'WCAG 2.1 AA accessibility', requirementAr: 'إتاحة الوصول وفق WCAG 2.1 AA', description: 'Public pages meet WCAG 2.1 AA, verified by an independent accessibility audit before go-live.', descriptionAr: 'تلبي الصفحات العامة معيار WCAG 2.1 AA ويتم التحقق منها بتدقيق مستقل قبل الإطلاق.', addedBy: 'Sara Al-Qahtani', addedByAr: 'سارة القحطاني', addedOn: '2023-11-20' },
+    { id: 'tr-po-2', requirement: 'Nafath login for citizens', requirementAr: 'الدخول عبر نفاذ للمواطنين', description: 'External users authenticate through the National Single Sign-On (Nafath).', descriptionAr: 'يتم تحقق المستخدمين الخارجيين عبر النفاذ الوطني الموحد (نفاذ).', addedBy: 'Sara Al-Qahtani', addedByAr: 'سارة القحطاني', addedOn: '2023-11-20' },
+    { id: 'tr-po-3', requirement: 'Page load under 3 seconds', requirementAr: 'تحميل الصفحة خلال 3 ثوانٍ', description: 'Key pages load in under 3 seconds on 4G at peak traffic, measured monthly.', descriptionAr: 'تُحمَّل الصفحات الرئيسية خلال أقل من 3 ثوانٍ على شبكة 4G في ذروة الاستخدام وتقاس شهرياً.', addedBy: 'Faisal Al-Harbi', addedByAr: 'فيصل الحربي', addedOn: '2023-11-22' },
+  ],
+  'lib-cyber': [
+    { id: 'tr-cy-1', requirement: 'NCA ECC compliance', requirementAr: 'الامتثال لضوابط الهيئة الوطنية للأمن السيبراني', description: 'Solution complies with NCA Essential Cybersecurity Controls; evidence provided before acceptance.', descriptionAr: 'يلتزم الحل بالضوابط الأساسية للأمن السيبراني مع تقديم الأدلة قبل القبول.', addedBy: 'Omar Al-Shehri', addedByAr: 'عمر الشهري', addedOn: '2024-03-10' },
+    { id: 'tr-cy-2', requirement: 'Annual penetration test', requirementAr: 'اختبار اختراق سنوي', description: 'Independent penetration test before go-live and yearly; critical findings fixed within 30 days.', descriptionAr: 'اختبار اختراق مستقل قبل الإطلاق وسنوياً مع معالجة الثغرات الحرجة خلال 30 يوماً.', addedBy: 'Omar Al-Shehri', addedByAr: 'عمر الشهري', addedOn: '2024-03-10' },
+    { id: 'tr-cy-3', requirement: 'Logs forwarded to the SOC', requirementAr: 'إرسال السجلات إلى مركز العمليات الأمنية', description: 'Security and audit logs streamed to the corporate SIEM and retained for 12 months.', descriptionAr: 'إرسال سجلات الأمان والتدقيق إلى نظام SIEM المؤسسي والاحتفاظ بها 12 شهراً.', addedBy: 'Lama Al-Mutairi', addedByAr: 'لمى المطيري', addedOn: '2024-03-12' },
+  ],
+  'lib-dc': [
+    { id: 'tr-dc-1', requirement: 'Tier III data centre design', requirementAr: 'تصميم مركز بيانات من الفئة الثالثة', description: 'Power and cooling designed to Uptime Tier III with N+1 redundancy.', descriptionAr: 'تصميم الطاقة والتبريد وفق الفئة الثالثة من Uptime مع تكرار N+1.', addedBy: 'Ahmed Al-Rashidi', addedByAr: 'أحمد الراشدي', addedOn: '2023-08-14' },
+    { id: 'tr-dc-2', requirement: 'Hardware warranty and on-site support', requirementAr: 'ضمان الأجهزة والدعم في الموقع', description: '5-year warranty with 4-hour on-site response for critical components.', descriptionAr: 'ضمان لمدة 5 سنوات مع استجابة في الموقع خلال 4 ساعات للمكونات الحرجة.', addedBy: 'Ahmed Al-Rashidi', addedByAr: 'أحمد الراشدي', addedOn: '2023-08-14' },
+  ],
+};

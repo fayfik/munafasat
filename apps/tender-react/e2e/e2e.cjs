@@ -645,6 +645,57 @@ async function openRequest(title) {
     expect(/Main Criteria Total[^\n]*100%/.test(body), 'main total should be 100% after import');
   });
 
+  await test('Technical requirements: import from similar requests (request no. + creator left, multi-select across requests)', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', technicalRequirements: [] });
+    await page.locator('button', { hasText: 'Technical Evaluation' }).first().click(); await wait(700);
+    await page.click('[data-import-reqs]'); await wait(400);
+    const dlg = page.getByRole('dialog');
+    expect(/Import technical requirements/.test(await dlg.innerText()), 'drawer title');
+    expect(await dlg.locator('[data-lib-request]').count() >= 5 && /REQ-2024-0412/.test(await dlg.locator('[data-lib-request]').first().innerText()), 'request numbers in the left panel');
+    expect(/Fatima Al-Zahrani/.test(await dlg.locator('[data-lib-creator]').first().innerText()), 'creator in the left panel');
+    await dlg.getByRole('button', { name: /Arabic & English user interface/ }).click();
+    await dlg.getByRole('button', { name: /Integration with Etimad and SADAD/ }).click();
+    await dlg.getByRole('button', { name: /Cybersecurity Enhancement Program/ }).click(); await wait(150);
+    await dlg.getByRole('button', { name: /NCA ECC compliance/ }).click();
+    expect(/3 requirements selected across requests/.test(await dlg.innerText()), 'multi-select across requests');
+    await dlg.getByRole('button', { name: /Import 3 selected/ }).click(); await wait(500);
+    const vals = await page.locator('main input, main textarea').evaluateAll((els) => els.map((e) => e.value));
+    for (const r of ['Arabic & English user interface', 'Integration with Etimad and SADAD', 'NCA ECC compliance']) expect(vals.includes(r), `imported ${r}`);
+  });
+  await test('Qualification passing percentage: required field like the technical one', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002' });
+    await page.locator('button', { hasText: 'Qualification Criteria' }).first().click(); await wait(700);
+    expect(await count('#qualification-passing-pct') === 1, 'field present');
+    expect(/Qualification Passing Percentage/.test(await page.locator('#q-qualPassing').innerText()), 'label');
+    await page.fill('#qualification-passing-pct', '120'); await wait(100);
+    expect(/Cannot exceed 100%/.test(await page.locator('#q-qualPassing').innerText()), '>100 warning');
+    await page.fill('#qualification-passing-pct', '60');
+  });
+  await test('AI pre-review: animated department review → tabs → Fix it opens the step → Apply it', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', scopeOfWork: 'Implement SAP S/4HANA cloud subscription. Integrate with HR. Employee payroll data.', paymentStages: [], evaluationCriteria: [], technicalPassingPercentage: '',
+      boqItems: [['SAP S/4HANA subscription', 'Cloud ERP licences'], ['Integration with HR system', 'APIs via iPaaS']].map(([n, d], i) => ({ id: 'ai' + i, projectItem: 'Software', itemName: n, itemDescription: d, unitOfMeasure: 'Each', quantity: 2, unitPrice: 1000, deliveryDate: '', hasBrandName: false, brandJustification: '' })) });
+    await page.locator('button', { hasText: 'Review & Confirm' }).first().click(); await wait(500);
+    expect(await count('[data-ai-loader] [data-ai-dept-row]') === 4, 'loader lists the four departments');
+    expect(await page.getAttribute('[data-ai-dept-row="finance"]', 'data-state') === 'active', 'Finance reviewed first');
+    await page.waitForSelector('[data-ai-results]', { timeout: 9000 });
+    for (const d of ['finance', 'ea', 'cyber', 'procurement']) expect(await count(`[data-ai-tab="${d}"]`) === 1, `tab ${d}`);
+    expect(/recommendations from 4 departments/.test(await page.locator('[data-ai-summary]').innerText()), 'summary');
+    await page.click('[data-ai-tab="finance"]'); await wait(150);
+    await page.click('[data-ai-fix="fin-pay"]'); await wait(700);
+    expect(/Payment Schedule/.test(await page.locator('h2').first().innerText()), 'opened the Payment Schedule step');
+    expect(await count('[data-ai-fix-panel="fin-pay"] [data-ai-proposal] li') >= 3, 'suggested stages shown in a separate panel');
+    await page.click('[data-ai-apply]'); await wait(400);
+    expect(await count('[data-ai-applied]') === 1, 'applied state');
+    expect(/Total[^\n]*100%/.test(await page.locator('main').first().innerText()) || (await page.locator('main input').evaluateAll((e) => e.map((x) => x.value))).includes('55'), 'stages written into the request');
+    await page.click('[data-ai-back]'); await wait(800);
+    expect(await count('[data-ai-loader]') === 0, 'no re-run for our own fix');
+    expect(await page.getAttribute('[data-ai-rec="fin-pay"]', 'data-state') === 'applied', 'marked applied in the list');
+    await page.click('[data-ai-tab="procurement"]'); await wait(150);
+    await page.click('[data-ai-fix="pr-tpass"]'); await wait(600);
+    await page.click('[data-ai-apply]'); await wait(300);
+    expect(await page.inputValue('#technical-passing-pct') === '70', 'passing % applied');
+    await page.click('[data-ai-back]'); await wait(600);
+  });
   // ── Finance accounting (BOQ) ───────────────────────────────────────────────
   const finRows = () => [['Dell PowerEdge R760 server', '2U rack server'], ['Microsoft 365 E5 annual subscription', 'User licences'], ['SAP S/4HANA implementation', 'Implementation services'], ['Installation and racking', 'On-site delivery']]
     .map(([n, d], i) => ({ id: 'f' + i, projectItem: 'Hardware', itemName: n, itemDescription: d, unitOfMeasure: 'Each', quantity: 2, unitPrice: 1000, deliveryDate: '', hasBrandName: false, brandJustification: '' }));

@@ -90,6 +90,7 @@ const INITIAL: TenderFormData = {
   technicalRequirements: [],
   evaluationCriteria: [],
   technicalPassingPercentage: '',
+  qualificationPassingPercentage: '',
   qualificationCommitteeMembers: [],
   qualificationCriteria: DEFAULT_QUAL,
   attachments: [],
@@ -452,7 +453,8 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
         return 'not-started';
       case 'qualification':
         if (qualPctTotal === 100 && formData.qualificationCriteria.every((m) =>
-          m.subCriteria.reduce((t, c) => t + (typeof c.percentage === 'number' ? c.percentage : 0), 0) === 100)) return 'completed';
+          m.subCriteria.reduce((t, c) => t + (typeof c.percentage === 'number' ? c.percentage : 0), 0) === 100)
+          && Number(formData.qualificationPassingPercentage) > 0 && Number(formData.qualificationPassingPercentage) <= 100) return 'completed';
         if (formData.qualificationCommitteeMembers.length > 0 || qualPctTotal > 0) return 'missing';
         return 'not-started';
       case 'attachments':

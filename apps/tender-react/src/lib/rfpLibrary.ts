@@ -94,6 +94,7 @@ export function buildRfpImport(rfp: PastRfp, form: TenderFormData): Partial<Tend
     technicalRequirements: AI_TECH_REQUIREMENTS.map((r) => ({ id: id(), ...r })),
     evaluationCriteria: AI_EVAL_CRITERIA.map((c) => ({ id: id(), ...c })),
     technicalPassingPercentage: '70',
+    qualificationPassingPercentage: '60',
   };
 }
 

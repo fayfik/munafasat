@@ -473,3 +473,14 @@ section[data-cm-has] { background-color: #fff; outline: 2px solid rgba(42, 97, 1
 
 @keyframes q-flash { 0%, 60% { box-shadow: 0 0 0 3px rgba(224, 142, 0, 0.45); } 100% { box-shadow: 0 0 0 0 rgba(224, 142, 0, 0); } }
 .q-flash { animation: q-flash 1.6s ease-out; border-radius: 0.6rem; }
+
+/* ── AI pre-review ─────────────────────────────────────────────────────── */
+.ai-review-card { background: linear-gradient(120deg, var(--color-ai-400, #a78bfa), var(--color-brand-400, #7fb069), var(--color-ai-300, #c4b5fd), var(--color-brand-300, #a3c98f)); background-size: 300% 300%; animation: ai-border 6s ease infinite; box-shadow: 0 12px 32px -18px rgba(76, 29, 149, 0.35); }
+@keyframes ai-border { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+.ai-orb { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.45); animation: ai-orb 1.6s ease-out infinite; }
+@keyframes ai-orb { 0% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.45); } 100% { box-shadow: 0 0 0 12px rgba(124, 58, 237, 0); } }
+@keyframes ticker-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.ticker-in { animation: ticker-in 0.28s ease-out; }
+@keyframes tab-ink { from { transform: scaleX(0.3); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
+.tab-ink { animation: tab-ink 0.25s ease-out; }
+@media (prefers-reduced-motion: reduce) { .ai-review-card, .ai-orb, .ticker-in, .tab-ink { animation: none; } }

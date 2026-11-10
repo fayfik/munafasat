@@ -241,7 +241,7 @@ export default function ScopeOfWork() {
               </div>
             </div>
           ) : (
-            <Textarea
+            <div id="q-scopeTerms" className="rounded-lg"><Textarea
               value={formData.scopeTerms}
               onChange={(e) => updateField('scopeTerms', e.target.value)}
               rows={7}
@@ -249,7 +249,7 @@ export default function ScopeOfWork() {
                 'Add scope-specific terms and conditions, compliance requirements, or special contractual obligations…',
                 'أضف الشروط والأحكام الخاصة بالنطاق، ومتطلبات الامتثال، أو الالتزامات التعاقدية الخاصة…'
               )}
-            />
+            /></div>
           )}
         </FormField>
         <AiNote error={termsAi.error} usedSample={termsAi.usedSample} />

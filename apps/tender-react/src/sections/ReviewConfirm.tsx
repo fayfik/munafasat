@@ -20,6 +20,7 @@ import { FinanceRoutingCard } from '../components/BoqAccounting';
 import TechStandards, { EaRouteCard, eaScopeForForm, stdQuestionsOpen, stdIssues } from '../components/TechStandards';
 import { qualityIssues } from '../lib/quality';
 import { focusField } from '../components/QualityGate';
+import AiReviewPanel from '../components/AiReview';
 
 function formatSAR(n: number) {
   return new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -119,6 +120,9 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
           </div>
         </div>
       )}
+
+      {/* ── AI pre-review: Finance, EA, Cybersecurity, Procurement ── */}
+      {!isEsouq && <AiReviewPanel />}
 
       {/* ── Before you submit: anything a reviewer would return ───── */}
       {!isEsouq && (() => {
@@ -516,6 +520,7 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
               </div>
               <div className="pt-2 mt-2 text-[12px]">
                 <span className={`font-semibold ${qualPctTotal === 100 ? 'text-success-600' : 'text-warning-600'}`}>{t('Main criteria total', 'إجمالي المعايير الرئيسية')}: {qualPctTotal}% {qualPctTotal === 100 ? '✓' : '⚠'}</span>
+                <span className="ms-4 text-neutral-500">{t('Passing', 'الاجتياز')}: <span className="font-semibold text-neutral-800">{formData.qualificationPassingPercentage || '—'}%</span></span>
               </div>
             </>
           ) : <p className="mt-3 text-sm text-neutral-400 italic">{t('No qualification criteria', 'لا توجد معايير تأهيل')}</p>}

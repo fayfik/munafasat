@@ -24,9 +24,11 @@ interface Props {
   onImport: (keys: string[]) => void;
   isAr: boolean;
   t: (en: string, ar: string) => string;
+  /** What the items are called ("criteria" by default, e.g. "requirements"). */
+  noun?: { en: string; ar: string };
 }
 
-export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, projects, itemsFor, existingKeys, onImport, isAr, t }: Props) {
+export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, projects, itemsFor, existingKeys, onImport, isAr, t, noun = { en: 'criteria', ar: 'معيار' } }: Props) {
   const [activeProject, setActiveProject] = useState(projects[0]?.id ?? '');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
@@ -50,7 +52,7 @@ export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, pr
 
   const q = query.trim().toLowerCase();
   const visibleProjects = q
-    ? projects.filter((p) => [p.name, p.nameAr, p.code, p.entity, p.entityAr].filter(Boolean).some((s) => s!.toLowerCase().includes(q)))
+    ? projects.filter((p) => [p.name, p.nameAr, p.code, p.entity, p.entityAr, p.requestNo, p.createdBy, p.createdByAr].filter(Boolean).some((s) => s!.toLowerCase().includes(q)))
     : projects;
   const activeItems = itemsFor(activeProject);
   const activeProj = projects.find((p) => p.id === activeProject);
@@ -95,11 +97,11 @@ export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, pr
               <div className="relative">
                 <SearchIcon className={`w-3.5 h-3.5 text-neutral-400 absolute top-1/2 -translate-y-1/2 ${isAr ? 'right-2.5' : 'left-2.5'} pointer-events-none`} />
                 <input value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t('Search requests by name or code…', 'ابحث عن طلب بالاسم أو الرمز…')}
+                  placeholder={t('Search by request no., name or creator…', 'ابحث برقم الطلب أو الاسم أو المنشئ…')}
                   className={`w-full h-8 ${isAr ? 'pr-8 pl-2.5' : 'pl-8 pr-2.5'} text-[12px] rounded-lg border border-neutral-300 bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none`} />
               </div>
             </div>
-            <p className="px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Projects', 'المشاريع')}</p>
+            <p className="px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Requests', 'الطلبات')}</p>
             {visibleProjects.length === 0 && (
               <p className="px-4 py-4 text-[12px] text-neutral-400">{t('No matching requests.', 'لا توجد طلبات مطابقة.')}</p>
             )}
@@ -113,8 +115,9 @@ export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, pr
                     <span className={`text-[13px] font-semibold truncate ${isActive ? 'text-brand-800' : 'text-neutral-800'}`}>{isAr ? p.nameAr : p.name}</span>
                     {(c?.selected ?? 0) > 0 && <span className="text-[10px] font-bold text-white bg-brand-600 rounded-full px-1.5 py-0.5 flex-shrink-0">{c.selected}</span>}
                   </div>
-                  <p className="text-[11px] text-neutral-500 mt-0.5 truncate"><span dir="ltr">{p.code}</span> · {isAr ? p.entityAr : p.entity}</p>
-                  <p className="text-[10.5px] text-neutral-400 mt-0.5">{t(`${c?.total ?? 0} criteria`, `${c?.total ?? 0} معيار`)}</p>
+                  <p className="text-[11.5px] text-neutral-600 mt-1 font-medium" data-lib-request dir="ltr" style={{ textAlign: isAr ? 'right' : 'left' }}>{p.requestNo}</p>
+                  <p className="text-[11px] text-neutral-500 mt-0.5 truncate">{t('Created by', 'أنشأه')} <span className="text-neutral-700" data-lib-creator>{isAr ? p.createdByAr : p.createdBy}</span></p>
+                  <p className="text-[10.5px] text-neutral-400 mt-0.5">{t(`${c?.total ?? 0} ${noun.en}`, `${c?.total ?? 0} ${noun.ar}`)}</p>
                 </button>
               );
             })}
@@ -125,7 +128,7 @@ export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, pr
             <div className="sticky top-0 bg-white/95 backdrop-blur px-5 py-3 border-b border-neutral-100 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[13px] font-semibold text-neutral-900 truncate">{activeProj ? (isAr ? activeProj.nameAr : activeProj.name) : ''}</p>
-                <p className="text-[11px] text-neutral-500">{t('Criteria added in this project', 'المعايير المضافة في هذا المشروع')}</p>
+                <p className="text-[11px] text-neutral-500"><span dir="ltr">{activeProj?.requestNo}</span> · {t(`Created by ${activeProj?.createdBy ?? ''}`, `أنشأه ${activeProj?.createdByAr ?? ''}`)}</p>
               </div>
               {selectableActive.length > 0 && (
                 <button type="button" onClick={toggleAllActive} className="text-[12px] font-semibold text-brand-700 hover:underline flex-shrink-0">
@@ -161,7 +164,7 @@ export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, pr
                   </button>
                 );
               })}
-              {activeItems.length === 0 && <p className="text-[13px] text-neutral-400 italic px-1 py-6 text-center">{t('No criteria recorded for this project.', 'لا توجد معايير مسجلة لهذا المشروع.')}</p>}
+              {activeItems.length === 0 && <p className="text-[13px] text-neutral-400 italic px-1 py-6 text-center">{t(`No ${noun.en} recorded for this request.`, `لا توجد ${noun.ar} مسجلة لهذا الطلب.`)}</p>}
             </div>
           </div>
         </div>
@@ -170,8 +173,8 @@ export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, pr
         <div className="shrink-0 px-5 py-3 border-t border-neutral-100 bg-white flex items-center justify-between gap-3">
           <p className="text-[12px] text-neutral-600">
             {selected.size > 0
-              ? <><span className="font-semibold text-neutral-900">{selected.size}</span> {t('criteria selected across projects', 'معيار محدد من عدة مشاريع')}</>
-              : t('Select criteria to import', 'اختر المعايير للاستيراد')}
+              ? <><span className="font-semibold text-neutral-900">{selected.size}</span> {t(`${noun.en} selected across requests`, `${noun.ar} محدد من عدة طلبات`)}</>
+              : t(`Select ${noun.en} to import`, `اختر ${noun.ar} للاستيراد`)}
           </p>
           <div className="flex items-center gap-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-neutral-300 text-[13px] font-medium text-neutral-600 hover:bg-neutral-50 transition-colors">{t('Cancel', 'إلغاء')}</button>
