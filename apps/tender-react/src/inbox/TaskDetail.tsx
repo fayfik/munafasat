@@ -25,6 +25,7 @@ import EaReview from './EaReview';
 import BoqLineDetails, { BoqViewButton, useBoqOpen, viewFromRfpLine, rfpCostCenter } from '../components/BoqLineDetails';
 import { EA_RETURN_REASONS, eaReturnDraft } from './eaSections';
 import { deptKind, reasonsFor, deptCommentDigest, ORM_LIBRARY } from './cyberReview';
+import { DeploymentHero, StandardsList } from '../components/TechStandards';
 import { bcmVerdict, bcmClauseById, tprRating, VERDICT, RATING, TPR_QUESTIONS } from '../lib/continuityRisk';
 import CyberReview from './CyberReview';
 import QualEditor from './QualEditor';
@@ -547,6 +548,7 @@ export function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: strin
   return [
     { id: 'overview', en: 'Overview', ar: 'نظرة عامة' },
     { id: 'scope', en: 'Scope', ar: 'النطاق' },
+    ...(rfp.techStandards?.length ? [{ id: 'standards', en: 'Technical standards', ar: 'المعايير التقنية' }] : []),
     ...(rfp.bcm || rfp.tpr ? [{ id: 'continuity', en: 'Continuity & risk', ar: 'الاستمرارية والمخاطر' }] : []),
     ...(rfp.boq.length ? [{ id: 'cost', en: 'Bill of quantities', ar: 'جدول الكميات' }] : []),
     ...(rfp.payment.length ? [{ id: 'payment', en: 'Payment', ar: 'الدفعات' }] : []),
@@ -557,6 +559,58 @@ export function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: strin
 }
 
 const TH = 'px-3 py-2 font-medium text-[11px] uppercase tracking-wide text-neutral-500';
+
+/** Overview facts, derived from the record's own fields so every page shows the same values. */
+function metaFor(rfp: RfpDetail): RfpDetail['meta'] {
+  const derived = new Set(['Contract duration', 'Evaluation split', 'Cost center']);
+  const out = rfp.meta.filter((m) => !derived.has(m.label.en));
+  if (rfp.costCenters?.length) out.splice(2, 0, { label: { en: 'Cost center', ar: 'مركز التكلفة' }, value: rfp.costCenters.join(', ') });
+  else { const cc = rfp.meta.find((m) => m.label.en === 'Cost center'); if (cc) out.splice(2, 0, cc); }
+  if (rfp.duration) out.push({ label: { en: 'Contract duration', ar: 'مدة العقد' }, value: rfp.duration });
+  if (rfp.evaluation.length && rfp.techSplit != null) out.push({ label: { en: 'Evaluation split', ar: 'توزيع التقييم' }, value: `Technical ${rfp.techSplit}% / Commercial ${100 - rfp.techSplit}%` });
+  return out;
+}
+
+function Chips({ items, attr }: { items: string[]; attr?: string }) {
+  return <div className="flex flex-wrap gap-1.5" {...(attr ? { [attr]: '' } : {})}>{items.map((x, i) => <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-full text-[11.5px] bg-white text-neutral-700 border border-neutral-200">{x}</span>)}</div>;
+}
+
+/** Scope of Work — everything else the requester set on that step. */
+function ScopeDetails({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boolean; t: T }) {
+  const fmtD = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}/.test(d) ? new Date(d).toLocaleDateString(isAr ? 'ar-SA-u-ca-gregory' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : d);
+  const facts = [
+    { k: t('Execution location', 'موقع التنفيذ'), v: rfp.location, id: 'location' },
+    { k: t('Start date', 'تاريخ البدء'), v: fmtD(rfp.startDate), id: 'start' },
+    { k: t('Contract duration', 'مدة العقد'), v: rfp.duration, id: 'duration' },
+    { k: t('Brand name', 'العلامة التجارية'), v: rfp.brand ? (rfp.brand.has ? `${t('Yes', 'نعم')}${rfp.brand.justification ? ` — ${rfp.brand.justification}` : ''}` : t('No brand named', 'لا توجد علامة محددة')) : undefined, id: 'brand' },
+  ].filter((f) => f.v);
+  if (!facts.length && !rfp.includes?.length && !rfp.termsEn && !rfp.deliverables?.length && !rfp.regulatory?.length) return null;
+  return (
+    <div className="mt-5 space-y-4 border-t border-neutral-100 pt-4" data-rfp-scope-details>
+      {facts.length > 0 && (
+        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
+          {facts.map((f) => <Commentable key={f.id} id={`scope-${f.id}`} label={{ en: f.k, ar: f.k }}><div className="min-w-0" data-rfp-fact={f.id}><dt className="text-[10.5px] uppercase tracking-wide text-neutral-400">{f.k}</dt><dd className="text-[13px] font-medium text-neutral-800 mt-0.5">{f.v}</dd></div></Commentable>)}
+        </dl>
+      )}
+      {rfp.includes?.length ? <Commentable id="scope-includes" label={{ en: 'Project includes', ar: 'يشمل المشروع' }}><div><SubLabel>{t('Project includes', 'يشمل المشروع')}</SubLabel><Chips items={rfp.includes.map((x) => (isAr ? x.ar : x.en))} attr="data-rfp-includes" /></div></Commentable> : null}
+      {rfp.termsEn ? <Commentable id="scope-terms" label={{ en: 'Terms and conditions', ar: 'الشروط والأحكام' }}><div><SubLabel>{t('Terms and conditions', 'الشروط والأحكام')}</SubLabel><p className="text-[13px] text-neutral-700 leading-relaxed whitespace-pre-line" data-rfp-terms>{isAr ? rfp.termsAr : rfp.termsEn}</p></div></Commentable> : null}
+      {rfp.deliverables?.length ? (
+        <Commentable id="scope-deliverables" label={{ en: 'Deliverables', ar: 'المخرجات' }}><div>
+          <SubLabel>{t('Deliverables', 'المخرجات')}</SubLabel>
+          <div className="overflow-x-auto rounded-xl border border-neutral-200">
+            <table className="w-full min-w-[520px] text-[12.5px]" data-rfp-deliverables>
+              <thead><tr className="bg-neutral-50 border-b border-neutral-200"><th className={`${TH} text-start w-28`}>{t('Phase', 'المرحلة')}</th><th className={`${TH} text-start`}>{t('Deliverable', 'المخرج')}</th><th className={`${TH} text-start w-32`}>{t('Due', 'الموعد')}</th></tr></thead>
+              <tbody>{rfp.deliverables.map((d, i) => (
+                <tr key={i} className="border-b border-neutral-100 last:border-0 align-top"><td className="px-3 py-2 text-neutral-600">{d.phase || '—'}</td><td className="px-3 py-2"><p className="font-medium text-neutral-800">{d.name}</p>{d.desc && <p className="text-neutral-500">{d.desc}</p>}</td><td className="px-3 py-2 text-neutral-600 whitespace-nowrap">{fmtD(d.due) || '—'}</td></tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </div></Commentable>
+      ) : null}
+      {rfp.regulatory?.length ? <Commentable id="scope-regulatory" label={{ en: 'Regulatory records', ar: 'السجلات النظامية' }}><div><SubLabel>{t('Regulatory records vendors must hold', 'السجلات النظامية المطلوبة من الموردين')}</SubLabel><Chips items={rfp.regulatory} attr="data-rfp-regulatory" /></div></Commentable> : null}
+    </div>
+  );
+}
 const lineTotalOf = (l: RfpDetail['boq'][number]) => (Number(l.qty) || 1) * l.unitPrice;
 
 function SubLabel({ children }: { children: React.ReactNode }) {
@@ -879,6 +933,11 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
   );
   const qualTable = (
     <div className="space-y-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" data-rfp-qual-stats>
+        <MiniStat label={t('Qualification passing percentage', 'نسبة اجتياز التأهيل')} value={rfp.qualPassing != null ? `${rfp.qualPassing}%` : '—'} />
+        <MiniStat label={t('Main criteria', 'المعايير الرئيسية')} value={String(rfp.qualCriteria?.length ?? 0)} />
+        <MiniStat label={t('Sub-criteria', 'المعايير الفرعية')} value={String((rfp.qualCriteria ?? []).reduce((n, m) => n + m.subs.length, 0))} />
+      </div>
       {rfp.qualCommittee?.length ? <div><SubLabel>{t('Qualification committee', 'لجنة التأهيل')}</SubLabel><CommitteeChips members={rfp.qualCommittee} isAr={isAr} /></div> : null}
       {rfp.qualCriteria?.length ? (
         <div>
@@ -940,8 +999,15 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
           <h3 className="text-[16px] font-bold text-neutral-900 mt-0.5">{isAr ? rfp.titleAr : rfp.titleEn}</h3>
           <p className="text-[13px] text-neutral-600 mt-1 leading-relaxed">{isAr ? rfp.summaryAr : rfp.summaryEn}</p>
           </div></Commentable>
+          {(rfp.purposeEn || rfp.projectItems?.length) ? (
+            <div className="mt-4 space-y-3" data-rfp-setup>
+              {rfp.purposeEn && <Commentable id="purpose" label={{ en: 'Purpose of the tender', ar: 'الغرض من المنافسة' }}><div><SubLabel>{t('Purpose of the tender', 'الغرض من المنافسة')}</SubLabel><p className="text-[13px] text-neutral-700 leading-relaxed" data-rfp-purpose>{isAr ? rfp.purposeAr : rfp.purposeEn}</p></div></Commentable>}
+              {rfp.projectItems?.length ? <Commentable id="project-items" label={{ en: 'Budgeted project items', ar: 'بنود المشروع المعتمدة' }}><div><SubLabel>{t('Budgeted project items', 'بنود المشروع المعتمدة')}</SubLabel><Chips items={rfp.projectItems.map((x) => (isAr ? x.ar : x.en))} attr="data-rfp-items" /></div></Commentable> : null}
+              {rfp.routeJustification && <Commentable id="route-justification" label={{ en: 'Why eMarket items stay in the tender', ar: 'سبب إبقاء بنود السوق في المنافسة' }}><div><SubLabel>{t('Why eMarket items stay in the tender', 'سبب إبقاء بنود السوق في المنافسة')}</SubLabel><p className="text-[13px] text-neutral-700">{rfp.routeJustification}</p></div></Commentable>}
+            </div>
+          ) : null}
           <dl className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 border-t border-neutral-100 pt-4">
-            {rfp.meta.map((m, i) => (
+            {metaFor(rfp).map((m, i) => (
               <Commentable key={i} id={`meta-${i}`} label={{ en: m.label.en, ar: m.label.ar }}><div className="min-w-0"><dt className="text-[10.5px] uppercase tracking-wide text-neutral-400">{tb(m.label, isAr)}</dt>
                 <dd className="text-[13px] font-medium text-neutral-800 truncate mt-0.5" dir={m.dir}>{m.value}</dd></div></Commentable>
             ))}
@@ -964,7 +1030,17 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
               ))}
             </div>
           ) : null}
+          <ScopeDetails rfp={rfp} isAr={isAr} t={t} />
         </RfpSection>
+
+        {rfp.techStandards?.length ? (
+          <RfpSection id="standards" title={t('Technical standards', 'المعايير التقنية')} label={{ en: 'Technical standards', ar: 'المعايير التقنية' }} meta={t(`${rfp.techStandards.filter((x) => x.status === 'included').length} included · ${rfp.techStandards.filter((x) => x.status === 'na').length} not applicable`, `${rfp.techStandards.filter((x) => x.status === 'included').length} مشمول · ${rfp.techStandards.filter((x) => x.status === 'na').length} غير منطبق`)}>
+            <div className="space-y-4" data-rfp-standards>
+              {rfp.deploymentModel && <DeploymentHero deployment={rfp.deploymentModel} answers={rfp.techAnswers as never} isAr={isAr} t={t} compact />}
+              <StandardsList rows={rfp.techStandards} isAr={isAr} t={t} />
+            </div>
+          </RfpSection>
+        ) : null}
 
         {(rfp.bcm || rfp.tpr) && (
           <RfpSection id="continuity" title={t('Business continuity & third-party risk', 'استمرارية الأعمال ومخاطر الطرف الثالث')} label={{ en: 'Business continuity & third-party risk', ar: 'استمرارية الأعمال ومخاطر الطرف الثالث' }}>
@@ -998,7 +1074,7 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
           <RfpSection id="evaluation" title={t('Evaluation criteria', 'معايير التقييم')} label={{ en: 'Evaluation criteria', ar: 'معايير التقييم' }} meta={`${rfp.evaluation.length} ${t('criteria', 'معايير')} · ${t('passing', 'الاجتياز')} ${rfp.techPassing ?? 0}%`} views={{ table: evalTable, chart: evalChart }} />
         )}
         {(rfp.qualCriteria?.length ?? 0) > 0 && (
-          <RfpSection id="qualification" title={t('Qualification criteria', 'معايير التأهيل')} label={{ en: 'Qualification criteria', ar: 'معايير التأهيل' }} meta={`${rfp.qualCriteria?.length ?? 0} ${t('main criteria', 'معايير رئيسية')} · ${(rfp.qualCriteria ?? []).reduce((n, m) => n + m.subs.length, 0)} ${t('sub-criteria', 'معايير فرعية')}`} views={{ table: qualTable, chart: qualChart }} />
+          <RfpSection id="qualification" title={t('Qualification criteria', 'معايير التأهيل')} label={{ en: 'Qualification criteria', ar: 'معايير التأهيل' }} meta={`${rfp.qualCriteria?.length ?? 0} ${t('main criteria', 'معايير رئيسية')} · ${(rfp.qualCriteria ?? []).reduce((n, m) => n + m.subs.length, 0)} ${t('sub-criteria', 'معايير فرعية')} · ${t('passing', 'الاجتياز')} ${rfp.qualPassing ?? 0}%`} views={{ table: qualTable, chart: qualChart }} />
         )}
 
         {rfp.documents.length > 0 && (

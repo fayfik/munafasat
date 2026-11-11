@@ -1168,6 +1168,36 @@ async function openRequest(title) {
     expect(!(await confirm.isDisabled()), 'confirm enabled');
   });
 
+  // ── One request record everywhere ──────────────────────────────────────────
+  await test('Request details (Inbox + My Requests): every creation field shown — purpose, items, scope details, deliverables, standards, qualification passing %, continuity', async () => {
+    await page.goto(BASE); await wait(600); await nav('Inbox'); await wait(LOAD);
+    await page.locator('li[data-task-id="TSK-4433-02"] button').click(); await wait(LOAD);
+    await tab('Request details'); await wait(500);
+    const checks = ['[data-rfp-purpose]', '[data-rfp-items]', '[data-rfp-scope-details]', '[data-rfp-fact="location"]', '[data-rfp-fact="start"]', '[data-rfp-fact="duration"]', '[data-rfp-fact="brand"]',
+      '[data-rfp-includes]', '[data-rfp-terms]', '[data-rfp-deliverables]', '[data-rfp-regulatory]', '[data-rfp-standards]', '[data-rfp-qual-stats]', '[data-rfp-continuity]'];
+    for (const c of checks) expect(await count(c) >= 1, `inbox missing ${c}`);
+    expect((await page.locator('[data-rfp-qual-stats]').innerText()).includes('60%'), 'qualification passing % shown');
+    // Same record on the request page (opened from the task's project link)
+    const [tab2] = await Promise.all([page.context().waitForEvent('page'), page.click('[data-project-link]')]);
+    await tab2.waitForLoadState(); await tab2.waitForTimeout(1500);
+    const rd = tab2.getByRole('button', { name: 'Request details' }); if (await rd.count()) { await rd.first().click(); await tab2.waitForTimeout(800); }
+    await tab2.getByRole('button', { name: 'Expand all' }).click(); await tab2.waitForTimeout(500);
+    for (const c of ['[data-rfp-purpose]', '[data-rfp-scope-details]', '[data-rfp-deliverables]', '[data-rfp-qual-stats]', '[data-rfp-terms]']) expect(await tab2.locator(c).count() >= 1, `request page missing ${c}`);
+    await tab2.close();
+  });
+  await test('Request record stays in sync across tasks: a clause Cyber inserts shows in every task of the request', async () => {
+    await page.click('[data-inbox-tab="all"]'); await wait(200);
+    await page.locator('li[data-task-id="TSK-4433-04"] button').click(); await wait(LOAD);
+    if (!(await count('[data-cyber-row="bcm-people-exercise"]'))) {
+      await page.click('[data-cyber-add="continuity"]'); await wait(200);
+      await page.click('[data-clause-insert="exercise"]').catch(() => {}); await wait(200);
+      await page.keyboard.press('Escape'); await wait(150);
+    }
+    await page.locator('li[data-task-id="TSK-4433-06"] button').click(); await wait(LOAD);
+    await tab('Request details'); await wait(500);
+    expect(await count('[data-rfp-bcm="exercise"]') === 1, 'clause added in the BCM task visible from the EA task');
+  });
+
   await browser.close();
   const pass = results.filter((r) => r.ok).length;
   console.log(`\n${pass}/${results.length} passed\n`);

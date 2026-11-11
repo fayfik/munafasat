@@ -143,7 +143,7 @@ export function financeFor(src: { name: string; description?: string; saved?: Pa
 }
 
 /** Adapter for request records (Inbox / request detail). */
-export function viewFromRfpLine(l: { itemEn: string; itemAr: string; qty: string; unit: string; unitPrice: number; descEn?: string; descAr?: string; budgetEn?: string; budgetAr?: string; category?: 'Service' | 'Material'; delivery?: string }, isAr: boolean, t: T, costCenter?: string): BoqLineView {
+export function viewFromRfpLine(l: { itemEn: string; itemAr: string; qty: string; unit: string; unitPrice: number; descEn?: string; descAr?: string; budgetEn?: string; budgetAr?: string; category?: 'Service' | 'Material'; delivery?: string; finPurchaseType?: BOQRow['finPurchaseType']; materialGroup?: string; brandName?: string }, isAr: boolean, t: T, costCenter?: string): BoqLineView {
   return {
     name: isAr ? l.itemAr : l.itemEn,
     description: (isAr ? l.descAr : l.descEn) ?? undefined,
@@ -152,7 +152,8 @@ export function viewFromRfpLine(l: { itemEn: string; itemAr: string; qty: string
     qty: l.qty, unit: l.unit, unitPrice: l.unitPrice,
     total: (Number(l.qty) || 1) * l.unitPrice,
     delivery: l.delivery,
-    finance: financeFor({ name: l.itemEn, description: l.descEn }, { costCenter }),
+    finance: financeFor({ name: l.itemEn, description: l.descEn, saved: l.finPurchaseType || l.materialGroup ? { finPurchaseType: l.finPurchaseType, materialGroup: l.materialGroup, acctSource: 'user' } as Partial<BOQRow> : undefined }, { costCenter }),
+    extra: l.brandName ? [{ label: t('Brand name', 'العلامة التجارية'), value: l.brandName, full: true }] : undefined,
   };
 }
 

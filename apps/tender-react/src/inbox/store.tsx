@@ -283,13 +283,18 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   const resolveComment = useCallback((id: string, commentId: string, resolved: boolean) => {
     patch(id, (t) => ({ ...t, state: t.state === 'available' ? 'in-progress' : t.state, activity: t.activity.map((a) => (a.id === commentId ? { ...a, resolved } : a)) }));
   }, [patch]);
+  /** One request record: a change to the request from any task reaches every task on that request. */
+  const shareRfp = (xs: Task[], id: string, rfp: RfpDetail) => {
+    const ref = xs.find((t) => t.id === id)?.entity.ref;
+    return xs.map((t) => (t.id !== id && ref && t.entity.ref === ref && t.rfp ? { ...t, rfp } : t));
+  };
   const updateRfp = useCallback((id: string, rfp: RfpDetail) => {
-    patch(id, (t) => ({ ...t, rfp, state: t.state === 'available' ? 'in-progress' : t.state }));
-  }, [patch]);
+    setTasks((xs) => shareRfp(xs, id, rfp).map((t) => (t.id === id ? { ...t, rfp, state: t.state === 'available' ? 'in-progress' : t.state } : t)));
+  }, []);
 
   const setTaskData = useCallback((id: string, p: Partial<Task>) => {
-    patch(id, (t) => ({ ...t, ...p, state: t.state === 'available' ? 'in-progress' : t.state }));
-  }, [patch]);
+    setTasks((xs) => (p.rfp ? shareRfp(xs, id, p.rfp) : xs).map((t) => (t.id === id ? { ...t, ...p, state: t.state === 'available' ? 'in-progress' : t.state } : t)));
+  }, []);
 
   const setChecklistItem = useCallback((id: string, itemId: string, p: Partial<ChecklistItem>) => {
     patch(id, (t) => ({

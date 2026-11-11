@@ -258,6 +258,27 @@ export interface RfpDetail {
   summaryEn: string; summaryAr: string;
   meta: { label: Bilingual; value: string; dir?: 'ltr' }[];
   scopeEn: string; scopeAr: string;
+  // ── Everything else captured in request creation (one record for every page) ──
+  /** Project Setup: purpose of the tender. */
+  purposeEn?: string; purposeAr?: string;
+  /** Project Setup: budgeted project items chosen for this request. */
+  projectItems?: { en: string; ar: string }[];
+  /** Project Setup: cost centers (default + added). */
+  costCenters?: string[];
+  /** Procurement route: why eMarket-available items were kept in the tender. */
+  routeJustification?: string;
+  /** Scope of Work: terms & conditions. */
+  termsEn?: string; termsAr?: string;
+  /** Scope of Work: what the project includes (categories). */
+  includes?: { en: string; ar: string }[];
+  /** Scope of Work: execution location, start date, contract duration. */
+  location?: string; startDate?: string; duration?: string;
+  /** Scope of Work: brand name. */
+  brand?: { has: boolean; justification?: string };
+  /** Scope of Work: deliverables. */
+  deliverables?: { phase?: string; name: string; due?: string; desc?: string }[];
+  /** Review & Confirm: regulatory records vendors must hold. */
+  regulatory?: string[];
   /** Structured scope blocks (objectives, in/out of scope, deliverables…). */
   scopeBlocks?: { headEn: string; headAr: string; itemsEn: string[]; itemsAr: string[] }[];
   boq: {
@@ -266,6 +287,10 @@ export interface RfpDetail {
     budgetEn?: string; budgetAr?: string;      // budgeted (project) item
     category?: 'Service' | 'Material';
     delivery?: string;                         // ISO date
+    /** Finance fields chosen in creation (else suggested by AI). */
+    finPurchaseType?: 'consumable' | 'asset' | 'service' | 'service-asset';
+    materialGroup?: string;
+    brandName?: string;
   }[];
   payment: { stageEn: string; stageAr: string; pct: number; descEn?: string; descAr?: string; due?: string; dueAr?: string }[];
   evaluation: { criterionEn: string; criterionAr: string; weight: number; descEn?: string; descAr?: string }[];

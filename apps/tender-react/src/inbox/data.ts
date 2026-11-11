@@ -515,7 +515,14 @@ const QUAL_COMMITTEE: NonNullable<RfpDetail['qualCommittee']> = [
 ];
 
 /** Fill any section a record leaves empty so every RFP view is complete. */
-function completeRfp(r: RfpDetail): RfpDetail {
+function completeRfp(r0: RfpDetail): RfpDetail {
+  // Deliverables live in one place: a "Deliverables & timeline" scope block becomes the deliverables table.
+  const dBlock = r0.scopeBlocks?.find((b) => /^Deliverables/.test(b.headEn));
+  const r: RfpDetail = dBlock && !r0.deliverables ? {
+    ...r0,
+    scopeBlocks: r0.scopeBlocks!.filter((b) => b !== dBlock),
+    deliverables: dBlock.itemsEn.map((x, i) => { const [name, due] = x.split(' — '); return { phase: `Phase ${i + 1}`, name, due, desc: undefined }; }),
+  } : r0;
   return {
     ...r,
     techPassing: r.techPassing ?? 70,
@@ -526,6 +533,22 @@ function completeRfp(r: RfpDetail): RfpDetail {
     techDocs: r.techDocs ?? TECH_DOCS_DEFAULT,
     qualPassing: r.qualPassing ?? 60,
     qualCommittee: r.qualCommittee ?? QUAL_COMMITTEE,
+    purposeEn: r.purposeEn ?? `The purpose of this tender is to procure ${r.titleEn} to enhance operational efficiency, support digital transformation objectives and ensure compliance with applicable regulatory standards.`,
+    purposeAr: r.purposeAr ?? `الغرض من هذه المنافسة شراء ${r.titleAr} لتعزيز الكفاءة التشغيلية ودعم أهداف التحول الرقمي وضمان الامتثال للأنظمة المعمول بها.`,
+    projectItems: r.projectItems ?? r.boq.slice(0, 4).map((l) => ({ en: l.budgetEn ?? l.itemEn, ar: l.budgetAr ?? l.itemAr })).filter((x, i, a) => a.findIndex((y) => y.en === x.en) === i),
+    termsEn: r.termsEn ?? 'Vendor must hold valid Saudi registrations; prices are fixed for the contract duration; warranty of 12 months from final acceptance; penalties for delay up to 10% of the contract value.',
+    termsAr: r.termsAr ?? 'يجب أن يحمل المورد تسجيلات سعودية سارية؛ الأسعار ثابتة طوال مدة العقد؛ ضمان 12 شهراً من القبول النهائي؛ غرامات تأخير حتى 10% من قيمة العقد.',
+    includes: r.includes ?? [{ en: 'Technology', ar: 'تقنية' }, { en: 'Consultancy', ar: 'استشارات' }],
+    location: r.location ?? 'Riyadh — Head Office',
+    startDate: r.startDate ?? new Date(Date.now() + 45 * 864e5).toISOString().slice(0, 10),
+    duration: r.duration ?? r.meta.find((m) => m.label.en === 'Contract duration')?.value ?? '12 months',
+    brand: r.brand ?? { has: false },
+    deliverables: r.deliverables ?? [
+      { phase: 'Phase 1', name: 'Kick-off and delivery plan', due: 'Week 2', desc: 'Project plan, RACI and delivery schedule approved.' },
+      { phase: 'Phase 2', name: 'Delivery and installation', due: 'Week 8', desc: 'All BOQ items delivered, installed and configured.' },
+      { phase: 'Phase 3', name: 'Final acceptance', due: 'Week 12', desc: 'Acceptance tests passed and handover signed.' },
+    ],
+    regulatory: r.regulatory ?? ['Commercial Registration', 'NCA Compliance Certificate', 'ZATCA E-invoicing Compliance'],
   };
 }
 
@@ -681,7 +704,6 @@ export function requestRfpFor(o: { refId: string; titleEn: string; titleAr: stri
       { headEn: 'Objectives', headAr: 'الأهداف', itemsEn: ['Meet the department’s operational requirement on time', 'Comply with the technical specification and NCA controls', 'Achieve best value within the approved budget'], itemsAr: ['تلبية الاحتياج التشغيلي للإدارة في الوقت المحدد', 'الالتزام بالمواصفات الفنية وضوابط الهيئة الوطنية للأمن السيبراني', 'تحقيق أفضل قيمة ضمن الميزانية المعتمدة'] },
       { headEn: 'In scope', headAr: 'ضمن النطاق', itemsEn: ['Supply and delivery of all BOQ items', 'Installation, configuration and testing', 'Training and knowledge transfer'], itemsAr: ['توريد وتسليم جميع بنود جدول الكميات', 'التركيب والإعداد والاختبار', 'التدريب ونقل المعرفة'] },
       { headEn: 'Out of scope', headAr: 'خارج النطاق', itemsEn: ['Civil works and building modifications', 'Items already covered by existing contracts'], itemsAr: ['الأعمال المدنية وتعديلات المباني', 'البنود المشمولة بعقود قائمة'] },
-      { headEn: 'Deliverables & timeline', headAr: 'المخرجات والجدول الزمني', itemsEn: ['Kick-off and delivery plan — Week 2', 'Delivery and installation — Week 8', 'Final acceptance — Week 12'], itemsAr: ['الانطلاق وخطة التسليم — الأسبوع 2', 'التسليم والتركيب — الأسبوع 8', 'القبول النهائي — الأسبوع 12'] },
     ],
     documents: [
       { en: 'Scope of work', ar: 'نطاق العمل', type: 'PDF', size: '1.2 MB', by: o.deptEn },
@@ -699,8 +721,19 @@ export function requestRfpFor(o: { refId: string; titleEn: string; titleAr: stri
       m.label.en === 'Procurement route' ? { ...m, value: esouq ? 'Etimad E-Market' : 'Competitive Tender' } : m)
       .filter((m) => !esouq || !['Evaluation split', 'Suppliers invited', 'Planned award'].includes(m.label.en)),
     boq,
+    purposeEn: `The purpose of this tender is to procure ${o.titleEn} for ${o.deptEn}, to enhance operational efficiency and ensure compliance with applicable regulatory standards.`,
+    purposeAr: `الغرض من هذه المنافسة شراء «${o.titleAr}» لصالح ${o.deptAr} لتعزيز الكفاءة التشغيلية وضمان الامتثال للأنظمة المعمول بها.`,
+    projectItems: boq.map((l) => ({ en: l.budgetEn ?? l.itemEn, ar: l.budgetAr ?? l.itemAr })).filter((x, i, a) => a.findIndex((y) => y.en === x.en) === i).slice(0, 5),
+    costCenters: [o.costCenter],
+    deliverables: /ERP System Upgrade/.test(o.titleEn) ? base.deliverables : [
+      { phase: 'Phase 1', name: 'Kick-off and delivery plan', due: 'Week 2', desc: 'Project plan, RACI and delivery schedule approved.' },
+      { phase: 'Phase 2', name: 'Delivery and installation', due: 'Week 8', desc: 'All BOQ items delivered, installed and configured.' },
+      { phase: 'Phase 3', name: 'Final acceptance', due: 'Week 12', desc: 'Acceptance tests passed and handover signed.' },
+    ],
+    ...(o.start ? { startDate: o.start.toISOString().slice(0, 10) } : {}),
+    duration: esouq ? 'One-off purchase' : '12 months',
     // Etimad E-Market requests skip payment, evaluation and qualification (shorter flow).
-    ...(esouq ? { payment: [], evaluation: [], qualification: [], qualCriteria: [], techRequirements: [], techDocs: [], evalCommittee: [], qualCommittee: [] } : {}),
+    ...(esouq ? { payment: [], evaluation: [], qualification: [], qualCriteria: [], techRequirements: [], techDocs: [], evalCommittee: [], qualCommittee: [], qualPassing: undefined, techPassing: undefined, deliverables: [], termsEn: undefined, termsAr: undefined } : {}),
   };
 }
 

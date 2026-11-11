@@ -9,6 +9,7 @@ import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPr
 import { useLoading, SkeletonCards, Sk } from '../components/Loader';
 import BoqItems from './BoqItems';
 import { APPROVAL_STAGES, REQUESTER, requestRfpFor } from '../inbox/data';
+import { rfpFromForm } from '../inbox/rfpFromForm';
 import { STATUS, TYPE } from './MyRequests';
 
 type T = (en: string, ar: string) => string;
@@ -118,10 +119,15 @@ export default function RequestDetail({ id, onBack, onEdit }: { id: string; onBa
   const busy = useLoading([id, tab], 450);
 
   const amount = r ? parseAmount(r.budget) : 0;
-  const rfp = useMemo(() => r ? requestRfpFor({
-    refId: r.requestNo || 'Draft', titleEn: r.title, titleAr: r.titleAr || r.title,
-    deptEn: r.department, deptAr: r.departmentAr || r.department, amount, type: r.type, costCenter: costCenterOf(r.department), start: new Date(+new Date(r.createdAt) + 45 * 864e5),
-  }) : undefined, [r, amount]);
+  // One record for every page: what the requester entered (form), on top of the request's base record.
+  const rfp = useMemo(() => {
+    if (!r) return undefined;
+    const base = requestRfpFor({
+      refId: r.requestNo || 'Draft', titleEn: r.title, titleAr: r.titleAr || r.title,
+      deptEn: r.department, deptAr: r.departmentAr || r.department, amount, type: r.type, costCenter: costCenterOf(r.department), start: new Date(+new Date(r.createdAt) + 45 * 864e5),
+    });
+    return r.form ? { ...rfpFromForm(r.form, base), refId: base.refId } : base;
+  }, [r, amount]);
   const proc = useMemo(() => r ? buildProcess(r) : [], [r]);
 
   if (!r && (mode === 'loading' || (mode === 'live' && requests.length === 0))) {
