@@ -30,6 +30,7 @@
     checks.forEach((c) => { c.disabled = false; });
     notes.disabled = false;
     checks[0].focus();
+    document.dispatchEvent(new CustomEvent('task:claimed'));
   };
 
   pickup.addEventListener('click', claim);
