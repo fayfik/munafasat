@@ -34,10 +34,10 @@ export default function ConfirmDeleteAll({
           <p className="text-[13px] text-neutral-700 leading-relaxed">{isAr ? messageAr : message}</p>
         </div>
         <div className="px-5 py-3 border-t border-neutral-100 flex justify-end gap-2">
-          <button type="button" onClick={onCancel}
-            className="px-4 py-2 rounded-lg border border-neutral-300 bg-white text-[13px] font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors">{t('Cancel', 'إلغاء')}</button>
           <button type="button" onClick={onConfirm}
             className="px-4 py-2 rounded-lg bg-error-600 text-white text-[13px] font-semibold hover:bg-error-700 transition-colors shadow-sm">{t('Yes, delete all', 'نعم، احذف الكل')}</button>
+          <button type="button" onClick={onCancel}
+            className="px-4 py-2 rounded-lg text-[13px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
         </div>
       </div>
     </div>, document.body);

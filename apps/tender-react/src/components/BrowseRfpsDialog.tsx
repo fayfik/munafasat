@@ -113,12 +113,12 @@ export default function BrowseRfpsDialog({ projectId, onClose, onImport }: { pro
             {chosen ? t(`Selected: ${chosen.code}`, `المحدد: ${chosen.code}`) : t(`${list.length} requests`, `${list.length} طلب`)}
           </p>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-neutral-300 bg-white text-[13px] font-medium text-neutral-700 hover:bg-neutral-50">
-              {t('Cancel', 'إلغاء')}
-            </button>
             <button type="button" disabled={!chosen} onClick={() => chosen && onImport(chosen)}
               className="px-4 py-2 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
               {t('Import selected', 'استيراد المحدد')}
+            </button>
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-[13px] font-semibold text-neutral-600 hover:bg-neutral-100">
+              {t('Cancel', 'إلغاء')}
             </button>
           </div>
         </div>

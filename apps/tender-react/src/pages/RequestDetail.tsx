@@ -212,8 +212,8 @@ export default function RequestDetail({ id, onBack, onEdit }: { id: string; onBa
             <h2 className="text-[17px] font-bold text-neutral-900">{t('Cancel this request?', 'إلغاء هذا الطلب؟')}</h2>
             <p className="mt-2 text-[13px] text-neutral-600 leading-relaxed">{t(`${ref} will be withdrawn and any pending approval tasks removed from approvers' inboxes. This can't be undone.`, `سيتم سحب ${ref} وإزالة مهام الاعتماد المعلقة من صناديق المعتمدين. لا يمكن التراجع عن ذلك.`)}</p>
             <div className="mt-5 flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setCancelAsk(false)}>{t('Keep request', 'الإبقاء على الطلب')}</Button>
               <Button variant="danger" onClick={() => { setCancelled(true); setCancelAsk(false); }}>{t('Cancel request', 'إلغاء الطلب')}</Button>
+              <Button variant="ghost" onClick={() => setCancelAsk(false)}>{t('Keep request', 'الإبقاء على الطلب')}</Button>
             </div>
           </div>
         </div>

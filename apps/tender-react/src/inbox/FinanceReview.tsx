@@ -178,9 +178,9 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
                           </label>
                         </div>
                         <div className="mt-3 flex items-center justify-end gap-2">
-                          <button type="button" onClick={() => setEditing(null)} className="h-8 px-3 rounded-lg border border-neutral-300 bg-white text-[12.5px] font-medium text-neutral-600 hover:bg-neutral-50">{t('Cancel', 'إلغاء')}</button>
                           <button type="button" data-save={l.key} onClick={() => { onUpdateLine(l.key, { finPurchaseType: draft.pt, materialGroup: draft.mg, glSubOverride: dgl.glSub ? undefined : (draft.sub.trim() || undefined) }); setEditing(null); }}
                             className="h-8 px-3.5 rounded-lg bg-brand-600 text-white text-[12.5px] font-semibold hover:bg-brand-700">{t('Save', 'حفظ')}</button>
+                          <button type="button" onClick={() => setEditing(null)} className="h-8 px-3 rounded-lg text-[12.5px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
                         </div>
                       </td>
                     </tr>

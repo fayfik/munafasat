@@ -413,8 +413,8 @@ export function AiFixPanel() {
               {r.apply
                 ? <button type="button" data-ai-apply onClick={doApply} className="h-9 px-4 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 inline-flex items-center gap-1.5 shadow-sm"><SparklesIcon className="w-3.5 h-3.5" />{t('Apply it', 'تطبيق')}</button>
                 : <button type="button" onClick={() => { if (r.field) focusField(r.field); }} className="h-9 px-4 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700">{t('Take me to the field', 'انتقل إلى الحقل')}</button>}
+              <button type="button" data-ai-back onClick={back} className="h-9 px-3.5 rounded-lg border border-neutral-300 text-[13px] font-semibold text-neutral-700 hover:bg-neutral-50">{t('Back to review', 'العودة للمراجعة')}</button>
               <button type="button" onClick={() => { dismiss(r.id); back(); }} className="h-9 px-3.5 rounded-lg text-[13px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Dismiss', 'تجاهل')}</button>
-              <button type="button" data-ai-back onClick={back} className="ms-auto h-9 px-3.5 rounded-lg border border-neutral-300 text-[13px] font-semibold text-neutral-700 hover:bg-neutral-50">{t('Back to review', 'العودة للمراجعة')}</button>
             </>
           )}
         </div>

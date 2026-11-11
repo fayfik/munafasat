@@ -114,9 +114,9 @@ export default function EaReview({ task, isAr, t, readOnly, onDecide, onAcceptAl
                   placeholder={t('What should the requester change in this section?', 'ما الذي يجب على مقدّم الطلب تغييره في هذا القسم؟')}
                   className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-[13px]" />
                 <div className="mt-2 flex justify-end gap-2">
-                  <button type="button" onClick={() => setCommenting(null)} className="h-8 px-3 rounded-lg border border-neutral-300 bg-white text-[12.5px] font-medium text-neutral-600">{t('Cancel', 'إلغاء')}</button>
                   <button type="button" data-ea-save={s.id} disabled={!draft.trim()} onClick={() => { onDecide(s.id, { state: 'comment', comment: draft.trim() }); setCommenting(null); }}
                     className="h-8 px-3.5 rounded-lg bg-brand-600 text-white text-[12.5px] font-semibold disabled:opacity-40">{t('Save comment', 'حفظ الملاحظة')}</button>
+                  <button type="button" onClick={() => setCommenting(null)} className="h-8 px-3 rounded-lg text-[12.5px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
                 </div>
               </div>
             )}

@@ -249,11 +249,11 @@ export function CommentLayer({ mode, isAr, comments, onAdd, children, authorLabe
                   className={`${thread.length ? 'mt-2.5' : ''} w-full resize-none text-[13px] rounded-lg border border-neutral-300 px-2.5 py-2 focus:border-[#2A6193] focus:ring-2 focus:ring-[#2A6193]/20 outline-none`} />
                 <div className="mt-2 flex items-center gap-2">
                   <span className="text-[10.5px] text-neutral-400">Ctrl + Enter</span>
-                  <button type="button" onClick={close} className="ms-auto px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
                   <button type="button" onClick={save} disabled={!draft.trim()}
-                    className="px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white bg-[#2A6193] hover:bg-[#21507A] disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5">
+                    className="ms-auto px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white bg-[#2A6193] hover:bg-[#21507A] disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5">
                     <SendIcon className="w-3.5 h-3.5" />{t('Comment', 'تعليق')}
                   </button>
+                  <button type="button" onClick={close} className="px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
                 </div>
               </PopShell>
             );
@@ -304,8 +304,8 @@ export function ThreadCard({ c, isAr, respond, compact }: { c: AnchoredComment; 
                 placeholder={t('Reply…', 'رد…')}
                 className="w-full resize-none text-[12.5px] rounded-lg border border-neutral-300 px-2.5 py-1.5 focus:border-[#2A6193] focus:ring-2 focus:ring-[#2A6193]/20 outline-none" />
               <div className="mt-1.5 flex items-center justify-end gap-1.5">
-                <button type="button" onClick={() => { setReplying(false); setReply(''); }} className="px-2 py-1 rounded-md text-[11.5px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
                 <button type="button" onClick={send} disabled={!reply.trim()} className="px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-white bg-[#2A6193] hover:bg-[#21507A] disabled:opacity-40">{t('Reply', 'رد')}</button>
+                <button type="button" onClick={() => { setReplying(false); setReply(''); }} className="px-2 py-1 rounded-md text-[11.5px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
               </div>
             </div>
           ) : (

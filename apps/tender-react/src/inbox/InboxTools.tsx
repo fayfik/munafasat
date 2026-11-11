@@ -233,9 +233,9 @@ export function DelegateDialog({ isAr, t, onClose }: { isAr: boolean; t: T; onCl
         </div>
 
         <div className="px-6 py-5 mt-1 flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="h-10 px-4 rounded-lg text-[13px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
           <button type="button" data-delegate-apply disabled={!valid} onClick={() => { if (target) { delegate({ to: target, from: new Date(from).toISOString(), until: new Date(until).toISOString(), includeNew }); onClose(); } }}
             className="h-10 px-5 rounded-lg bg-[#2A3466] hover:bg-[#1F2753] text-white text-[13px] font-semibold disabled:opacity-40">{t('Delegate inbox', 'تفويض الوارد')}</button>
+          <button type="button" onClick={onClose} className="h-10 px-4 rounded-lg text-[13px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
         </div>
       </div>
     </div>,

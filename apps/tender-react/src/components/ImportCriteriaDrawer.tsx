@@ -177,11 +177,11 @@ export default function ImportCriteriaDrawer({ open, onClose, title, titleAr, pr
               : t(`Select ${noun.en} to import`, `اختر ${noun.ar} للاستيراد`)}
           </p>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-neutral-300 text-[13px] font-medium text-neutral-600 hover:bg-neutral-50 transition-colors">{t('Cancel', 'إلغاء')}</button>
             <button type="button" onClick={doImport} disabled={selected.size === 0}
               className="px-4 py-2 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {t(`Import ${selected.size || ''} selected`.replace('  ', ' ').trim(), `استيراد ${selected.size || ''} محدد`.replace('  ', ' ').trim())}
             </button>
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-[13px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
           </div>
         </div>
       </div>

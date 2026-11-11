@@ -154,8 +154,8 @@ export function EditableRow({ k, state, editing, readOnly, t, onAccept, onModify
           ))}
         </div>
         <div className="mt-3 flex items-center justify-end gap-2">
-          <button type="button" onClick={onCancel} className="h-8 px-3 rounded-lg text-[12.5px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
           <button type="button" disabled={vals.some((v) => !v.trim())} onClick={() => onSave(vals)} data-save={k} className="h-8 px-3 rounded-lg bg-[#2A6193] hover:bg-[#21507A] disabled:opacity-50 text-white text-[12.5px] font-semibold">{t('Save changes', 'حفظ التغييرات')}</button>
+          <button type="button" onClick={onCancel} className="h-8 px-3 rounded-lg text-[12.5px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
         </div>
       </div>
     );

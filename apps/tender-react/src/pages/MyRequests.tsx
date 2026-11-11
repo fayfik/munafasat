@@ -177,8 +177,8 @@ export default function MyRequests({ onNewRequest, onOpenRequest, initialFilter 
           <p className="text-[13px] text-neutral-500 mt-1">{t('Track every request you have raised — from draft to purchase requisition.', 'تابع كل طلب أنشأته — من المسودة حتى طلب الشراء.')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="md" onClick={exportCsv}><DownloadIcon className="w-4 h-4" />{sel.size ? t(`Export (${sel.size})`, `تصدير (${sel.size})`) : t('Export', 'تصدير')}</Button>
           <Button variant="primary" size="md" onClick={onNewRequest}><PlusIcon className="w-4 h-4" />{t('New Request', 'طلب جديد')}</Button>
+          <Button variant="secondary" size="md" onClick={exportCsv}><DownloadIcon className="w-4 h-4" />{sel.size ? t(`Export (${sel.size})`, `تصدير (${sel.size})`) : t('Export', 'تصدير')}</Button>
         </div>
       </div>
 

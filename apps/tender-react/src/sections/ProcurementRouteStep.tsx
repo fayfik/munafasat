@@ -442,11 +442,11 @@ export default function ProcurementRouteStep() {
             </div>
           </SectionCard>
 
-          <div className="flex items-center justify-between">
-            <Button variant="secondary" onClick={() => setPhase('select')}>← {t('Back to items', 'العودة إلى البنود')}</Button>
+          <div className="flex items-center justify-end gap-3">
             <Button variant="primary" size="lg" onClick={confirmChosen}>
               {chosen.route === 'tendering' ? t('Create this request & continue', 'إنشاء هذا الطلب والمتابعة') : t('Create eMarket purchase & continue', 'إنشاء طلب الشراء ومتابعة')} →
             </Button>
+            <Button variant="ghost" onClick={() => setPhase('select')}>← {t('Back to items', 'العودة إلى البنود')}</Button>
           </div>
         </div>
       )}
@@ -514,8 +514,7 @@ export default function ProcurementRouteStep() {
             </SectionCard>
           ))}
 
-          <div className="flex items-center justify-between">
-            <Button variant="secondary" onClick={() => setPhase('select')}>← {t('Back to items', 'العودة إلى البنود')}</Button>
+          <div className="flex items-center justify-end gap-3">
             {mode === 'tender' ? (
               <Button variant="primary" size="lg" onClick={continueTender}
                 disabled={flagged.length > 0 && tenderAction === 'justify' && justification.trim().length < 15}>
@@ -530,6 +529,7 @@ export default function ProcurementRouteStep() {
                   : t('Move to draft & continue', 'النقل إلى مسودة والمتابعة')} →
               </Button>
             )}
+            <Button variant="ghost" onClick={() => setPhase('select')}>← {t('Back to items', 'العودة إلى البنود')}</Button>
           </div>
         </div>
       )}

@@ -504,11 +504,11 @@ export default function EsouqBillOfQuantities() {
           </FormField>
 
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
-            <button onClick={closeForm} className="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-600 hover:bg-neutral-50">{t('Cancel', 'إلغاء')}</button>
             <button onClick={commit} disabled={!valid}
               className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed">
               {editingId ? t('Save changes', 'حفظ التغييرات') : t('Add item', 'إضافة البند')}
             </button>
+            <button onClick={closeForm} className="px-4 py-2 rounded-lg text-[13px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
           </div>
         </div>
       </div>

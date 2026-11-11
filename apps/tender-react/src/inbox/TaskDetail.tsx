@@ -50,8 +50,8 @@ function slaInfo(task: Task) {
 }
 
 export interface ActionDef { id: TaskAction; label: [string, string]; variant: 'primary' | 'secondary' | 'danger'; needsNote?: boolean; gated?: boolean; decision?: Bilingual }
-// CTA hierarchy across tasks: primary (Approve / Complete) → Reject → Return / others.
-const CTA_RANK = (a: ActionDef) => (a.variant === 'primary' ? 0 : a.variant === 'danger' ? 1 : 2);
+// CTA hierarchy across tasks, always in this order: primary (Approve / Complete) → secondary (Return / others) → ghost (Reject).
+const CTA_RANK = (a: ActionDef) => (a.variant === 'primary' ? 0 : a.variant === 'secondary' ? 1 : 2);
 export function actionsFor(task: Task): ActionDef[] {
   return baseActions(task).map((a, i) => ({ a, i })).sort((x, y) => CTA_RANK(x.a) - CTA_RANK(y.a) || x.i - y.i).map((x) => x.a);
 }
@@ -1074,8 +1074,8 @@ function EditForm({ spec, isAr, t, onSave, onCancel }: { spec: EditSpec; isAr: b
       ))}
       <div className="flex items-center gap-2 pt-1">
         <span className="text-[11px] text-neutral-400">{changed.length ? t(`${changed.length} change${changed.length > 1 ? 's' : ''}`, `${changed.length} تغيير`) : t('No changes yet', 'لا توجد تغييرات')}</span>
-        <Button size="sm" variant="ghost" className="ms-auto" onClick={onCancel}>{t('Cancel', 'إلغاء')}</Button>
         <Button size="sm" variant="primary" disabled={!changed.length} onClick={() => onSave(vals, changed.map((f) => { const lbl = isAr ? f.label[1] : f.label[0]; const nv = vals[f.key] ?? ''; return f.kind === 'textarea' || f.value.length > 48 || nv.length > 48 ? t(`${lbl} updated`, `تم تحديث ${lbl}`) : `${lbl}: ${f.value || '—'} → ${nv || '—'}`; }))}>{t('Save changes', 'حفظ التغييرات')}</Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>{t('Cancel', 'إلغاء')}</Button>
       </div>
     </div>
   );
@@ -1170,12 +1170,12 @@ export function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { 
               </div>
             ) : null}
             <div className="mt-7 grid grid-cols-2 gap-4">
-              <button type="button" onClick={onCancel} className="h-12 rounded-lg border border-neutral-200 bg-white text-[15px] font-semibold text-[#1B2350] hover:bg-neutral-50 inline-flex items-center justify-center gap-2">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-4 h-4"><path d="M18 6 6 18M6 6l12 12" /></svg>{t('Cancel', 'إلغاء')}
-              </button>
               <button type="button" disabled={!ready} onClick={() => (choice === 'yes' ? onConfirm(finalNote()) : onCancel())}
                 className={`h-12 rounded-lg text-[15px] font-semibold inline-flex items-center justify-center gap-2 transition-colors ${ready ? (action.variant === 'danger' && choice === 'yes' ? 'bg-error-600 text-white hover:bg-error-700' : 'bg-[#2A3466] text-white hover:bg-[#1F2753]') : 'bg-neutral-100 text-neutral-300 border border-neutral-200 cursor-not-allowed'}`}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M2 12l5 5L18 6M9 17l1.5 1.5L22 7" /></svg>{t('Complete', 'إتمام')}
+              </button>
+              <button type="button" onClick={onCancel} className="h-12 rounded-lg text-[15px] font-semibold text-[#4A5274] hover:bg-neutral-100 inline-flex items-center justify-center gap-2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-4 h-4"><path d="M18 6 6 18M6 6l12 12" /></svg>{t('Cancel', 'إلغاء')}
               </button>
             </div>
           </div>

@@ -161,8 +161,8 @@ function CommentEditor({ t, initial, onChange, onCancel, onSave, rowKey }: { t: 
       <div className="mt-2 flex items-center gap-2">
         <span className="text-[11.5px] text-neutral-400">{v.trim() ? t('Draft saved', 'تم حفظ المسودة') : ''}</span>
         <span className="flex-1" />
-        <button type="button" onClick={onCancel} className="h-8 px-3 rounded-lg text-[12.5px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Close', 'إغلاق')}</button>
         <button type="button" data-cyber-save={rowKey} disabled={!v.trim()} onClick={() => onSave(v.trim())} className="h-8 px-3.5 rounded-lg bg-[#2A6193] hover:bg-[#21507A] text-white text-[12.5px] font-semibold disabled:opacity-40">{t('Add comment', 'إضافة الملاحظة')}</button>
+        <button type="button" onClick={onCancel} className="h-8 px-3 rounded-lg text-[12.5px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Close', 'إغلاق')}</button>
       </div>
     </div>
   );

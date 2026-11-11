@@ -935,12 +935,6 @@ export default function BillOfQuantities() {
               {!(mode === 'add' && addWarning) && (
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
                   <button
-                    onClick={closeItemForm}
-                    className="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
-                  >
-                    {t('Cancel', 'إلغاء')}
-                  </button>
-                  <button
                     onClick={mode === 'edit' ? handleSaveEdit : handleAddItem}
                     disabled={formInvalid || (mode === 'add' && savingAddCheck)}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
@@ -950,6 +944,12 @@ export default function BillOfQuantities() {
                       : savingAddCheck
                         ? (<><SparklesIcon className="w-3.5 h-3.5 spin-slow" />{t('Checking with Etimad E-Market…', 'جارٍ التحقق من سوق اعتماد…')}</>)
                         : t('Save', 'حفظ')}
+                  </button>
+                  <button
+                    onClick={closeItemForm}
+                    className="px-4 py-2 rounded-lg text-[13px] font-semibold text-neutral-600 hover:bg-neutral-100"
+                  >
+                    {t('Cancel', 'إلغاء')}
                   </button>
                 </div>
               )}
@@ -1705,8 +1705,8 @@ export default function BillOfQuantities() {
               <p className="mt-2 text-[12px] text-neutral-500">{t('You can review or modify that request anytime from the E-Market bucket.', 'يمكنك مراجعة هذا الطلب أو تعديله في أي وقت من سلة سوق اعتماد.')}</p>
             </div>
             <div className="px-5 py-3 border-t border-neutral-100 flex justify-end gap-2">
-              <button type="button" onClick={() => setMoveConfirm(null)} className="px-4 py-2 rounded-lg border border-neutral-300 bg-white text-[13px] font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors">{t('Cancel', 'إلغاء')}</button>
               <button type="button" onClick={confirmMove} className="px-4 py-2 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors shadow-sm">{t('Yes, move it', 'نعم، انقله')}</button>
+              <button type="button" onClick={() => setMoveConfirm(null)} className="px-4 py-2 rounded-lg text-[13px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
             </div>
           </div>
         </div>, document.body)}

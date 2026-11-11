@@ -294,11 +294,11 @@ async function openRequest(title) {
     expect(await page.locator('[role="dialog"]').count() > 0, 'preview did not open');
     await page.keyboard.press('Escape'); await wait(200);
   });
-  await test('Inbox: CTA order Approve → Reject → Return, filter tabs without scroll, project opens request in new tab', async () => {
+  await test('Inbox: CTA order Approve → Return → Reject (primary · secondary · ghost), filter tabs without scroll, project opens request in new tab', async () => {
     await page.locator('ul li > button:visible', { hasText: 'REQ-4471' }).first().click(); await wait(LOAD);
     const names = await page.locator('h2').first().locator('xpath=ancestor::div[2]').locator('button').allInnerTexts();
     const order = names.map((n) => n.trim()).filter((n) => ['Approve', 'Reject', 'Return'].includes(n));
-    expect(order.join(',') === 'Approve,Reject,Return', `order: ${order}`);
+    expect(order.join(',') === 'Approve,Return,Reject', `order: ${order}`);
     const tabsRow = page.locator('button', { hasText: 'Needs action' }).first().locator('xpath=..');
     const ov = await tabsRow.evaluate((el) => { const c = getComputedStyle(el); return [c.overflowX, c.overflowY, el.scrollWidth <= el.clientWidth]; });
     expect(!['auto', 'scroll'].includes(ov[0]) && !['auto', 'scroll'].includes(ov[1]) && ov[2], `filter row scrolls: ${ov}`);
