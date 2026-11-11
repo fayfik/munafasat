@@ -1,11 +1,15 @@
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import { StoreProvider } from './state/store.jsx';
+import { RequestsProvider } from './state/requests.jsx';
 import './styles/theme.css';
 import './styles/app.css';
+import './styles/form.css';
 
 createRoot(document.getElementById('root')).render(
   <StoreProvider>
-    <App />
+    <RequestsProvider>
+      <App />
+    </RequestsProvider>
   </StoreProvider>,
 );
