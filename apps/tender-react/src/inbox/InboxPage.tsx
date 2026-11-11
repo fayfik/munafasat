@@ -11,10 +11,10 @@ import { StateChip, PRIORITY_META } from './meta';
 import TaskDetail from './TaskDetail';
 
 const FILTERS: { key: InboxView; en: string; ar: string }[] = [
-  { key: 'all', en: 'All', ar: 'الكل' },
   { key: 'needs-action', en: 'Needs action', ar: 'يحتاج إجراءً' },
   { key: 'overdue', en: 'Overdue', ar: 'متأخرة' },
-  { key: 'completed', en: 'Completed', ar: 'مكتملة' },
+  { key: 'completed', en: 'Done', ar: 'مكتملة' },
+  { key: 'all', en: 'All', ar: 'الكل' },
 ];
 
 export default function InboxPage() {
@@ -61,16 +61,18 @@ export default function InboxPage() {
               placeholder={t('Search tasks…', 'ابحث في المهام…')}
               className={`w-full h-10 ${isAr ? 'pr-9 pl-3' : 'pl-9 pr-3'} text-[13px] rounded-lg border border-neutral-300 bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none`} />
           </div>
-          {/* View tabs — same underline style as My Requests */}
-          <div className="mt-3 flex items-center gap-5">
+          {/* View tabs — segmented pill control */}
+          <div className="mt-4 mb-4 flex items-center gap-0.5 p-1 rounded-full bg-neutral-100" data-inbox-tabs>
             {FILTERS.map((f) => {
               const active = view === f.key;
               const c = countsByView[f.key];
+              const empty = c === 0 && !active;
               return (
-                <button key={f.key} type="button" onClick={() => setView(f.key)} aria-current={active ? "page" : undefined}
-                  className={`inline-flex items-center gap-1.5 py-2.5 text-[13px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${active ? 'border-brand-600 text-brand-700' : 'border-transparent text-neutral-500 hover:text-neutral-800'}`}>
+                <button key={f.key} type="button" onClick={() => setView(f.key)} aria-current={active ? "page" : undefined} data-inbox-tab={f.key}
+                  className={`flex-1 h-9 px-2.5 inline-flex items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all duration-200 ${active ? 'bg-white text-neutral-900 shadow-[0_1px_2px_rgba(16,24,40,0.08)] ring-1 ring-neutral-200/70' : empty ? 'text-neutral-400 hover:text-neutral-600' : 'text-neutral-600 hover:text-neutral-900'}`}>
                   {isAr ? f.ar : f.en}
-                  <span className={`text-[11px] font-semibold tabular-nums ${f.key === 'overdue' && c > 0 ? 'text-error-600' : active ? 'text-brand-600' : 'text-neutral-400'}`}>{c}</span>
+                  {active && c > 0 && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-brand-50 text-brand-700 text-[11px] font-semibold tabular-nums inline-flex items-center justify-center">{c}</span>}
+                  {!active && f.key === 'overdue' && c > 0 && <span className="w-1.5 h-1.5 rounded-full bg-error-500" aria-label={`${c}`} />}
                 </button>
               );
             })}

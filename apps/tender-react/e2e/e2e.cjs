@@ -342,7 +342,7 @@ async function openRequest(title) {
     expect(await count('[data-task-info-pop]') === 0, 'closes with Esc');
   });
   await test('Inbox: tasks are listed in process-flow order', async () => {
-    await page.getByRole('button', { name: /^All/ }).first().click(); await wait(300);
+    await page.locator('[data-inbox-tab="all"]').click(); await wait(300);
     const ids = await page.locator('li[data-task-id]').evaluateAll((e) => e.map((x) => x.getAttribute('data-task-id')));
     const step = (id) => { const m = /^TSK-\d+-(\d+)(R)?(-R)?$/.exec(id); return m ? Number(m[1]) + (m[2] ? 0.5 : 0) + (m[3] ? 0.25 : 0) : 99; };
     const steps = ids.map(step);
@@ -393,7 +393,7 @@ async function openRequest(title) {
     expect(order === true, `budget widget not below review card (${order})`);
   });
   await test('Inbox: task names match the Tasks-list PDF (RFP → request)', async () => {
-    await page.getByRole('button', { name: /^All\s*17/ }).click(); await wait(300);
+    await page.locator('[data-inbox-tab="all"]').click(); await wait(300);
     const titles = await page.locator('ul li > button:visible p:first-child, ul li > button:visible h3').allInnerTexts().catch(() => []);
     const body = (await page.locator('ul li > button:visible').allInnerTexts()).join('\n').replace(/\s+/g, ' ');
     for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Review request & add qualification criteria for request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
@@ -406,7 +406,7 @@ async function openRequest(title) {
   });
 
   await test('Inbox: manager return creates the requester task dynamically', async () => {
-    await page.getByRole('button', { name: /^All\s*\d+/ }).click(); await wait(300);
+    await page.locator('[data-inbox-tab="all"]').click(); await wait(300);
     await openTask('REQ-4471');
     await page.waitForSelector('[data-budget-state="ok"]', { timeout: 4000 });
     await page.getByRole('button', { name: 'Return', exact: true }).click(); await wait(300);
@@ -424,7 +424,7 @@ async function openRequest(title) {
   });
 
   await test('Technical member task: creation-page criteria in view mode with Accept / Modify', async () => {
-    await page.getByRole('button', { name: /^All\s*\d+/ }).click(); await wait(200);
+    await page.locator('[data-inbox-tab="all"]').click(); await wait(200);
     await page.locator('ul li > button:visible', { hasText: 'Review technical evaluation criteria' }).first().click(); await wait(LOAD);
     for (const s of ['Technical Evaluation Member', 'Technical Documents List', 'Technical Requirements', 'Evaluation Criteria', 'Technical Passing Percentage'])
       expect(await text(s).count() > 0, `missing ${s}`);
