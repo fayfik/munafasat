@@ -3,9 +3,10 @@
 // Modify opens only that row (range and weight).
 import type { Task, RfpDetail } from './types';
 import { SectionCard } from '../components/ui';
-import { CheckIcon, CheckCircleIcon, AlertTriangleIcon } from '../components/Icons';
+import { CheckCircleIcon, AlertTriangleIcon } from '../components/Icons';
 import { EditableRow } from './TechEvalReview';
 import { qualReviewKeys } from './store';
+import { ActionHead, BulkButton } from './ActionHead';
 import { useState } from 'react';
 
 type T = (en: string, ar: string) => string;
@@ -32,26 +33,13 @@ export default function QualReview({ task, isAr, t, readOnly, onDecide, onUpdate
 
   return (
     <div className="space-y-5" data-qual-review>
-      {/* Progress */}
-      <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white px-5 py-4 flex items-center gap-4 flex-wrap">
-        <div className="min-w-[280px] flex-1">
-          <p className="text-[14px] font-bold text-neutral-900">{t('Review the qualification criteria', 'مراجعة معايير التأهيل')}</p>
-          <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('The criteria below are prefilled from the request. Accept each criterion, or click Modify to change its range and weight. Complete is enabled once every row is reviewed and the totals are 100%.', 'المعايير أدناه معبأة مسبقاً من الطلب. اقبل كل معيار، أو انقر تعديل لتغيير النطاق والوزن. يُفعّل الإكمال بعد مراجعة جميع الأسطر وبلوغ المجاميع 100%.')}</p>
-          <div className="mt-2 flex items-center gap-2">
-            <div className="h-1.5 w-48 rounded-full bg-neutral-200 overflow-hidden"><div className="h-full bg-success-500 rounded-full transition-all" style={{ width: `${(decided / Math.max(1, keys.length)) * 100}%` }} /></div>
-            <span className="text-[12px] font-semibold text-neutral-700" data-qual-progress={`${decided}/${keys.length}`}>{t(`${decided} of ${keys.length} criteria reviewed`, `${decided} من ${keys.length} معايير تمت مراجعتها`)}</span>
-          </div>
-        </div>
-        {!readOnly && decided < keys.length && (
-          <button type="button" onClick={() => onAcceptAll(keys.filter((k) => !dec[k]))}
-            className="h-9 px-3.5 rounded-lg border border-success-300 bg-white text-success-700 text-[12.5px] font-semibold hover:bg-success-50 inline-flex items-center gap-1.5">
-            <CheckIcon className="w-4 h-4" />{t('Accept all remaining', 'قبول جميع البنود المتبقية')}
-          </button>
-        )}
-      </div>
+      <ActionHead title={t('Review the qualification criteria', 'مراجعة معايير التأهيل')}
+        desc={t('Prefilled from the request. Accept each criterion, or Modify its range and weight. Totals must be 100%.', 'معبأة من الطلب. اقبل كل معيار أو عدّل نطاقه ووزنه. يجب أن تكون المجاميع 100%.')}
+        progress={{ done: decided, total: keys.length, label: t('criteria reviewed', 'معايير تمت مراجعتها'), attrs: { 'data-qual-progress': `${decided}/${keys.length}` } }}
+        bulk={!readOnly && decided < keys.length ? <BulkButton onClick={() => onAcceptAll(keys.filter((k) => !dec[k]))}>{t('Accept all remaining', 'قبول جميع البنود المتبقية')}</BulkButton> : undefined} />
 
       {/* Qualification member (view) */}
-      <SectionCard title="Qualification Member" titleAr="عضو التأهيل" description="The member responsible for reviewing qualification criteria." descriptionAr="العضو المسؤول عن مراجعة معايير التأهيل.">
+      <SectionCard title="Qualification Member" titleAr="عضو التأهيل">
         <div className="flex flex-wrap gap-2">
           {(rfp.qualCommittee ?? []).map((m) => (
             <span key={m.name} className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50/60 ps-1.5 pe-3 py-1.5">
@@ -63,7 +51,7 @@ export default function QualReview({ task, isAr, t, readOnly, onDecide, onUpdate
       </SectionCard>
 
       {/* Qualification criteria (same table as the creation page) */}
-      <SectionCard title="Qualification Criteria" titleAr="معايير التأهيل" description="Minimum qualification thresholds. Main criteria percentages must total 100%, as must each sub-criteria group." descriptionAr="الحدود الدنيا للتأهيل. يجب أن تكون مجموع نسب المعايير الرئيسية 100%، وكذلك كل مجموعة معايير فرعية.">
+      <SectionCard title="Qualification Criteria" titleAr="معايير التأهيل">
         <div className="rounded-xl border border-neutral-200 overflow-hidden">
           <div className={`grid ${GRID_MAIN} bg-neutral-50 border-b border-neutral-200 text-[11px] font-medium text-neutral-500 uppercase tracking-wide`}>
             <span className="px-3 py-2.5" /><span className="px-3 py-2.5">{t('Criteria', 'المعايير')}</span><span className="px-3 py-2.5">{t('Range', 'النطاق')}</span><span className="px-3 py-2.5 text-end">{t('Weight (%)', 'الوزن (%)')}</span><span className="px-3 py-2.5 text-end">{t('Review', 'المراجعة')}</span>

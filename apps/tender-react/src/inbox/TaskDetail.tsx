@@ -14,6 +14,7 @@ import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } fro
 import { TaskBody, hasTaskBody } from './renderers';
 import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
 import { BudgetChecker, useBudgetCheck } from './BudgetCheck';
+import { ActionHead, ReviewSlotCtx } from './ActionHead';
 import TechEvalReview from './TechEvalReview';
 import QualReview from './QualReview';
 import { GlReview, AssetsReview, ChangesReview, glReturnDraft } from './FinanceReview';
@@ -82,7 +83,6 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const t = useT();
   const { decide, addComment, resolveComment, updateRfp, setTaskData } = useInbox();
   const [tab, setTab] = useState<'overview' | 'rfp' | 'activity'>('overview');
-  const [showInfo, setShowInfo] = useState(false); // stage / outcomes note — hidden by default
   const [side, setSide] = useState<'comments' | 'history' | null>(null);
   const [commentMode, setCommentMode] = useState(false);
   useEffect(() => { setCommentMode(false); }, [task.id]);
@@ -177,16 +177,17 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
             <div className="min-w-0 flex-1">
               <h2 className="text-[22px] font-bold text-neutral-900 leading-snug">
                 {isAr ? task.titleAr : task.titleEn}
-                <TaskInfo text={isAr ? task.summaryAr : task.summaryEn} label={t('About this task', 'عن هذه المهمة')} />
+                <TaskInfo text={isAr ? task.summaryAr : task.summaryEn} label={t('About this task', 'عن هذه المهمة')} extra={<StageNote task={task} isAr={isAr} t={t} />} />
               </h2>
             </div>
             {!terminal && (
               <div className="flex items-center gap-2 flex-shrink-0">
                 {acts.map((a) => (
                   <Button key={a.id} size="md"
-                    variant={a.variant === 'danger' ? 'danger' : a.variant === 'primary' ? 'primary' : 'secondary'}
+                    variant={a.variant === 'primary' ? 'primary' : a.variant === 'danger' ? 'ghost' : 'secondary'}
+                    className={a.variant === 'danger' ? '!text-error-700 hover:!bg-error-50' : ''}
                     disabled={(a.gated && !comp.canComplete) || (a.id === 'approve' && budgetBlocked)}
-                    title={a.id === 'approve' && budgetBlocked ? (budget.state === 'checking' ? t('Checking budget…', 'جارٍ فحص الميزانية…') : t('Insufficient budget — approval is blocked', 'الميزانية غير كافية — الاعتماد غير متاح')) : undefined}
+                    title={a.id === 'approve' && budgetBlocked ? (budget.state === 'checking' ? t('Checking budget…', 'جارٍ فحص الميزانية…') : t('Insufficient budget — approval is blocked', 'الميزانية غير كافية — الاعتماد غير متاح')) : a.gated && !comp.canComplete ? t('Review every item below first', 'راجع جميع البنود أدناه أولاً') : undefined}
                     onClick={() => run(a)}>
                     {t(a.label[0], a.label[1])}
                   </Button>
@@ -241,17 +242,11 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
                 {isAr ? tb2.ar : tb2.en}
               </button>
             ))}
-            <button type="button" onClick={() => setShowInfo((v) => !v)} aria-pressed={showInfo}
-              title={showInfo ? t('Hide task info', 'إخفاء معلومات المهمة') : t('Task stage & what happens next', 'مرحلة المهمة وما يحدث بعد ذلك')}
-              className={`ms-auto w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${showInfo ? 'bg-brand-50 text-brand-700' : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'}`}>
-              <InfoGlyph className="w-[18px] h-[18px]" />
-            </button>
           </div>
         </div>
 
         {/* Tab content */}
         <div className="px-5 sm:px-8 py-6 sm:py-8">
-          {showInfo && <ContextNote task={task} isAr={isAr} t={t} onClose={() => setShowInfo(false)} />}
           {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
             mainWidget={task.eaReview && task.rfp
@@ -290,9 +285,8 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
                 ? <QualEditor task={task} readOnly={terminal} onChange={(f) => { if (JSON.stringify(f) !== JSON.stringify(task.qualForm ?? null) && (task.qualForm || f.members.length || f.criteria.some((m) => m.percentage !== '' || m.subCriteria.some((c) => c.range || c.percentage !== '')))) setTaskData(task.id, { qualForm: f }); }} />
                 : undefined} />}
           {tab === 'rfp' && (
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <p className="text-[12px] text-neutral-500 truncate">{t('Request', 'الطلب')} <span className="font-semibold text-neutral-700" dir="ltr">#{task.entity.ref.replace(/^(RFP|REQ)-/, '')}</span> · {isAr ? task.entity.titleAr : task.entity.titleEn}</p>
-              <Button size="sm" variant="secondary" onClick={() => downloadTaskPdf(task)}><DownloadIcon className="w-4 h-4" />{t('Download PDF', 'تنزيل PDF')}</Button>
+            <div className="flex items-center justify-end -mt-2 mb-2">
+              <Button size="sm" variant="ghost" onClick={() => downloadTaskPdf(task)}><DownloadIcon className="w-4 h-4" />{t('Download PDF', 'تنزيل PDF')}</Button>
             </div>
           )}
           {tab === 'rfp' && (task.reviewComments && task.rfp ? (
@@ -1180,30 +1174,28 @@ const TONE: Record<'success' | 'warning' | 'danger' | 'info', { pill: string; do
 };
 
 /** Where this task sits and what each decision leads to — information only, opened from the tab-bar info icon. */
-function ContextNote({ task, isAr, t, onClose }: { task: Task; isAr: boolean; t: T; onClose: () => void }) {
+function StageNote({ task, isAr, t }: { task: Task; isAr: boolean; t: T }) {
   return (
-      <div className="relative rounded-xl border border-neutral-200 bg-neutral-50/70 ps-4 pe-10 py-3.5 mb-4 cm-fade-in">
-        <button type="button" onClick={onClose} title={t('Hide', 'إخفاء')} className="absolute top-2.5 end-2.5 w-6 h-6 rounded-md flex items-center justify-center text-neutral-400 hover:bg-neutral-200/60 hover:text-neutral-700">×</button>
-        <p className="flex items-start gap-2 text-[12.5px] text-neutral-600 leading-relaxed">
-          <InfoGlyph className="w-4 h-4 text-neutral-400 flex-shrink-0 mt-0.5" />
+      <span className="block text-[12.5px] font-normal">
+        <span className="block text-neutral-600 leading-relaxed">
           <span>
             {t('This task is at the', 'هذه المهمة في مرحلة')} <span className="font-semibold text-neutral-800">{isAr ? task.stageAr : task.stageEn}</span> {t('stage, assigned to', '، ومسندة إلى')} {personName(task.assignee, isAr)} ({isAr ? task.assignee.roleAr : task.assignee.role}) · {t('due', 'تستحق في')} {fmtDate(task.dueAt, isAr)}.
           </span>
-        </p>
+        </span>
         {task.outcomes?.length ? (
-          <ul className="mt-2.5 ms-6 space-y-1.5">
+          <span className="mt-2 block space-y-1">
             {task.outcomes.map((o, i) => {
               const next = tb(o.next, isAr);
               return (
-                <li key={i} className="flex items-start gap-2 text-[12.5px] text-neutral-500 leading-relaxed">
+                <span key={i} className="flex items-start gap-2 text-[12.5px] text-neutral-500 leading-relaxed">
                   <span className={`w-1.5 h-1.5 rounded-full mt-[7px] flex-shrink-0 ${TONE[o.tone].dot}`} />
                   <span>{t('If you', 'عند')} <span className="font-medium text-neutral-700">{isAr ? tb(o.action, isAr) : tb(o.action, isAr).toLowerCase()}</span>{t(', ', '، ')}{next}.</span>
-                </li>
+                </span>
               );
             })}
-          </ul>
+          </span>
         ) : null}
-      </div>
+      </span>
   );
 }
 
@@ -1212,28 +1204,21 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
   const lines = task.rfp?.boq ?? [];
   const budgets = Array.from(new Set(lines.map((l) => l.budgetEn ?? '')));
   const sub = lines.reduce((s, l) => s + (Number(l.qty) || 1) * l.unitPrice, 0);
+  const slot = onReview ? { onReview, count: commentCount, resolved: resolvedCount, respond: task.respondComments, t, primary: !mainWidget } : null;
   return (
-    <div className="space-y-6">
-      {/* Approver: review the RFP and pin comments */}
-      {onReview && (
-        <div data-review-card className="sticky top-[43px] z-[5] rounded-xl border border-neutral-200 bg-white px-6 py-5 flex items-center gap-4 flex-wrap shadow-[0_6px_16px_-8px_rgba(16,24,40,0.18)]">
-          <span className="w-10 h-10 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center flex-shrink-0"><BubbleIcon className="w-5 h-5" /></span>
-          <div className="min-w-[260px] flex-1">
-            {task.respondComments ? (<>
-              <p className="text-[14px] font-bold text-neutral-900">{t('Respond to the review comments', 'الرد على تعليقات المراجعة')}</p>
-              <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Open the request details. Each commented section shows a marker — reply to or resolve the comment there. Turn on editing to change only the commented fields.', 'افتح تفاصيل الطلب. يظهر مؤشر على كل قسم عليه تعليق — رد عليه أو حله هناك. فعّل التعديل لتغيير الحقول التي عليها تعليقات فقط.')}</p>
-              <div className="mt-2 flex items-center gap-2">
-                <div className="h-1.5 w-40 rounded-full bg-neutral-200 overflow-hidden"><div className="h-full bg-success-500 rounded-full transition-all" style={{ width: `${commentCount ? (resolvedCount / commentCount) * 100 : 0}%` }} /></div>
-                <span className="text-[12px] font-semibold text-neutral-700">{t(`${resolvedCount} of ${commentCount} resolved`, `${resolvedCount} من ${commentCount} تم حلها`)}</span>
-              </div>
-            </>) : (<>
-              <p className="text-[14px] font-bold text-neutral-900">{t('Review the request details', 'راجع تفاصيل الطلب')}</p>
-              <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Go through each section of the request. Hover any section or field and add a comment — it is posted to Comments with the section name.', 'راجع كل قسم من الطلب. مرّر المؤشر على أي قسم أو حقل وأضف تعليقاً — يُنشر في التعليقات مع اسم القسم.')}</p>
-              {commentCount > 0 && <p className="text-[12px] font-semibold text-[#21507A] mt-1">{t(`${commentCount} comment${commentCount > 1 ? 's' : ''} added`, `${commentCount} تعليق مضاف`)}{resolvedCount > 0 && <span className="text-success-700"> · {t(`${resolvedCount} resolved by ${task.requester.name}`, `${resolvedCount} تم حلها من ${task.requester.nameAr ?? task.requester.name}`)}</span>}</p>}
-            </>)}
-          </div>
-          <Button size="md" variant="primary" onClick={onReview}>{task.respondComments ? t('Open request details', 'فتح تفاصيل الطلب') : t('Review request & add comments', 'مراجعة الطلب وإضافة تعليقات')}</Button>
-        </div>
+    <ReviewSlotCtx.Provider value={slot}>
+    <div className="space-y-5">
+      {/* One action card. With a task panel (tech / qual / EA / GL / assets) the panel's own
+          card carries the "Comment on request" link; otherwise this card is the action. */}
+      {onReview && !mainWidget && (
+        <ActionHead
+          title={task.respondComments ? t('Respond to the review comments', 'الرد على تعليقات المراجعة') : t('Review the request', 'راجع الطلب')}
+          desc={task.respondComments
+            ? t('Reply to or resolve each comment in the request details. Turn on editing to change the commented fields.', 'رد على كل تعليق أو حله في تفاصيل الطلب. فعّل التعديل لتغيير الحقول المعلّق عليها.')
+            : t('Go through the request and comment on any section or field, then decide.', 'راجع الطلب وعلّق على أي قسم أو حقل، ثم اتخذ قرارك.')}
+          progress={task.respondComments ? { done: resolvedCount, total: commentCount, label: t('resolved', 'تم حلها') } : undefined}
+          extra={!task.respondComments && resolvedCount > 0 ? <span className="text-[12px] font-semibold text-success-700">{t(`${resolvedCount} of ${commentCount} comments resolved by ${task.requester.name}`, `${resolvedCount} من ${commentCount} تعليقات حلها ${task.requester.nameAr ?? task.requester.name}`)}</span> : undefined}
+        />
       )}
 
       {/* Budget checker sits below the review card */}
@@ -1305,12 +1290,13 @@ function RequiredAction({ task, isAr, t, onReview, commentCount = 0, resolvedCou
       )}
 
       {/* Task form / record — or the creation-page section this task works on */}
-      {mainWidget ?? (hasTaskBody(task) &&
+      {mainWidget ? mainWidget : (hasTaskBody(task) &&
         <div className="rounded-xl border border-neutral-200 bg-white px-6 py-5">
           <TaskBody task={task} />
         </div>
       )}
     </div>
+    </ReviewSlotCtx.Provider>
   );
 }
 
@@ -1644,7 +1630,7 @@ export function EyeGlyph({ className = 'w-4 h-4' }: { className?: string }) {
 }
 
 /** "About this task" — the task's instructions, behind an info icon next to the title. */
-function TaskInfo({ text, label }: { text?: string; label: string }) {
+function TaskInfo({ text, label, extra }: { text?: string; label: string; extra?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -1662,9 +1648,10 @@ function TaskInfo({ text, label }: { text?: string; label: string }) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="w-4 h-4"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
       </button>
       {open && (
-        <span role="dialog" data-task-info-pop className="pop-in absolute start-0 top-8 z-30 w-[340px] max-w-[80vw] rounded-xl bg-white border border-neutral-200 shadow-xl px-4 py-3 text-start">
+        <span role="dialog" data-task-info-pop className="pop-in absolute start-0 top-8 z-30 w-[380px] max-w-[80vw] rounded-xl bg-white border border-neutral-200 shadow-xl px-4 py-3 text-start">
           <span className="block text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{label}</span>
           <span className="block mt-1 text-[13px] font-normal text-neutral-700 leading-relaxed">{text}</span>
+          {extra && <span className="block mt-3 pt-3 border-t border-neutral-100">{extra}</span>}
         </span>
       )}
     </span>

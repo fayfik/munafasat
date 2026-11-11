@@ -3,6 +3,7 @@
 //  • AssetsReview  — asset lines only: Asset / Non-asset, capitalisation, "Group with…"
 //  • ChangesReview — "Changes since your review" for a request GL already approved
 import { Fragment, useMemo, useState } from 'react';
+import { ActionHead, BulkButton } from './ActionHead';
 import type { Task, FinLine, AssetDecision, FinChange } from './types';
 import { useInbox, assetLinesOf, nonAssetLinesOf } from './store';
 import { CheckIcon, AlertTriangleIcon, CheckCircleIcon, PencilIcon } from '../components/Icons';
@@ -44,22 +45,9 @@ export function glReturnDraft(task: Task, isAr: boolean): string {
 
 function Progress({ title, sub, done, total, onAll, allLabel, t, readOnly, testId }: { title: string; sub: string; done: number; total: number; onAll?: () => void; allLabel: string; t: T; readOnly?: boolean; testId: string }) {
   return (
-    <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white px-5 py-4 flex items-center gap-4 flex-wrap">
-      <div className="min-w-[280px] flex-1">
-        <p className="text-[14px] font-bold text-neutral-900">{title}</p>
-        <p className="text-[12.5px] text-neutral-600 mt-0.5">{sub}</p>
-        <div className="mt-2 flex items-center gap-2">
-          <div className="h-1.5 w-48 rounded-full bg-neutral-200 overflow-hidden"><div className="h-full bg-success-500 rounded-full transition-all" style={{ width: `${(done / Math.max(1, total)) * 100}%` }} /></div>
-          <span className="text-[12px] font-semibold text-neutral-700" data-fin-progress={`${done}/${total}`}>{t(`${done} of ${total} BOQ items reviewed`, `${done} من ${total} بنود تمت مراجعتها`)}</span>
-        </div>
-      </div>
-      {!readOnly && onAll && done < total && (
-        <button type="button" onClick={onAll} data-fin-all={testId}
-          className="h-9 px-3.5 rounded-lg border border-success-300 bg-white text-success-700 text-[12.5px] font-semibold hover:bg-success-50 inline-flex items-center gap-1.5">
-          <CheckIcon className="w-4 h-4" />{allLabel}
-        </button>
-      )}
-    </div>
+    <ActionHead title={title} desc={sub}
+      progress={{ done, total, label: t('BOQ items reviewed', 'بنود تمت مراجعتها'), attrs: { 'data-fin-progress': `${done}/${total}` } }}
+      bulk={!readOnly && onAll && done < total ? <BulkButton testAttr={{ 'data-fin-all': testId }} onClick={onAll}>{allLabel}</BulkButton> : undefined} />
   );
 }
 
@@ -108,7 +96,7 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
     <div className="space-y-5" data-gl-review>
       <Progress testId="gl" t={t} readOnly={readOnly} done={decided} total={keys.length}
         title={t('Review the accounting classification', 'مراجعة التصنيف المحاسبي')}
-        sub={t('Each BOQ line was classified by AI when the request was created. Accept it, or Modify the Purchase type, Material group or sub-account. Lines that disagree are shown first.', 'صُنّف كل بند بالذكاء الاصطناعي عند إنشاء الطلب. اقبله أو عدّل نوع الشراء أو مجموعة المواد أو الحساب الفرعي. تظهر البنود غير المتسقة أولاً.')}
+        sub={t('AI classified each line at creation. Accept it, or Modify the classification. Lines that disagree come first.', 'صنّف الذكاء الاصطناعي كل بند عند الإنشاء. اقبله أو عدّل التصنيف. تظهر البنود غير المتسقة أولاً.')}
         allLabel={t('Accept all remaining', 'قبول جميع البنود المتبقية')}
         onAll={() => onAcceptAll(keys.filter((k) => !dec[k]))} />
 
@@ -221,9 +209,9 @@ export function GlReview({ task, isAr, t, readOnly, onDecide, onUpdateLine, onAc
                           {!readOnly && <button type="button" onClick={() => onDecide(k, null)} className="text-[11.5px] font-medium text-neutral-500 hover:text-neutral-800 underline-offset-2 hover:underline">{t('Undo', 'تراجع')}</button>}
                         </span>
                       ) : !readOnly && (
-                        <span className="inline-flex flex-col items-end gap-1.5">
+                        <span className="inline-flex items-center gap-1 justify-end">
                           <button type="button" data-accept={k} onClick={() => onDecide(k, 'accepted')} className="h-8 px-3 rounded-lg border border-success-300 bg-white text-success-700 text-[12px] font-semibold hover:bg-success-50 inline-flex items-center gap-1"><CheckIcon className="w-3.5 h-3.5" />{t('Accept', 'قبول')}</button>
-                          <button type="button" data-modify={k} onClick={() => startEdit(l)} className="h-8 px-3 rounded-lg border border-neutral-300 bg-white text-neutral-700 text-[12px] font-semibold hover:bg-neutral-50 inline-flex items-center gap-1"><PencilIcon className="w-3.5 h-3.5" />{t('Modify', 'تعديل')}</button>
+                          <button type="button" data-modify={k} onClick={() => startEdit(l)} className="h-8 px-2.5 rounded-lg text-neutral-600 text-[12px] font-semibold hover:bg-neutral-100 hover:text-neutral-900 inline-flex items-center gap-1"><PencilIcon className="w-3.5 h-3.5" />{t('Modify', 'تعديل')}</button>
                         </span>
                       )}
                     </td>
@@ -270,7 +258,7 @@ export function AssetsReview({ task, isAr, t, readOnly, onDecide, onConfirmAll, 
     <div className="space-y-5" data-assets-review>
       <Progress testId="assets" t={t} readOnly={readOnly} done={done} total={all.length}
         title={t('Decide the asset treatment', 'تحديد معالجة الأصول')}
-        sub={t('All BOQ items of the request. For items flagged as assets, confirm Asset / Non-asset, capitalisation and grouping. Then check the remaining items — mark any that should be an asset.', 'جميع بنود جدول الكميات في الطلب. للبنود المصنفة كأصول، أكّد أصل / غير أصل والرسملة والتجميع. ثم تحقق من البنود المتبقية — وحدد أي بند يجب أن يكون أصلاً.')}
+        sub={t('Confirm treatment for flagged asset lines, then check the rest for any missed asset.', 'أكّد معالجة بنود الأصول المصنفة، ثم تحقق من باقي البنود لأي أصل غير مصنف.')}
         allLabel={t('Confirm all as suggested', 'تأكيد الكل كما هو مقترح')}
         onAll={lines.some((l) => !dec[l.key]?.confirmed) ? () => onConfirmAll(Object.fromEntries(lines.filter((l) => !dec[l.key]?.confirmed).map((l) => [l.key, { ...cur(l), confirmed: true }]))) : undefined} />
 
@@ -394,7 +382,7 @@ const IMPACT: Record<FinChange['impact'], { en: string; ar: string; cls: string;
   decide:   { en: 'Your call', ar: 'حسب تقديرك', cls: 'bg-warning-50 text-warning-800 border-warning-200', hint: ['Quantities or new items — decide if they matter for accounting.', 'كميات أو بنود جديدة — قرر إن كانت تؤثر على المحاسبة.'] },
   info:     { en: 'For information', ar: 'للعلم', cls: 'bg-neutral-100 text-neutral-600 border-neutral-200', hint: ['Wording only — no effect on accounting.', 'صياغة فقط — لا أثر على المحاسبة.'] },
 };
-export function ChangesReview({ task, isAr, t, readOnly, onNoReReview, onReopen }: { task: Task; isAr: boolean; t: T; readOnly?: boolean; onNoReReview: () => void; onReopen: () => void }) {
+export function ChangesReview({ task, isAr, t, readOnly, onReopen }: { task: Task; isAr: boolean; t: T; readOnly?: boolean; onNoReReview?: () => void; onReopen: () => void }) {
   const changes = task.finChanges ?? [];
   const reviewed = task.activity.find((a) => a.kind === 'decision');
   const order: FinChange['impact'][] = ['rereview', 'decide', 'info'];
@@ -402,25 +390,11 @@ export function ChangesReview({ task, isAr, t, readOnly, onNoReReview, onReopen 
   return (
     <div className="space-y-5" data-changes-review>
       <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-        <div className="px-5 py-4 border-b border-neutral-200 flex items-start gap-4 flex-wrap">
-          <div className="min-w-[260px] flex-1">
-            <p className="text-[15px] font-bold text-neutral-900">{t('This request changed after you approved it', 'تغيّر هذا الطلب بعد اعتمادك له')}</p>
-            <p className="text-[12.5px] text-neutral-600 mt-0.5 max-w-xl">
-              {reviewed ? t(`You approved the GL review on ${new Date(reviewed.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. The requester then made ${changes.length} changes. Check them and decide one thing: do you need to review the accounting again?`, `اعتمدت مراجعة دفتر الأستاذ في ${new Date(reviewed.at).toLocaleDateString('ar-SA', { day: 'numeric', month: 'short' })}. ثم أجرى مقدّم الطلب ${changes.length} تغييرات. راجعها وقرر أمراً واحداً: هل تحتاج إلى مراجعة المحاسبة مرة أخرى؟`) : ''}
-            </p>
-            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-              {order.filter((k) => n(k)).map((k) => <span key={k} data-impact-count={k} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11.5px] font-semibold ${IMPACT[k].cls}`}>{n(k)} · {isAr ? IMPACT[k].ar : IMPACT[k].en}</span>)}
-            </div>
-          </div>
-          {!readOnly && (
-            <div className="flex flex-col items-end gap-1.5">
-              <div className="flex items-center gap-2">
-              <button type="button" data-no-rereview onClick={onNoReReview} className="h-9 px-3.5 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700">{t('No re-review needed', 'لا يلزم إعادة المراجعة')}</button>
-              <button type="button" data-reopen onClick={onReopen} className="h-9 px-3.5 rounded-lg border border-neutral-300 bg-white text-neutral-800 text-[13px] font-semibold hover:bg-neutral-50">{t('Re-open my review', 'إعادة فتح مراجعتي')}</button>
-              </div>
-              <p className="text-[11px] text-neutral-500 text-end max-w-[340px]">{t('“No re-review needed” keeps your approval and closes this task. “Re-open my review” opens the GL review again for the changed request.', '«لا يلزم إعادة المراجعة» يُبقي اعتمادك ويغلق المهمة. «إعادة فتح مراجعتي» يفتح مراجعة دفتر الأستاذ مجدداً للطلب المعدّل.')}</p>
-            </div>
-          )}
+        <div className="border-b border-neutral-200 [&>section]:border-0 [&>section]:rounded-none">
+          <ActionHead title={t('This request changed after you approved it', 'تغيّر هذا الطلب بعد اعتمادك له')}
+            desc={reviewed ? t(`${changes.length} changes since your GL approval on ${new Date(reviewed.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. Keep your approval, or re-open your review.`, `${changes.length} تغييرات منذ اعتمادك في ${new Date(reviewed.at).toLocaleDateString('ar-SA', { day: 'numeric', month: 'short' })}. أبقِ اعتمادك أو أعد فتح مراجعتك.`) : undefined}
+            extra={<>{order.filter((k) => n(k)).map((k) => <span key={k} data-impact-count={k} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11.5px] font-semibold ${IMPACT[k].cls}`}>{n(k)} · {isAr ? IMPACT[k].ar : IMPACT[k].en}</span>)}</>}
+            bulk={!readOnly ? <button type="button" data-reopen onClick={onReopen} className="h-9 px-3.5 rounded-lg border border-neutral-300 bg-white text-neutral-800 text-[12.5px] font-semibold hover:bg-neutral-50 shadow-sm">{t('Re-open my review', 'إعادة فتح مراجعتي')}</button> : undefined} />
         </div>
         {order.filter((k) => n(k)).map((k) => (
           <div key={k} className="border-b last:border-b-0 border-neutral-100">

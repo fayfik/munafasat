@@ -10,6 +10,7 @@ import { DeploymentHero, ProjectProfile, StandardsList } from '../components/Tec
 import { Fragment } from 'react';
 import BoqLineDetails, { BoqViewButton, useBoqOpen, viewFromRfpLine, rfpCostCenter } from '../components/BoqLineDetails';
 import { eaSections, LICENCE_RX, type EaSection } from './eaSections';
+import { ActionHead, BulkButton } from './ActionHead';
 
 type T = (en: string, ar: string) => string;
 type Dec = { state: 'accepted' | 'comment'; comment?: string };
@@ -83,21 +84,11 @@ export default function EaReview({ task, isAr, t, readOnly, onDecide, onAcceptAl
 
   return (
     <div className="space-y-5" data-ea-review>
-      <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white px-5 py-4 flex items-center gap-4 flex-wrap">
-        <div className="min-w-[280px] flex-1">
-          <p className="text-[14px] font-bold text-neutral-900">{t('Review the technical sections', 'مراجعة الأقسام التقنية')}</p>
-          <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Only the sections EA owns are shown. Accept each one, or add a comment for the requester. Commercial sections are collapsed below for reference.', 'تُعرض الأقسام التي تملكها البنية المؤسسية فقط. اقبل كل قسم أو أضف ملاحظة لمقدّم الطلب. الأقسام التجارية مطوية أدناه للاطلاع.')}</p>
-          {why.required && <p className="mt-1.5 text-[12px] text-[#21507A]" data-ea-task-why>{t('Why EA reviews this request', 'سبب مراجعة البنية المؤسسية')}: {why.reasons.map((r) => (isAr ? r.ar : r.en)).join(' · ')}</p>}
-          <div className="mt-2 flex items-center gap-2">
-            <div className="h-1.5 w-48 rounded-full bg-neutral-200 overflow-hidden"><div className="h-full bg-success-500 rounded-full transition-all" style={{ width: `${(done / Math.max(1, secs.length)) * 100}%` }} /></div>
-            <span className="text-[12px] font-semibold text-neutral-700" data-ea-progress={`${done}/${secs.length}`}>{t(`${done} of ${secs.length} sections reviewed`, `${done} من ${secs.length} أقسام تمت مراجعتها`)}{comments ? t(` · ${comments} with comments`, ` · ${comments} بملاحظات`) : ''}</span>
-          </div>
-        </div>
-        {!readOnly && done < secs.length && (
-          <button type="button" data-ea-all onClick={() => onAcceptAll(secs.filter((s) => !dec[s.id]).map((s) => s.id))}
-            className="h-9 px-3.5 rounded-lg border border-success-300 bg-white text-success-700 text-[12.5px] font-semibold hover:bg-success-50 inline-flex items-center gap-1.5"><CheckIcon className="w-4 h-4" />{t('Accept all remaining', 'قبول جميع الأقسام المتبقية')}</button>
-        )}
-      </div>
+      <ActionHead title={t('Review the technical sections', 'مراجعة الأقسام التقنية')}
+        desc={t('Only the sections EA owns. Accept each, or comment for the requester.', 'الأقسام التي تملكها البنية المؤسسية فقط. اقبل كل قسم أو أضف ملاحظة لمقدّم الطلب.')}
+        note={why.required ? <p className="mt-1 text-[12px] text-[#21507A]" data-ea-task-why>{t('Why EA reviews this', 'سبب المراجعة')}: {why.reasons.map((r) => (isAr ? r.ar : r.en)).join(' · ')}</p> : undefined}
+        progress={{ done, total: secs.length, label: t('sections reviewed', 'أقسام تمت مراجعتها'), attrs: { 'data-ea-progress': `${done}/${secs.length}` }, tail: comments ? <span className="ms-1.5 text-warning-700">· {t(`${comments} with comments`, `${comments} بملاحظات`)}</span> : undefined }}
+        bulk={!readOnly && done < secs.length ? <BulkButton testAttr={{ 'data-ea-all': '' }} onClick={() => onAcceptAll(secs.filter((s) => !dec[s.id]).map((s) => s.id))}>{t('Accept all remaining', 'قبول جميع الأقسام المتبقية')}</BulkButton> : undefined} />
 
       {secs.map((s) => {
         const d = dec[s.id];
@@ -112,7 +103,7 @@ export default function EaReview({ task, isAr, t, readOnly, onDecide, onAcceptAl
                 ? <button type="button" onClick={() => onDecide(s.id, null)} className="text-[11.5px] font-medium text-neutral-500 hover:text-neutral-800 hover:underline">{t('Undo', 'تراجع')}</button>
                 : !isC && <span className="inline-flex items-center gap-1.5">
                     <button type="button" data-ea-accept={s.id} onClick={() => onDecide(s.id, { state: 'accepted' })} className="h-8 px-3 rounded-lg border border-success-300 bg-white text-success-700 text-[12px] font-semibold hover:bg-success-50 inline-flex items-center gap-1"><CheckIcon className="w-3.5 h-3.5" />{t('Accept', 'قبول')}</button>
-                    <button type="button" data-ea-comment={s.id} onClick={() => { setCommenting(s.id); setDraft(''); }} className="h-8 px-3 rounded-lg border border-neutral-300 bg-white text-neutral-700 text-[12px] font-semibold hover:bg-neutral-50 inline-flex items-center gap-1"><PencilIcon className="w-3.5 h-3.5" />{t('Comment', 'ملاحظة')}</button>
+                    <button type="button" data-ea-comment={s.id} onClick={() => { setCommenting(s.id); setDraft(''); }} className="h-8 px-3 rounded-lg text-neutral-600 text-[12px] font-semibold hover:bg-neutral-100 hover:text-neutral-900 inline-flex items-center gap-1"><PencilIcon className="w-3.5 h-3.5" />{t('Comment', 'ملاحظة')}</button>
                   </span>)}
             </header>
             <div className="px-5 py-3.5">{body(s)}</div>

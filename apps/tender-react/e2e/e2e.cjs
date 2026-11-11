@@ -280,8 +280,10 @@ async function openRequest(title) {
     expect(await count('.ld-shimmer') > 0, 'no task skeleton');
     await wait(LOAD);
     expect(await text('This task is at the').count() === 0, 'stage note should be hidden by default');
-    await page.locator('button[aria-pressed]').first().click(); await wait(200);
-    expect(await text('This task is at the').count() === 1, 'info toggle failed');
+    await page.locator('[data-task-info]').click(); await wait(200);
+    expect(await page.locator('[data-task-info-pop]').getByText('This task is at the').count() === 1, 'info toggle failed');
+    expect(await count('[data-action-head]') === 1, 'one action card per task');
+    await page.keyboard.press('Escape'); await wait(100);
     await tab('Request details'); await wait(300);
     expect(await count('#rfp-overview') === 1, 'request details missing');
     expect(await page.locator('#rfp-overview button[aria-expanded]').getAttribute('aria-expanded') === 'true', 'inbox sections should stay open');
@@ -384,9 +386,9 @@ async function openRequest(title) {
     expect(!(await page.getByRole('button', { name: 'Return', exact: true }).isDisabled()), 'return should stay available');
   });
 
-  await test('Budget checker: sits below "Review the request details"', async () => {
+  await test('Budget checker: sits below the action card', async () => {
     const order = await page.evaluate(() => {
-      const review = [...document.querySelectorAll('p')].find((p) => p.textContent === 'Review the request details');
+      const review = document.querySelector('[data-action-head]');
       const budget = document.querySelector('[data-budget-state]');
       return review && budget ? !!(review.compareDocumentPosition(budget) & Node.DOCUMENT_POSITION_FOLLOWING) : null;
     });
@@ -842,7 +844,7 @@ async function openRequest(title) {
     expect(await count('[data-changes-review]') === 1, 'changes panel missing');
     for (const [k, v] of [['rereview', 3], ['decide', 2], ['info', 1]])
       expect((await page.locator(`[data-impact-count="${k}"]`).innerText()).startsWith(String(v)), `impact ${k}`);
-    expect(await count('[data-no-rereview]') === 1 && await count('[data-reopen]') === 1, 'two buttons expected');
+    expect(await page.getByRole('button', { name: 'No re-review needed' }).count() === 1 && await count('[data-reopen]') === 1, 'decision once in the header + Re-open in the card');
     await page.click('[data-reopen]'); await wait(300);
     expect(await count('[data-gl-review]') === 1, 'should switch to the GL review');
   });

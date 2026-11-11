@@ -6,6 +6,7 @@ import { SectionCard } from '../components/ui';
 import { CheckIcon, DocumentIcon, PencilIcon, CheckCircleIcon, AlertTriangleIcon } from '../components/Icons';
 import { LOCKED_TECH_DOCS } from '../sections/TechnicalEvaluation';
 import { techReviewKeys } from './store';
+import { ActionHead, BulkButton } from './ActionHead';
 
 type T = (en: string, ar: string) => string;
 type Decision = 'accepted' | 'modified';
@@ -28,26 +29,13 @@ export default function TechEvalReview({ task, isAr, t, readOnly, onDecide, onUp
 
   return (
     <div className="space-y-5" data-tech-review>
-      {/* Progress */}
-      <div className="rounded-xl border border-[#C9DBEC] bg-gradient-to-br from-[#F3F8FC] to-white px-5 py-4 flex items-center gap-4 flex-wrap">
-        <div className="min-w-[280px] flex-1">
-          <p className="text-[14px] font-bold text-neutral-900">{t('Review the technical evaluation', 'مراجعة التقييم الفني')}</p>
-          <p className="text-[12.5px] text-neutral-600 mt-0.5">{t('Accept each item as defined by the requester, or click Modify to change that row. Approve is enabled once every item is accepted or modified.', 'اقبل كل بند كما حدده مقدّم الطلب، أو انقر تعديل لتغيير ذلك السطر. يُفعّل الاعتماد بعد قبول أو تعديل جميع البنود.')}</p>
-          <div className="mt-2 flex items-center gap-2">
-            <div className="h-1.5 w-48 rounded-full bg-neutral-200 overflow-hidden"><div className="h-full bg-success-500 rounded-full transition-all" style={{ width: `${(decided / Math.max(1, keys.length)) * 100}%` }} /></div>
-            <span className="text-[12px] font-semibold text-neutral-700" data-tech-progress={`${decided}/${keys.length}`}>{t(`${decided} of ${keys.length} items reviewed`, `${decided} من ${keys.length} بنود تمت مراجعتها`)}</span>
-          </div>
-        </div>
-        {!readOnly && decided < keys.length && (
-          <button type="button" onClick={() => onAcceptAll(keys.filter((k) => !dec[k]))}
-            className="h-9 px-3.5 rounded-lg border border-success-300 bg-white text-success-700 text-[12.5px] font-semibold hover:bg-success-50 inline-flex items-center gap-1.5">
-            <CheckIcon className="w-4 h-4" />{t('Accept all remaining', 'قبول جميع البنود المتبقية')}
-          </button>
-        )}
-      </div>
+      <ActionHead title={t('Review the technical evaluation', 'مراجعة التقييم الفني')}
+        desc={t('Accept each item, or Modify a row to change it. Approve unlocks when every item is reviewed.', 'اقبل كل بند أو عدّل السطر لتغييره. يُفعّل الاعتماد بعد مراجعة جميع البنود.')}
+        progress={{ done: decided, total: keys.length, label: t('items reviewed', 'بنود تمت مراجعتها'), attrs: { 'data-tech-progress': `${decided}/${keys.length}` } }}
+        bulk={!readOnly && decided < keys.length ? <BulkButton onClick={() => onAcceptAll(keys.filter((k) => !dec[k]))}>{t('Accept all remaining', 'قبول جميع البنود المتبقية')}</BulkButton> : undefined} />
 
       {/* Evaluation member (view) */}
-      <SectionCard title="Technical Evaluation Member" titleAr="عضو التقييم الفني" description="The member responsible for evaluating technical proposals." descriptionAr="العضو المسؤول عن تقييم العروض الفنية.">
+      <SectionCard title="Technical Evaluation Member" titleAr="عضو التقييم الفني">
         <div className="flex flex-wrap gap-2">
           {(rfp.evalCommittee ?? []).map((m) => (
             <span key={m.name} className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50/60 ps-1.5 pe-3 py-1.5">
@@ -59,7 +47,7 @@ export default function TechEvalReview({ task, isAr, t, readOnly, onDecide, onUp
       </SectionCard>
 
       {/* Technical documents */}
-      <SectionCard title="Technical Documents List" titleAr="قائمة الوثائق الفنية" description="Technical documents vendors must submit with their proposals." descriptionAr="الوثائق الفنية التي يجب على الموردين تقديمها مع عروضهم.">
+      <SectionCard title="Technical Documents List" titleAr="قائمة الوثائق الفنية">
         <div className="rounded-xl border border-neutral-200 divide-y divide-neutral-100 overflow-hidden">
           {LOCKED_TECH_DOCS.map((d, i) => (
             <div key={`l${i}`} className="flex items-center gap-3 px-3.5 py-2.5 bg-neutral-50/40">
@@ -81,7 +69,7 @@ export default function TechEvalReview({ task, isAr, t, readOnly, onDecide, onUp
       </SectionCard>
 
       {/* Technical requirements */}
-      <SectionCard title="Technical Requirements" titleAr="المتطلبات الفنية" description="Specific technical requirements vendors must meet." descriptionAr="المتطلبات الفنية المحددة التي يجب على الموردين استيفاؤها.">
+      <SectionCard title="Technical Requirements" titleAr="المتطلبات الفنية">
         <div className="rounded-xl border border-neutral-200 overflow-hidden">
           <div className="grid grid-cols-[32px_minmax(140px,0.7fr)_1.6fr_auto] bg-neutral-50 border-b border-neutral-200 text-[11px] font-medium text-neutral-500 uppercase tracking-wide">
             <span className="px-3 py-2.5">#</span><span className="px-3 py-2.5">{t('Requirement', 'المتطلب')}</span><span className="px-3 py-2.5">{t('Description', 'الوصف')}</span><span className="px-3 py-2.5 text-end">{t('Review', 'المراجعة')}</span>
@@ -101,7 +89,7 @@ export default function TechEvalReview({ task, isAr, t, readOnly, onDecide, onUp
       </SectionCard>
 
       {/* Evaluation criteria */}
-      <SectionCard title="Evaluation Criteria" titleAr="معايير التقييم" description="Weighted criteria used to score technical proposals. Weights must total 100%." descriptionAr="معايير موزونة لتقييم العروض الفنية. يجب أن يبلغ مجموع الأوزان 100%.">
+      <SectionCard title="Evaluation Criteria" titleAr="معايير التقييم">
         <div className="rounded-xl border border-neutral-200 overflow-hidden">
           <div className="grid grid-cols-[32px_minmax(160px,1fr)_1.3fr_90px_auto] bg-neutral-50 border-b border-neutral-200 text-[11px] font-medium text-neutral-500 uppercase tracking-wide">
             <span className="px-3 py-2.5">#</span><span className="px-3 py-2.5">{t('Criteria Description', 'وصف المعيار')}</span><span className="px-3 py-2.5">{t('How Criteria is Applied', 'كيفية تطبيق المعيار')}</span><span className="px-3 py-2.5 text-end">{t('Final Weight', 'الوزن النهائي')}</span><span className="px-3 py-2.5 text-end">{t('Review', 'المراجعة')}</span>
@@ -148,8 +136,8 @@ export function EditableRow({ k, state, editing, readOnly, t, onAccept, onModify
     <span className="flex items-center gap-2 justify-end"><Badge state={state} t={t} /><button type="button" onClick={onUndo} className="text-[11.5px] font-semibold text-neutral-400 hover:text-neutral-700">{t('Undo', 'تراجع')}</button></span>
   ) : (
     <span className="flex items-center gap-1.5 justify-end">
-      <button type="button" onClick={onAccept} data-accept={k} className="h-8 px-2.5 rounded-lg bg-success-600 hover:bg-success-700 text-white text-[12px] font-semibold inline-flex items-center gap-1"><CheckIcon className="w-3.5 h-3.5" />{t('Accept', 'قبول')}</button>
-      <button type="button" onClick={() => { setVals(fields.map((f) => f.value)); onModify(); }} data-modify={k} className="h-8 px-2.5 rounded-lg border border-neutral-300 bg-white hover:bg-neutral-50 text-neutral-700 text-[12px] font-semibold inline-flex items-center gap-1"><PencilIcon className="w-3.5 h-3.5" />{t('Modify', 'تعديل')}</button>
+      <button type="button" onClick={onAccept} data-accept={k} className="h-8 px-2.5 rounded-lg border border-success-300 bg-white hover:bg-success-50 text-success-700 text-[12px] font-semibold inline-flex items-center gap-1"><CheckIcon className="w-3.5 h-3.5" />{t('Accept', 'قبول')}</button>
+      <button type="button" onClick={() => { setVals(fields.map((f) => f.value)); onModify(); }} data-modify={k} className="h-8 px-2.5 rounded-lg text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 text-[12px] font-semibold inline-flex items-center gap-1"><PencilIcon className="w-3.5 h-3.5" />{t('Modify', 'تعديل')}</button>
     </span>
   );
 
