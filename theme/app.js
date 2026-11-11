@@ -30,3 +30,25 @@ document.querySelectorAll('[role="tablist"]').forEach((list) => {
 document.querySelectorAll('[data-open-tab]').forEach((btn) => {
   btn.addEventListener('click', () => document.getElementById(btn.dataset.openTab)?.click());
 });
+
+// A/B switch for reviewing the two variants. Add ?test=1 to any page to hide it
+// for the rest of the session (use for participants); ?test=0 brings it back.
+(() => {
+  const body = document.body;
+  if (!body.dataset.variant) return;
+  const p = new URLSearchParams(location.search);
+  try {
+    if (p.get('test') === '1') sessionStorage.setItem('munafasat-test', '1');
+    if (p.get('test') === '0') sessionStorage.removeItem('munafasat-test');
+    if (sessionStorage.getItem('munafasat-test') === '1') return;
+  } catch (e) { if (p.get('test') === '1') return; }
+  const root = body.dataset.root || '';
+  const v = body.dataset.variant;
+  const nav = document.createElement('nav');
+  nav.className = 'ab-switch';
+  nav.setAttribute('aria-label', 'Prototype variant');
+  nav.innerHTML = `<span>Variant</span>
+    <a href="${root}index.html"${v === 'a' ? ' aria-current="page"' : ''}>A · Split</a>
+    <a href="${root}list/index.html"${v === 'b' ? ' aria-current="page"' : ''}>B · List</a>`;
+  body.appendChild(nav);
+})();

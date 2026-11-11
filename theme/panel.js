@@ -1,6 +1,7 @@
 // Comments & Process side panel.
 // Each page supplies its data in <script type="application/json" id="task-data">.
 (() => {
+  const ASSETS = new URL('assets/', document.currentScript.src).href;
   const data = JSON.parse(document.getElementById('task-data').textContent);
   const panel = document.getElementById('side-panel');
   const railBtns = [...document.querySelectorAll('.util-btn[data-view]')];
@@ -61,12 +62,12 @@
   function commentHTML(c, isReply) {
     const mine = c.author.me;
     const chip = c.anchor
-      ? `<button class="anchor-chip" type="button" data-goto="${esc(c.anchor.id)}" title="Show in request"><img src="assets/icon-anchor.svg" alt=""><span>${esc(c.anchor.label)}</span></button>`
+      ? `<button class="anchor-chip" type="button" data-goto="${esc(c.anchor.id)}" title="Show in request"><img src="${ASSETS}icon-anchor.svg" alt=""><span>${esc(c.anchor.label)}</span></button>`
       : '';
     const actions = isReply ? '' : `<div class="cmt-actions">
-        <button class="link-btn" type="button" data-reply="${esc(c.id)}"><img src="assets/icon-reply.svg" alt="">Reply</button>
+        <button class="link-btn" type="button" data-reply="${esc(c.id)}"><img src="${ASSETS}icon-reply.svg" alt="">Reply</button>
         ${c.anchor ? (c.resolved
-          ? `<span class="resolved-tag t-caption-medium"><img src="assets/icon-check.svg" alt="">Resolved</span><button class="link-btn" type="button" data-resolve="${esc(c.id)}">Reopen</button>`
+          ? `<span class="resolved-tag t-caption-medium"><img src="${ASSETS}icon-check.svg" alt="">Resolved</span><button class="link-btn" type="button" data-resolve="${esc(c.id)}">Reopen</button>`
           : `<button class="link-btn resolve" type="button" data-resolve="${esc(c.id)}">Resolve</button>`) : ''}
       </div>`;
     const replies = !isReply && c.replies?.length
@@ -125,8 +126,8 @@
       ctxBar.hidden = false;
       ctxBar.innerHTML = (ctx.type === 'reply'
         ? `<span class="t-caption">Replying to <strong style="font-weight:500;color:var(--ink-primary)">${esc(ctx.name)}</strong></span>`
-        : `<span class="t-caption">On</span><span class="anchor-chip"><img src="assets/icon-anchor.svg" alt=""><span>${esc(ctx.label)}</span></span>`) +
-        `<button class="x-btn" type="button" aria-label="Cancel"><img src="assets/icon-x.svg" alt=""></button>`;
+        : `<span class="t-caption">On</span><span class="anchor-chip"><img src="${ASSETS}icon-anchor.svg" alt=""><span>${esc(ctx.label)}</span></span>`) +
+        `<button class="x-btn" type="button" aria-label="Cancel"><img src="${ASSETS}icon-x.svg" alt=""></button>`;
       ctxBar.querySelector('.x-btn').addEventListener('click', () => { setContext(null); ta.focus(); });
     }
     ta.placeholder = ctx?.type === 'reply' ? 'Write a reply…' : ctx?.type === 'anchor' ? 'Comment on this field…' : 'Add a comment…';
@@ -154,7 +155,7 @@
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'field-comment';
     b.setAttribute('aria-label', `Comment on ${f.dataset.label}`); b.title = 'Comment on this field';
-    b.innerHTML = '<img src="assets/icon-comment-add.svg" alt="">';
+    b.innerHTML = `<img src="${ASSETS}icon-comment-add.svg" alt="">`;
     b.addEventListener('click', () => { open('comments'); setContext({ type: 'anchor', id: f.dataset.anchor, label: f.dataset.label }); });
     f.appendChild(b);
   });
@@ -178,7 +179,7 @@
 
   /* ---------- Process ---------- */
   function stepHTML(s) {
-    const node = `<div class="step-rail"><span class="step-node">${s.state === 'done' ? '<img src="assets/icon-step-done.svg" alt="">' : ''}</span><span class="step-line"></span></div>`;
+    const node = `<div class="step-rail"><span class="step-node">${s.state === 'done' ? `<img src="${ASSETS}icon-step-done.svg" alt="">` : ''}</span><span class="step-line"></span></div>`;
     const label = s.state === 'done' ? 'Completed' : s.state === 'current' ? 'Current step' : 'Upcoming';
     let body;
     if (s.group) {
