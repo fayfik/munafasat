@@ -170,7 +170,7 @@ async function openRequest(title) {
   });
   await test('Detail Request details: floating Jump to section opens target', async () => {
     await page.locator('button[title="Jump to section"]').click(); await wait(200);
-    await page.locator('button', { hasText: /^Qualification$/ }).click(); await wait(500);
+    await page.locator('button', { hasText: /^Qualification Criteria$/ }).click(); await wait(500);
     const ex = await page.locator('#rfp-qualification button[aria-expanded]').getAttribute('aria-expanded');
     expect(ex === 'true', 'qualification not opened');
     expect(await page.locator('#rfp-qualification').isVisible(), 'not scrolled into view');
@@ -255,7 +255,7 @@ async function openRequest(title) {
     await page.locator('tbody tr').first().click(); await wait(200);
     expect(await count('[data-boq-details]') === 1, 'row did not expand inline');
     expect(await page.getByRole('dialog').count() === 0, 'no popup expected');
-    expect(await text('Line total (incl. VAT)').count() > 0, 'details content missing');
+    expect(await text('Line Total').count() > 0, 'details content missing');
     await page.locator('tbody tr').first().click(); await wait(150);
     expect(await count('[data-boq-details]') === 0, 'row did not collapse');
     await page.getByRole('button', { name: 'Expand all', exact: true }).last().click(); await wait(150);
@@ -313,7 +313,7 @@ async function openRequest(title) {
     await page.locator('ul li > button:visible', { hasText: 'REQ-4433' }).first().click(); await wait(LOAD);
   });
   await test('Inbox: approve via decision dialog', async () => {
-    await tab('Required action'); await wait(200);
+    await tab('Required action'); await wait(350);
     if (await count('[data-budget-state]')) await page.waitForSelector('[data-budget-state="ok"], [data-budget-state="short"]');
     const approve = page.getByRole('button', { name: 'Approve', exact: true }).first();
     if (await approve.isDisabled()) {
@@ -475,7 +475,7 @@ async function openRequest(title) {
     await page.getByRole('button', { name: /Accept all remaining/ }).click(); await wait(150);
     expect(await page.locator('[data-qual-progress]').getAttribute('data-qual-progress') === `${keys.length}/${keys.length}`, 'progress');
     expect(!(await complete.isDisabled()), 'complete should be enabled after review');
-    await tab('Activity'); await wait(200); await tab('Required action'); await wait(300);
+    await tab('Activity'); await wait(350); await tab('Required action'); await wait(300);
     expect(await text('≥ 7 years').count() > 0, 'values lost after switching tabs');
   });
 
@@ -927,7 +927,7 @@ async function openRequest(title) {
     await page.click('[data-review-boq] [data-boq-view="0"]'); await wait(250);
     expect(await count('[data-review-boq] [data-boq-details-inline]') === 1, 'inline details open');
     const dt = await page.locator('[data-review-boq] [data-boq-details]').innerText();
-    for (const k of ['Item name', 'Description', 'Category', 'Budgeted item', 'Purchase type', 'Material group', 'Unit of measure', 'Line total (incl. VAT)']) expect(dt.includes(k), `view mode missing ${k}`);
+    for (const k of ['Item Name', 'Item Description', 'Category', 'Budgeted Item', 'Purchase type', 'Material group', 'Unit of Measure', 'Line Total']) expect(dt.includes(k), `view mode missing ${k}`);
     expect(!dt.includes('GL account') && !/\bFINANCE\b|\bFinance\b/.test(dt), 'no Finance group / GL outside finance tasks');
     expect(await count('[data-boq-drawer]') === 0, 'no drawer');
     expect(await page.getAttribute('[data-review-boq] [data-boq-view="0"]', 'data-open') === 'true', 'eye expanded');
@@ -1173,16 +1173,22 @@ async function openRequest(title) {
     await page.goto(BASE); await wait(600); await nav('Inbox'); await wait(LOAD);
     await page.locator('li[data-task-id="TSK-4433-02"] button').click(); await wait(LOAD);
     await tab('Request details'); await wait(500);
-    const checks = ['[data-rfp-purpose]', '[data-rfp-items]', '[data-rfp-scope-details]', '[data-rfp-fact="location"]', '[data-rfp-fact="start"]', '[data-rfp-fact="duration"]', '[data-rfp-fact="brand"]',
-      '[data-rfp-includes]', '[data-rfp-terms]', '[data-rfp-deliverables]', '[data-rfp-regulatory]', '[data-rfp-standards]', '[data-rfp-qual-stats]', '[data-rfp-continuity]'];
+    const checks = ['[data-rfp-field="code"]', '[data-rfp-field="name-en"]', '[data-rfp-field="name-ar"]', '[data-rfp-field="cc"]', '[data-rfp-field="route"]', '[data-rfp-purpose]', '[data-rfp-items]',
+      '[data-rfp-scope-details]', '[data-rfp-fact="location"]', '[data-rfp-fact="start"]', '[data-rfp-fact="duration"]',
+      '[data-rfp-includes]', '[data-rfp-terms]', '[data-rfp-tech-pass]', '[data-rfp-regulatory]', '[data-rfp-standards]', '[data-rfp-qual-stats]', '[data-rfp-continuity]'];
     for (const c of checks) expect(await count(c) >= 1, `inbox missing ${c}`);
     expect((await page.locator('[data-rfp-qual-stats]').innerText()).includes('60%'), 'qualification passing % shown');
+    // Nothing that request creation doesn't have
+    const body = await page.locator('[data-rfp-tab]').innerText();
+    for (const extra of ['Technical share', 'Commercial share', 'Evaluation split', 'Suppliers invited', 'Planned award', 'Objectives', 'Out of scope', 'incl. VAT)'])
+      expect(!body.includes(extra), `extra field shown: ${extra}`);
+    expect(await count('[data-rfp-deliverables]') === 0 && await count('[data-rfp-fact="brand"]') === 0, 'no deliverables / request-level brand (not in creation)');
     // Same record on the request page (opened from the task's project link)
     const [tab2] = await Promise.all([page.context().waitForEvent('page'), page.click('[data-project-link]')]);
     await tab2.waitForLoadState(); await tab2.waitForTimeout(1500);
     const rd = tab2.getByRole('button', { name: 'Request details' }); if (await rd.count()) { await rd.first().click(); await tab2.waitForTimeout(800); }
     await tab2.getByRole('button', { name: 'Expand all' }).click(); await tab2.waitForTimeout(500);
-    for (const c of ['[data-rfp-purpose]', '[data-rfp-scope-details]', '[data-rfp-deliverables]', '[data-rfp-qual-stats]', '[data-rfp-terms]']) expect(await tab2.locator(c).count() >= 1, `request page missing ${c}`);
+    for (const c of ['[data-rfp-purpose]', '[data-rfp-scope-details]', '[data-rfp-field="code"]', '[data-rfp-qual-stats]', '[data-rfp-terms]', '[data-rfp-tech-pass]']) expect(await tab2.locator(c).count() >= 1, `request page missing ${c}`);
     await tab2.close();
   });
   await test('Request record stays in sync across tasks: a clause Cyber inserts shows in every task of the request', async () => {

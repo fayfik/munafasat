@@ -143,7 +143,7 @@ export default function InboxPage() {
 
         <div className="flex-1 overflow-y-auto">
           {rows.length === 0 ? empty : (
-            <ul className="divide-y divide-neutral-100 py-1">
+            <ul className={`divide-y divide-neutral-100 py-1 ${listBusy ? '' : 'stagger'}`} key={`${scope}-${view}`}>
               {listBusy ? <TaskRowsSkeleton /> : rows.map((task) => <TaskRow key={task.id} task={task} isAr={isAr} t={t} active={selectedId === task.id} onSelect={() => select(task.id)} tasks={tasks} />)}
             </ul>
           )}

@@ -15,6 +15,8 @@ import { TaskBody, hasTaskBody } from './renderers';
 import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
 import { BudgetChecker, useBudgetCheck } from './BudgetCheck';
 import { ActionHead, ReviewSlotCtx } from './ActionHead';
+import { Sk } from '../components/Loader';
+import { toast } from '../components/Toast';
 import { PROC_TEAM } from './data';
 import { DelegateGlyph } from './InboxTools';
 import TechEvalReview from './TechEvalReview';
@@ -95,7 +97,15 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
   const [pick, setPick] = useState<string>(suggested?.id ?? '');
   useEffect(() => { setPick(suggested?.id ?? ''); }, [task.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const picked = OFFICERS.find((p) => p.id === pick);
-  const [tab, setTab] = useState<'overview' | 'rfp' | 'activity'>('overview');
+  const [tab, setTabRaw] = useState<'overview' | 'rfp' | 'activity'>('overview');
+  // Short skeleton when switching tabs, so content arrives instead of popping in.
+  const [tabBusy, setTabBusy] = useState(false);
+  const tabTimer = useRef<number | undefined>(undefined);
+  const setTab = (k: 'overview' | 'rfp' | 'activity') => {
+    setTabRaw(k); setTabBusy(true);
+    window.clearTimeout(tabTimer.current);
+    tabTimer.current = window.setTimeout(() => setTabBusy(false), 180);
+  };
   const [side, setSide] = useState<'comments' | 'history' | null>(null);
   const [commentMode, setCommentMode] = useState(false);
   useEffect(() => { setCommentMode(false); }, [task.id]);
@@ -125,7 +135,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
     // Office-style: the comments pane opens once the first comment lands.
     window.setTimeout(() => setSide((s) => s ?? 'comments'), 150);
   };
-  const jumpTo = (id: string) => { setTab('rfp'); window.setTimeout(() => flashTarget(id), 120); };
+  const jumpTo = (id: string) => { setTab('rfp'); window.setTimeout(() => flashTarget(id), 280); };
   const toggleSide = (s: 'comments' | 'history') => setSide((prev) => (prev === s ? null : s));
   useEffect(() => { onSideOpenChange?.(side !== null); }, [side, onSideOpenChange]);
   const [pending, setPending] = useState<ActionDef | null>(null);
@@ -153,6 +163,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
     if (!pending) return;
     if (pending.needsNote && !n) return;
     decide(task.id, pending.id as Parameters<typeof decide>[1], n || undefined, pending.decision);
+    toast(t(`${pending.label[0]} — ${task.entity.ref}`, `${pending.label[1]} — ${task.entity.ref}`));
     setPending(null); setNote('');
   }
   void note;
@@ -207,7 +218,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
             </div>
             {!terminal && queued && (
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Button size="md" variant="primary" data-assign-confirm disabled={!picked} onClick={() => picked && assignQueued(task.id, picked)}>
+                <Button size="md" variant="primary" data-assign-confirm disabled={!picked} onClick={() => { if (!picked) return; assignQueued(task.id, picked); toast(t(`Assigned to ${picked.name}`, `أُسند إلى ${picked.nameAr ?? picked.name}`)); }}>
                   {picked ? (picked.id === me.id ? t('Assign to me', 'إسناد إليّ') : t(`Assign to ${picked.name.split(' ')[0]}`, `إسناد إلى ${(picked.nameAr ?? picked.name).split(' ')[0]}`)) : t('Assign', 'إسناد')}
                 </Button>
               </div>
@@ -290,7 +301,13 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
         </div>
 
         {/* Tab content */}
-        <div className="px-5 sm:px-8 py-6 sm:py-8">
+        <div className="px-5 sm:px-8 py-6 sm:py-8" key={tab}>
+          {tabBusy && (
+            <div className="space-y-4" data-tab-loading>
+              <Sk className="h-4 w-48" /><Sk className="h-24 w-full rounded-xl" /><Sk className="h-40 w-full rounded-xl" />
+            </div>
+          )}
+          <div className={tabBusy ? 'hidden' : 'fade-in'}>
           {tab === 'overview' && queued && (
             <div className="space-y-5">
               <ActionHead title={t('Assign this request to an officer', 'أسند هذا الطلب إلى أخصائي')}
@@ -325,6 +342,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
                     // The clause goes into the request itself, and counts as accepted.
                     const kind = deptKind(task);
                     const added = { cyberAdded: [...(task.cyberAdded ?? []), c.id] };
+                    toast(t(`“${c.en}” added to the request`, `أُضيف «${c.ar}» إلى الطلب`));
                     const accept = (key: string) => ({ cyberDecisions: { ...(task.cyberDecisions ?? {}), [key]: { state: 'accepted' as const } } });
                     if (kind === 'bcm') {
                       const bcm = task.rfp!.bcm ?? { answers: {}, clauses: [] };
@@ -386,6 +404,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
             </CommentLayer>
           ) : <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />)}
           {tab === 'activity' && <ActivityTab task={task} isAr={isAr} t={t} onComment={(x) => addComment(task.id, x)} terminal={terminal} onJump={jumpTo} />}
+          </div>
         </div>
       </div>
       {tab === 'rfp' && task.rfp && <JumpFab sections={rfpSections(task.rfp)} isAr={isAr} t={t} />}
@@ -546,30 +565,20 @@ function RfpSection({ id, title, meta, views, children, label }: { id: string; t
 
 export function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: string }[] {
   return [
-    { id: 'overview', en: 'Overview', ar: 'نظرة عامة' },
-    { id: 'scope', en: 'Scope', ar: 'النطاق' },
+    { id: 'overview', en: 'Project Setup', ar: 'إعداد المشروع' },
+    { id: 'scope', en: 'Scope of Work', ar: 'نطاق العمل' },
+    ...(rfp.boq.length ? [{ id: 'cost', en: 'Bill of Quantities', ar: 'جدول الكميات' }] : []),
+    ...(rfp.payment.length ? [{ id: 'payment', en: 'Payment Schedule', ar: 'جدول الدفعات' }] : []),
+    ...(rfp.evaluation.length ? [{ id: 'evaluation', en: 'Technical Evaluation', ar: 'التقييم الفني' }] : []),
+    ...(rfp.qualCriteria?.length ? [{ id: 'qualification', en: 'Qualification Criteria', ar: 'معايير التأهيل' }] : []),
+    ...(rfp.documents.length ? [{ id: 'documents', en: 'Attachments', ar: 'المرفقات' }] : []),
     ...(rfp.techStandards?.length ? [{ id: 'standards', en: 'Technical standards', ar: 'المعايير التقنية' }] : []),
     ...(rfp.bcm || rfp.tpr ? [{ id: 'continuity', en: 'Continuity & risk', ar: 'الاستمرارية والمخاطر' }] : []),
-    ...(rfp.boq.length ? [{ id: 'cost', en: 'Bill of quantities', ar: 'جدول الكميات' }] : []),
-    ...(rfp.payment.length ? [{ id: 'payment', en: 'Payment', ar: 'الدفعات' }] : []),
-    ...(rfp.evaluation.length ? [{ id: 'evaluation', en: 'Evaluation', ar: 'التقييم' }] : []),
-    ...(rfp.qualCriteria?.length ? [{ id: 'qualification', en: 'Qualification', ar: 'التأهيل' }] : []),
-    ...(rfp.documents.length ? [{ id: 'documents', en: 'Documents', ar: 'المستندات' }] : []),
+    ...(rfp.regulatory?.length ? [{ id: 'regulatory', en: 'Regulatory Records', ar: 'السجلات النظامية' }] : []),
   ];
 }
 
 const TH = 'px-3 py-2 font-medium text-[11px] uppercase tracking-wide text-neutral-500';
-
-/** Overview facts, derived from the record's own fields so every page shows the same values. */
-function metaFor(rfp: RfpDetail): RfpDetail['meta'] {
-  const derived = new Set(['Contract duration', 'Evaluation split', 'Cost center']);
-  const out = rfp.meta.filter((m) => !derived.has(m.label.en));
-  if (rfp.costCenters?.length) out.splice(2, 0, { label: { en: 'Cost center', ar: 'مركز التكلفة' }, value: rfp.costCenters.join(', ') });
-  else { const cc = rfp.meta.find((m) => m.label.en === 'Cost center'); if (cc) out.splice(2, 0, cc); }
-  if (rfp.duration) out.push({ label: { en: 'Contract duration', ar: 'مدة العقد' }, value: rfp.duration });
-  if (rfp.evaluation.length && rfp.techSplit != null) out.push({ label: { en: 'Evaluation split', ar: 'توزيع التقييم' }, value: `Technical ${rfp.techSplit}% / Commercial ${100 - rfp.techSplit}%` });
-  return out;
-}
 
 function Chips({ items, attr }: { items: string[]; attr?: string }) {
   return <div className="flex flex-wrap gap-1.5" {...(attr ? { [attr]: '' } : {})}>{items.map((x, i) => <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-full text-[11.5px] bg-white text-neutral-700 border border-neutral-200">{x}</span>)}</div>;
@@ -579,35 +588,20 @@ function Chips({ items, attr }: { items: string[]; attr?: string }) {
 function ScopeDetails({ rfp, isAr, t }: { rfp: RfpDetail; isAr: boolean; t: T }) {
   const fmtD = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}/.test(d) ? new Date(d).toLocaleDateString(isAr ? 'ar-SA-u-ca-gregory' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : d);
   const facts = [
-    { k: t('Execution location', 'موقع التنفيذ'), v: rfp.location, id: 'location' },
-    { k: t('Start date', 'تاريخ البدء'), v: fmtD(rfp.startDate), id: 'start' },
-    { k: t('Contract duration', 'مدة العقد'), v: rfp.duration, id: 'duration' },
-    { k: t('Brand name', 'العلامة التجارية'), v: rfp.brand ? (rfp.brand.has ? `${t('Yes', 'نعم')}${rfp.brand.justification ? ` — ${rfp.brand.justification}` : ''}` : t('No brand named', 'لا توجد علامة محددة')) : undefined, id: 'brand' },
-  ].filter((f) => f.v);
-  if (!facts.length && !rfp.includes?.length && !rfp.termsEn && !rfp.deliverables?.length && !rfp.regulatory?.length) return null;
+    { k: t('Work/Services Start Date', 'تاريخ بدء الأعمال/الخدمات'), v: fmtD(rfp.startDate), id: 'start' },
+    { k: t('Contract Duration', 'مدة العقد'), v: rfp.duration, id: 'duration' },
+    { k: t('Work & Services Execution Location', 'موقع تنفيذ الأعمال والخدمات'), v: rfp.location, id: 'location' },
+  ];
   return (
     <div className="mt-5 space-y-4 border-t border-neutral-100 pt-4" data-rfp-scope-details>
-      {facts.length > 0 && (
-        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
-          {facts.map((f) => <Commentable key={f.id} id={`scope-${f.id}`} label={{ en: f.k, ar: f.k }}><div className="min-w-0" data-rfp-fact={f.id}><dt className="text-[10.5px] uppercase tracking-wide text-neutral-400">{f.k}</dt><dd className="text-[13px] font-medium text-neutral-800 mt-0.5">{f.v}</dd></div></Commentable>)}
+      {rfp.includes?.length ? <Commentable id="scope-includes" label={{ en: "Which department's approval is necessary?", ar: 'ما الإدارات التي يلزم اعتمادها؟' }}><div><SubLabel>{t("Which department's approval is necessary?", 'ما الإدارات التي يلزم اعتمادها؟')}</SubLabel><Chips items={rfp.includes.map((x) => (isAr ? x.ar : x.en))} attr="data-rfp-includes" /></div></Commentable> : null}
+      {rfp.termsEn ? <Commentable id="scope-terms" label={{ en: 'Scope-Specific Terms & Conditions', ar: 'الشروط والأحكام الخاصة بالنطاق' }}><div><SubLabel>{t('Scope-Specific Terms & Conditions', 'الشروط والأحكام الخاصة بالنطاق')}</SubLabel><p className="text-[13px] text-neutral-700 leading-relaxed whitespace-pre-line" data-rfp-terms>{isAr ? rfp.termsAr : rfp.termsEn}</p></div></Commentable> : null}
+      <div>
+        <SubLabel>{t('Contract Duration & Location', 'مدة العقد والموقع')}</SubLabel>
+        <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
+          {facts.map((f) => <Commentable key={f.id} id={`scope-${f.id}`} label={{ en: f.k, ar: f.k }}><div className="min-w-0" data-rfp-fact={f.id}><dt className="text-[10.5px] uppercase tracking-wide text-neutral-400">{f.k}</dt><dd className="text-[13px] font-medium text-neutral-800 mt-0.5">{f.v || '—'}</dd></div></Commentable>)}
         </dl>
-      )}
-      {rfp.includes?.length ? <Commentable id="scope-includes" label={{ en: 'Project includes', ar: 'يشمل المشروع' }}><div><SubLabel>{t('Project includes', 'يشمل المشروع')}</SubLabel><Chips items={rfp.includes.map((x) => (isAr ? x.ar : x.en))} attr="data-rfp-includes" /></div></Commentable> : null}
-      {rfp.termsEn ? <Commentable id="scope-terms" label={{ en: 'Terms and conditions', ar: 'الشروط والأحكام' }}><div><SubLabel>{t('Terms and conditions', 'الشروط والأحكام')}</SubLabel><p className="text-[13px] text-neutral-700 leading-relaxed whitespace-pre-line" data-rfp-terms>{isAr ? rfp.termsAr : rfp.termsEn}</p></div></Commentable> : null}
-      {rfp.deliverables?.length ? (
-        <Commentable id="scope-deliverables" label={{ en: 'Deliverables', ar: 'المخرجات' }}><div>
-          <SubLabel>{t('Deliverables', 'المخرجات')}</SubLabel>
-          <div className="overflow-x-auto rounded-xl border border-neutral-200">
-            <table className="w-full min-w-[520px] text-[12.5px]" data-rfp-deliverables>
-              <thead><tr className="bg-neutral-50 border-b border-neutral-200"><th className={`${TH} text-start w-28`}>{t('Phase', 'المرحلة')}</th><th className={`${TH} text-start`}>{t('Deliverable', 'المخرج')}</th><th className={`${TH} text-start w-32`}>{t('Due', 'الموعد')}</th></tr></thead>
-              <tbody>{rfp.deliverables.map((d, i) => (
-                <tr key={i} className="border-b border-neutral-100 last:border-0 align-top"><td className="px-3 py-2 text-neutral-600">{d.phase || '—'}</td><td className="px-3 py-2"><p className="font-medium text-neutral-800">{d.name}</p>{d.desc && <p className="text-neutral-500">{d.desc}</p>}</td><td className="px-3 py-2 text-neutral-600 whitespace-nowrap">{fmtD(d.due) || '—'}</td></tr>
-              ))}</tbody>
-            </table>
-          </div>
-        </div></Commentable>
-      ) : null}
-      {rfp.regulatory?.length ? <Commentable id="scope-regulatory" label={{ en: 'Regulatory records', ar: 'السجلات النظامية' }}><div><SubLabel>{t('Regulatory records vendors must hold', 'السجلات النظامية المطلوبة من الموردين')}</SubLabel><Chips items={rfp.regulatory} attr="data-rfp-regulatory" /></div></Commentable> : null}
+      </div>
     </div>
   );
 }
@@ -789,11 +783,10 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
         <table className="w-full min-w-[720px] text-[12.5px]">
           <thead><tr className="bg-neutral-50 border-b border-neutral-200">
             <th className={`${TH} text-center w-10`}>#</th>
-            <th className={`${TH} text-start`}>{t('Stage', 'المرحلة')}</th>
-            <th className={`${TH} text-start`}>{t('Deliverable / condition', 'المخرج / الشرط')}</th>
-            <th className={`${TH} text-start`}>{t('Due', 'الاستحقاق')}</th>
-            <th className={`${TH} text-end`}>%</th>
-            <th className={`${TH} text-end`}>{t('Amount', 'المبلغ')}</th>
+            <th className={`${TH} text-start`}>{t('Stage Name', 'اسم المرحلة')}</th>
+            <th className={`${TH} text-start`}>{t('Items / Deliverables', 'البنود / المخرجات')}</th>
+            <th className={`${TH} text-end`}>{t('Payment Percentage', 'نسبة الدفع')}</th>
+            <th className={`${TH} text-end`}>{t('Amount (SAR)', 'المبلغ (ريال)')}</th>
           </tr></thead>
           <tbody className="divide-y divide-neutral-100">
             {rfp.payment.map((p, i) => (
@@ -801,14 +794,13 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
                 <td className="px-3 py-2.5 text-center"><span className="inline-flex w-5 h-5 rounded-md text-white text-[10.5px] font-bold items-center justify-center" style={{ background: PALETTE[i % PALETTE.length] }}>{i + 1}</span></td>
                 <td className="px-3 py-2.5 font-semibold text-neutral-800">{isAr ? p.stageAr : p.stageEn}</td>
                 <td className="px-3 py-2.5 text-neutral-600 leading-snug">{(isAr ? p.descAr : p.descEn) ?? '—'}</td>
-                <td className="px-3 py-2.5 text-neutral-600 whitespace-nowrap">{(isAr ? p.dueAr : p.due) ?? '—'}</td>
                 <td className="px-3 py-2.5 text-end font-semibold text-neutral-800 tabular-nums">{p.pct}%</td>
                 <td className="px-3 py-2.5 text-end font-semibold text-neutral-900 tabular-nums whitespace-nowrap" dir="ltr">{estValue > 0 ? fmtSAR((p.pct / 100) * estValue) : '—'}</td>
               </tr></Commentable>
             ))}
           </tbody>
           <tfoot><tr className="bg-brand-50 border-t border-brand-200 text-[13px]">
-            <td colSpan={4} className="px-3 py-2 text-end font-bold text-brand-800">{t('Total', 'الإجمالي')}</td>
+            <td colSpan={3} className="px-3 py-2 text-end font-bold text-brand-800">{t('Total', 'الإجمالي')}</td>
             <td className="px-3 py-2 text-end font-bold text-brand-800 tabular-nums">{payTotal}%</td>
             <td className="px-3 py-2 text-end font-bold text-brand-800 tabular-nums" dir="ltr">{estValue > 0 ? fmtSAR((payTotal / 100) * estValue) : '—'}</td>
           </tr></tfoot>
@@ -835,9 +827,9 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
   );
   const evalTable = (
     <div className="space-y-5">
-      {rfp.evalCommittee?.length ? <div><SubLabel>{t('Evaluation committee', 'لجنة التقييم')}</SubLabel><CommitteeChips members={rfp.evalCommittee} isAr={isAr} /></div> : null}
-      <Commentable id="tech-docs" label={{ en: 'Technical documents', ar: 'الوثائق الفنية' }}><div className="rounded-lg">
-        <SubLabel>{t('Technical documents', 'الوثائق الفنية')}</SubLabel>
+      {rfp.evalCommittee?.length ? <div><SubLabel>{t('Technical Evaluation Member', 'عضو التقييم الفني')}</SubLabel><CommitteeChips members={rfp.evalCommittee} isAr={isAr} /></div> : null}
+      <Commentable id="tech-docs" label={{ en: 'Technical Documents List', ar: 'قائمة الوثائق الفنية' }}><div className="rounded-lg">
+        <SubLabel>{t('Technical Documents List', 'قائمة الوثائق الفنية')}</SubLabel>
         <div className="flex flex-wrap gap-1.5">
           {LOCKED_TECH_DOCS.map((d, i) => (
             <span key={`l-${i}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11.5px] bg-neutral-100 text-neutral-600 border border-neutral-200" title={t('Required in every tender', 'مطلوبة في كل منافسة')}>
@@ -850,14 +842,9 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
           ))}
         </div>
       </div></Commentable>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <MiniStat label={t('Technical share', 'الوزن الفني')} value={`${rfp.techSplit ?? 0}%`} />
-        <MiniStat label={t('Commercial share', 'الوزن المالي')} value={`${100 - (rfp.techSplit ?? 0)}%`} />
-        <MiniStat label={t('Technical passing score', 'درجة الاجتياز الفني')} value={`${rfp.techPassing ?? 0}%`} />
-      </div>
       {rfp.techRequirements?.length ? (
         <div>
-          <SubLabel>{t('Technical requirements', 'المتطلبات الفنية')}</SubLabel>
+          <SubLabel>{t('Technical Requirements', 'المتطلبات الفنية')}</SubLabel>
           <div className="overflow-x-auto rounded-xl border border-neutral-200">
             <table className="w-full text-[12.5px]">
               <thead><tr className="bg-neutral-50 border-b border-neutral-200">
@@ -879,14 +866,14 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
         </div>
       ) : null}
       <div>
-        <SubLabel>{t('Evaluation criteria & weights', 'معايير التقييم والأوزان')}</SubLabel>
+        <SubLabel>{t('Evaluation Criteria', 'معايير التقييم')}</SubLabel>
         <div className="overflow-x-auto rounded-xl border border-neutral-200">
           <table className="w-full text-[12.5px]">
             <thead><tr className="bg-neutral-50 border-b border-neutral-200">
               <th className={`${TH} text-center w-10`}>#</th>
-              <th className={`${TH} text-start w-64`}>{t('Criterion', 'المعيار')}</th>
-              <th className={`${TH} text-start`}>{t('How it is scored', 'آلية التقييم')}</th>
-              <th className={`${TH} text-end w-24`}>{t('Weight', 'الوزن')}</th>
+              <th className={`${TH} text-start w-64`}>{t('Criteria Description', 'وصف المعيار')}</th>
+              <th className={`${TH} text-start`}>{t('How Criteria is Applied', 'كيفية تطبيق المعيار')}</th>
+              <th className={`${TH} text-end w-28`}>{t('Final Weight', 'الوزن النهائي')}</th>
             </tr></thead>
             <tbody className="divide-y divide-neutral-100">
               {rfp.evaluation.map((c, i) => (
@@ -899,16 +886,24 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
               ))}
             </tbody>
             <tfoot><tr className={`border-t border-neutral-200 ${evalTotal === 100 ? 'bg-success-50/50' : 'bg-warning-50/50'}`}>
-              <td colSpan={3} className="px-3 py-2 text-end text-[12px] font-semibold text-neutral-600">{t('Total weight', 'إجمالي الأوزان')}</td>
+              <td colSpan={3} className="px-3 py-2 text-end text-[12px] font-semibold text-neutral-600">{t('Total Weight', 'إجمالي الأوزان')}</td>
               <td className={`px-3 py-2 text-end font-bold tabular-nums ${evalTotal === 100 ? 'text-success-700' : 'text-warning-700'}`}>{evalTotal}%</td>
             </tr></tfoot>
           </table>
         </div>
       </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-rfp-tech-pass>
+        <MiniStat label={t('Technical Passing Percentage', 'نسبة الاجتياز الفني')} value={rfp.techPassing != null ? `${rfp.techPassing}%` : '—'} />
+      </div>
     </div>
   );
 
   // ── Qualification ──
+  const qualPass = (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-rfp-qual-stats>
+      <MiniStat label={t('Qualification Passing Percentage', 'نسبة اجتياز التأهيل')} value={rfp.qualPassing != null ? `${rfp.qualPassing}%` : '—'} />
+    </div>
+  );
   const qualChart = (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
       {(rfp.qualCriteria ?? []).map((m, i) => (
@@ -933,21 +928,16 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
   );
   const qualTable = (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" data-rfp-qual-stats>
-        <MiniStat label={t('Qualification passing percentage', 'نسبة اجتياز التأهيل')} value={rfp.qualPassing != null ? `${rfp.qualPassing}%` : '—'} />
-        <MiniStat label={t('Main criteria', 'المعايير الرئيسية')} value={String(rfp.qualCriteria?.length ?? 0)} />
-        <MiniStat label={t('Sub-criteria', 'المعايير الفرعية')} value={String((rfp.qualCriteria ?? []).reduce((n, m) => n + m.subs.length, 0))} />
-      </div>
-      {rfp.qualCommittee?.length ? <div><SubLabel>{t('Qualification committee', 'لجنة التأهيل')}</SubLabel><CommitteeChips members={rfp.qualCommittee} isAr={isAr} /></div> : null}
+      {rfp.qualCommittee?.length ? <div><SubLabel>{t('Qualification Member', 'عضو التأهيل')}</SubLabel><CommitteeChips members={rfp.qualCommittee} isAr={isAr} /></div> : null}
       {rfp.qualCriteria?.length ? (
         <div>
-          <SubLabel>{t('Qualification criteria', 'معايير التأهيل')}</SubLabel>
+          <SubLabel>{t('Qualification Criteria', 'معايير التأهيل')}</SubLabel>
           <div className="overflow-x-auto rounded-xl border border-neutral-200">
             <table className="w-full min-w-[560px] text-[12.5px]">
               <thead><tr className="bg-neutral-50 border-b border-neutral-200">
                 <th className={`${TH} text-start`}>{t('Criteria', 'المعايير')}</th>
                 <th className={`${TH} text-start w-44`}>{t('Range', 'النطاق')}</th>
-                <th className={`${TH} text-end w-24`}>{t('Weight', 'الوزن')}</th>
+                <th className={`${TH} text-end w-24`}>{t('Weight (%)', 'الوزن (%)')}</th>
               </tr></thead>
               <tbody>
                 {rfp.qualCriteria.map((m, i) => (
@@ -968,71 +958,80 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
                 ))}
               </tbody>
               <tfoot><tr className={`border-t border-neutral-200 ${qualTotal === 100 ? 'bg-success-50/50' : 'bg-warning-50/50'}`}>
-                <td className="px-3 py-2 text-[12px] font-semibold text-neutral-600">{t('Main criteria total', 'إجمالي المعايير الرئيسية')}</td>
-                <td className="px-3 py-2 text-[12px] text-neutral-500">{t('Passing', 'الاجتياز')}: <span className="font-semibold text-neutral-800">{rfp.qualPassing ?? 0}%</span></td>
+                <td className="px-3 py-2 text-[12px] font-semibold text-neutral-600" colSpan={2}>{t('Main Criteria Total', 'إجمالي المعايير الرئيسية')}</td>
                 <td className={`px-3 py-2 text-end font-bold tabular-nums ${qualTotal === 100 ? 'text-success-700' : 'text-warning-700'}`}>{qualTotal}%</td>
               </tr></tfoot>
             </table>
           </div>
         </div>
       ) : null}
+      {qualPass}
     </div>
   );
 
   return (
-    <div className="space-y-5">
-        {/* Hero stats */}
-        {stats.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {stats.map((s, i) => (
-              <Commentable key={i} id={`stat-${i}`} label={{ en: s.label, ar: s.label }}><div className="rounded-xl border border-neutral-200 bg-white shadow-sm px-4 py-3">
-                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{s.label}</p>
-                <p className="text-[18px] font-bold text-neutral-900 mt-0.5 tabular-nums" dir={s.dir}>{s.value}</p>
-              </div></Commentable>
-            ))}
-          </div>
-        )}
-
-        <RfpSection id="overview" title={t('Request overview', 'نظرة عامة على الطلب')} label={{ en: 'Request overview', ar: 'نظرة عامة على الطلب' }}>
-          <Commentable id="overview-summary" label={{ en: 'Request overview — title & summary', ar: 'نظرة عامة — العنوان والملخص' }}><div className="rounded-lg">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">{rfp.refId}</p>
-          <h3 className="text-[16px] font-bold text-neutral-900 mt-0.5">{isAr ? rfp.titleAr : rfp.titleEn}</h3>
-          <p className="text-[13px] text-neutral-600 mt-1 leading-relaxed">{isAr ? rfp.summaryAr : rfp.summaryEn}</p>
-          </div></Commentable>
-          {(rfp.purposeEn || rfp.projectItems?.length) ? (
-            <div className="mt-4 space-y-3" data-rfp-setup>
-              {rfp.purposeEn && <Commentable id="purpose" label={{ en: 'Purpose of the tender', ar: 'الغرض من المنافسة' }}><div><SubLabel>{t('Purpose of the tender', 'الغرض من المنافسة')}</SubLabel><p className="text-[13px] text-neutral-700 leading-relaxed" data-rfp-purpose>{isAr ? rfp.purposeAr : rfp.purposeEn}</p></div></Commentable>}
-              {rfp.projectItems?.length ? <Commentable id="project-items" label={{ en: 'Budgeted project items', ar: 'بنود المشروع المعتمدة' }}><div><SubLabel>{t('Budgeted project items', 'بنود المشروع المعتمدة')}</SubLabel><Chips items={rfp.projectItems.map((x) => (isAr ? x.ar : x.en))} attr="data-rfp-items" /></div></Commentable> : null}
-              {rfp.routeJustification && <Commentable id="route-justification" label={{ en: 'Why eMarket items stay in the tender', ar: 'سبب إبقاء بنود السوق في المنافسة' }}><div><SubLabel>{t('Why eMarket items stay in the tender', 'سبب إبقاء بنود السوق في المنافسة')}</SubLabel><p className="text-[13px] text-neutral-700">{rfp.routeJustification}</p></div></Commentable>}
-            </div>
-          ) : null}
-          <dl className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 border-t border-neutral-100 pt-4">
-            {metaFor(rfp).map((m, i) => (
-              <Commentable key={i} id={`meta-${i}`} label={{ en: m.label.en, ar: m.label.ar }}><div className="min-w-0"><dt className="text-[10.5px] uppercase tracking-wide text-neutral-400">{tb(m.label, isAr)}</dt>
-                <dd className="text-[13px] font-medium text-neutral-800 truncate mt-0.5" dir={m.dir}>{m.value}</dd></div></Commentable>
+    <div className="space-y-5 stagger" data-rfp-tab>
+        <RfpSection id="overview" title={t('Project Setup', 'إعداد المشروع')} label={{ en: 'Project Setup', ar: 'إعداد المشروع' }}>
+          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4" data-rfp-setup>
+            {[
+              { id: 'code', k: t('Project Code', 'رمز المشروع'), v: rfp.projectCode, ltr: true },
+              { id: 'name-en', k: t('Project Name (English)', 'اسم المشروع (بالإنجليزية)'), v: rfp.projectNameEn },
+              { id: 'name-ar', k: t('Project Name (Arabic)', 'اسم المشروع (بالعربية)'), v: rfp.projectNameAr },
+              { id: 'cc', k: t('Cost Center', 'مركز التكلفة'), v: rfp.costCenters?.join(', ') },
+              { id: 'route', k: t('Procurement route', 'مسار الشراء'), v: rfp.route === 'souq-etimad' ? t('Etimad E-Market', 'سوق اعتماد') : t('Competitive Tender', 'منافسة عامة') },
+            ].map((f) => (
+              <Commentable key={f.id} id={`setup-${f.id}`} label={{ en: f.k, ar: f.k }}><div className="min-w-0" data-rfp-field={f.id}><dt className="text-[10.5px] uppercase tracking-wide text-neutral-400">{f.k}</dt>
+                <dd className="text-[13px] font-medium text-neutral-800 mt-0.5" dir={f.ltr ? 'ltr' : undefined}>{f.v || '—'}</dd></div></Commentable>
             ))}
           </dl>
+          {rfp.projectItems?.length ? <Commentable id="project-items" label={{ en: 'Selected Budgeted items', ar: 'البنود المعتمدة المختارة' }}><div className="mt-4"><SubLabel>{t('Selected Budgeted items', 'البنود المعتمدة المختارة')}</SubLabel><Chips items={rfp.projectItems.map((x) => (isAr ? x.ar : x.en))} attr="data-rfp-items" /></div></Commentable> : null}
+          {rfp.routeJustification && <Commentable id="route-justification" label={{ en: 'Justification', ar: 'المبرر' }}><div className="mt-4"><SubLabel>{t('Justification for keeping eMarket items in the tender', 'مبرر إبقاء بنود السوق في المنافسة')}</SubLabel><p className="text-[13px] text-neutral-700">{rfp.routeJustification}</p></div></Commentable>}
+          {rfp.purposeEn && <Commentable id="purpose" label={{ en: 'Purpose', ar: 'الغرض' }}><div className="mt-4"><SubLabel>{t('Purpose', 'الغرض')}</SubLabel><p className="text-[13px] text-neutral-700 leading-relaxed" data-rfp-purpose>{isAr ? rfp.purposeAr : rfp.purposeEn}</p></div></Commentable>}
         </RfpSection>
 
-        <RfpSection id="scope" title={t('Scope of work', 'نطاق العمل')} label={{ en: 'Scope of work', ar: 'نطاق العمل' }}>
-          <Commentable id={'scope-summary'} label={{ en: 'Scope of work — summary', ar: 'نطاق العمل — الملخص' }}><p className="text-[13px] text-neutral-700 leading-relaxed">{isAr ? rfp.scopeAr : rfp.scopeEn}</p></Commentable>
-          {rfp.scopeBlocks?.length ? (
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              {rfp.scopeBlocks.map((b, i) => (
-                <Commentable key={i} id={`scope-${i}`} label={{ en: b.headEn, ar: b.headAr }}><div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3.5">
-                  <p className="text-[12px] font-bold text-neutral-800 mb-1.5">{isAr ? b.headAr : b.headEn}</p>
-                  <ul className="space-y-1">
-                    {(isAr ? b.itemsAr : b.itemsEn).map((x, j) => (
-                      <li key={j} className="flex items-start gap-2 text-[12.5px] text-neutral-600 leading-snug"><span className="w-1.5 h-1.5 rounded-full bg-brand-500 mt-1.5 flex-shrink-0" />{x}</li>
-                    ))}
-                  </ul>
-                </div></Commentable>
-              ))}
-            </div>
-          ) : null}
+        <RfpSection id="scope" title={t('Scope of Work', 'نطاق العمل')} label={{ en: 'Scope of Work', ar: 'نطاق العمل' }}>
+          <Commentable id={'scope-summary'} label={{ en: 'Project Scope of Work', ar: 'نطاق عمل المشروع' }}><div><SubLabel>{t('Project Scope of Work', 'نطاق عمل المشروع')}</SubLabel><p className="text-[13px] text-neutral-700 leading-relaxed whitespace-pre-line">{isAr ? rfp.scopeAr : rfp.scopeEn}</p></div></Commentable>
           <ScopeDetails rfp={rfp} isAr={isAr} t={t} />
         </RfpSection>
 
+        {rfp.boq.length > 0 && (
+          <RfpSection id="cost" title={t('Bill of Quantities', 'جدول الكميات')} label={{ en: 'Bill of Quantities', ar: 'جدول الكميات' }} meta={`${rfp.boq.length} ${t('items', 'بنود')} · ${fmtSAR(boqTotal)}`} views={{ table: boqTable, chart: boqChart }} />
+        )}
+        {rfp.payment.length > 0 && (
+          <RfpSection id="payment" title={t('Payment Schedule', 'جدول الدفعات')} label={{ en: 'Payment Schedule', ar: 'جدول الدفعات' }} meta={`${rfp.payment.length} ${t('stages', 'مراحل')}`} views={{ table: payTable, chart: payChart }} />
+        )}
+        {rfp.evaluation.length > 0 && (
+          <RfpSection id="evaluation" title={t('Technical Evaluation', 'التقييم الفني')} label={{ en: 'Technical Evaluation', ar: 'التقييم الفني' }} meta={`${rfp.evaluation.length} ${t('criteria', 'معايير')} · ${t('passing', 'الاجتياز')} ${rfp.techPassing ?? 0}%`} views={{ table: evalTable, chart: evalChart }} />
+        )}
+        {(rfp.qualCriteria?.length ?? 0) > 0 && (
+          <RfpSection id="qualification" title={t('Qualification Criteria', 'معايير التأهيل')} label={{ en: 'Qualification Criteria', ar: 'معايير التأهيل' }} meta={`${rfp.qualCriteria?.length ?? 0} ${t('main criteria', 'معايير رئيسية')} · ${(rfp.qualCriteria ?? []).reduce((n, m) => n + m.subs.length, 0)} ${t('sub-criteria', 'معايير فرعية')} · ${t('passing', 'الاجتياز')} ${rfp.qualPassing ?? 0}%`} views={{ table: qualTable, chart: qualChart }} />
+        )}
+
+        {rfp.documents.length > 0 && (
+          <RfpSection id="documents" title={t('Attachments — Supporting Documents', 'المرفقات — المستندات الداعمة')} label={{ en: 'Supporting Documents', ar: 'المستندات الداعمة' }} meta={`${rfp.documents.length} ${t('files', 'ملفات')}`}>
+            <ul className="space-y-1.5">
+              {rfp.documents.map((dc, i) => (
+                <Commentable key={i} id={`doc-${i}`} label={{ en: dc.en, ar: dc.ar }}><li className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 px-3 py-2">
+                  {dc.type && <span className="w-10 h-6 rounded-md bg-white border border-neutral-200 text-[10px] font-bold text-neutral-500 flex items-center justify-center flex-shrink-0">{dc.type}</span>}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-neutral-800 truncate">{isAr ? dc.ar : dc.en}</p>
+                    {(dc.size || dc.by) && <p className="text-[11px] text-neutral-400">{[dc.size, dc.by].filter(Boolean).join(' · ')}</p>}
+                  </div>
+                  {(() => {
+                    const pd: PreviewDoc = { name: dc.en, nameAr: dc.ar, type: dc.type ?? 'PDF', size: dc.size, by: dc.by, ref: rfp.refId, title: rfp.titleEn, dept: rfp.meta.find((m) => m.label.en === 'Requesting department')?.value, amount: amount ? fmtSAR(amount) : undefined };
+                    return (<>
+                      <button type="button" onClick={() => setPreview(pd)} title={t('Preview', 'معاينة')} className="h-8 px-2.5 rounded-md text-[12px] font-semibold text-brand-700 hover:bg-brand-50 inline-flex items-center gap-1 flex-shrink-0"><EyeGlyph className="w-4 h-4" />{t('Preview', 'معاينة')}</button>
+                      <button type="button" onClick={() => downloadDocPdf(pd)} title={t('Download', 'تنزيل')} className="w-8 h-8 rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 flex items-center justify-center flex-shrink-0"><DownloadIcon className="w-4 h-4" /></button>
+                    </>);
+                  })()}
+                </li></Commentable>
+              ))}
+            </ul>
+            {preview && <DocPreview doc={preview} onClose={() => setPreview(null)} />}
+          </RfpSection>
+        )}
+
+        {/* Review & Confirm */}
         {rfp.techStandards?.length ? (
           <RfpSection id="standards" title={t('Technical standards', 'المعايير التقنية')} label={{ en: 'Technical standards', ar: 'المعايير التقنية' }} meta={t(`${rfp.techStandards.filter((x) => x.status === 'included').length} included · ${rfp.techStandards.filter((x) => x.status === 'na').length} not applicable`, `${rfp.techStandards.filter((x) => x.status === 'included').length} مشمول · ${rfp.techStandards.filter((x) => x.status === 'na').length} غير منطبق`)}>
             <div className="space-y-4" data-rfp-standards>
@@ -1064,42 +1063,12 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
           </RfpSection>
         )}
 
-        {rfp.boq.length > 0 && (
-          <RfpSection id="cost" title={t('Bill of quantities', 'جدول الكميات')} label={{ en: 'Bill of quantities', ar: 'جدول الكميات' }} meta={`${rfp.boq.length} ${t('items', 'بنود')} · ${fmtSAR(boqTotal)}`} views={{ table: boqTable, chart: boqChart }} />
-        )}
-        {rfp.payment.length > 0 && (
-          <RfpSection id="payment" title={t('Payment schedule', 'جدول الدفعات')} label={{ en: 'Payment schedule', ar: 'جدول الدفعات' }} meta={`${rfp.payment.length} ${t('stages', 'مراحل')}`} views={{ table: payTable, chart: payChart }} />
-        )}
-        {rfp.evaluation.length > 0 && (
-          <RfpSection id="evaluation" title={t('Evaluation criteria', 'معايير التقييم')} label={{ en: 'Evaluation criteria', ar: 'معايير التقييم' }} meta={`${rfp.evaluation.length} ${t('criteria', 'معايير')} · ${t('passing', 'الاجتياز')} ${rfp.techPassing ?? 0}%`} views={{ table: evalTable, chart: evalChart }} />
-        )}
-        {(rfp.qualCriteria?.length ?? 0) > 0 && (
-          <RfpSection id="qualification" title={t('Qualification criteria', 'معايير التأهيل')} label={{ en: 'Qualification criteria', ar: 'معايير التأهيل' }} meta={`${rfp.qualCriteria?.length ?? 0} ${t('main criteria', 'معايير رئيسية')} · ${(rfp.qualCriteria ?? []).reduce((n, m) => n + m.subs.length, 0)} ${t('sub-criteria', 'معايير فرعية')} · ${t('passing', 'الاجتياز')} ${rfp.qualPassing ?? 0}%`} views={{ table: qualTable, chart: qualChart }} />
-        )}
 
-        {rfp.documents.length > 0 && (
-          <RfpSection id="documents" title={t('Documents', 'المستندات')} label={{ en: 'Documents', ar: 'المستندات' }} meta={`${rfp.documents.length} ${t('files', 'ملفات')}`}>
-            <ul className="space-y-1.5">
-              {rfp.documents.map((dc, i) => (
-                <Commentable key={i} id={`doc-${i}`} label={{ en: dc.en, ar: dc.ar }}><li className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 px-3 py-2">
-                  {dc.type && <span className="w-10 h-6 rounded-md bg-white border border-neutral-200 text-[10px] font-bold text-neutral-500 flex items-center justify-center flex-shrink-0">{dc.type}</span>}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-neutral-800 truncate">{isAr ? dc.ar : dc.en}</p>
-                    {(dc.size || dc.by) && <p className="text-[11px] text-neutral-400">{[dc.size, dc.by].filter(Boolean).join(' · ')}</p>}
-                  </div>
-                  {(() => {
-                    const pd: PreviewDoc = { name: dc.en, nameAr: dc.ar, type: dc.type ?? 'PDF', size: dc.size, by: dc.by, ref: rfp.refId, title: rfp.titleEn, dept: rfp.meta.find((m) => m.label.en === 'Requesting department')?.value, amount: amount ? fmtSAR(amount) : undefined };
-                    return (<>
-                      <button type="button" onClick={() => setPreview(pd)} title={t('Preview', 'معاينة')} className="h-8 px-2.5 rounded-md text-[12px] font-semibold text-brand-700 hover:bg-brand-50 inline-flex items-center gap-1 flex-shrink-0"><EyeGlyph className="w-4 h-4" />{t('Preview', 'معاينة')}</button>
-                      <button type="button" onClick={() => downloadDocPdf(pd)} title={t('Download', 'تنزيل')} className="w-8 h-8 rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 flex items-center justify-center flex-shrink-0"><DownloadIcon className="w-4 h-4" /></button>
-                    </>);
-                  })()}
-                </li></Commentable>
-              ))}
-            </ul>
-            {preview && <DocPreview doc={preview} onClose={() => setPreview(null)} />}
+        {rfp.regulatory?.length ? (
+          <RfpSection id="regulatory" title={t('Regulatory Records', 'السجلات النظامية')} label={{ en: 'Regulatory Records', ar: 'السجلات النظامية' }} meta={`${rfp.regulatory.length}`}>
+            <Chips items={rfp.regulatory} attr="data-rfp-regulatory" />
           </RfpSection>
-        )}
+        ) : null}
     </div>
   );
 }

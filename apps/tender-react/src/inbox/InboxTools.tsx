@@ -6,6 +6,7 @@ import type { Person, Task } from './types';
 import { useInbox, dueInfo, fmtDate } from './store';
 import { PROC_TEAM, TEAM_NAME } from './data';
 import { CheckIcon, ChevronDownIcon } from '../components/Icons';
+import { toast } from '../components/Toast';
 
 type T = (en: string, ar: string) => string;
 export type Scope = 'mine' | 'team';
@@ -92,7 +93,7 @@ export function MoreMenu({ rows, scopeLabel, viewLabel, isAr, t, layout, onLayou
     </button>
   );
   const LayoutOpt = ({ v, icon, title, hint }: { v: Layout; icon: ReactNode; title: string; hint: string }) => (
-    <button type="button" role="menuitemradio" aria-checked={layout === v} data-layout={v} onClick={() => { onLayout(v); setOpen(false); setSub(false); }}
+    <button type="button" role="menuitemradio" aria-checked={layout === v} data-layout={v} onClick={() => { onLayout(v); setOpen(false); setSub(false); toast(v === 'list' ? t('Switched to List view', 'تم التبديل إلى عرض القائمة') : t('Switched to Compact view', 'تم التبديل إلى العرض المضغوط'), 'info'); }}
       className={`w-full text-start flex items-center gap-3 px-3 py-2.5 rounded-lg ${layout === v ? 'bg-brand-50/70' : 'hover:bg-neutral-50'}`}>
       <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${layout === v ? 'bg-brand-600 text-white' : 'bg-neutral-100 text-neutral-600'}`}>{icon}</span>
       <span className="min-w-0 flex-1"><span className="block text-[13px] font-semibold text-neutral-900">{title}</span><span className="block text-[11.5px] text-neutral-500">{hint}</span></span>
@@ -117,7 +118,7 @@ export function MoreMenu({ rows, scopeLabel, viewLabel, isAr, t, layout, onLayou
           </div>
           <div className="my-1 h-px bg-neutral-100" />
           <Item icon={<SheetGlyph />} tone="success" title={t('Download as Excel', 'تنزيل كملف Excel')} hint={t(`${rows.length} tasks · ${scopeLabel} · ${viewLabel}`, `${rows.length} مهام · ${scopeLabel} · ${viewLabel}`)}
-            attrs={{ 'data-export-excel': '' }} onClick={() => { void exportExcel(rows, scopeLabel, viewLabel, isAr, t); setOpen(false); }} />
+            attrs={{ 'data-export-excel': '' }} onClick={() => { void exportExcel(rows, scopeLabel, viewLabel, isAr, t).then(() => toast(t(`${rows.length} tasks downloaded as Excel`, `تم تنزيل ${rows.length} مهام كملف Excel`))); setOpen(false); }} />
         </div>
       )}
     </div>
@@ -233,7 +234,7 @@ export function DelegateDialog({ isAr, t, onClose }: { isAr: boolean; t: T; onCl
         </div>
 
         <div className="px-6 py-5 mt-1 flex items-center justify-end gap-2">
-          <button type="button" data-delegate-apply disabled={!valid} onClick={() => { if (target) { delegate({ to: target, from: new Date(from).toISOString(), until: new Date(until).toISOString(), includeNew }); onClose(); } }}
+          <button type="button" data-delegate-apply disabled={!valid} onClick={() => { if (target) { delegate({ to: target, from: new Date(from).toISOString(), until: new Date(until).toISOString(), includeNew }); onClose(); toast(t(`${moving.length} tasks delegated to ${target.name}`, `فُوّضت ${moving.length} مهام إلى ${target.nameAr ?? target.name}`)); } }}
             className="h-10 px-5 rounded-lg bg-[#2A3466] hover:bg-[#1F2753] text-white text-[13px] font-semibold disabled:opacity-40">{t('Delegate inbox', 'تفويض الوارد')}</button>
           <button type="button" onClick={onClose} className="h-10 px-4 rounded-lg text-[13px] font-semibold text-neutral-600 hover:bg-neutral-100">{t('Cancel', 'إلغاء')}</button>
         </div>
@@ -257,7 +258,7 @@ export function DelegationBanner({ isAr, t }: { isAr: boolean; t: T }) {
         <p className="text-[13px] font-semibold leading-tight truncate">{t(`Delegated to ${p.name}`, `مفوّض إلى ${p.nameAr ?? p.name}`)}</p>
         <p className="text-[11.5px] text-white/70 mt-0.5">{t(`Until ${fmtDate(delegation.until, isAr)} · ${n} tasks with them`, `حتى ${fmtDate(delegation.until, isAr)} · ${n} مهام لديه`)}{delegation.includeNew ? t(' · new tasks too', ' · والمهام الجديدة') : ''}</p>
       </div>
-      <button type="button" data-delegation-cancel onClick={cancelDelegation} className="relative h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-[12px] font-semibold whitespace-nowrap">{t('Cancel delegation', 'إلغاء التفويض')}</button>
+      <button type="button" data-delegation-cancel onClick={() => { cancelDelegation(); toast(t('Delegation cancelled — tasks are back in your inbox', 'أُلغي التفويض — عادت المهام إلى صندوقك'), 'info'); }} className="relative h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-[12px] font-semibold whitespace-nowrap">{t('Cancel delegation', 'إلغاء التفويض')}</button>
     </div>
   );
 }

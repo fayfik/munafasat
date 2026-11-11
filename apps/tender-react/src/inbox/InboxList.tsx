@@ -10,6 +10,7 @@ import { budgetFits } from './BudgetCheck';
 import { PRIORITY_META, STATE_META, tb } from './meta';
 import { Avatar } from './InboxTools';
 import { EyeGlyph } from './TaskDetail';
+import { toast } from '../components/Toast';
 
 type T = (en: string, ar: string) => string;
 type SortKey = 'ref' | 'task' | 'project' | 'status' | 'type' | 'dept' | 'requester' | 'received' | 'due';
@@ -89,7 +90,7 @@ export default function InboxList({ rows, isAr, t, onOpen }: { rows: Task[]; isA
             <th className="sticky end-0 z-[1] bg-white px-4 py-3 text-end font-medium shadow-[-10px_0_12px_-10px_rgba(16,24,40,0.12)] rtl:shadow-[10px_0_12px_-10px_rgba(16,24,40,0.12)]">{t('Actions', 'الإجراءات')}</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="stagger">
           {sorted.map((x) => {
             const st = statusOf(x, t, isAr);
             const due = dueLabel(x, t);
@@ -142,7 +143,7 @@ export default function InboxList({ rows, isAr, t, onOpen }: { rows: Task[]; isA
         </tbody>
       </table>
       {pending && <DecisionModal task={pending.task} action={pending.a} isAr={isAr} t={t} onCancel={() => setPending(null)}
-        onConfirm={(n) => { if (pending.a.needsNote && !n) return; decide(pending.task.id, pending.a.id as Parameters<typeof decide>[1], n || undefined, pending.a.decision); setPending(null); }} />}
+        onConfirm={(n) => { if (pending.a.needsNote && !n) return; decide(pending.task.id, pending.a.id as Parameters<typeof decide>[1], n || undefined, pending.a.decision); toast(t(`${pending.a.label[0]} — ${pending.task.entity.ref}`, `${pending.a.label[1]} — ${pending.task.entity.ref}`)); setPending(null); }} />}
     </div>
   );
 }

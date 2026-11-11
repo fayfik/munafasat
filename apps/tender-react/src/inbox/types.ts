@@ -259,6 +259,9 @@ export interface RfpDetail {
   meta: { label: Bilingual; value: string; dir?: 'ltr' }[];
   scopeEn: string; scopeAr: string;
   // ── Everything else captured in request creation (one record for every page) ──
+  /** Project Setup: project code and names, procurement route. */
+  projectCode?: string; projectNameEn?: string; projectNameAr?: string;
+  route?: 'tendering' | 'souq-etimad';
   /** Project Setup: purpose of the tender. */
   purposeEn?: string; purposeAr?: string;
   /** Project Setup: budgeted project items chosen for this request. */
@@ -291,6 +294,8 @@ export interface RfpDetail {
     finPurchaseType?: 'consumable' | 'asset' | 'service' | 'service-asset';
     materialGroup?: string;
     brandName?: string;
+    /** BOQ "Has Brand Name" and its justification. */
+    hasBrand?: boolean;
   }[];
   payment: { stageEn: string; stageAr: string; pct: number; descEn?: string; descAr?: string; due?: string; dueAr?: string }[];
   evaluation: { criterionEn: string; criterionAr: string; weight: number; descEn?: string; descAr?: string }[];

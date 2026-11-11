@@ -102,10 +102,10 @@ export default function BoqLineDetails({ line: l, isAr, t, showGl }: { line: Boq
     <div className="@container drill-in bg-white border-t border-neutral-100 px-5 py-4 text-start shadow-[inset_3px_0_0_var(--color-brand-500)] rtl:shadow-[inset_-3px_0_0_var(--color-brand-500)]" data-boq-details data-boq-details-inline>
       <div className="divide-y divide-neutral-100">
         <Group title={t('Item', 'البند')}>
-          <Field label={t('Item name', 'اسم البند')} value={l.name} strong full />
-          {l.description && <Field label={t('Description', 'الوصف')} value={<span className="whitespace-pre-line">{l.description}</span>} full />}
+          <Field label={t('Item Name', 'اسم البند')} value={l.name} strong full />
+          {l.description && <Field label={t('Item Description', 'وصف البند')} value={<span className="whitespace-pre-line">{l.description}</span>} full />}
           <Field label={t('Category', 'التصنيف')} value={l.category && <span className="inline-flex items-center gap-1.5"><span className={`w-2 h-2 rounded-full ${DOT[l.category.tone]}`} />{l.category.label}</span>} />
-          <Field label={t('Budgeted item', 'البند المعتمد')} value={l.budget} />
+          <Field label={t('Budgeted Item', 'البند المعتمد')} value={l.budget} />
           <Field label={<>{t('Purchase type', 'نوع الشراء')}{f?.ai && <span className="ms-1.5 px-1 rounded bg-ai-50 text-ai-700 text-[9.5px] font-bold align-[1px]" title={t('AI-suggested', 'مقترح بالذكاء الاصطناعي')}>AI</span>}</>} value={L(f?.purchaseType ? PURCHASE_TYPES[f.purchaseType] : undefined)} />
           <Field label={t('Material group', 'مجموعة المواد')} value={mg && <>{L(mg)}<span className="block text-neutral-400 text-[11.5px]" dir="ltr">{mg.code}</span></>} />
           {showGl && <>
@@ -114,16 +114,15 @@ export default function BoqLineDetails({ line: l, isAr, t, showGl }: { line: Boq
             <Field label={t('Asset / Non-asset', 'أصل / غير أصل')} value={f?.assetFlag ? (f.assetFlag === 'asset' ? t('Asset', 'أصل') : t('Non-asset', 'غير أصل')) : ''} />
             {f?.componentRole && <Field label={t('Component role', 'دور المكوّن')} value={L(COMPONENT_ROLES[f.componentRole])} />}
           </>}
-          <Field label={t('Unit of measure', 'وحدة القياس')} value={l.unit} />
-          <Field label={t('Delivery date', 'موعد التسليم')} value={fmtD(l.delivery)} />
+          <Field label={t('Unit of Measure', 'وحدة القياس')} value={l.unit} />
+          <Field label={t('Delivery Date', 'تاريخ التسليم')} value={fmtD(l.delivery)} />
           {l.extra?.map((x, i) => <Field key={i} {...x} />)}
         </Group>
 
         <Group title={t('Amount', 'المبلغ')}>
           <Field label={t('Quantity', 'الكمية')} value={l.qty ? `${l.qty} ${l.unit ?? ''}`.trim() : ''} />
-          <Field label={t('Unit price', 'سعر الوحدة')} value={l.unitPrice ? sar(l.unitPrice) : ''} ltr />
-          <Field label={t('Line total (excl. VAT)', 'إجمالي البند (قبل الضريبة)')} value={total ? sar(total) : ''} ltr />
-          <Field label={t('Line total (incl. VAT)', 'إجمالي البند (شامل الضريبة)')} value={total ? sar(total * 1.15) : ''} ltr strong />
+          <Field label={t('Unit Price (SAR)', 'سعر الوحدة (ريال)')} value={l.unitPrice ? sar(l.unitPrice) : ''} ltr />
+          <Field label={t('Line Total', 'إجمالي البند')} value={total ? sar(total) : ''} ltr strong />
         </Group>
 
       </div>
@@ -143,7 +142,7 @@ export function financeFor(src: { name: string; description?: string; saved?: Pa
 }
 
 /** Adapter for request records (Inbox / request detail). */
-export function viewFromRfpLine(l: { itemEn: string; itemAr: string; qty: string; unit: string; unitPrice: number; descEn?: string; descAr?: string; budgetEn?: string; budgetAr?: string; category?: 'Service' | 'Material'; delivery?: string; finPurchaseType?: BOQRow['finPurchaseType']; materialGroup?: string; brandName?: string }, isAr: boolean, t: T, costCenter?: string): BoqLineView {
+export function viewFromRfpLine(l: { itemEn: string; itemAr: string; qty: string; unit: string; unitPrice: number; descEn?: string; descAr?: string; budgetEn?: string; budgetAr?: string; category?: 'Service' | 'Material'; delivery?: string; finPurchaseType?: BOQRow['finPurchaseType']; materialGroup?: string; brandName?: string; hasBrand?: boolean }, isAr: boolean, t: T, costCenter?: string): BoqLineView {
   return {
     name: isAr ? l.itemAr : l.itemEn,
     description: (isAr ? l.descAr : l.descEn) ?? undefined,
@@ -153,7 +152,10 @@ export function viewFromRfpLine(l: { itemEn: string; itemAr: string; qty: string
     total: (Number(l.qty) || 1) * l.unitPrice,
     delivery: l.delivery,
     finance: financeFor({ name: l.itemEn, description: l.descEn, saved: l.finPurchaseType || l.materialGroup ? { finPurchaseType: l.finPurchaseType, materialGroup: l.materialGroup, acctSource: 'user' } as Partial<BOQRow> : undefined }, { costCenter }),
-    extra: l.brandName ? [{ label: t('Brand name', 'العلامة التجارية'), value: l.brandName, full: true }] : undefined,
+    extra: l.hasBrand === undefined ? undefined : [
+      { label: t('Has Brand Name', 'يحتوي على علامة تجارية'), value: l.hasBrand ? t('Yes', 'نعم') : t('No', 'لا') },
+      ...(l.hasBrand ? [{ label: t('Brand Justification', 'مبرر العلامة التجارية'), value: l.brandName ?? '', full: true }] : []),
+    ],
   };
 }
 

@@ -23,6 +23,10 @@ export function rfpFromForm(f: TenderFormData, base: RfpDetail): RfpDetail {
 
   return {
     ...base,
+    projectCode: proj?.code ?? base.projectCode,
+    projectNameEn: proj?.name ?? base.projectNameEn,
+    projectNameAr: proj?.nameAr ?? base.projectNameAr,
+    route: f.sourceType === 'souq-etimad' ? 'souq-etimad' : 'tendering',
     titleEn: proj?.name ?? base.titleEn,
     titleAr: proj?.nameAr ?? base.titleAr,
     // Project setup
@@ -56,7 +60,8 @@ export function rfpFromForm(f: TenderFormData, base: RfpDetail): RfpDetail {
         category: b.category === 'material' ? 'Material' : 'Service',
         delivery: b.deliveryDate || undefined,
         finPurchaseType: b.finPurchaseType, materialGroup: b.materialGroup,
-        brandName: b.hasBrandName ? (b.brandJustification || 'Brand named') : undefined,
+        hasBrand: !!b.hasBrandName,
+        brandName: b.hasBrandName ? (b.brandJustification || undefined) : undefined,
       };
     }) : base.boq,
     // Payment

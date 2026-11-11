@@ -533,6 +533,12 @@ function completeRfp(r0: RfpDetail): RfpDetail {
     techDocs: r.techDocs ?? TECH_DOCS_DEFAULT,
     qualPassing: r.qualPassing ?? 60,
     qualCommittee: r.qualCommittee ?? QUAL_COMMITTEE,
+    boq: r.boq.map((l) => ({ hasBrand: false, ...l })),
+    projectCode: r.projectCode ?? 'PRJ-2025-001',
+    projectNameEn: r.projectNameEn ?? r.titleEn,
+    projectNameAr: r.projectNameAr ?? r.titleAr,
+    route: r.route ?? (/E-Market/i.test(r.meta.find((m) => m.label.en === 'Procurement route')?.value ?? '') ? 'souq-etimad' : 'tendering'),
+    costCenters: r.costCenters ?? [r.meta.find((m) => m.label.en === 'Cost center')?.value ?? ''].filter(Boolean),
     purposeEn: r.purposeEn ?? `The purpose of this tender is to procure ${r.titleEn} to enhance operational efficiency, support digital transformation objectives and ensure compliance with applicable regulatory standards.`,
     purposeAr: r.purposeAr ?? `الغرض من هذه المنافسة شراء ${r.titleAr} لتعزيز الكفاءة التشغيلية ودعم أهداف التحول الرقمي وضمان الامتثال للأنظمة المعمول بها.`,
     projectItems: r.projectItems ?? r.boq.slice(0, 4).map((l) => ({ en: l.budgetEn ?? l.itemEn, ar: l.budgetAr ?? l.itemAr })).filter((x, i, a) => a.findIndex((y) => y.en === x.en) === i),
@@ -720,11 +726,12 @@ export function requestRfpFor(o: { refId: string; titleEn: string; titleAr: stri
       m.label.en === 'Estimated value' ? { ...m, value: `SAR ${o.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` } :
       m.label.en === 'Procurement route' ? { ...m, value: esouq ? 'Etimad E-Market' : 'Competitive Tender' } : m)
       .filter((m) => !esouq || !['Evaluation split', 'Suppliers invited', 'Planned award'].includes(m.label.en)),
-    boq,
+    boq: boq.map((l) => ({ hasBrand: false, ...l })),
     purposeEn: `The purpose of this tender is to procure ${o.titleEn} for ${o.deptEn}, to enhance operational efficiency and ensure compliance with applicable regulatory standards.`,
     purposeAr: `الغرض من هذه المنافسة شراء «${o.titleAr}» لصالح ${o.deptAr} لتعزيز الكفاءة التشغيلية وضمان الامتثال للأنظمة المعمول بها.`,
     projectItems: boq.map((l) => ({ en: l.budgetEn ?? l.itemEn, ar: l.budgetAr ?? l.itemAr })).filter((x, i, a) => a.findIndex((y) => y.en === x.en) === i).slice(0, 5),
     costCenters: [o.costCenter],
+    projectNameEn: o.titleEn, projectNameAr: o.titleAr, route: o.type,
     deliverables: /ERP System Upgrade/.test(o.titleEn) ? base.deliverables : [
       { phase: 'Phase 1', name: 'Kick-off and delivery plan', due: 'Week 2', desc: 'Project plan, RACI and delivery schedule approved.' },
       { phase: 'Phase 2', name: 'Delivery and installation', due: 'Week 8', desc: 'All BOQ items delivered, installed and configured.' },
