@@ -204,6 +204,12 @@ export interface TenderFormData {
   deploymentModel?: 'saas' | 'on-prem' | 'hybrid';
   /** Answers to the Technical standards project questions (question id → yes/no). */
   techAnswers?: Partial<Record<string, boolean>>;
+  /** BCM service-criticality screening (Review & Confirm). */
+  bcmAnswers?: Partial<Record<string, boolean>>;
+  /** Values for BCM clauses that need one (RTO, RPO, incident reporting, replacement time). */
+  bcmValues?: Record<string, string>;
+  /** Third-Party Risk Assessment checklist (all RFPs). */
+  tprAnswers?: Partial<Record<string, boolean>>;
   /** Answers + deployment the current standards were built from (rebuild when they change). */
   techStdKey?: string;
   /** Technical standards pulled from the EA / Cybersecurity / PMO library. */

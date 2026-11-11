@@ -1107,6 +1107,67 @@ async function openRequest(title) {
     expect(await count('[data-layout-active="compact"]') === 1, 'compact restored');
   });
 
+  // ── Business continuity & third-party risk (Review & Confirm) ──────────────
+  await test('Review & Confirm: BCM screening reads the service, adds continuity clauses, blocks submit until values and risk checklist are filled', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002',
+      scopeOfWork: 'Provide a 24/7 security monitoring service for the bank SOC with on-site operators, covering SIEM triage, incident escalation and monthly reporting.' });
+    await openReview('risk');
+    expect(await count('[data-ai-continuity] [data-continuity]') === 1, 'panel in the Risk tab');
+    expect(await page.getAttribute('[data-bcm-verdict]', 'data-bcm-verdict') === 'applies', 'BCM applies from the service');
+    expect(await count('[data-bcm-clause="backup"]') === 1, 'staff clauses because the service relies on people');
+    await page.click('[data-ai-tab="general"]'); await wait(200);
+    expect(await count('[data-ai-general-item="bcm-values"]') === 1, 'missing values listed before submit');
+    await page.click('[data-ai-general-item="bcm-values"] button'); await wait(500);
+    for (const id of ['rto', 'rpo', 'incident', 'replace']) await page.fill(`[data-bcm-value="${id}"]`, id === 'replace' ? '5 working days' : '2 hours');
+    // Answer whatever the request could not
+    for (let i = 0; i < 12 && await count('[data-cr-questions] [data-cr-answer="no"]'); i++) { await page.locator('[data-cr-questions] [data-cr-answer="no"]').first().click(); await wait(120); }
+    expect(await page.getAttribute('[data-continuity]', 'data-cr-open') === '0', 'everything answered');
+    expect(await count('[data-tpr-rating]') === 1, 'risk rating shown');
+    await page.click('[data-ai-tab="general"]'); await wait(200);
+    expect(await count('[data-ai-general-item="bcm-values"]') === 0 && await count('[data-ai-general-item="cr-questions"]') === 0, 'no continuity items left');
+  });
+  await test('Review & Confirm: a supplementary service (branding) → BCM not applicable, no clauses', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', scopeOfWork: 'Refresh the bank branding and brand identity guidelines for the Communications department, including templates and marketing collateral.' });
+    await openReview('risk');
+    for (let i = 0; i < 6 && await count('[data-bcm-screening] [data-cr-questions] [data-cr-answer="no"]'); i++) { await page.locator('[data-bcm-screening] [data-cr-answer="no"]').first().click(); await wait(120); }
+    expect(await page.getAttribute('[data-bcm-verdict]', 'data-bcm-verdict') === 'na', 'not applicable');
+    expect(await count('[data-bcm-clauses]') === 0, 'no clauses');
+  });
+
+  // ── BCM & ORM review tasks (Cyber pattern) ─────────────────────────────────
+  await test('BCM task: applicability + clauses, add a clause from the library into the request, BCM return reasons, gated submit', async () => {
+    await openTaskId('TSK-4433-04');
+    expect(await page.getAttribute('[data-cyber-review]', 'data-dept') === 'bcm', 'BCM review');
+    for (const sec of ['applicability', 'scope', 'continuity']) expect(await count(`[data-cyber-section="${sec}"]`) === 1, `section ${sec}`);
+    const submit = page.getByRole('button', { name: 'Submit review', exact: true });
+    expect(await submit.isDisabled(), 'gated');
+    await page.click('[data-cyber-add="continuity"]'); await wait(200);
+    await page.click('[data-clause-insert="iso"]'); await wait(200);
+    expect(await page.getAttribute('[data-cyber-row="bcm-iso"]', 'data-state') === 'accepted', 'inserted clause counts as accepted');
+    await page.getByRole('button', { name: 'Return', exact: true }).click(); await wait(300);
+    await page.getByRole('radio', { name: /Yes/ }).first().click(); await wait(100);
+    expect(await count('[data-ea-reason="bcm-values"]') === 1 && await count('[data-ea-reason="bcm-doc"]') === 1, 'BCM return reasons');
+    await page.keyboard.press('Escape'); await wait(200);
+    await tab('Request details'); await wait(400);
+    expect(await count('[data-rfp-bcm="iso"]') === 1, 'clause visible in the request');
+    await tab('Required action'); await wait(300);
+    await page.click('[data-cyber-all]'); await wait(150);
+    expect(!(await submit.isDisabled()), 'submit enabled');
+  });
+  await test('ORM task: checklist + risk rating (WAEI), add a control, Confirm review', async () => {
+    await page.click('[data-inbox-tab="all"]'); await wait(200);
+    await page.locator('li[data-task-id="TSK-4433-05"] button').click(); await wait(LOAD);
+    expect(await page.getAttribute('[data-cyber-review]', 'data-dept') === 'orm', 'ORM review');
+    expect((await page.locator('[data-cyber-row="tpr-rating"]').innerText()).includes('WAEI'), 'rating row flags WAEI monitoring');
+    await page.click('[data-cyber-add="controls"]'); await wait(200);
+    await page.click('[data-clause-insert="audit"]'); await wait(200);
+    expect(await count('[data-cyber-row="orm-audit"]') === 1, 'control added');
+    const confirm = page.getByRole('button', { name: 'Confirm review', exact: true });
+    expect(await confirm.isDisabled(), 'gated');
+    await page.click('[data-cyber-all]'); await wait(150);
+    expect(!(await confirm.isDisabled()), 'confirm enabled');
+  });
+
   await browser.close();
   const pass = results.filter((r) => r.ok).length;
   console.log(`\n${pass}/${results.length} passed\n`);

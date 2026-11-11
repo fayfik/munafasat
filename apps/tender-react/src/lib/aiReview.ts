@@ -297,6 +297,6 @@ export function reviewRequest(f: TenderFormData, isAr: boolean): AiRec[] {
 
 /** What the review depends on — a change re-runs it (standards bookkeeping excluded). */
 export function reviewKey(f: TenderFormData) {
-  const { techStandards: _a, techStdKey: _b, deploymentModel: _c, ...rest } = f;
+  const { techStandards: _a, techStdKey: _b, deploymentModel: _c, bcmAnswers: _d, bcmValues: _e, tprAnswers: _f, techAnswers: _g, ...rest } = f;
   return JSON.stringify(rest);
 }

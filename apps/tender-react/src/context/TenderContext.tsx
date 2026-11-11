@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { STD_LIBRARY } from '../lib/eaStandards';
 import { stdQuestionsOpen } from '../components/TechStandards';
+import { continuityOpen } from '../components/ContinuityRisk';
 import { qualityIssues } from '../lib/quality';
 import { useRequests } from './RequestStore';
 import { PROJECTS } from '../data/mockData';
@@ -532,6 +533,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
     // Nothing a reviewer would return, and the technical standards are settled.
     SECTIONS.every((sec) => qualityIssues(sec.id, formData).length === 0)
     && stdQuestionsOpen(formData) === 0
+    && continuityOpen(formData) === 0
     && !(formData.techStandards ?? []).some((x) => x.status === 'na' && REQUIRED_STD.has(x.id) && !x.naReason?.trim())
   ));
 

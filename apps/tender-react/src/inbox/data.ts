@@ -215,23 +215,23 @@ const SPECS: Spec[] = [
       { id: 'approve', labelEn: 'Submit review', labelAr: 'إرسال المراجعة', variant: 'primary', gated: true, decision: sup('Cyber review submitted', 'تم إرسال مراجعة الأمن السيبراني') },
       { id: 'return', labelEn: 'Return', labelAr: 'إعادة', variant: 'secondary', needsNote: true },
     ],
-    extra: { parallelGroup: 'pg-specialist', cyberReview: true, cyberDecisions: {}, cyberDrafts: {}, cyberAdded: [] } },
+    extra: { parallelGroup: 'pg-specialist', deptReview: 'cyber', cyberReview: true, cyberDecisions: {}, cyberDrafts: {}, cyberAdded: [] } },
   { n: 4, type: 'review', title: TITLE.reviewFromDept(),
-    summary: sup('BCM review: critical system / department classification and compliance with SLA.', 'مراجعة استمرارية الأعمال: تصنيف الأنظمة والإدارات الحرجة والامتثال لاتفاقية مستوى الخدمة.'),
+    summary: sup('Confirm whether business continuity applies to this service — judged by the service, not the department — then check every continuity clause and its values (RTO, RPO, incident reporting). Add any missing clause from the BCM library.', 'أكّد انطباق استمرارية الأعمال على هذه الخدمة — بحسب الخدمة لا الإدارة — ثم راجع كل بند وقيمه (RTO وRPO والإبلاغ عن الحوادث). أضف أي بند ناقص من المكتبة.'),
     stage: sup('Specialist review — Enterprise Risk (BCM)', 'مراجعة تخصصية — المخاطر المؤسسية'), assignee: P.bcm, sla: 1, priority: 'medium', received: 0,
-    actions: APPROVE_RETURN,
-    extra: { parallelGroup: 'pg-specialist', findingsLabel: sup('Review notes', 'ملاحظات المراجعة'), checklist: reviewChecklist([
-      ['Critical system / department classification checked', 'تم فحص تصنيف الأنظمة والإدارات الحرجة'],
-      ['Compliance with SLA (RPO / RTO) confirmed', 'تم تأكيد الامتثال لمستوى الخدمة (RPO / RTO)'],
-    ]) } },
+    actions: [
+      { id: 'approve', labelEn: 'Submit review', labelAr: 'إرسال المراجعة', variant: 'primary', gated: true, decision: sup('BCM review submitted', 'تم إرسال مراجعة الاستمرارية') },
+      { id: 'return', labelEn: 'Return', labelAr: 'إعادة', variant: 'secondary', needsNote: true },
+    ],
+    extra: { parallelGroup: 'pg-specialist', deptReview: 'bcm', cyberDecisions: {}, cyberDrafts: {}, cyberAdded: [] } },
   { n: 5, type: 'review', title: TITLE.reviewFromDept(),
-    summary: sup('Operational risk assessment of the change, per the risk management framework.', 'تقييم المخاطر التشغيلية للتغيير وفق إطار إدارة المخاطر.'),
+    summary: sup('A high-level operational risk confirmation: is the scope clear, what does the requester’s third-party risk checklist say, and are the right operational controls in the RFP? Comment where needed, then confirm.', 'تأكيد عام للمخاطر التشغيلية: هل النطاق واضح، وماذا تقول قائمة مخاطر الطرف الثالث، وهل الضوابط التشغيلية المناسبة في الطلب؟ علّق عند الحاجة ثم أكّد.'),
     stage: sup('Specialist review — Operational Risk', 'مراجعة تخصصية — المخاطر التشغيلية'), assignee: P.opRisk, sla: 1, priority: 'medium', received: 0,
-    actions: APPROVE_RETURN,
-    extra: { parallelGroup: 'pg-specialist', findingsLabel: sup('Review notes', 'ملاحظات المراجعة'), checklist: reviewChecklist([
-      ['Operational risk assessment completed', 'تم إكمال تقييم المخاطر التشغيلية'],
-      ['Assessed against the risk management framework', 'تم التقييم وفق إطار إدارة المخاطر'],
-    ]) } },
+    actions: [
+      { id: 'approve', labelEn: 'Confirm review', labelAr: 'تأكيد المراجعة', variant: 'primary', gated: true, decision: sup('Operational risk review confirmed', 'تم تأكيد مراجعة المخاطر التشغيلية') },
+      { id: 'return', labelEn: 'Return', labelAr: 'إعادة', variant: 'secondary', needsNote: true },
+    ],
+    extra: { parallelGroup: 'pg-specialist', deptReview: 'orm', cyberDecisions: {}, cyberDrafts: {}, cyberAdded: [] } },
   { n: 6, type: 'review', title: TITLE.reviewFromDept(),
     summary: sup('Review the technical sections of the request — scope, technical requirements, standards and licence quantities — against EA standards. Accept each section or comment on it.', 'راجع الأقسام التقنية في الطلب — النطاق والمتطلبات التقنية والمعايير وكميات التراخيص — وفق معايير البنية المؤسسية. اقبل كل قسم أو علّق عليه.'),
     stage: sup('Specialist review — Enterprise Architecture', 'مراجعة تخصصية — البنية المؤسسية'), assignee: P.ea, sla: 3, priority: 'medium', received: 0,
@@ -582,6 +582,13 @@ for (const tk of SEED_TASKS) if (tk.finReview && tk.rfp) tk.finLines = finLinesF
 // Technical standards on the demo request (as pulled into its Scope of Work at creation).
 REQ_RFP.deploymentModel = 'saas';
 REQ_RFP.techAnswers = { saas: true, 'own-servers': false, build: true, integrates: true, migration: true, 'personal-data': true, 'external-users': false, critical: true, ai: false };
+// Business continuity + third-party risk, as the requester answered them in Review & Confirm.
+REQ_RFP.bcm = {
+  answers: { critical: true, outage: true, people: false, improve: false },
+  clauses: [{ id: 'rto', value: '8 hours' }, { id: 'rpo', value: '4 hours' }, { id: 'bcp' }, { id: 'dr' }, { id: 'incident', value: '4 hours' }, { id: 'recovery' }],
+};
+REQ_RFP.tpr = { access: true, data: true, hosted: true, subcontract: true, single: true, customer: false };
+REQ_RFP.ormControls = ['sla', 'exit'];
 REQ_RFP.techStandards = [
   ...['h1', 'h2', 'h4', 'i1', 'i2', 'i3', 's1', 's2', 's3', 's4', 'd1', 'd2', 'd3', 'd4', 'n1', 'n2', 'n3', 'n4', 'a2', 'p1', 'p2'].map((id) => ({ id, status: 'included' as const })),
   { id: 'a1', status: 'na' as const, naReason: 'Current-state architecture is already documented in the EA repository (EA-2025-114).', naReasonAr: 'بنية الوضع الحالي موثقة مسبقاً في مستودع البنية المؤسسية (EA-2025-114).' },

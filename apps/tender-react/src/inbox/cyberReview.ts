@@ -2,13 +2,15 @@
 // clause library, and the standard return reasons (Cybersecurity interview).
 import type { Task } from './types';
 import { stdById } from '../lib/eaStandards';
+import { BCM_QUESTIONS, BCM_CLAUSES, TPR_QUESTIONS, VERDICT, RATING, bcmVerdict, bcmClauseById, tprRating } from '../lib/continuityRisk';
 
-export type CyberKind = 'scope' | 'tech' | 'integration' | 'data' | 'security';
-export interface CyberRow { key: string; en: string; ar: string; subEn?: string; subAr?: string; added?: boolean }
+export type DeptKind = 'cyber' | 'bcm' | 'orm';
+export type CyberKind = string;
+export interface CyberRow { key: string; en: string; ar: string; subEn?: string; subAr?: string; added?: boolean; tone?: 'warning' | 'success' | 'info' }
 export interface CyberSection { id: CyberKind; en: string; ar: string; hintEn: string; hintAr: string; rows: CyberRow[]; canAdd: boolean }
 
-/** Clauses Cyber can insert straight into the request (vendor-ready wording). */
-export interface CyberClause { id: string; cat: Exclude<CyberKind, 'scope'>; en: string; ar: string; descEn: string; descAr: string }
+/** Clauses a reviewer can insert straight into the request (vendor-ready wording). */
+export interface CyberClause { id: string; cat: string; en: string; ar: string; descEn: string; descAr: string }
 export const CYBER_LIBRARY: CyberClause[] = [
   { id: 'c-ecc', cat: 'security', en: 'NCA ECC & CCC compliance', ar: 'الامتثال لضوابط الهيئة الوطنية للأمن السيبراني', descEn: 'The vendor shall comply with NCA ECC-2:2024 and, for cloud services, CCC-2:2024, and provide a compliance matrix with the proposal.', descAr: 'يلتزم المورد بالضوابط الأساسية للأمن السيبراني ECC-2:2024، وبالضوابط السحابية CCC-2:2024 للخدمات السحابية، ويقدّم مصفوفة امتثال مع العرض.' },
   { id: 'c-pentest', cat: 'security', en: 'Independent penetration test before go-live', ar: 'اختبار اختراق مستقل قبل التشغيل', descEn: 'An independent penetration test shall be performed before go-live and annually; critical findings closed within 7 days, high within 30 days.', descAr: 'يُجرى اختبار اختراق مستقل قبل التشغيل وسنوياً؛ تُغلق الثغرات الحرجة خلال 7 أيام والعالية خلال 30 يوماً.' },
@@ -68,5 +70,98 @@ export function cyberCommentDigest(task: Task, isAr: boolean): string {
   return Object.entries(task.cyberDecisions ?? {})
     .filter(([, d]) => d.state === 'comment' && d.comment?.trim())
     .map(([k, d]) => { const x = rows.get(k); return `• ${x ? `${isAr ? x.s.ar : x.s.en} — ${isAr ? x.r.ar : x.r.en}` : k}: ${d.comment}`; })
+    .join('\n');
+}
+
+
+/* ═══════════════════════ Business Continuity (BCM) ═══════════════════════ */
+export const BCM_LIBRARY: CyberClause[] = BCM_CLAUSES.map((c) => ({ id: c.id, cat: c.set === 'people' ? 'people' : 'continuity', en: c.en, ar: c.ar, descEn: c.descEn, descAr: c.descAr }));
+export const BCM_RETURN_REASONS = [
+  { id: 'bcm-missing', en: 'Mandatory continuity clause missing', ar: 'بند استمرارية إلزامي مفقود' },
+  { id: 'bcm-scope', en: 'Scope too unclear to judge criticality', ar: 'النطاق غير واضح لتقييم الحرجية' },
+  { id: 'bcm-values', en: 'RTO / RPO not stated', ar: 'لم يُحدد RTO / RPO' },
+  { id: 'bcm-applies', en: 'BCM applies — screening answered incorrectly', ar: 'ينطبق استمرارية الأعمال — إجابات الفحص غير صحيحة' },
+  { id: 'bcm-doc', en: 'Full tender document needed', ar: 'يلزم مستند المنافسة كاملاً' },
+];
+function bcmSections(task: Task): CyberSection[] {
+  const rfp = task.rfp!;
+  const b = rfp.bcm;
+  const a = b?.answers ?? {};
+  const v = bcmVerdict(a);
+  const yn = (x?: boolean) => (x ? 'Yes' : 'No');
+  const ynAr = (x?: boolean) => (x ? 'نعم' : 'لا');
+  const clauseRows = (set: 'tech' | 'people') => (b?.clauses ?? []).filter((c) => bcmClauseById(c.id)?.set === set).map((c) => {
+    const d = bcmClauseById(c.id)!;
+    return { key: `bcm-${c.id}`, en: d.en, ar: d.ar, subEn: c.value ? `${d.value?.labelEn ?? 'Value'}: ${c.value}` : d.descEn, subAr: c.value ? `${d.value?.labelAr ?? 'القيمة'}: ${c.value}` : d.descAr, added: (task.cyberAdded ?? []).includes(c.id) };
+  });
+  const out: CyberSection[] = [
+    { id: 'applicability', en: 'Applicability', ar: 'الانطباق', hintEn: 'Decided by the service, not the department.', hintAr: 'يُحدد بالخدمة لا بالإدارة.', canAdd: false,
+      rows: [{ key: 'bcm-verdict', en: v ? VERDICT[v].en : 'Screening not answered', ar: v ? VERDICT[v].ar : 'لم تتم الإجابة عن الفحص', tone: v === 'applies' ? 'warning' : v === 'na' ? 'success' : 'info',
+        subEn: BCM_QUESTIONS.map((q) => `${q.short}: ${yn(a[q.id])}`).join(' · '), subAr: BCM_QUESTIONS.map((q) => `${q.shortAr}: ${ynAr(a[q.id])}`).join(' · ') }] },
+    { id: 'scope', en: 'Scope of Work', ar: 'نطاق العمل', hintEn: 'What the service is and what it depends on.', hintAr: 'ما هي الخدمة وما تعتمد عليه.', canAdd: false,
+      rows: [{ key: 'scope', en: rfp.scopeEn ?? '', ar: rfp.scopeAr ?? rfp.scopeEn ?? '' }] },
+  ];
+  if (v !== 'na') {
+    out.push({ id: 'continuity', en: 'Continuity clauses', ar: 'بنود الاستمرارية', hintEn: 'Must be written into the RFP and contract.', hintAr: 'يجب أن تُكتب في الطلب والعقد.', canAdd: true, rows: clauseRows('tech') });
+    if (a.people || clauseRows('people').length) out.push({ id: 'people', en: 'Personnel continuity', ar: 'استمرارية الموظفين', hintEn: 'The service depends on vendor staff.', hintAr: 'تعتمد الخدمة على موظفي المورد.', canAdd: true, rows: clauseRows('people') });
+  }
+  return out;
+}
+
+/* ═══════════════════════ Operational Risk (ORM) ═══════════════════════ */
+export const ORM_LIBRARY: CyberClause[] = [
+  { id: 'audit', cat: 'controls', en: 'Right to audit', ar: 'حق التدقيق', descEn: 'The bank and its regulators may audit the vendor’s controls related to this service.', descAr: 'يحق للجهة والجهات الرقابية تدقيق ضوابط المورد المتعلقة بهذه الخدمة.' },
+  { id: 'sla', cat: 'controls', en: 'Service levels and penalties', ar: 'مستويات الخدمة والغرامات', descEn: 'Measurable SLAs with service credits or penalties when they are missed.', descAr: 'مستويات خدمة قابلة للقياس مع غرامات عند الإخلال بها.' },
+  { id: 'exit', cat: 'controls', en: 'Exit and transition plan', ar: 'خطة الخروج والانتقال', descEn: 'The vendor supports handover to a new provider, including data return, at contract end.', descAr: 'يدعم المورد التسليم لمزود جديد بما في ذلك إعادة البيانات عند انتهاء العقد.' },
+  { id: 'subcon', cat: 'controls', en: 'Subcontractor approval', ar: 'اعتماد المقاولين من الباطن', descEn: 'Subcontractors need the bank’s written approval and the same obligations apply to them.', descAr: 'يلزم اعتماد الجهة كتابياً لأي مقاول من الباطن وتسري عليه الالتزامات ذاتها.' },
+  { id: 'insurance', cat: 'controls', en: 'Professional indemnity insurance', ar: 'تأمين المسؤولية المهنية', descEn: 'The vendor holds insurance appropriate to the value and risk of the service.', descAr: 'يحتفظ المورد بتأمين مناسب لقيمة الخدمة ومخاطرها.' },
+  { id: 'kri', cat: 'controls', en: 'Periodic vendor risk assessment', ar: 'تقييم دوري لمخاطر المورد', descEn: 'The vendor supports periodic risk assessments and reports agreed risk indicators (KRIs).', descAr: 'يدعم المورد التقييمات الدورية للمخاطر ويقدّم مؤشرات المخاطر المتفق عليها.' },
+];
+export const ORM_RETURN_REASONS = [
+  { id: 'orm-scope', en: 'Scope or objectives unclear', ar: 'النطاق أو الأهداف غير واضحة' },
+  { id: 'orm-tpr', en: 'Third-party risk checklist incomplete', ar: 'قائمة مخاطر الطرف الثالث غير مكتملة' },
+  { id: 'orm-controls', en: 'Operational controls missing', ar: 'الضوابط التشغيلية مفقودة' },
+  { id: 'orm-comments', en: 'Earlier risk comments not addressed', ar: 'لم تُعالج ملاحظات المخاطر السابقة' },
+];
+function ormSections(task: Task): CyberSection[] {
+  const rfp = task.rfp!;
+  const tpr = rfp.tpr ?? {};
+  const rating = tprRating(tpr, bcmVerdict(rfp.bcm?.answers ?? {}));
+  return [
+    { id: 'scope', en: 'Scope & objectives', ar: 'النطاق والأهداف', hintEn: 'Is the service and its purpose clear enough to judge the risk?', hintAr: 'هل الخدمة وغرضها واضحان لتقييم المخاطر؟', canAdd: false,
+      rows: [{ key: 'scope', en: rfp.scopeEn ?? '', ar: rfp.scopeAr ?? rfp.scopeEn ?? '' }] },
+    { id: 'tpr', en: 'Third-party risk checklist', ar: 'قائمة مخاطر الطرف الثالث', hintEn: 'Completed by the requester.', hintAr: 'أكملها مقدّم الطلب.', canAdd: false,
+      rows: [
+        ...TPR_QUESTIONS.map((q) => ({ key: `tpr-${q.id}`, en: `${q.short}: ${tpr[q.id] ? 'Yes' : 'No'}`, ar: `${q.shortAr}: ${tpr[q.id] ? 'نعم' : 'لا'}`, subEn: q.en, subAr: q.ar })),
+        { key: 'tpr-rating', en: rating ? `Risk rating: ${RATING[rating].en}` : 'Risk rating not available', ar: rating ? `تصنيف المخاطر: ${RATING[rating].ar}` : 'تصنيف المخاطر غير متاح', tone: rating && RATING[rating].waei ? 'warning' : 'info',
+          subEn: rating && RATING[rating].waei ? 'Will be added to WAEI monitoring after the contract.' : 'Standard monitoring.', subAr: rating && RATING[rating].waei ? 'سيُضاف إلى متابعة "وعي" بعد العقد.' : 'متابعة اعتيادية.' },
+      ] },
+    { id: 'controls', en: 'Operational controls', ar: 'الضوابط التشغيلية', hintEn: 'Controls written into the RFP and contract.', hintAr: 'ضوابط مكتوبة في الطلب والعقد.', canAdd: true,
+      rows: (rfp.ormControls ?? []).map((id) => { const c = ORM_LIBRARY.find((x) => x.id === id)!; return { key: `orm-${id}`, en: c.en, ar: c.ar, subEn: c.descEn, subAr: c.descAr, added: (task.cyberAdded ?? []).includes(id) }; }) },
+  ];
+}
+
+/* ═══════════════════════ Shared ═══════════════════════ */
+export const deptKind = (task: Task): DeptKind | null => task.deptReview ?? (task.cyberReview ? 'cyber' : null);
+export function deptSections(task: Task): CyberSection[] {
+  if (!task.rfp) return [];
+  const k = deptKind(task);
+  return k === 'bcm' ? bcmSections(task) : k === 'orm' ? ormSections(task) : cyberSections(task);
+}
+export const deptRowKeys = (task: Task) => deptSections(task).flatMap((s) => s.rows.map((r) => r.key));
+export const libraryFor = (k: DeptKind) => (k === 'bcm' ? BCM_LIBRARY : k === 'orm' ? ORM_LIBRARY : CYBER_LIBRARY);
+export const reasonsFor = (k: DeptKind) => (k === 'bcm' ? BCM_RETURN_REASONS : k === 'orm' ? ORM_RETURN_REASONS : CYBER_RETURN_REASONS);
+/** Library clauses already in the request, for this department. */
+export function usedClauses(task: Task): Set<string> {
+  const k = deptKind(task);
+  if (k === 'bcm') return new Set((task.rfp?.bcm?.clauses ?? []).map((c) => c.id));
+  if (k === 'orm') return new Set(task.rfp?.ormControls ?? []);
+  return new Set((task.rfp?.techRequirements ?? []).map((r) => r.cyberClause).filter(Boolean) as string[]);
+}
+export function deptCommentDigest(task: Task, isAr: boolean): string {
+  const rows = new Map(deptSections(task).flatMap((s) => s.rows.map((r) => [r.key, { r, s }] as const)));
+  return Object.entries(task.cyberDecisions ?? {})
+    .filter(([, d]) => d.state === 'comment' && d.comment?.trim())
+    .map(([k, d]) => { const x = rows.get(k); return `• ${x ? `${isAr ? x.s.ar : x.s.en} — ${(isAr ? x.r.ar : x.r.en).slice(0, 80)}` : k}: ${d.comment}`; })
     .join('\n');
 }

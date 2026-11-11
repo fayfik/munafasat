@@ -8,13 +8,18 @@ import type { Task } from './types';
 import { CheckIcon, ChevronDownIcon, PencilIcon } from '../components/Icons';
 import BoqLineDetails, { BoqViewButton, useBoqOpen, viewFromRfpLine, rfpCostCenter } from '../components/BoqLineDetails';
 import { ActionHead, BulkButton } from './ActionHead';
-import { cyberSections, CYBER_LIBRARY, type CyberKind, type CyberClause } from './cyberReview';
+import { deptSections, deptKind, libraryFor, usedClauses, type CyberKind, type CyberClause, type DeptKind } from './cyberReview';
 
 type T = (en: string, ar: string) => string;
 type Dec = { state: 'accepted' | 'comment'; comment?: string };
 const sar = (n: number) => 'SAR ' + n.toLocaleString('en-US', { maximumFractionDigits: 0 });
 
-const ICON: Record<CyberKind, string> = {
+const ICON: Record<string, string> = {
+  applicability: 'M9 12l2 2 4-4M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z',
+  continuity: 'M3 12a9 9 0 0115.5-6.3L21 8M21 3v5h-5M21 12a9 9 0 01-15.5 6.3L3 16M3 21v-5h5',
+  people: 'M9 8a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5',
+  tpr: 'M9 11l3 3 8-8M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2h9',
+  controls: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
   scope: 'M4 6h16M4 12h10M4 18h7',
   tech: 'M9 3v3M15 3v3M4 9h16M6 6h12a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2z',
   integration: 'M8 12h8M5 8a4 4 0 100 8M19 8a4 4 0 110 8',
@@ -30,27 +35,34 @@ export default function CyberReview({ task, isAr, t, readOnly, onDecide, onAccep
   onInsert: (clause: CyberClause) => void;
 }) {
   const rfp = task.rfp!;
-  const secs = cyberSections(task);
+  const kind: DeptKind = deptKind(task) ?? 'cyber';
+  const secs = deptSections(task);
+  const COPY = {
+    cyber: { title: t('Review the security requirements', 'مراجعة المتطلبات الأمنية'), desc: t('Only the sections Cyber owns. Accept each requirement, comment on it, or add a missing one from the library.', 'الأقسام التي يملكها الأمن السيبراني فقط. اقبل كل متطلب أو علّق عليه أو أضف متطلباً ناقصاً من المكتبة.'), noun: t('requirements reviewed', 'متطلبات تمت مراجعتها'), add: t('Add requirement', 'إضافة متطلب') },
+    bcm: { title: t('Review business continuity', 'مراجعة استمرارية الأعمال'), desc: t('Confirm whether BCM applies to this service, then check every continuity clause. Add any that are missing from the BCM library.', 'أكّد انطباق استمرارية الأعمال على هذه الخدمة، ثم راجع كل بند. أضف الناقص من مكتبة الاستمرارية.'), noun: t('items reviewed', 'بنود تمت مراجعتها'), add: t('Add clause', 'إضافة بند') },
+    orm: { title: t('Review operational risk', 'مراجعة المخاطر التشغيلية'), desc: t('A high-level confirmation: is the scope clear, what does the third-party checklist say, and are the right controls in the RFP?', 'تأكيد عام: هل النطاق واضح، وماذا تقول قائمة مخاطر الطرف الثالث، وهل الضوابط المناسبة في الطلب؟'), noun: t('items reviewed', 'بنود تمت مراجعتها'), add: t('Add control', 'إضافة ضابط') },
+  }[kind];
+  const notApplicable = kind === 'bcm' && secs.length === 2 && secs[0].rows[0]?.tone === 'success';
   const dec = task.cyberDecisions ?? {};
   const drafts = task.cyberDrafts ?? {};
   const keys = secs.flatMap((s) => s.rows.map((r) => r.key));
   const done = keys.filter((k) => dec[k]).length;
   const comments = keys.filter((k) => dec[k]?.state === 'comment').length;
   const [open, setOpen] = useState<string | null>(null);          // row whose comment editor is open
-  const [lib, setLib] = useState<Exclude<CyberKind, 'scope'> | null>(null);
+  const [lib, setLib] = useState<CyberKind | null>(null);
   const [refOpen, setRefOpen] = useState(false);
   const boqOpen = useBoqOpen();
   const L = (en?: string, ar?: string) => (isAr ? ar || en || '' : en || '');
   const anyDraft = Object.values(drafts).some((x) => x?.trim());
 
   return (
-    <div className="space-y-5" data-cyber-review>
-      <ActionHead title={t('Review the security requirements', 'مراجعة المتطلبات الأمنية')}
-        desc={t('Only the sections Cyber owns. Accept each requirement, comment on it, or add a missing one from the library.', 'الأقسام التي يملكها الأمن السيبراني فقط. اقبل كل متطلب أو علّق عليه أو أضف متطلباً ناقصاً من المكتبة.')}
-        progress={{ done, total: keys.length, label: t('requirements reviewed', 'متطلبات تمت مراجعتها'), attrs: { 'data-cyber-progress': `${done}/${keys.length}` },
+    <div className="space-y-5" data-cyber-review data-dept={kind}>
+      <ActionHead title={COPY.title}
+        desc={COPY.desc}
+        progress={{ done, total: keys.length, label: COPY.noun, attrs: { 'data-cyber-progress': `${done}/${keys.length}` },
           tail: comments ? <span className="ms-1.5 text-warning-700">· {t(`${comments} with comments`, `${comments} بملاحظات`)}</span> : undefined }}
         extra={anyDraft ? <span className="text-[11.5px] text-neutral-400 inline-flex items-center gap-1" data-cyber-draft-saved><CheckIcon className="w-3 h-3" />{t('Drafts saved', 'تم حفظ المسودات')}</span> : undefined}
-        bulk={!readOnly && done < keys.length ? <BulkButton testAttr={{ 'data-cyber-all': '' }} onClick={() => onAcceptAll(keys.filter((k) => !dec[k]))}>{t('Accept all remaining', 'قبول جميع المتطلبات المتبقية')}</BulkButton> : undefined} />
+        bulk={!readOnly && done < keys.length ? <BulkButton testAttr={{ 'data-cyber-all': '' }} onClick={() => onAcceptAll(keys.filter((k) => !dec[k]))}>{notApplicable ? t('Confirm not in BCM scope', 'تأكيد عدم انطباق الاستمرارية') : t('Accept all remaining', 'قبول جميع البنود المتبقية')}</BulkButton> : undefined} />
 
       {secs.map((s) => {
         const sd = s.rows.filter((r) => dec[r.key]).length;
@@ -58,7 +70,7 @@ export default function CyberReview({ task, isAr, t, readOnly, onDecide, onAccep
           <section key={s.id} data-cyber-section={s.id} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
             <header className="flex items-center gap-3 px-5 py-3 border-b border-neutral-100">
               <span className="w-8 h-8 rounded-lg bg-[#EEF4FB] text-[#2A6193] flex items-center justify-center flex-shrink-0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d={ICON[s.id]} /></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d={ICON[s.id] ?? ICON.tech} /></svg>
               </span>
               <div className="min-w-0 flex-1">
                 <h4 className="text-[14px] font-semibold text-neutral-900">{isAr ? s.ar : s.en}</h4>
@@ -75,6 +87,7 @@ export default function CyberReview({ task, isAr, t, readOnly, onDecide, onAccep
                     <div className="flex items-start gap-3">
                       <div className="min-w-0 flex-1">
                         <p className={`text-[13px] leading-relaxed ${s.id === 'scope' ? 'text-neutral-700' : 'font-medium text-neutral-800'}`}>
+                          {r.tone && <span className={`inline-block me-2 w-2 h-2 rounded-full align-[1px] ${r.tone === 'warning' ? 'bg-warning-500' : r.tone === 'success' ? 'bg-success-500' : 'bg-[#2A6193]'}`} />}
                           {L(r.en, r.ar)}
                           {r.added && <span className="ms-2 align-[1px] px-1.5 py-0.5 rounded bg-[#EEF4FB] text-[#21507A] text-[10px] font-bold" data-cyber-added>{t('Added by you', 'أضفته أنت')}</span>}
                         </p>
@@ -111,8 +124,8 @@ export default function CyberReview({ task, isAr, t, readOnly, onDecide, onAccep
             </ul>
             {s.canAdd && !readOnly && s.id !== 'scope' && (
               <div className="px-5 py-2 border-t border-neutral-100 bg-neutral-50/50">
-                <button type="button" data-cyber-add={s.id} onClick={() => setLib(s.id as Exclude<CyberKind, 'scope'>)} className="h-8 px-2 -ms-2 rounded-lg text-[12.5px] font-semibold text-[#2A6193] hover:bg-[#EEF4FB] inline-flex items-center gap-1.5">
-                  <span className="text-[16px] leading-none">+</span>{t('Add requirement', 'إضافة متطلب')}
+                <button type="button" data-cyber-add={s.id} onClick={() => setLib(s.id)} className="h-8 px-2 -ms-2 rounded-lg text-[12.5px] font-semibold text-[#2A6193] hover:bg-[#EEF4FB] inline-flex items-center gap-1.5">
+                  <span className="text-[16px] leading-none">+</span>{COPY.add}
                 </button>
               </div>
             )}
@@ -143,7 +156,7 @@ export default function CyberReview({ task, isAr, t, readOnly, onDecide, onAccep
         )}
       </section>
 
-      {lib && <ClauseLibrary cat={lib} task={task} isAr={isAr} t={t} onClose={() => setLib(null)} onInsert={(c) => { onInsert(c); setLib(null); }} />}
+      {lib && <ClauseLibrary kind={kind} cat={lib} task={task} isAr={isAr} t={t} onClose={() => setLib(null)} onInsert={(c) => { onInsert(c); setLib(null); }} />}
     </div>
   );
 }
@@ -168,10 +181,10 @@ function CommentEditor({ t, initial, onChange, onCancel, onSave, rowKey }: { t: 
   );
 }
 
-function ClauseLibrary({ cat, task, isAr, t, onClose, onInsert }: { cat: Exclude<CyberKind, 'scope'>; task: Task; isAr: boolean; t: T; onClose: () => void; onInsert: (c: CyberClause) => void }) {
+function ClauseLibrary({ kind, cat, task, isAr, t, onClose, onInsert }: { kind: DeptKind; cat: CyberKind; task: Task; isAr: boolean; t: T; onClose: () => void; onInsert: (c: CyberClause) => void }) {
   const [all, setAll] = useState(false);
-  const used = new Set((task.rfp?.techRequirements ?? []).map((r) => r.cyberClause).filter(Boolean));
-  const list = useMemo(() => CYBER_LIBRARY.filter((c) => all || c.cat === cat), [all, cat]);
+  const used = usedClauses(task);
+  const list = useMemo(() => libraryFor(kind).filter((c) => all || c.cat === cat), [all, cat, kind]);
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [onClose]);
   return createPortal(
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/35 backdrop-blur-[2px] cm-fade-in" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} dir={isAr ? 'rtl' : 'ltr'}>

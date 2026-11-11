@@ -11,6 +11,7 @@ import { focusField } from './QualityGate';
 import { toast } from './Toast';
 import { SparklesIcon, CheckIcon } from './Icons';
 import TechStandards, { eaScopeForForm, stdQuestionsOpen, stdIssues } from './TechStandards';
+import ContinuityRisk, { crState } from './ContinuityRisk';
 import { qualityIssues } from '../lib/quality';
 import type { TabId } from '../context/AiReviewContext';
 
@@ -167,6 +168,7 @@ export default function AiReviewPanel() {
 
   // Results
   const reqIdxs = SECTIONS.map((_, i) => i).filter((i) => !['review', 'attachments'].includes(SECTIONS[i].id));
+  const cr = crState(formData);
   const general: { id: string; title: string; why: string; meta?: string; go: () => void; label: string }[] = [
     ...reqIdxs.filter((i) => sectionStatuses[i] === 'missing' || sectionStatuses[i] === 'not-started').map((i) => ({
       id: `incomplete-${SECTIONS[i].id}`,
@@ -183,6 +185,16 @@ export default function AiReviewPanel() {
       why: t('A few things your request doesn’t say yet — EA needs them to pick the standards.', 'أمور لم يذكرها طلبك بعد — تحتاجها البنية المؤسسية لاختيار المعايير.'),
       go: () => { setTab('ea'); setTimeout(() => focusField('q-techStandards'), 120); }, label: t('Answer', 'إجابة'),
     }] : []),
+    ...(cr.bcmOpen.length + cr.tprOpen.length > 0 ? [{
+      id: 'cr-questions', title: t(`Answer ${cr.bcmOpen.length + cr.tprOpen.length} business continuity & third-party risk question${cr.bcmOpen.length + cr.tprOpen.length === 1 ? '' : 's'}`, `أجب عن ${cr.bcmOpen.length + cr.tprOpen.length} من أسئلة الاستمرارية ومخاطر الطرف الثالث`),
+      why: t('BCM decides from the service you are buying; the risk checklist is required on every RFP.', 'تقرر إدارة الاستمرارية بناءً على الخدمة؛ وقائمة المخاطر مطلوبة في كل طلب.'),
+      go: () => { setTab('risk'); setTimeout(() => focusField('q-continuity'), 120); }, label: t('Answer', 'إجابة'),
+    }] : []),
+    ...(cr.missingValues.length > 0 ? [{
+      id: 'bcm-values', title: t(`Fill ${cr.missingValues.length} continuity value${cr.missingValues.length > 1 ? 's' : ''} (${cr.missingValues.map((c) => c.value!.labelEn).join(', ')})`, `عبّئ ${cr.missingValues.length} من قيم الاستمرارية (${cr.missingValues.map((c) => c.value!.labelAr).join('، ')})`),
+      why: t('BCM returns requests whose continuity clauses have no values.', 'تعيد إدارة الاستمرارية الطلبات التي تخلو بنودها من القيم.'),
+      go: () => { setTab('risk'); setTimeout(() => focusField(`q-bcm-${cr.missingValues[0].id}`), 120); }, label: t('Fill', 'تعبئة'),
+    }] : []),
     ...(stdIssues(formData) > 0 ? [{
       id: 'na-reason', title: t('Give a reason for each required standard marked not applicable', 'اذكر سبب كل معيار إلزامي محدد كغير منطبق'),
       why: t('EA only accepts "not applicable" with a reason.', 'لا تقبل البنية المؤسسية "غير منطبق" دون سبب.'),
@@ -196,7 +208,7 @@ export default function AiReviewPanel() {
   const dept = DEPTS.find((d) => d.id === tab);
   const tabs: { id: TabId; label: string; n: number; total: number }[] = [
     { id: 'general', label: t('General', 'عام'), n: general.length, total: general.length },
-    ...DEPTS.map((d) => ({ id: d.id as TabId, label: t(d.role.en, d.role.ar), n: openCount(d.id), total: count(d.id) })),
+    ...DEPTS.map((d) => ({ id: d.id as TabId, label: t(d.role.en, d.role.ar), n: openCount(d.id) + (d.id === 'risk' ? (cr.open ? 1 : 0) : 0), total: count(d.id) + (d.id === 'risk' ? 1 : 0) })),
   ];
   const DOT: Record<Severity, string> = { return: 'bg-error-500', improve: 'bg-warning-500', tip: 'bg-neutral-300' };
 
@@ -284,7 +296,7 @@ export default function AiReviewPanel() {
           )
         ) : (
           <>
-            {list.length === 0 && !(tab === 'ea' && eaScopeForForm(formData).required) && (
+            {list.length === 0 && !(tab === 'ea' && eaScopeForForm(formData).required) && tab !== 'risk' && (
               <div className="py-8 text-center fade-in" data-ai-empty>
                 <span className="mx-auto w-10 h-10 rounded-full bg-success-50 text-success-600 flex items-center justify-center pop-in"><CheckIcon className="w-5 h-5" /></span>
                 <p className="mt-2 text-[14px] font-semibold text-neutral-800">{t(`No concerns from ${dept?.en}`, `لا ملاحظات من ${dept?.ar}`)}</p>
@@ -309,6 +321,17 @@ export default function AiReviewPanel() {
                   );
                 })}
               </ul>
+            )}
+            {tab === 'risk' && (
+              <section id="q-continuity" className={`rise-in ${list.length ? 'mt-2 pt-5 border-t border-neutral-100' : 'pt-4'}`} data-ai-continuity>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <p className="flex-1 text-[14px] font-semibold text-neutral-900">{t('Business continuity & third-party risk', 'استمرارية الأعمال ومخاطر الطرف الثالث')}</p>
+                  {cr.open > 0
+                    ? <span className="text-[12px] text-warning-700">{t(`${cr.open} to complete`, `${cr.open} للإكمال`)}</span>
+                    : <span className="text-[12px] text-success-700">{t('Ready for BCM & ORM', 'جاهز للاستمرارية والمخاطر التشغيلية')}</span>}
+                </div>
+                <ContinuityRisk />
+              </section>
             )}
             {tab === 'ea' && eaScopeForForm(formData).required && (
               <section id="q-techStandards" className={`rise-in ${list.length ? 'mt-2 pt-5 border-t border-neutral-100' : 'pt-4'}`} data-ai-standards>

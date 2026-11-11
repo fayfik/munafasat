@@ -5,7 +5,7 @@
 
 import { createContext, useContext, useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { eaSections } from './eaSections';
-import { cyberRowKeys } from './cyberReview';
+import { deptRowKeys } from './cyberReview';
 import { SEED_TASKS, ME, buildCommentResponseTask } from './data';
 import type { Person } from './types';
 import type { RfpDetail, Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry } from './types';
@@ -98,8 +98,8 @@ export function completionStatus(task: Task): Completion {
     for (const k of qualReviewKeys(task)) { total++; if (task.techDecisions?.[k]) done++; else missing.push({ en: `Accept or modify ${k}`, ar: `اقبل أو عدّل ${k}` }); }
     total++; if (crit.length && crit.reduce((s, m) => s + m.pct, 0) === 100) done++; else missing.push({ en: 'Main criteria must total 100%', ar: 'يجب أن يبلغ مجموع المعايير الرئيسية 100%' });
     total++; if (crit.every((m) => m.subs.reduce((s, c) => s + c.pct, 0) === 100)) done++; else missing.push({ en: 'Each sub-criteria group must total 100%', ar: 'يجب أن تبلغ كل مجموعة معايير فرعية 100%' });
-  } else if (task.cyberReview) {
-    for (const k of cyberRowKeys(task)) { total++; if (task.cyberDecisions?.[k]) done++; else missing.push({ en: `Accept or comment on ${k}`, ar: `اقبل أو علّق على ${k}` }); }
+  } else if (task.cyberReview || task.deptReview) {
+    for (const k of deptRowKeys(task)) { total++; if (task.cyberDecisions?.[k]) done++; else missing.push({ en: `Accept or comment on ${k}`, ar: `اقبل أو علّق على ${k}` }); }
   } else if (task.eaReview) {
     for (const sec of eaSections(task)) { total++; if (task.eaDecisions?.[sec.id]) done++; else missing.push({ en: `Accept or comment on ${sec.en}`, ar: `اقبل أو علّق على ${sec.ar}` }); }
   } else if (task.finReview === 'gl') {

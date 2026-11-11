@@ -202,6 +202,8 @@ export interface Task {
   eaReview?: boolean;
   /** EA decision per section — accepted, or a comment for the requester. */
   eaDecisions?: Record<string, { state: 'accepted' | 'comment'; comment?: string }>;
+  /** Department review in the Cyber pattern: Cybersecurity, Business Continuity (BCM) or Operational Risk (ORM). */
+  deptReview?: 'cyber' | 'bcm' | 'orm';
   /** Cybersecurity: structured review of the sections Cyber owns (EA pattern). */
   cyberReview?: boolean;
   /** Cyber decision per row — accepted, or a comment for the requester. */
@@ -276,6 +278,12 @@ export interface RfpDetail {
   deploymentModel?: 'saas' | 'on-prem' | 'hybrid';
   /** Requester's answers to the Technical standards questions. */
   techAnswers?: Partial<Record<string, boolean>>;
+  /** BCM screening answers and the continuity clauses written into the request (with values). */
+  bcm?: { answers: Partial<Record<string, boolean>>; clauses: { id: string; value?: string }[] };
+  /** Third-Party Risk Assessment checklist answers (requester). */
+  tpr?: Partial<Record<string, boolean>>;
+  /** Operational controls ORM added from its library. */
+  ormControls?: string[];
   evalCommittee?: CommitteeMember[];
   qualification: { reqEn: string; reqAr: string; evidenceEn?: string; evidenceAr?: string }[];
   qualCriteria?: { nameEn: string; nameAr: string; pct: number; subs: { nameEn: string; nameAr: string; range: string; pct: number }[] }[];

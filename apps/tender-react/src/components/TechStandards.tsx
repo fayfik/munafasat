@@ -131,7 +131,7 @@ export function StandardsList({ rows, isAr, t }: { rows: StdRow[]; isAr: boolean
 }
 
 /** Everything the earlier steps captured, with where it came from — the answers are read from this. */
-function textsFor(f: TenderFormData): SrcText[] {
+export function textsFor(f: TenderFormData): SrcText[] {
   const proj = PROJECTS.find((p) => p.id === f.projectId);
   const out: SrcText[] = [];
   const add = (en: string, ar: string, text?: string) => { if (text?.trim()) out.push({ src: { en, ar }, text: text.trim() }); };

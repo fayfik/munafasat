@@ -24,7 +24,8 @@ import { finLinesFor } from './data';
 import EaReview from './EaReview';
 import BoqLineDetails, { BoqViewButton, useBoqOpen, viewFromRfpLine, rfpCostCenter } from '../components/BoqLineDetails';
 import { EA_RETURN_REASONS, eaReturnDraft } from './eaSections';
-import { CYBER_RETURN_REASONS, cyberCommentDigest } from './cyberReview';
+import { deptKind, reasonsFor, deptCommentDigest, ORM_LIBRARY } from './cyberReview';
+import { bcmVerdict, bcmClauseById, tprRating, VERDICT, RATING, TPR_QUESTIONS } from '../lib/continuityRisk';
 import CyberReview from './CyberReview';
 import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
@@ -314,15 +315,25 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
           )}
           {tab === 'overview' && !queued && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
-            mainWidget={task.cyberReview && task.rfp
+            mainWidget={(task.cyberReview || task.deptReview) && task.rfp
               ? <CyberReview task={task} isAr={isAr} t={t} readOnly={terminal}
                   onDecide={(k, d) => { const next = { ...(task.cyberDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { cyberDecisions: next }); }}
                   onAcceptAll={(ks) => setTaskData(task.id, { cyberDecisions: { ...(task.cyberDecisions ?? {}), ...Object.fromEntries(ks.map((k) => [k, { state: 'accepted' as const }])) } })}
                   onDraft={(k, v) => { const next = { ...(task.cyberDrafts ?? {}) }; if (v == null) delete next[k]; else next[k] = v; setTaskData(task.id, { cyberDrafts: next }); }}
                   onInsert={(c) => {
-                    const reqs = [...(task.rfp!.techRequirements ?? []), { reqEn: c.en, reqAr: c.ar, descEn: c.descEn, descAr: c.descAr, cyberClause: c.id }];
-                    setTaskData(task.id, { rfp: { ...task.rfp!, techRequirements: reqs }, cyberAdded: [...(task.cyberAdded ?? []), c.id],
-                      cyberDecisions: { ...(task.cyberDecisions ?? {}), [`req-${reqs.length - 1}`]: { state: 'accepted' as const } } });
+                    // The clause goes into the request itself, and counts as accepted.
+                    const kind = deptKind(task);
+                    const added = { cyberAdded: [...(task.cyberAdded ?? []), c.id] };
+                    const accept = (key: string) => ({ cyberDecisions: { ...(task.cyberDecisions ?? {}), [key]: { state: 'accepted' as const } } });
+                    if (kind === 'bcm') {
+                      const bcm = task.rfp!.bcm ?? { answers: {}, clauses: [] };
+                      setTaskData(task.id, { rfp: { ...task.rfp!, bcm: { ...bcm, clauses: [...bcm.clauses, { id: c.id }] } }, ...added, ...accept(`bcm-${c.id}`) });
+                    } else if (kind === 'orm') {
+                      setTaskData(task.id, { rfp: { ...task.rfp!, ormControls: [...(task.rfp!.ormControls ?? []), c.id] }, ...added, ...accept(`orm-${c.id}`) });
+                    } else {
+                      const reqs = [...(task.rfp!.techRequirements ?? []), { reqEn: c.en, reqAr: c.ar, descEn: c.descEn, descAr: c.descAr, cyberClause: c.id }];
+                      setTaskData(task.id, { rfp: { ...task.rfp!, techRequirements: reqs }, ...added, ...accept(`req-${reqs.length - 1}`) });
+                    }
                   }} />
               : task.eaReview && task.rfp
               ? <EaReview task={task} isAr={isAr} t={t} readOnly={terminal}
@@ -536,6 +547,7 @@ export function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: strin
   return [
     { id: 'overview', en: 'Overview', ar: 'نظرة عامة' },
     { id: 'scope', en: 'Scope', ar: 'النطاق' },
+    ...(rfp.bcm || rfp.tpr ? [{ id: 'continuity', en: 'Continuity & risk', ar: 'الاستمرارية والمخاطر' }] : []),
     ...(rfp.boq.length ? [{ id: 'cost', en: 'Bill of quantities', ar: 'جدول الكميات' }] : []),
     ...(rfp.payment.length ? [{ id: 'payment', en: 'Payment', ar: 'الدفعات' }] : []),
     ...(rfp.evaluation.length ? [{ id: 'evaluation', en: 'Evaluation', ar: 'التقييم' }] : []),
@@ -954,6 +966,28 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
           ) : null}
         </RfpSection>
 
+        {(rfp.bcm || rfp.tpr) && (
+          <RfpSection id="continuity" title={t('Business continuity & third-party risk', 'استمرارية الأعمال ومخاطر الطرف الثالث')} label={{ en: 'Business continuity & third-party risk', ar: 'استمرارية الأعمال ومخاطر الطرف الثالث' }}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-rfp-continuity>
+              {rfp.bcm && (() => { const v = bcmVerdict(rfp.bcm.answers); return (
+                <div className="rounded-xl border border-neutral-200 p-3.5">
+                  <p className="text-[12px] font-bold text-neutral-800">{v ? t(VERDICT[v].en, VERDICT[v].ar) : t('Business continuity', 'استمرارية الأعمال')}</p>
+                  <ul className="mt-2 space-y-1">{rfp.bcm.clauses.map((c) => { const d = bcmClauseById(c.id); return d ? (
+                    <li key={c.id} data-rfp-bcm={c.id} className="flex items-start gap-2 text-[12.5px] text-neutral-700"><CheckIcon className="w-3.5 h-3.5 text-success-600 mt-0.5 flex-shrink-0" /><span>{isAr ? d.ar : d.en}{c.value && <span className="text-neutral-500"> · {c.value}</span>}</span></li>
+                  ) : null; })}</ul>
+                </div>
+              ); })()}
+              {rfp.tpr && (() => { const r = tprRating(rfp.tpr, bcmVerdict(rfp.bcm?.answers ?? {})); return (
+                <div className="rounded-xl border border-neutral-200 p-3.5">
+                  <p className="text-[12px] font-bold text-neutral-800 flex items-center gap-2">{t('Third-party risk', 'مخاطر الطرف الثالث')}{r && <span className={`px-1.5 rounded border text-[10.5px] font-semibold ${RATING[r].cls}`}>{t(RATING[r].en, RATING[r].ar)}</span>}</p>
+                  <ul className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">{TPR_QUESTIONS.map((q) => <li key={q.id} className="text-[12.5px] text-neutral-700 flex justify-between gap-2"><span>{isAr ? q.shortAr : q.short}</span><span className={rfp.tpr![q.id] ? 'font-semibold text-neutral-900' : 'text-neutral-400'}>{rfp.tpr![q.id] ? t('Yes', 'نعم') : t('No', 'لا')}</span></li>)}</ul>
+                  {rfp.ormControls?.length ? <p className="mt-2.5 text-[12px] text-neutral-600" data-rfp-orm>{t('Controls', 'الضوابط')}: {rfp.ormControls.map((id) => { const c = ORM_LIBRARY.find((x) => x.id === id); return c ? (isAr ? c.ar : c.en) : id; }).join(' · ')}</p> : null}
+                </div>
+              ); })()}
+            </div>
+          </RfpSection>
+        )}
+
         {rfp.boq.length > 0 && (
           <RfpSection id="cost" title={t('Bill of quantities', 'جدول الكميات')} label={{ en: 'Bill of quantities', ar: 'جدول الكميات' }} meta={`${rfp.boq.length} ${t('items', 'بنود')} · ${fmtSAR(boqTotal)}`} views={{ table: boqTable, chart: boqChart }} />
         )}
@@ -1098,9 +1132,10 @@ function nextStepsFor(task: Task, id: TaskAction): NextStep[] {
 
 export function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: Task; action: ActionDef; isAr: boolean; t: T; onCancel: () => void; onConfirm: (note: string) => void }) {
   const [choice, setChoice] = useState<'yes' | 'no' | null>(null);
-  const [note, setNote] = useState(() => (action.id === 'return' && task.finReview === 'gl' ? glReturnDraft(task, isAr) : action.id === 'return' && task.eaReview ? eaReturnDraft(task, isAr) : task.cyberReview ? cyberCommentDigest(task, isAr) : ''));
+  const [note, setNote] = useState(() => (action.id === 'return' && task.finReview === 'gl' ? glReturnDraft(task, isAr) : action.id === 'return' && task.eaReview ? eaReturnDraft(task, isAr) : deptKind(task) ? deptCommentDigest(task, isAr) : ''));
   // EA / Cyber returns carry one or more standard reasons (department meetings).
-  const reasonList = action.id === 'return' ? (task.eaReview ? EA_RETURN_REASONS : task.cyberReview ? CYBER_RETURN_REASONS : null) : null;
+  const dk = deptKind(task);
+  const reasonList = action.id === 'return' ? (task.eaReview ? EA_RETURN_REASONS : dk ? reasonsFor(dk) : null) : null;
   const eaReasons = !!reasonList;
   const [reasons, setReasons] = useState<string[]>([]);
   const steps = nextStepsFor(task, action.id);
