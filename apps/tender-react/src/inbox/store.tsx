@@ -5,7 +5,9 @@
 
 import { createContext, useContext, useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { eaSections } from './eaSections';
+import { cyberRowKeys } from './cyberReview';
 import { SEED_TASKS, ME, buildCommentResponseTask } from './data';
+import type { Person } from './types';
 import type { RfpDetail, Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry } from './types';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
@@ -96,6 +98,8 @@ export function completionStatus(task: Task): Completion {
     for (const k of qualReviewKeys(task)) { total++; if (task.techDecisions?.[k]) done++; else missing.push({ en: `Accept or modify ${k}`, ar: `اقبل أو عدّل ${k}` }); }
     total++; if (crit.length && crit.reduce((s, m) => s + m.pct, 0) === 100) done++; else missing.push({ en: 'Main criteria must total 100%', ar: 'يجب أن يبلغ مجموع المعايير الرئيسية 100%' });
     total++; if (crit.every((m) => m.subs.reduce((s, c) => s + c.pct, 0) === 100)) done++; else missing.push({ en: 'Each sub-criteria group must total 100%', ar: 'يجب أن تبلغ كل مجموعة معايير فرعية 100%' });
+  } else if (task.cyberReview) {
+    for (const k of cyberRowKeys(task)) { total++; if (task.cyberDecisions?.[k]) done++; else missing.push({ en: `Accept or comment on ${k}`, ar: `اقبل أو علّق على ${k}` }); }
   } else if (task.eaReview) {
     for (const sec of eaSections(task)) { total++; if (task.eaDecisions?.[sec.id]) done++; else missing.push({ en: `Accept or comment on ${sec.en}`, ar: `اقبل أو علّق على ${sec.ar}` }); }
   } else if (task.finReview === 'gl') {
@@ -144,7 +148,12 @@ export function completionStatus(task: Task): Completion {
 }
 
 // ── View routing ───────────────────────────────────────────────────────────────
+/** Queued team tasks belong to the team until assigned — to me, they become mine. */
+const inMine = (t: Task) => !t.queue || t.queue.assignedTo?.id === ME.id;
 export function viewOf(task: Task, all: Task[]): InboxView[] {
+  if (!inMine(task)) return [];
+  // Delegated away: still listed under All, but no longer needs my action.
+  if (task.delegatedTo) return ['all'];
   const views: InboxView[] = ['all'];
   const { overdue } = dueInfo(task);
   const blocked = isBlocked(task, all);
@@ -156,6 +165,17 @@ export function viewOf(task: Task, all: Task[]): InboxView[] {
   if (task.initiatedByMe && (task.state === 'waiting' || (!task.mineAction && !terminal))) views.push('sent-waiting');
   return views;
 }
+
+/** Team queue views (Team Lead): waiting = unassigned, completed = assigned out. */
+export function teamViewOf(task: Task): InboxView[] {
+  if (!task.queue) return [];
+  const v: InboxView[] = ['all'];
+  if (task.queue.assignedTo) v.push('completed');
+  else { v.push('needs-action'); if (dueInfo(task).overdue) v.push('overdue'); }
+  return v;
+}
+
+export interface Delegation { to: Person; from: string; until: string; includeNew: boolean; taskIds: string[]; at: string }
 
 // ── Context ─────────────────────────────────────────────────────────────────────
 interface InboxCtx {
@@ -181,6 +201,15 @@ interface InboxCtx {
   markNoticesRead: () => void;
   dismissNotice: (id: string) => void;
   markSeen: (taskId: string) => void;
+  /** Team queue (Team Lead). */
+  teamCounts: Record<InboxView, number>;
+  teamTasksForView: (v: InboxView) => Task[];
+  assignQueued: (id: string, to: Person) => void;
+  /** Inbox delegation. */
+  delegation: Delegation | null;
+  delegatableIds: () => string[];
+  delegate: (d: Omit<Delegation, 'taskIds' | 'at'>) => void;
+  cancelDelegation: () => void;
   /** Ask the Inbox to open a task (from a notification). */
   focusTaskId: string | null;
   focusTask: (taskId: string | null) => void;
@@ -226,6 +255,9 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   tasksRef.current = tasks;
   const [notices, setNotices] = useState<TaskNotice[]>([]);
   const [focusTaskId, focusTask] = useState<string | null>(null);
+  const [delegation, setDelegation] = useState<Delegation | null>(null);
+  const delegationRef = useRef(delegation);
+  delegationRef.current = delegation;
   const markNoticesRead = useCallback(() => setNotices((ns) => ns.map((n) => ({ ...n, read: true }))), []);
   const dismissNotice = useCallback((id: string) => setNotices((ns) => ns.map((n) => (n.id === id ? { ...n, read: true } : n))), []);
   const markSeen = useCallback((taskId: string) => {
@@ -371,14 +403,38 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     });
     if (arrivals.length && src0) {
       const now = new Date().toISOString();
-      setTasks((xs) => xs.map((t) => (arrivals.includes(t.id) ? { ...t, arrivedAt: now, receivedAt: now } : t)));
+      const dg = delegationRef.current;
+      const toDelegate = dg?.includeNew ? dg.to : undefined;
+      setTasks((xs) => xs.map((t) => (arrivals.includes(t.id) ? { ...t, arrivedAt: now, receivedAt: now, ...(toDelegate && t.mineAction ? { delegatedTo: toDelegate } : {}) } : t)));
+      if (toDelegate) setDelegation((d) => (d ? { ...d, taskIds: [...new Set([...d.taskIds, ...arrivals])] } : d));
       setNotices((ns) => [...arrivals.map((taskId) => ({ id: uid(), taskId, at: now, fromEn: src0.stageEn, fromAr: src0.stageAr })), ...ns].slice(0, 20));
     }
+  }, []);
+
+  const assignQueued = useCallback((id: string, to: Person) => {
+    const now = new Date().toISOString();
+    patch(id, (t) => ({ ...t, assignee: to, mineAction: to.id === ME.id, queue: { ...t.queue!, assignedTo: to, assignedAt: now },
+      activity: [...t.activity, { id: uid(), at: now, kind: 'decision', actor: ME, decision: { en: `Assigned to ${to.name}`, ar: `أُسند إلى ${to.nameAr ?? to.name}` } }] }));
+  }, [patch]);
+  /** Tasks that would move: everything waiting for my action. */
+  const delegatableIds = useCallback(() => tasksRef.current.filter((t) => viewOf(t, tasksRef.current).includes('needs-action')).map((t) => t.id), []);
+  const delegate = useCallback((d: Omit<Delegation, 'taskIds' | 'at'>) => {
+    const ids = delegatableIds();
+    const now = new Date().toISOString();
+    setTasks((xs) => xs.map((t) => (ids.includes(t.id) ? { ...t, delegatedTo: d.to, activity: [...t.activity, { id: uid(), at: now, kind: 'system' as const, actor: ME, system: { en: `Delegated to ${d.to.name}`, ar: `فُوّضت إلى ${d.to.nameAr ?? d.to.name}` } }] } : t)));
+    setDelegation({ ...d, taskIds: ids, at: now });
+  }, [delegatableIds]);
+  const cancelDelegation = useCallback(() => {
+    const now = new Date().toISOString();
+    setTasks((xs) => xs.map((t) => (t.delegatedTo && t.state !== 'completed' ? { ...t, delegatedTo: undefined, activity: [...t.activity, { id: uid(), at: now, kind: 'system' as const, actor: ME, system: { en: 'Delegation cancelled — back in your inbox', ar: 'أُلغي التفويض — عادت إلى صندوقك' } }] } : t.delegatedTo ? { ...t, delegatedTo: undefined } : t)));
+    setDelegation(null);
   }, []);
 
   const api = useMemo<InboxCtx>(() => {
     const countsByView = { 'needs-action': 0, 'in-progress': 0, 'sent-waiting': 0, completed: 0, overdue: 0, all: 0 } as Record<InboxView, number>;
     for (const t of tasks) for (const v of viewOf(t, tasks)) countsByView[v]++;
+    const teamCounts = { 'needs-action': 0, 'in-progress': 0, 'sent-waiting': 0, completed: 0, overdue: 0, all: 0 } as Record<InboxView, number>;
+    for (const t of tasks) for (const v of teamViewOf(t)) teamCounts[v]++;
     return {
       tasks, me: ME, countsByView,
       tasksForView: (v) => tasks.filter((t) => viewOf(t, tasks).includes(v)),
@@ -386,8 +442,10 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       blocked: (t) => isBlocked(t, tasks),
       addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
       notices, markNoticesRead, dismissNotice, markSeen, focusTaskId, focusTask,
+      teamCounts, teamTasksForView: (v) => tasks.filter((t) => teamViewOf(t).includes(v)), assignQueued,
+      delegation, delegatableIds, delegate, cancelDelegation,
     };
-  }, [tasks, addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, notices, markNoticesRead, dismissNotice, markSeen, focusTaskId]);
+  }, [assignQueued, delegation, delegatableIds, delegate, cancelDelegation, tasks, addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, notices, markNoticesRead, dismissNotice, markSeen, focusTaskId]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

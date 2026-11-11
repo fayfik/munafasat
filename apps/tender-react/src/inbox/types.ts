@@ -202,6 +202,18 @@ export interface Task {
   eaReview?: boolean;
   /** EA decision per section — accepted, or a comment for the requester. */
   eaDecisions?: Record<string, { state: 'accepted' | 'comment'; comment?: string }>;
+  /** Cybersecurity: structured review of the sections Cyber owns (EA pattern). */
+  cyberReview?: boolean;
+  /** Cyber decision per row — accepted, or a comment for the requester. */
+  cyberDecisions?: Record<string, { state: 'accepted' | 'comment'; comment?: string }>;
+  /** Unsent comment drafts per row (saved as you type). */
+  cyberDrafts?: Record<string, string>;
+  /** Library clauses Cyber inserted into the request. */
+  cyberAdded?: string[];
+  /** Team queue: the task waits in a team's queue until the Team Lead assigns it. */
+  queue?: { team: Bilingual; assignedTo?: Person; assignedAt?: string };
+  /** Moved to a delegate while the owner's inbox is delegated. */
+  delegatedTo?: Person;
   techEvalReview?: boolean;
   techDecisions?: Record<string, 'accepted' | 'modified'>;
   budgetCheck?: { fundCenter: string; commitmentItem: string; fiscalYear: number; total: number; consumed: number };
@@ -258,7 +270,7 @@ export interface RfpDetail {
   techPassing?: number;                        // technical passing score %
   techSplit?: number;                          // technical share of the overall score %
   techDocs?: { en: string; ar: string }[];      // additional technical documents (beyond the locked set)
-  techRequirements?: { reqEn: string; reqAr: string; descEn: string; descAr: string }[];
+  techRequirements?: { reqEn: string; reqAr: string; descEn: string; descAr: string; /** Inserted by Cybersecurity from its clause library. */ cyberClause?: string }[];
   /** Technical standards pulled from the EA / Cybersecurity / PMO library. */
   techStandards?: { id: string; status: 'included' | 'na'; naReason?: string; naReasonAr?: string }[];
   deploymentModel?: 'saas' | 'on-prem' | 'hybrid';

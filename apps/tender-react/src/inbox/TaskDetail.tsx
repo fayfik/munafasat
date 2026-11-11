@@ -8,13 +8,15 @@ import { LOCKED_TECH_DOCS } from '../sections/TechnicalEvaluation';
 import { CommentLayer, Commentable, AnchorChip, BubbleIcon, ThreadCard, PencilIcon, flashTarget, type AnchoredComment, type RespondHandlers } from './comments';
 import { Badge, Button, FormField, Input, Textarea } from '../components/ui';
 import { createPortal } from 'react-dom';
-import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadIcon, ChevronRightIcon } from '../components/Icons';
+import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadIcon, ChevronRightIcon, CheckIcon } from '../components/Icons';
 import type { Bilingual, Task, TaskAction, Person, RfpDetail } from './types';
 import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
 import { TaskBody, hasTaskBody } from './renderers';
 import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
 import { BudgetChecker, useBudgetCheck } from './BudgetCheck';
 import { ActionHead, ReviewSlotCtx } from './ActionHead';
+import { PROC_TEAM } from './data';
+import { DelegateGlyph } from './InboxTools';
 import TechEvalReview from './TechEvalReview';
 import QualReview from './QualReview';
 import { GlReview, AssetsReview, ChangesReview, glReturnDraft } from './FinanceReview';
@@ -22,6 +24,8 @@ import { finLinesFor } from './data';
 import EaReview from './EaReview';
 import BoqLineDetails, { BoqViewButton, useBoqOpen, viewFromRfpLine, rfpCostCenter } from '../components/BoqLineDetails';
 import { EA_RETURN_REASONS, eaReturnDraft } from './eaSections';
+import { CYBER_RETURN_REASONS, cyberCommentDigest } from './cyberReview';
+import CyberReview from './CyberReview';
 import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
 import { useRequests } from '../context/RequestStore';
@@ -81,7 +85,14 @@ function baseActions(task: Task): ActionDef[] {
 export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: Task; onBack: () => void; onSideOpenChange?: (open: boolean) => void }) {
   const { isAr } = useLanguage();
   const t = useT();
-  const { decide, addComment, resolveComment, updateRfp, setTaskData } = useInbox();
+  const { decide, addComment, resolveComment, updateRfp, setTaskData, assignQueued, me } = useInbox();
+  // Team queue: the Team Lead picks an officer (lowest workload suggested).
+  const queued = !!task.queue && !task.queue.assignedTo;
+  const OFFICERS = PROC_TEAM.filter((p) => p.id !== 'u-abdullah');
+  const suggested = [...OFFICERS].sort((a, b) => a.load - b.load)[0];
+  const [pick, setPick] = useState<string>(suggested?.id ?? '');
+  useEffect(() => { setPick(suggested?.id ?? ''); }, [task.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const picked = OFFICERS.find((p) => p.id === pick);
   const [tab, setTab] = useState<'overview' | 'rfp' | 'activity'>('overview');
   const [side, setSide] = useState<'comments' | 'history' | null>(null);
   const [commentMode, setCommentMode] = useState(false);
@@ -124,7 +135,8 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
   const d = dueInfo(task);
   const sla = slaInfo(task);
   const awaiting = task.state === 'waiting' && !!task.reviewComments && !task.respondComments; // returned, waiting on the requester
-  const terminal = task.state === 'completed' || task.state === 'rejected' || task.state === 'cancelled' || awaiting;
+  const assignedOut = !!task.queue?.assignedTo && task.queue.assignedTo.id !== me.id;
+  const terminal = task.state === 'completed' || task.state === 'rejected' || task.state === 'cancelled' || awaiting || assignedOut || !!task.delegatedTo;
   const acts = actionsFor(task);
   // The request this task belongs to, in My Requests (matched by title) — opened in a new tab.
   const { requests } = useRequests();
@@ -180,7 +192,14 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
                 <TaskInfo text={isAr ? task.summaryAr : task.summaryEn} label={t('About this task', 'عن هذه المهمة')} extra={<StageNote task={task} isAr={isAr} t={t} />} />
               </h2>
             </div>
-            {!terminal && (
+            {!terminal && queued && (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button size="md" variant="primary" data-assign-confirm disabled={!picked} onClick={() => picked && assignQueued(task.id, picked)}>
+                  {picked ? (picked.id === me.id ? t('Assign to me', 'إسناد إليّ') : t(`Assign to ${picked.name.split(' ')[0]}`, `إسناد إلى ${(picked.nameAr ?? picked.name).split(' ')[0]}`)) : t('Assign', 'إسناد')}
+                </Button>
+              </div>
+            )}
+            {!terminal && !queued && (
               <div className="flex items-center gap-2 flex-shrink-0">
                 {acts.map((a) => (
                   <Button key={a.id} size="md"
@@ -225,7 +244,19 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
               <span className="text-[13px] text-warning-800"><span className="font-semibold">{t(`Returned to ${task.requester.name}`, `أُعيد إلى ${task.requester.nameAr ?? task.requester.name}`)}</span> — {t('waiting for them to respond to your comments. The task comes back to you when they resubmit.', 'بانتظار ردهم على تعليقاتك. تعود المهمة إليك عند إعادة التقديم.')}</span>
             </div>
           )}
-          {terminal && !awaiting && (
+          {task.delegatedTo && (
+            <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-[#EEF0FB] border border-[#DADFF1] px-3.5 py-2.5" data-task-delegated>
+              <span className="text-[#2A3466]"><DelegateGlyph className="w-4 h-4" /></span>
+              <span className="text-[13px] text-[#1B2350]"><span className="font-semibold">{t(`With ${task.delegatedTo.name}`, `لدى ${task.delegatedTo.nameAr ?? task.delegatedTo.name}`)}</span> — {t('your inbox is delegated. Cancel the delegation to act on it yourself.', 'صندوقك مفوّض. ألغِ التفويض لتتصرف فيه بنفسك.')}</span>
+            </div>
+          )}
+          {assignedOut && (
+            <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-success-50 border border-success-100 px-3 py-2" data-task-assigned>
+              <CheckCircleIcon className="w-4 h-4 text-success-600" />
+              <span className="text-[13px] font-medium text-success-800">{t(`Assigned to ${task.queue!.assignedTo!.name}`, `أُسند إلى ${task.queue!.assignedTo!.nameAr ?? task.queue!.assignedTo!.name}`)}{task.queue!.assignedAt && <span className="text-success-700/70 font-normal"> · {fmtDateTime(task.queue!.assignedAt, isAr)}</span>}</span>
+            </div>
+          )}
+          {terminal && !awaiting && !assignedOut && !task.delegatedTo && (
             <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-neutral-50 border border-neutral-200 px-3 py-2">
               <CheckCircleIcon className={`w-4 h-4 ${task.state === 'rejected' ? 'text-error-600' : 'text-success-600'}`} />
               <span className="text-[13px] font-medium text-neutral-700">{task.decision ? tb(task.decision, isAr) : t('Completed', 'مكتملة')}{task.completedAt && <span className="text-neutral-400 font-normal"> · {fmtDateTime(task.completedAt, isAr)}</span>}</span>
@@ -247,9 +278,42 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
 
         {/* Tab content */}
         <div className="px-5 sm:px-8 py-6 sm:py-8">
-          {tab === 'overview' && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
+          {tab === 'overview' && queued && (
+            <div className="space-y-5">
+              <ActionHead title={t('Assign this request to an officer', 'أسند هذا الطلب إلى أخصائي')}
+                desc={t(`Waiting in the ${task.queue!.team.en} queue. Pick who reviews it — current workload is shown.`, `في انتظار الإسناد في قائمة ${task.queue!.team.ar}. اختر من يراجعه — يظهر حجم العمل الحالي.`)} />
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2" role="radiogroup" data-assign-picker>
+                {OFFICERS.map((p) => (
+                  <label key={p.id} data-assign-to={p.id} className={`flex items-center gap-3 rounded-xl border bg-white px-3.5 py-3 cursor-pointer transition-colors ${pick === p.id ? 'border-brand-500 ring-2 ring-brand-500/15' : 'border-neutral-200 hover:bg-neutral-50'}`}>
+                    <input type="radio" name="assign-to" className="sr-only" checked={pick === p.id} onChange={() => setPick(p.id)} />
+                    <Avatar name={p.name} id={p.id} className="w-8 h-8" />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5 text-[13px] font-semibold text-neutral-900 truncate">{personName(p, isAr)}{p.id === me.id && <span className="text-[11px] font-medium text-neutral-400">{t('(you)', '(أنت)')}</span>}</span>
+                      <span className="flex items-center gap-2 mt-1">
+                        <span className="h-1 w-16 rounded-full bg-neutral-100 overflow-hidden"><span className={`block h-full rounded-full ${p.load >= 6 ? 'bg-warning-500' : 'bg-success-500'}`} style={{ width: `${Math.min(100, p.load * 14)}%` }} /></span>
+                        <span className="text-[11.5px] text-neutral-500 tabular-nums">{t(`${p.load} open`, `${p.load} مفتوحة`)}</span>
+                        {p.id === suggested?.id && <span className="text-[10.5px] font-semibold text-success-700">{t('Lowest', 'الأقل')}</span>}
+                      </span>
+                    </span>
+                    {pick === p.id && <CheckIcon className="w-4 h-4 text-brand-600" />}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          {tab === 'overview' && !queued && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
-            mainWidget={task.eaReview && task.rfp
+            mainWidget={task.cyberReview && task.rfp
+              ? <CyberReview task={task} isAr={isAr} t={t} readOnly={terminal}
+                  onDecide={(k, d) => { const next = { ...(task.cyberDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { cyberDecisions: next }); }}
+                  onAcceptAll={(ks) => setTaskData(task.id, { cyberDecisions: { ...(task.cyberDecisions ?? {}), ...Object.fromEntries(ks.map((k) => [k, { state: 'accepted' as const }])) } })}
+                  onDraft={(k, v) => { const next = { ...(task.cyberDrafts ?? {}) }; if (v == null) delete next[k]; else next[k] = v; setTaskData(task.id, { cyberDrafts: next }); }}
+                  onInsert={(c) => {
+                    const reqs = [...(task.rfp!.techRequirements ?? []), { reqEn: c.en, reqAr: c.ar, descEn: c.descEn, descAr: c.descAr, cyberClause: c.id }];
+                    setTaskData(task.id, { rfp: { ...task.rfp!, techRequirements: reqs }, cyberAdded: [...(task.cyberAdded ?? []), c.id],
+                      cyberDecisions: { ...(task.cyberDecisions ?? {}), [`req-${reqs.length - 1}`]: { state: 'accepted' as const } } });
+                  }} />
+              : task.eaReview && task.rfp
               ? <EaReview task={task} isAr={isAr} t={t} readOnly={terminal}
                   onDecide={(k, d) => { const next = { ...(task.eaDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { eaDecisions: next }); }}
                   onAcceptAll={(ids) => setTaskData(task.id, { eaDecisions: { ...(task.eaDecisions ?? {}), ...Object.fromEntries(ids.map((k) => [k, { state: 'accepted' as const }])) } })} />
@@ -1023,9 +1087,10 @@ function nextStepsFor(task: Task, id: TaskAction): NextStep[] {
 
 function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: Task; action: ActionDef; isAr: boolean; t: T; onCancel: () => void; onConfirm: (note: string) => void }) {
   const [choice, setChoice] = useState<'yes' | 'no' | null>(null);
-  const [note, setNote] = useState(() => (action.id === 'return' && task.finReview === 'gl' ? glReturnDraft(task, isAr) : action.id === 'return' && task.eaReview ? eaReturnDraft(task, isAr) : ''));
-  // EA returns carry one or more standard reasons (EA meeting).
-  const eaReasons = action.id === 'return' && !!task.eaReview;
+  const [note, setNote] = useState(() => (action.id === 'return' && task.finReview === 'gl' ? glReturnDraft(task, isAr) : action.id === 'return' && task.eaReview ? eaReturnDraft(task, isAr) : task.cyberReview ? cyberCommentDigest(task, isAr) : ''));
+  // EA / Cyber returns carry one or more standard reasons (department meetings).
+  const reasonList = action.id === 'return' ? (task.eaReview ? EA_RETURN_REASONS : task.cyberReview ? CYBER_RETURN_REASONS : null) : null;
+  const eaReasons = !!reasonList;
   const [reasons, setReasons] = useState<string[]>([]);
   const steps = nextStepsFor(task, action.id);
   const verbEn = action.label[0].toLowerCase(), verbAr = action.label[1];
@@ -1037,7 +1102,7 @@ function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: T
   const yd = yesDesc[action.id] ?? [`Confirm “${action.label[0]}” for this task.`, `تأكيد "${action.label[1]}" لهذه المهمة.`];
   const needNote = choice === 'yes' && !!action.needsNote;
   const ready = choice === 'no' || (choice === 'yes' && (!action.needsNote || note.trim().length > 0) && (!eaReasons || reasons.length > 0));
-  const finalNote = () => (eaReasons ? `${t('Reasons', 'الأسباب')}: ${reasons.map((r) => { const x = EA_RETURN_REASONS.find((y) => y.id === r)!; return isAr ? x.ar : x.en; }).join('; ')}\n${note.trim()}`.trim() : note.trim());
+  const finalNote = () => (eaReasons ? `${t('Reasons', 'الأسباب')}: ${reasons.map((r) => { const x = reasonList!.find((y) => y.id === r)!; return isAr ? x.ar : x.en; }).join('; ')}\n${note.trim()}`.trim() : note.trim());
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [onCancel]);
   const Opt = ({ v, title, desc }: { v: 'yes' | 'no'; title: string; desc: string }) => (
     <button type="button" role="radio" aria-checked={choice === v} onClick={() => setChoice(v)}
@@ -1079,7 +1144,7 @@ function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: T
               <div className="mt-4" data-ea-reasons>
                 <p className="text-[12.5px] font-semibold text-[#1B2350] mb-1.5">{t('Reason for returning', 'سبب الإعادة')}<span className="text-error-600"> *</span></p>
                 <div className="flex flex-wrap gap-1.5">
-                  {EA_RETURN_REASONS.map((r) => {
+                  {reasonList!.map((r) => {
                     const on = reasons.includes(r.id);
                     return <button key={r.id} type="button" aria-pressed={on} data-ea-reason={r.id} onClick={() => setReasons((p) => (on ? p.filter((x) => x !== r.id) : [...p, r.id]))}
                       className={`px-2.5 py-1 rounded-full border text-[12px] font-medium ${on ? 'bg-[#2A3466] text-white border-[#2A3466]' : 'bg-white text-[#1B2350] border-[#C7CCDD] hover:border-[#8E97B8]'}`}>{isAr ? r.ar : r.en}</button>;

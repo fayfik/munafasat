@@ -987,6 +987,87 @@ async function openRequest(title) {
     expect(!(await approve.isDisabled()), 'approve should enable once every section is reviewed');
   });
 
+  // ── Cybersecurity review (EA pattern) ───────────────────────────────────────
+  await test('Cyber task: sections, accept / comment with autosaved draft, insert library clause, gated Submit review', async () => {
+    await openTaskId('TSK-4433-03');
+    expect(await count('[data-cyber-review]') === 1, 'cyber review missing');
+    for (const s of ['scope', 'tech', 'integration', 'data', 'security']) expect(await count(`[data-cyber-section="${s}"]`) === 1, `section ${s}`);
+    const submit = page.getByRole('button', { name: 'Submit review', exact: true });
+    expect(await submit.isDisabled(), 'submit gated until every requirement is reviewed');
+    await page.click('[data-cyber-accept="scope"]'); await wait(100);
+    expect(await page.getAttribute('[data-cyber-row="scope"]', 'data-state') === 'accepted', 'scope accepted');
+    // Draft survives closing the editor and switching tasks
+    await page.click('[data-cyber-comment="std-s1"]');
+    const long = 'Attach the ECC compliance matrix. '.repeat(30);
+    await page.fill('[data-cyber-comment-input="std-s1"]', long); await wait(150);
+    await page.locator('[data-cyber-row="std-s1"]').getByRole('button', { name: 'Close' }).click(); await wait(100);
+    await page.click('[data-inbox-tab="all"]'); await wait(200);
+    await page.locator('li[data-task-id="TSK-4471-01"] button').click(); await wait(LOAD);
+    await page.locator('li[data-task-id="TSK-4433-03"] button').click(); await wait(LOAD);
+    await page.click('[data-cyber-comment="std-s1"]'); await wait(100);
+    expect((await page.inputValue('[data-cyber-comment-input="std-s1"]')).length === long.length, 'draft kept, no length limit');
+    await page.click('[data-cyber-save="std-s1"]'); await wait(100);
+    expect(await page.getAttribute('[data-cyber-row="std-s1"]', 'data-state') === 'comment', 'comment saved');
+    // Library clause goes into the request
+    await page.click('[data-cyber-add="data"]'); await wait(200);
+    await page.click('[data-clause-insert="c-residency"]'); await wait(200);
+    expect(await count('[data-cyber-section="data"] [data-cyber-added]') === 1, 'clause inserted in Data section');
+    await tab('Request details'); await wait(400);
+    expect(await text('Data residency in KSA').count() > 0, 'clause visible in the request');
+    await tab('Required action'); await wait(300);
+    // Return needs a Cyber reason; note prefilled with comments
+    await page.getByRole('button', { name: 'Return', exact: true }).click(); await wait(300);
+    await page.getByRole('radio', { name: /Yes/ }).first().click(); await wait(150);
+    expect((await page.locator('[role="dialog"] textarea').inputValue()).includes('ECC compliance matrix'), 'return prefilled with comments');
+    const done = page.locator('[role="dialog"]').getByRole('button', { name: 'Complete' });
+    expect(await done.isDisabled(), 'reason required');
+    expect(await count('[data-ea-reason="no-class"]') === 1, 'cyber reasons listed');
+    await page.click('[data-ea-reason="missing-sec"]'); await wait(100);
+    expect(!(await done.isDisabled()), 'reason picked');
+    await page.keyboard.press('Escape'); await wait(200);
+    await page.click('[data-cyber-all]'); await wait(150);
+    expect(!(await submit.isDisabled()), 'submit enabled once all reviewed');
+  });
+
+  // ── Team queue · delegation · Excel ─────────────────────────────────────────
+  await test('Team queue: switch from Inbox title, assign to an officer, row moves to Assigned', async () => {
+    await page.goto(BASE); await wait(600); await nav('Inbox'); await wait(LOAD);
+    await page.click('[data-scope-switch]'); await wait(150);
+    await page.click('[data-scope="team"]'); await wait(300);
+    expect(await count('li[data-task-id]') === 4, 'four unassigned requests');
+    expect(await count('[data-row-unassigned]') === 4, 'unassigned chips');
+    await page.locator('li[data-task-id="TSK-4487-12"] button').click(); await wait(LOAD);
+    expect(await count('[data-assign-picker] [data-assign-to]') === 4, 'officers listed (TL excluded)');
+    await page.click('[data-assign-to="u-amal"]'); await wait(100);
+    await page.click('[data-assign-confirm]'); await wait(200);
+    expect(await count('[data-task-assigned]') === 1, 'assigned banner');
+    expect(await count('li[data-task-id="TSK-4487-12"]') === 0, 'gone from Unassigned');
+    await page.click('[data-inbox-tab="completed"]'); await wait(200);
+    expect(await count('li[data-task-id="TSK-4487-12"]') === 1, 'listed under Assigned');
+    await page.click('[data-scope-switch]'); await page.click('[data-scope="mine"]'); await wait(300);
+    expect(await count('li[data-task-id^="TSK-4487"]') === 0, 'not in my tasks');
+  });
+  await test('Delegation: dialog summary, banner, tasks move, cancel brings them back', async () => {
+    const before = Number(await page.locator('[data-inbox-count]').innerText());
+    await page.click('[data-delegate-open]'); await wait(200);
+    expect(Number(await page.getAttribute('[data-delegate-summary]', 'data-delegate-summary')) === before, 'summary counts tasks that move');
+    await page.click('[data-delegate-to="u-rawan"]'); await wait(80);
+    await page.click('[data-delegate-apply]'); await wait(200);
+    expect((await page.locator('[data-delegation-banner]').innerText()).includes('Rawan'), 'banner names the delegate');
+    expect(Number(await page.locator('[data-inbox-count]').innerText()) === 0, 'needs action empties');
+    await page.click('[data-inbox-tab="all"]'); await wait(200);
+    expect(await count('[data-row-delegated]') === before, 'rows marked With Rawan');
+    await page.locator('li[data-task-id] button').first().click(); await wait(LOAD);
+    expect(await count('[data-task-delegated]') === 1 && await page.getByRole('button', { name: 'Approve', exact: true }).count() === 0, 'delegated task is read-only');
+    await page.click('[data-delegation-cancel]'); await wait(200);
+    expect(await count('[data-delegation-banner]') === 0 && Number(await page.locator('[data-inbox-count]').innerText()) === before, 'cancel restores');
+  });
+  await test('Inbox: more menu downloads the list as Excel', async () => {
+    await page.click('[data-inbox-more]'); await wait(150);
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-export-excel]')]);
+    expect(/\.xlsx$/.test(dl.suggestedFilename()), `file ${dl.suggestedFilename()}`);
+  });
+
   await browser.close();
   const pass = results.filter((r) => r.ok).length;
   console.log(`\n${pass}/${results.length} passed\n`);

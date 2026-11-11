@@ -209,13 +209,13 @@ const SPECS: Spec[] = [
     ],
     extra: { techEvalReview: true, techDecisions: {} } },
   { n: 3, type: 'review', title: TITLE.reviewFromDept(),
-    summary: sup('Cyber security review: confirm NCA requirements are captured in the request.', 'مراجعة الأمن السيبراني: تأكد من تضمين متطلبات الهيئة الوطنية للأمن السيبراني في الطلب.'),
+    summary: sup('Review the sections Cyber owns — scope, technical requirements, integrations, data classification and the cybersecurity standards. Accept or comment on each requirement, add missing clauses from the library, then submit your review.', 'راجع الأقسام التي يملكها الأمن السيبراني — النطاق والمتطلبات التقنية والتكاملات وتصنيف البيانات ومعايير الأمن السيبراني. اقبل كل متطلب أو علّق عليه، وأضف البنود الناقصة من المكتبة، ثم أرسل مراجعتك.'),
     stage: sup('Specialist review — Cyber Security', 'مراجعة تخصصية — الأمن السيبراني'), assignee: P.cyber, sla: 2, priority: 'medium', received: 0,
-    actions: APPROVE_RETURN,
-    extra: { parallelGroup: 'pg-specialist', findingsLabel: sup('Review notes', 'ملاحظات المراجعة'), checklist: reviewChecklist([
-      ['NCA requirements captured', 'تم تضمين متطلبات الهيئة الوطنية للأمن السيبراني'],
-      ['Cyber security section and criteria added', 'تمت إضافة قسم ومعايير الأمن السيبراني'],
-    ]) } },
+    actions: [
+      { id: 'approve', labelEn: 'Submit review', labelAr: 'إرسال المراجعة', variant: 'primary', gated: true, decision: sup('Cyber review submitted', 'تم إرسال مراجعة الأمن السيبراني') },
+      { id: 'return', labelEn: 'Return', labelAr: 'إعادة', variant: 'secondary', needsNote: true },
+    ],
+    extra: { parallelGroup: 'pg-specialist', cyberReview: true, cyberDecisions: {}, cyberDrafts: {}, cyberAdded: [] } },
   { n: 4, type: 'review', title: TITLE.reviewFromDept(),
     summary: sup('BCM review: critical system / department classification and compliance with SLA.', 'مراجعة استمرارية الأعمال: تصنيف الأنظمة والإدارات الحرجة والامتثال لاتفاقية مستوى الخدمة.'),
     stage: sup('Specialist review — Enterprise Risk (BCM)', 'مراجعة تخصصية — المخاطر المؤسسية'), assignee: P.bcm, sla: 1, priority: 'medium', received: 0,
@@ -793,6 +793,50 @@ SEED_TASKS.unshift(
       ],
     };
     tk.rfp = requestRfpFor({ refId: `REQ-${no}`, titleEn, titleAr, deptEn: REQ.requester.dept ?? '', deptAr: REQ.requester.deptAr ?? '', amount: 2_350_000, type: 'tendering', costCenter: 'FC-IT-1000' });
+    SEED_TASKS.push(tk);
+  }
+}
+
+// ── Procurement team: queue + delegation ────────────────────────────────────────
+// Officers the Team Lead assigns queued requests to, and colleagues a user can
+// delegate their inbox to. Workload = open requests each officer holds today.
+export const PROC_TEAM: (Person & { load: number })[] = [
+  { ...ME, load: 4 },
+  { ...person('u-yousef', 'Yousef Al-Harthi', 'يوسف الحارثي', 'Procurement Officer', 'أخصائي مشتريات', 'Procurement', 'المشتريات'), load: 2 },
+  { ...person('u-amal', 'Amal Al-Qahtani', 'أمل القحطاني', 'Procurement Officer', 'أخصائي مشتريات', 'Procurement', 'المشتريات'), load: 6 },
+  { ...person('u-rawan', 'Rawan Al-Shehri', 'روان الشهري', 'Senior Procurement Officer', 'أخصائي مشتريات أول', 'Procurement', 'المشتريات'), load: 3 },
+  { ...P.tl, load: 1 },
+];
+export const TEAM_NAME = sup('Procurement team', 'فريق المشتريات');
+
+// Requests waiting in the Procurement team queue for an officer (Team Lead assigns).
+{
+  const src = SEED_TASKS.find((x) => x.id === `TSK-${REQ.no}-12`);
+  const QUEUE: { no: string; titleEn: string; titleAr: string; amount: number; hoursAgo: number; dueH: number; priority: Task['priority']; requester: Person }[] = [
+    { no: '4485', titleEn: 'Branch CCTV Upgrade', titleAr: 'تحديث كاميرات المراقبة في الفروع', amount: 1_250_000, hoursAgo: 3, dueH: 30, priority: 'medium', requester: person('u-majid', 'Majid Al-Otaibi', 'ماجد العتيبي', 'Requester', 'مقدّم الطلب', 'Facilities', 'المرافق') },
+    { no: '4487', titleEn: 'HR Analytics Platform', titleAr: 'منصة تحليلات الموارد البشرية', amount: 860_000, hoursAgo: 20, dueH: 6, priority: 'high', requester: person('u-dana', 'Dana Al-Mutlaq', 'دانة المطلق', 'Requester', 'مقدّم الطلب', 'Human Capital', 'رأس المال البشري') },
+    { no: '4490', titleEn: 'Treasury Market Data Feed', titleAr: 'تغذية بيانات السوق للخزينة', amount: 2_100_000, hoursAgo: 52, dueH: -4, priority: 'urgent', requester: person('u-omar', 'Omar Al-Saleh', 'عمر الصالح', 'Requester', 'مقدّم الطلب', 'Treasury', 'الخزينة') },
+    { no: '4492', titleEn: 'Office Furniture — New Floor', titleAr: 'أثاث مكتبي — الطابق الجديد', amount: 420_000, hoursAgo: 1, dueH: 46, priority: 'low', requester: person('u-huda', 'Huda Al-Fahad', 'هدى الفهد', 'Requester', 'مقدّم الطلب', 'Facilities', 'المرافق') },
+  ];
+  if (src) for (const q of QUEUE) {
+    const rec = new Date(Date.now() - q.hoursAgo * 3600000);
+    const tk: Task = {
+      ...structuredClone(src),
+      id: `TSK-${q.no}-12`,
+      titleEn: `Review request #${q.no} from ${q.requester.dept}`, titleAr: `مراجعة الطلب رقم ${q.no} من ${q.requester.deptAr}`,
+      entity: { kind: 'RFP', ref: `REQ-${q.no}`, titleEn: q.titleEn, titleAr: q.titleAr },
+      project: { en: q.titleEn, ar: q.titleAr }, amount: q.amount, priority: q.priority,
+      requester: q.requester, department: { en: q.requester.dept ?? '', ar: q.requester.deptAr ?? '' },
+      assignee: { id: 'team-proc', name: 'Procurement team', nameAr: 'فريق المشتريات', role: 'Team queue', roleAr: 'قائمة الفريق', dept: 'Procurement', deptAr: 'المشتريات' },
+      receivedAt: rec.toISOString(), dueAt: new Date(Date.now() + q.dueH * 3600000).toISOString(),
+      mineAction: false, queue: { team: TEAM_NAME },
+      activity: [
+        { id: 'a0', kind: 'system', actor: q.requester, at: new Date(+rec - 40 * 60000).toISOString(), system: { en: `Request #${q.no} submitted`, ar: `تم تقديم الطلب رقم ${q.no}` } },
+        { id: 'aQ', kind: 'system', actor: P.tl, at: rec.toISOString(), system: { en: 'Waiting in the Procurement team queue', ar: 'في انتظار الإسناد في قائمة فريق المشتريات' } },
+      ],
+    };
+    tk.rfp = requestRfpFor({ refId: `REQ-${q.no}`, titleEn: q.titleEn, titleAr: q.titleAr, deptEn: q.requester.dept ?? '', deptAr: q.requester.deptAr ?? '', amount: q.amount, type: 'tendering', costCenter: 'FC-GEN-0100' });
+    tk.trail = trailFor(tk);
     SEED_TASKS.push(tk);
   }
 }
