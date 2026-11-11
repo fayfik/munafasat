@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body data-variant="a" data-root="">
 <div class="app">
 
   <header class="topbar">
@@ -43,85 +43,18 @@
       <section class="inbox" aria-labelledby="inbox-title">
         <div class="inbox-header">
           <div class="inbox-title-row">
-            <h2 class="inbox-title" id="inbox-title"><span class="t-heading">Inbox</span><span class="count-pill t-caption-medium">7</span></h2>
+            <h2 class="inbox-title" id="inbox-title"><span class="t-heading">Inbox</span><span class="count-pill t-caption-medium" data-task-count>7</span></h2>
             <button class="icon-btn" type="button" aria-label="Search tasks"><img src="assets/icon-search.svg" alt=""></button>
           </div>
           <div class="segment" role="tablist" aria-label="Filter tasks">
-            <button class="segment-tab" role="tab" aria-selected="true" type="button"><span class="segment-label">Needs action</span><span class="segment-count">7</span></button>
+            <button class="segment-tab" role="tab" aria-selected="true" type="button"><span class="segment-label">Needs action</span><span class="segment-count" data-task-count>7</span></button>
             <button class="segment-tab" role="tab" aria-selected="false" type="button" disabled title="No overdue tasks" tabindex="-1"><span class="segment-label">Overdue</span></button>
             <button class="segment-tab" role="tab" aria-selected="false" type="button" tabindex="-1"><span class="segment-label">Done</span></button>
             <button class="segment-tab" role="tab" aria-selected="false" type="button" tabindex="-1"><span class="segment-label">All</span></button>
           </div>
         </div>
 
-        <div class="inbox-list">
-          <div class="group-head t-caption"><span>Due within a day</span><span>4</span></div>
-
-          <a class="inbox-item unread" href="department-approval.html">
-            <div class="item-row">
-              <span class="dot-slot"><img src="assets/dot-unread.svg" alt="Unread"></span>
-              <span class="item-title">REQ-4478: Manager Approval</span>
-              <span class="item-due soon">1d left</span>
-            </div>
-            <div class="item-meta"><span class="item-project">SIEM &amp; SOC Managed Services</span><span class="item-sep">·</span><span class="item-person">Khalid Al-Qahtani</span></div>
-          </a>
-
-          <a class="inbox-item unread" href="#">
-            <div class="item-row">
-              <span class="dot-slot"><img src="assets/dot-unread.svg" alt="Unread"></span>
-              <span class="item-title">REQ-4471: Manager Approval</span>
-              <span class="item-due soon">1d left</span>
-            </div>
-            <div class="item-meta"><span class="item-project">Cloud Infrastructure Migration</span><span class="item-sep">·</span><span class="item-person">Fatima Al-Zahrani</span></div>
-          </a>
-
-          <a class="inbox-item" href="#">
-            <div class="item-row">
-              <span class="dot-slot"><img src="assets/dot-read.svg" alt=""></span>
-              <span class="item-title">REQ-4433: Manager Approval</span>
-              <span class="item-due soon">1d left</span>
-            </div>
-            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
-          </a>
-
-          <a class="inbox-item" href="#">
-            <div class="item-row">
-              <span class="dot-slot"><img src="assets/dot-read.svg" alt=""></span>
-              <span class="item-title">REQ-4431: Changed after your GL approval</span>
-              <span class="item-due soon">11h left</span>
-            </div>
-            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
-          </a>
-
-          <div class="group-head t-caption"><span>Later this week</span><span>3</span></div>
-
-          <a class="inbox-item unread" href="cyber-review.html" aria-current="true">
-            <div class="item-row">
-              <span class="dot-slot"><img src="assets/dot-unread.svg" alt="Unread"></span>
-              <span class="item-title">Cyber security review</span>
-              <span class="item-due">1d 12h left</span>
-            </div>
-            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
-          </a>
-
-          <a class="inbox-item" href="#">
-            <div class="item-row">
-              <span class="dot-slot"><img src="assets/dot-read.svg" alt=""></span>
-              <span class="item-title">REQ-4433: Manager Approval</span>
-              <span class="item-due">2d left</span>
-            </div>
-            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
-          </a>
-
-          <a class="inbox-item" href="#">
-            <div class="item-row">
-              <span class="dot-slot"><img src="assets/dot-read.svg" alt=""></span>
-              <span class="item-title">REQ-4431: Changed after your GL approval</span>
-              <span class="item-due">2d left</span>
-            </div>
-            <div class="item-meta"><span class="item-project">Core ERP Modernization</span><span class="item-sep">·</span><span class="item-person">Ibrahim Al-Rashid</span></div>
-          </a>
-        </div>
+        <div class="inbox-list" id="inbox-list" data-current="REQ-4433"></div>
       </section>
 
       <!-- Task detail -->
@@ -415,6 +348,8 @@
   ]
  }
 }</script>
+<script src="data/tasks.js"></script>
+<script src="inbox.js"></script>
 <script src="app.js"></script>
 <script src="panel.js"></script>
 <script src="cyber-review.js"></script>

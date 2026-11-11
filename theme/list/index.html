@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox — Munafasat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body data-variant="b" data-root="../">
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo"><img src="../assets/icon-m.svg" alt=""></div>
+      <span class="brand-name">Munafasat</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="bell" type="button" aria-label="Notifications, unread"><img src="../assets/notifications.svg" alt=""></button>
+      <div class="me">
+        <div class="me-avatar t-label">MH</div>
+        <div class="me-text">
+          <div class="t-body-medium me-name">Mohammed H.</div>
+          <div class="t-caption me-role">IT &amp; Digital</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="body">
+    <nav class="nav-rail" aria-label="Main">
+      <a class="nav-item" href="#" aria-label="Dashboard"><img src="../assets/icon-grid.svg" alt=""></a>
+      <a class="nav-item" href="#" aria-label="My requests"><img src="../assets/icon-file.svg" alt=""></a>
+      <a class="nav-item" href="index.html" aria-label="Inbox" aria-current="page"><img src="../assets/icon-inbox.svg" alt=""></a>
+      <a class="nav-item" href="#" aria-label="Reports"><img src="../assets/icon-chart.svg" alt=""></a>
+    </nav>
+
+    <div class="workspace">
+      <main class="page-card" aria-labelledby="page-title">
+        <div class="page-head">
+          <div class="page-title-row">
+            <div class="page-title title">
+              <h1 id="page-title" class="t-heading">Inbox</h1>
+              <span class="count-pill t-caption-medium" id="needs-count">7</span>
+              <button class="icon-btn info-btn" type="button" aria-label="About the inbox" aria-describedby="inbox-tip"><img src="../assets/icon-info.svg" alt=""></button>
+              <div class="tooltip" role="tooltip" id="inbox-tip">Tasks waiting for your action. Open one to review the request and decide.</div>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <div class="segment" role="tablist" aria-label="Filter tasks" id="view-tabs">
+              <button class="segment-tab" role="tab" type="button" data-view="needs" aria-selected="true"><span class="segment-label">Needs action</span><span class="segment-count" id="count-needs">7</span></button>
+              <button class="segment-tab" role="tab" type="button" data-view="overdue" aria-selected="false" disabled title="No overdue tasks" tabindex="-1"><span class="segment-label">Overdue</span></button>
+              <button class="segment-tab" role="tab" type="button" data-view="done" aria-selected="false" tabindex="-1"><span class="segment-label">Done</span><span class="segment-count" id="count-done"></span></button>
+              <button class="segment-tab" role="tab" type="button" data-view="all" aria-selected="false" tabindex="-1"><span class="segment-label">All</span></button>
+            </div>
+            <div class="toolbar-right">
+              <label class="search">
+                <img src="../assets/icon-search.svg" alt="">
+                <span class="sr-only">Search tasks</span>
+                <input type="search" id="search" placeholder="Search request no., project, department…">
+              </label>
+              <div class="filter-wrap">
+                <button class="btn btn-secondary" type="button" id="filter-btn" aria-expanded="false" aria-controls="filter-pop"><img src="../assets/icon-filter.svg" alt="">Filters <span class="filter-count" id="filter-count"></span></button>
+                <div class="popover" id="filter-pop" hidden>
+                  <fieldset id="filter-type"><legend class="t-caption-medium muted">Type</legend></fieldset>
+                  <fieldset id="filter-dept"><legend class="t-caption-medium muted">Department</legend></fieldset>
+                  <div class="popover-foot">
+                    <button class="link-btn" type="button" id="filter-clear">Clear all</button>
+                    <button class="btn btn-primary" type="button" id="filter-done" style="height: 32px; font-size: 13px">Done</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="task-table" id="task-table">
+            <caption class="sr-only">Tasks in your inbox</caption>
+            <colgroup>
+              <col style="width: 28px"><col style="width: 92px"><col style="width: 150px"><col>
+              <col style="width: 172px"><col style="width: 124px"><col style="width: 140px"><col style="width: 150px">
+              <col style="width: 108px"><col style="width: 96px"><col style="width: 36px">
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="cell-dot"><span class="sr-only">Unread</span></th>
+                <th data-sort="id"><button type="button">Req no. <img src="../assets/icon-sort.svg" alt=""></button></th>
+                <th data-sort="task"><button type="button">Task <img src="../assets/icon-sort.svg" alt=""></button></th>
+                <th data-sort="project"><button type="button">Project <img src="../assets/icon-sort.svg" alt=""></button></th>
+                <th data-sort="status"><button type="button">Status <img src="../assets/icon-sort.svg" alt=""></button></th>
+                <th data-sort="type"><button type="button">Type <img src="../assets/icon-sort.svg" alt=""></button></th>
+                <th data-sort="department"><button type="button">Department <img src="../assets/icon-sort.svg" alt=""></button></th>
+                <th data-sort="requester"><button type="button">Requested by <img src="../assets/icon-sort.svg" alt=""></button></th>
+                <th data-sort="received"><button type="button">Received <img src="../assets/icon-sort.svg" alt=""></button></th>
+                <th data-sort="due" aria-sort="ascending"><button type="button">Due <img src="../assets/icon-sort.svg" alt=""></button></th>
+                <th class="chev"><span class="sr-only">Open</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div class="table-empty" id="table-empty" hidden>
+            <div class="icon-tile"><img src="../assets/icon-inbox.svg" alt=""></div>
+            <div class="t-title" style="color: var(--ink-primary)" id="empty-title">Nothing here</div>
+            <div class="t-body-small" id="empty-sub"></div>
+          </div>
+        </div>
+
+        <div class="table-foot t-caption">
+          <span id="showing">Showing 7 of 7</span>
+          <span>Sorted by <span id="sorted-by">due date</span></span>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-text"></span><button type="button" id="toast-undo" hidden>Undo</button></div>
+
+<script src="../data/tasks.js"></script>
+<script src="list.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

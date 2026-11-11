@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REQ-4433 · Cyber security review — Inbox — Munafasat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body data-variant="b" data-root="../" data-task-id="REQ-4433">
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo"><img src="../assets/icon-m.svg" alt=""></div>
+      <span class="brand-name">Munafasat</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="bell" type="button" aria-label="Notifications, unread"><img src="../assets/notifications.svg" alt=""></button>
+      <div class="me">
+        <div class="me-avatar t-label">MH</div>
+        <div class="me-text">
+          <div class="t-body-medium me-name">Mohammed H.</div>
+          <div class="t-caption me-role">Cyber Security</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="body">
+    <nav class="nav-rail" aria-label="Main">
+      <a class="nav-item" href="#" aria-label="Dashboard"><img src="../assets/icon-grid.svg" alt=""></a>
+      <a class="nav-item" href="#" aria-label="My requests"><img src="../assets/icon-file.svg" alt=""></a>
+      <a class="nav-item" href="index.html" aria-label="Inbox" aria-current="page"><img src="../assets/icon-inbox.svg" alt=""></a>
+      <a class="nav-item" href="#" aria-label="Reports"><img src="../assets/icon-chart.svg" alt=""></a>
+    </nav>
+
+    <div class="workspace">
+
+      <!-- Task detail -->
+      <main class="detail standalone">
+        <div class="detail-scroll">
+          <div class="crumbs">
+            <a class="back-btn" href="index.html" aria-label="Back to inbox"><img src="../assets/icon-arrow-left.svg" alt=""></a>
+            <nav aria-label="Breadcrumb"><ol class="t-body-small"><li><a href="index.html">Inbox</a></li><li><span aria-current="page">Cyber security review</span></li></ol></nav>
+          </div>
+          <div class="detail-header">
+            <div class="eyebrow">
+              <span class="t-body-small muted">REQ-4433</span>
+              <span class="status-pill t-caption-medium"><img src="../assets/dot.svg" alt=""><span id="status-label">Pending your decision</span></span>
+              <span class="t-caption muted">0 of 4 specialist reviews done · parallel with BCM, Op. Risk, EA</span>
+            </div>
+
+            <div class="title-row">
+              <div class="title">
+                <h1 class="t-display">Core ERP Modernization</h1>
+                <button class="icon-btn info-btn" type="button" aria-label="About this task" aria-describedby="task-tip"><img src="../assets/icon-info.svg" alt=""></button>
+                <div class="tooltip" role="tooltip" id="task-tip">Cyber security review: confirm the NCA requirements are captured in the request, then approve or return it to the requester.</div>
+              </div>
+              <div class="decision">
+                <!-- Before pick-up: only "Pick up". After: Return + Approve (Approve gated on the checks). -->
+                <button class="btn btn-secondary" type="button" id="btn-return" hidden data-decision="returned"><img src="../assets/icon-return.svg" alt="">Return</button>
+                <button class="btn btn-primary" type="button" id="btn-approve" hidden disabled data-decision="approved" title="Complete both checks to approve"><img src="../assets/icon-approve.svg" alt="">Approve</button>
+                <button class="btn btn-primary" type="button" id="btn-pickup">Pick up</button>
+              </div>
+            </div>
+
+            <div class="props">
+              <div class="props-col">
+                <div class="prop">
+                  <div class="prop-key t-body-small"><img src="../assets/icon-cash.svg" alt="">Amount</div>
+                  <div class="prop-value">
+                    <span class="t-body-medium">SAR 9,940,000.00</span>
+                    <span class="t-body-small muted">SAR 11,431,000.00 (incl. VAT)</span>
+                  </div>
+                </div>
+                <div class="prop">
+                  <div class="prop-key t-body-small"><img src="../assets/icon-clock.svg" alt="">Due</div>
+                  <div class="prop-value">
+                    <span class="t-body">11 Nov 2026</span>
+                    <span class="t-body-small muted">1d 12h left</span>
+                  </div>
+                </div>
+              </div>
+              <div class="props-col">
+                <div class="prop">
+                  <div class="prop-key t-body-small"><img src="../assets/icon-user.svg" alt="">Requester</div>
+                  <div class="prop-value">
+                    <span class="person-chip"><span class="avatar t-micro">IA</span><span class="t-body">Ibrahim Al-Rashid</span></span>
+                    <span class="t-body-small muted">IT &amp; Digital</span>
+                  </div>
+                </div>
+                <div class="prop center">
+                  <div class="prop-key t-body-small"><img src="../assets/icon-userplus.svg" alt="">Assignee</div>
+                  <div class="prop-value" id="assignee">
+                    <button class="assign-btn" type="button" id="btn-assign"><img src="../assets/icon-plus.svg" alt="">Assign</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="content">
+            <div class="segment" role="tablist" aria-label="Task sections">
+              <button class="segment-tab" role="tab" type="button" id="tab-action" aria-selected="true" aria-controls="panel-action">Required action</button>
+              <button class="segment-tab" role="tab" type="button" id="tab-details" aria-selected="false" aria-controls="panel-details" tabindex="-1">Request details</button>
+              <button class="segment-tab" role="tab" type="button" id="tab-activity" aria-selected="false" aria-controls="panel-activity" tabindex="-1">Activity</button>
+            </div>
+
+            <section class="panel" id="panel-action" role="tabpanel" aria-labelledby="tab-action">
+              <div class="read-row">
+                <div class="icon-tile"><img src="../assets/icon-file-tile.svg" alt=""></div>
+                <div class="read-text">
+                  <span class="t-title">Read the full request</span>
+                  <span class="t-body-small muted">Comment on any section or field as you go.</span>
+                </div>
+                <button class="btn btn-secondary" type="button" data-open-tab="tab-details">Open request</button>
+              </div>
+
+              <div>
+                <div class="checks-head">
+                  <span class="t-title" id="checks-title">Cyber security checks</span>
+                  <span class="t-body-small muted"><span id="done-count">0</span> of 2 done</span>
+                </div>
+                <div class="progress"><div class="progress-track"><div class="progress-fill" id="progress"></div></div></div>
+                <label class="check">
+                  <input type="checkbox" class="cyber-check" disabled>
+                  <span class="label t-body">NCA requirements are captured in the request</span>
+                  <span class="t-caption muted">Required</span>
+                </label>
+                <label class="check">
+                  <input type="checkbox" class="cyber-check" disabled>
+                  <span class="label t-body">Cyber security section and evaluation criteria are added</span>
+                  <span class="t-caption muted">Required</span>
+                </label>
+              </div>
+
+              <div>
+                <label for="notes" class="t-title" style="display: block">Review notes</label>
+                <span class="t-body-small muted">Sent to procurement with your decision.</span>
+                <div class="notes-field">
+                  <textarea id="notes" placeholder="Record your findings and recommendation…" disabled></textarea>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel" id="panel-details" role="tabpanel" aria-labelledby="tab-details" hidden>
+              <p class="t-body secondary" style="margin: 0; max-width: 640px">Enterprise ERP system upgrade for IT &amp; Digital. Hover any section or field to comment on it.</p>
+              <div class="kv t-body">
+                <div data-anchor="project" data-label="Project"><span class="t-caption muted">Project</span>Enterprise ERP System Upgrade</div>
+                <div data-anchor="dept" data-label="Requesting department"><span class="t-caption muted">Requesting department</span>IT &amp; Digital</div>
+                <div data-anchor="requester" data-label="Requester"><span class="t-caption muted">Requester</span>Ibrahim Al-Rashid</div>
+                <div data-anchor="amount" data-label="Request amount"><span class="t-caption muted">Request amount</span>SAR 9,940,000.00</div>
+                <div data-anchor="vat" data-label="Incl. VAT"><span class="t-caption muted">Incl. VAT</span>SAR 11,431,000.00</div>
+                <div data-anchor="due" data-label="Review due"><span class="t-caption muted">Review due</span>11 Nov 2026</div>
+              </div>
+            </section>
+
+            <section class="panel" id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" hidden>
+              <ol class="timeline">
+                <li><div class="rail"><span class="node now"></span><span class="line"></span></div><div class="step"><div class="t-body-medium" style="color: var(--brand-800)">Cyber Security — this review</div><div class="t-caption muted">Due 11 Nov 2026</div></div></li>
+                <li><div class="rail"><span class="node"></span><span class="line"></span></div><div class="step"><div class="t-body secondary">Enterprise Risk (BCM)</div><div class="t-caption muted">Turki Al-Anazi · in parallel</div></div></li>
+                <li><div class="rail"><span class="node"></span><span class="line"></span></div><div class="step"><div class="t-body secondary">Operational Risk</div><div class="t-caption muted">Reem Al-Dossary · in parallel</div></div></li>
+                <li><div class="rail"><span class="node"></span></div><div class="step"><div class="t-body secondary">Enterprise Architecture</div><div class="t-caption muted">Majed Al-Zahrani · in parallel</div></div></li>
+              </ol>
+              <a class="link-btn resolve" href="#process" data-open-panel="process" style="align-self:flex-start;margin-left:18px">See the full process</a>
+            </section>
+          </div>
+        </div>
+      </main>
+
+      <aside class="side-panel" id="side-panel" aria-label="Comments and process" hidden>
+        <div class="panel-head">
+          <div class="segment" role="tablist" aria-label="Panel view">
+            <button class="segment-tab" role="tab" type="button" id="ptab-comments" aria-selected="true" aria-controls="pview-comments">Comments<span class="segment-count" data-comment-count></span></button>
+            <button class="segment-tab" role="tab" type="button" id="ptab-process" aria-selected="false" aria-controls="pview-process" tabindex="-1">Process</button>
+          </div>
+          <button class="icon-btn panel-close" type="button" id="panel-close" aria-label="Collapse panel" title="Collapse panel"><img src="../assets/icon-panel-close.svg" alt=""></button>
+        </div>
+
+        <section class="panel-view" id="pview-comments" role="tabpanel" aria-labelledby="ptab-comments">
+          <div class="panel-body">
+            <div class="panel-summary" id="comments-summary"></div>
+            <ul class="thread" id="thread" aria-live="polite"></ul>
+            <div class="panel-empty" id="comments-empty" hidden>
+              <div class="icon-tile"><img src="../assets/rail-comments.svg" alt=""></div>
+              <div class="t-title" style="color: var(--ink-primary)">No comments yet</div>
+              <div class="t-body-small">Post the first one, or comment on a field in Request details.</div>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="composer-context" id="composer-context" hidden></div>
+            <div class="composer-box">
+              <label for="composer-input" class="sr-only">Comment</label>
+              <textarea id="composer-input" rows="1" placeholder="Add a comment…"></textarea>
+              <div class="composer-foot">
+                <span class="t-caption muted"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to post</span>
+                <button class="btn btn-primary" type="button" id="composer-post" disabled>Post</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-view" id="pview-process" role="tabpanel" aria-labelledby="ptab-process" hidden>
+          <div class="panel-body">
+            <div class="process-intro">
+              <span class="t-body-small muted">Completed, current and upcoming steps for this request.</span>
+              <div class="process-progress"><div class="progress-track"><div class="progress-fill" id="process-fill"></div></div><span class="t-caption-medium" id="process-step" style="color: var(--brand-800)"></span></div>
+            </div>
+            <ol class="steps" id="steps"></ol>
+            <button class="link-btn resolve show-more" type="button" id="steps-more" hidden><span>Show more steps</span><img src="../assets/icon-chevron-down.svg" alt=""></button>
+          </div>
+        </section>
+      </aside>
+
+      <aside class="util-rail" aria-label="Task tools">
+        <button class="util-btn" type="button" data-view="comments" aria-controls="side-panel" aria-expanded="false" aria-label="Comments" title="Comments"><img src="../assets/rail-comments.svg" alt=""><span class="util-badge" data-comment-count></span></button>
+        <button class="util-btn" type="button" data-view="process" aria-controls="side-panel" aria-expanded="false" aria-label="Process" title="Process"><img src="../assets/rail-history.svg" alt=""></button>
+      </aside>
+    </div>
+  </div>
+</div>
+<script type="application/json" id="task-data">{
+ "me": {
+  "name": "Mohammed H.",
+  "initials": "MH",
+  "me": true
+ },
+ "comments": [
+  {
+   "id": "c1",
+   "author": {
+    "name": "Ibrahim Al-Rashid",
+    "initials": "IA",
+    "role": "Requester",
+    "alt": true
+   },
+   "at": "08 Nov, 09:15",
+   "text": "Requesting approval for the ERP upgrade — the current ECC 6.0 support ends in 2027.",
+   "replies": []
+  }
+ ],
+ "process": {
+  "stepLabel": "Step 4 of 15",
+  "done": 3,
+  "total": 15,
+  "visibleUpcoming": 2,
+  "steps": [
+   {
+    "name": "Request submitted",
+    "who": "Ibrahim Al-Rashid",
+    "when": "09 Nov 2026",
+    "state": "done"
+   },
+   {
+    "name": "Department approval",
+    "who": "Faisal Al-Dossari",
+    "state": "done"
+   },
+   {
+    "name": "Technical member review",
+    "who": "Sara Al-Zahrani",
+    "state": "done"
+   },
+   {
+    "group": "Specialist reviews · in parallel",
+    "state": "upcoming",
+    "items": [
+     {
+      "name": "Cyber Security",
+      "who": "Unassigned",
+      "note": "Waiting for pick-up",
+      "state": "current"
+     },
+     {
+      "name": "Enterprise Risk (BCM)",
+      "who": "Turki Al-Anazi",
+      "state": "upcoming"
+     },
+     {
+      "name": "Operational Risk",
+      "who": "Reem Al-Dossary",
+      "state": "upcoming"
+     },
+     {
+      "name": "Enterprise Architecture",
+      "who": "Majed Al-Zahrani",
+      "state": "upcoming"
+     }
+    ]
+   },
+   {
+    "name": "Finance review — GL",
+    "who": "Khalid Al-Otaibi",
+    "state": "upcoming"
+   },
+   {
+    "name": "Finance review — Assets",
+    "who": "Lama Al-Subaie",
+    "state": "upcoming"
+   },
+   {
+    "name": "Qualification — Finance",
+    "who": "Abdulrahman Al-Shehri",
+    "state": "upcoming"
+   },
+   {
+    "name": "Qualification — Procurement",
+    "who": "Hana Al-Ghamdi",
+    "state": "upcoming"
+   },
+   {
+    "name": "Procurement review — Team Lead",
+    "who": "Abdullah Al-Qahtani",
+    "state": "upcoming"
+   },
+   {
+    "name": "Procurement review — Officer",
+    "who": "Mohammed Al-Harbi",
+    "state": "upcoming"
+   },
+   {
+    "name": "DOA approval",
+    "who": "Abdullah Al-Qahtani",
+    "state": "upcoming"
+   },
+   {
+    "name": "Estimated price approval",
+    "who": "Saad Al-Malki",
+    "state": "upcoming"
+   }
+  ]
+ }
+}</script>
+<script src="../data/tasks.js"></script>
+<script src="../app.js"></script>
+<script src="../panel.js"></script>
+<script src="decision.js"></script>
+<script src="../cyber-review.js"></script>
+</body>
+</html>
