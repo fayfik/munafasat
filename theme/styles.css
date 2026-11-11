@@ -795,3 +795,98 @@ button.anchor-chip:hover { background: var(--brand-100); }
 }
 .task-table td.wrap .person { display: flex; }
 .task-table td.wrap .person span:last-child { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* =========================================================
+   Motion — subtle, quick, and off for "reduce motion" users
+   ========================================================= */
+:root {
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 140ms;
+  --dur: 220ms;
+}
+
+/* Segment thumb (motion.js) */
+.segment { position: relative; isolation: isolate; }
+.segment-thumb {
+  position: absolute; top: 0; left: 0; z-index: -1; pointer-events: none;
+  background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--radius-pill);
+  opacity: 0;
+}
+.segment-thumb.ready { opacity: 1; }
+.segment.has-thumb .segment-tab[aria-selected="true"] { background: transparent; border-color: transparent; }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Interactive surfaces ease between states */
+  .btn, .icon-btn, .util-btn, .nav-item, .link-btn, .segment-tab, .inbox-item, .assign-btn,
+  .anchor-chip, .back-btn, .search, .composer-box, .task-table th button {
+    transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease,
+                color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) ease;
+  }
+  .btn:active:not(:disabled), .util-btn:active, .icon-btn:active, .back-btn:active { transform: scale(0.97); }
+  .segment-thumb { transition: transform var(--dur) var(--ease-out), width var(--dur) var(--ease-out), height var(--dur) var(--ease-out); }
+
+  /* Side panel: eases open, pushing the detail aside */
+  .side-panel { transition: width var(--dur) var(--ease-out), opacity var(--dur) ease, border-color var(--dur) ease; }
+  .side-panel > * { min-width: 358px; }
+  .side-panel:not(.is-open) { width: 0; opacity: 0; border-color: transparent; }
+
+  /* Tab panels and panel views fade up when shown */
+  .panel:not([hidden]), .panel-view:not([hidden]) { animation: rise var(--dur) var(--ease-out) both; }
+
+  /* New comment, revealed steps, picked-up buttons */
+  .cmt.enter { animation: rise 260ms var(--ease-out) both; }
+  .step-item.reveal { animation: rise var(--dur) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 30ms); }
+  .reveal { animation: pop var(--dur) var(--ease-out) both; }
+  .util-badge.bump, .segment-count.bump { animation: bump 320ms var(--ease-out); }
+
+  /* Popover + table rows (B) */
+  .popover:not([hidden]) { animation: pop var(--dur-fast) var(--ease-out) both; transform-origin: top right; }
+  .task-table tr.row-in { animation: fade-in 200ms ease both; animation-delay: calc(var(--i, 0) * 18ms); }
+
+  /* Expand/collapse chevron */
+  .show-more img { transition: transform var(--dur) var(--ease-out); }
+  .show-more:hover img { transform: translateY(1px); }
+
+  /* First paint when the browser can't animate between pages (see entry flag in <head>) */
+  html.entry .detail-header, html.entry .page-head { animation: rise 280ms var(--ease-out) both; }
+  html.entry .content, html.entry .table-wrap { animation: rise 320ms var(--ease-out) 40ms both; }
+}
+
+/* On narrow screens the panel slides over the detail instead */
+@media (prefers-reduced-motion: no-preference) and (max-width: 1200px) {
+  .side-panel { transition: transform var(--dur) var(--ease-out), opacity var(--dur) ease; }
+  .side-panel:not(.is-open) { width: 360px; transform: translateX(16px); opacity: 0; border-color: var(--border-default); }
+}
+@media (max-width: 860px) {
+  .side-panel:not(.is-open) { width: auto; transform: none; }
+}
+
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+
+/* Page-to-page transitions (Chrome, Edge, Safari 18.2+): the shell stays put,
+   only the working area changes. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  .topbar { view-transition-name: topbar; }
+  .nav-rail { view-transition-name: nav-rail; }
+  .inbox { view-transition-name: inbox; }
+  .util-rail { view-transition-name: util-rail; }
+  .ab-switch { view-transition-name: ab-switch; }
+  .workspace > .detail:not(.standalone) { view-transition-name: detail; }
+  .page-card, .detail.standalone { view-transition-name: surface; }
+
+  ::view-transition-group(*) { animation-duration: var(--dur); animation-timing-function: var(--ease-out); }
+  ::view-transition-old(topbar), ::view-transition-new(topbar),
+  ::view-transition-old(nav-rail), ::view-transition-new(nav-rail),
+  ::view-transition-old(inbox), ::view-transition-new(inbox),
+  ::view-transition-old(ab-switch), ::view-transition-new(ab-switch) { animation: none; }
+  ::view-transition-old(detail), ::view-transition-old(surface) { animation: vt-out 120ms ease both; }
+  ::view-transition-new(detail), ::view-transition-new(surface) { animation: vt-in 260ms var(--ease-out) 40ms both; }
+}
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(8px); } }
+@media (max-width: 860px) { .side-panel > * { min-width: 0; } }
