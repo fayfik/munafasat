@@ -28,16 +28,26 @@
   const findComment = (id) => allComments().find((c) => c.id === id);
 
   /* ---------- Open / close ---------- */
+  const calm = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let closeTimer;
   function open(view) {
     current = view;
-    panel.hidden = false;
+    clearTimeout(closeTimer);
+    if (panel.hidden || !panel.classList.contains('is-open')) {
+      panel.hidden = false;
+      void panel.offsetWidth;            // start from the collapsed state
+      panel.classList.add('is-open');
+    }
     tabs[view].click();
     railBtns.forEach((b) => b.setAttribute('aria-expanded', String(b.dataset.view === view)));
     history.replaceState(null, '', `#${view}`);
   }
   function close() {
     current = null;
-    panel.hidden = true;
+    panel.classList.remove('is-open');
+    clearTimeout(closeTimer);
+    if (calm()) panel.hidden = true;
+    else closeTimer = setTimeout(() => { if (!panel.classList.contains('is-open')) panel.hidden = true; }, 260);
     railBtns.forEach((b) => b.setAttribute('aria-expanded', 'false'));
     history.replaceState(null, '', location.pathname + location.search);
   }
@@ -92,7 +102,11 @@
     summary.hidden = total === 0;
     summary.innerHTML = `<span class="t-caption">${total} comment${total === 1 ? '' : 's'}</span>` +
       (reviewTotal ? `<span class="open-count t-caption ${openReview ? 'has-open' : ''}">${openReview ? `${openReview} open` : 'All resolved'}</span>` : '');
-    document.querySelectorAll('[data-comment-count]').forEach((el) => { el.textContent = total || ''; });
+    document.querySelectorAll('[data-comment-count]').forEach((el) => {
+      const prev = el.textContent;
+      el.textContent = total || '';
+      if (prev && prev !== el.textContent) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+    });
     // per-field counts in Request details
     document.querySelectorAll('.kv > div[data-anchor]').forEach((f) => {
       const n = data.comments.filter((c) => c.anchor?.id === f.dataset.anchor).length;
@@ -147,7 +161,7 @@
     const c = { id: `n${seq++}`, author: data.me, at: now(), text };
     if (context?.type === 'reply') { const parent = findComment(context.id); (parent.replies ||= []).push(c); }
     else { if (context?.type === 'anchor') { c.anchor = { id: context.id, label: context.label }; c.resolved = false; } data.comments.push(c); }
-    ta.value = ''; sync(); setContext(null); renderComments(); land(c.id);
+    ta.value = ''; sync(); setContext(null); renderComments(); document.getElementById(`cmt-${c.id}`)?.classList.add('enter'); land(c.id);
   }
 
   /* ---------- Field anchors in Request details ---------- */
@@ -213,7 +227,11 @@
     const cut = firstUpcoming === -1 ? p.steps.length : firstUpcoming + (p.visibleUpcoming ?? 2);
     const visible = showAllSteps ? p.steps : p.steps.slice(0, cut);
     const hiddenCount = p.steps.slice(cut).reduce((n, s) => n + (s.items ? s.items.length : 1), 0);
+    const shown = steps.children.length;
     steps.innerHTML = visible.map(stepHTML).join('');
+    if (shown && visible.length > shown) {
+      [...steps.children].slice(shown).forEach((li, i) => { li.classList.add('reveal'); li.style.setProperty('--i', i); });
+    }
     const more = document.getElementById('steps-more');
     more.hidden = showAllSteps || hiddenCount === 0;
     more.querySelector('span').textContent = `Show ${hiddenCount} more step${hiddenCount === 1 ? '' : 's'}`;

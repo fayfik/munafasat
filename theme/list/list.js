@@ -7,6 +7,7 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  let rendered = false;
   const state = { view: 'needs', q: '', sort: 'due', dir: 1, types: new Set(), depts: new Set() };
   const statusOf = (t) => D.get(t.id) || t.status;
   const isDone = (t) => !!D.get(t.id);
@@ -56,6 +57,8 @@
   function render() {
     const list = visible();
     $('rows').innerHTML = list.map(row).join('');
+    if (rendered) [...$('rows').children].forEach((tr, i) => { tr.classList.add('row-in'); tr.style.setProperty('--i', Math.min(i, 8)); });
+    rendered = true;
     $('task-table').hidden = list.length === 0;
     $('table-empty').hidden = list.length > 0;
     if (!list.length) {

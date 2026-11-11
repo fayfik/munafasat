@@ -26,5 +26,13 @@
     return `<div class="group-head t-caption"><span>${label}</span><span>${rows.length}</span></div>${rows.map(item).join('')}`;
   }).join('');
 
+  // Move the highlight straight away so it feels instant while the next page loads.
+  list.addEventListener('click', (e) => {
+    const a = e.target.closest('a.inbox-item');
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    list.querySelectorAll('[aria-current]').forEach((el) => el.removeAttribute('aria-current'));
+    a.setAttribute('aria-current', 'true');
+  });
+
   document.querySelectorAll('[data-task-count]').forEach((el) => { el.textContent = tasks.length; });
 })();

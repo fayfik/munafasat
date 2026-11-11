@@ -26,6 +26,7 @@
     pickup.hidden = true;
     ret.hidden = false;
     approve.hidden = false;
+    [ret, approve, assignee.firstElementChild].forEach((el) => el?.classList.add('reveal'));
     status.textContent = 'In review';
     checks.forEach((c) => { c.disabled = false; });
     notes.disabled = false;
