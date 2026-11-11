@@ -163,7 +163,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
         {/* Header — one title block and one quiet row of key facts */}
-        <div className="@container bg-white border-b border-neutral-200 px-5 sm:px-8 pt-7 pb-6">
+        <div className="@container bg-white border-b border-neutral-200 px-5 sm:px-8 pt-8 pb-7">
           {/* Eyebrow — reference · task id · status */}
           <div className="flex items-center gap-2 text-[12px] text-neutral-400 font-medium" data-task-eyebrow>
             <span className="font-semibold text-neutral-500 tabular-nums" dir="ltr">{task.entity.ref}</span>
@@ -175,8 +175,10 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           {/* Title · CTAs */}
           <div className="mt-2 flex items-start justify-between gap-6 flex-wrap">
             <div className="min-w-0 flex-1">
-              <h2 className="text-[22px] font-bold text-neutral-900 leading-snug">{isAr ? task.titleAr : task.titleEn}</h2>
-              <p className="mt-1.5 text-[13.5px] text-neutral-500 leading-relaxed max-w-2xl">{isAr ? task.summaryAr : task.summaryEn}</p>
+              <h2 className="text-[22px] font-bold text-neutral-900 leading-snug">
+                {isAr ? task.titleAr : task.titleEn}
+                <TaskInfo text={isAr ? task.summaryAr : task.summaryEn} label={t('About this task', 'عن هذه المهمة')} />
+              </h2>
             </div>
             {!terminal && (
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -194,7 +196,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
           </div>
 
           {/* Key facts — no boxes, separated by whitespace */}
-          <dl className="mt-6 grid grid-cols-2 @[640px]:grid-cols-3 @[780px]:grid-cols-[minmax(190px,1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(150px,0.9fr)] gap-x-10 gap-y-5" data-task-facts>
+          <dl className="mt-7 grid grid-cols-2 @[640px]:grid-cols-3 @[780px]:grid-cols-[minmax(190px,1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(150px,0.9fr)] gap-x-12 gap-y-6" data-task-facts>
             {[
               { k: t('Request amount', 'قيمة الطلب'), v: <span className="text-[17px] font-bold text-neutral-900 tabular-nums whitespace-nowrap" dir="ltr">{task.amount != null ? fmtSAR(task.amount) : '—'}</span>,
                 sub: task.amount != null ? <span dir="ltr" className="whitespace-nowrap">{t('Incl. VAT', 'شامل الضريبة')} {fmtSAR(task.amount * 1.15)}</span> : null },
@@ -1639,4 +1641,32 @@ function JumpGlyph({ className = '' }: { className?: string }) {
 
 export function EyeGlyph({ className = 'w-4 h-4' }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>;
+}
+
+/** "About this task" — the task's instructions, behind an info icon next to the title. */
+function TaskInfo({ text, label }: { text?: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', off); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', off); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  if (!text) return null;
+  return (
+    <span ref={ref} className="relative inline-flex align-middle ms-2 -mt-0.5">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-label={label} aria-expanded={open} title={label} data-task-info
+        className={`w-6 h-6 rounded-full inline-flex items-center justify-center transition-colors ${open ? 'bg-brand-50 text-brand-700' : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100'}`}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="w-4 h-4"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+      </button>
+      {open && (
+        <span role="dialog" data-task-info-pop className="pop-in absolute start-0 top-8 z-30 w-[340px] max-w-[80vw] rounded-xl bg-white border border-neutral-200 shadow-xl px-4 py-3 text-start">
+          <span className="block text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{label}</span>
+          <span className="block mt-1 text-[13px] font-normal text-neutral-700 leading-relaxed">{text}</span>
+        </span>
+      )}
+    </span>
+  );
 }

@@ -334,6 +334,13 @@ async function openRequest(title) {
     expect(await count('[data-bell-panel] li') >= 1, 'bell list');
     await page.click('[data-bell]'); await wait(100);
   });
+  await test('Inbox: task instructions sit behind an info icon next to the title', async () => {
+    expect(!(/add comments on any section or field/.test(await page.locator('h2').first().innerText())), 'no visible instructions under the title');
+    await page.click('[data-task-info]'); await wait(150);
+    expect(await count('[data-task-info-pop]') === 1, 'popover opens on click');
+    await page.keyboard.press('Escape'); await wait(100);
+    expect(await count('[data-task-info-pop]') === 0, 'closes with Esc');
+  });
   await test('Inbox: tasks are listed in process-flow order', async () => {
     await page.getByRole('button', { name: /^All/ }).first().click(); await wait(300);
     const ids = await page.locator('li[data-task-id]').evaluateAll((e) => e.map((x) => x.getAttribute('data-task-id')));
