@@ -9,7 +9,8 @@ import type { InboxView, Task } from './types';
 import { useInbox, dueInfo, flowCompare } from './store';
 import { StateChip, PRIORITY_META } from './meta';
 import TaskDetail from './TaskDetail';
-import { ScopeSwitcher, IconBtn, DelegateGlyph, MoreMenu, DelegateDialog, DelegationBanner, Avatar, type Scope } from './InboxTools';
+import { ScopeSwitcher, IconBtn, DelegateGlyph, MoreMenu, DelegateDialog, DelegationBanner, TeamQueueBanner, Avatar, type Scope, type Layout } from './InboxTools';
+import InboxList from './InboxList';
 
 const FILTERS: { key: InboxView; en: string; ar: string; teamEn?: string; teamAr?: string }[] = [
   { key: 'needs-action', en: 'Needs action', ar: 'يحتاج إجراءً', teamEn: 'Unassigned', teamAr: 'غير مسندة' },
@@ -21,8 +22,13 @@ const FILTERS: { key: InboxView; en: string; ar: string; teamEn?: string; teamAr
 export default function InboxPage() {
   const t = useT();
   const { isAr } = useLanguage();
-  const { tasks, countsByView: myCounts, tasksForView: myTasksForView, teamCounts, teamTasksForView, delegation, getTask, focusTaskId, focusTask, markSeen } = useInbox();
+  const { tasks, countsByView: myCounts, tasksForView: myTasksForView, teamCounts, teamTasksForView, delegation, getTask, focusTaskId, focusTask, markSeen, persona } = useInbox();
   const [scope, setScope] = useState<Scope>('mine');
+  // Layout: Compact (list + task side by side) or List (full-width table, task opens as a page).
+  const [layout, setLayout] = useState<Layout>(() => { try { return (localStorage.getItem('munafasat:inbox-layout') as Layout) || 'compact'; } catch { return 'compact'; } });
+  const changeLayout = (l: Layout) => { setLayout(l); setSelectedId(null); try { localStorage.setItem('munafasat:inbox-layout', l); } catch { /* ignore */ } };
+  // Team queue belongs to the TL view; leaving it returns to my tasks.
+  useEffect(() => { if (persona !== 'tl' && scope === 'team') { setScope('mine'); setView('needs-action'); setSelectedId(null); } }, [persona]); // eslint-disable-line react-hooks/exhaustive-deps
   const [delegating, setDelegating] = useState(false);
   const countsByView = scope === 'team' ? teamCounts : myCounts;
   const tasksForView = scope === 'team' ? teamTasksForView : myTasksForView;
@@ -52,52 +58,91 @@ export default function InboxPage() {
   const selected = selectedId ? getTask(selectedId) : undefined;
   const listBusy = useLoading([], 500);
 
+  const goTeam = () => { setScope('team'); setView('needs-action'); setSelectedId(null); };
+  const titleRow = (
+    <>
+      <div className="flex items-center gap-2">
+        <ScopeSwitcher tl={persona === 'tl'} scope={scope} onChange={(s) => { setScope(s); setView('needs-action'); setSelectedId(null); }} mine={myCounts['needs-action']} team={teamCounts['needs-action']} isAr={isAr} t={t} />
+        <span className="text-[12px] font-semibold text-neutral-500 bg-neutral-100 rounded-full px-2 py-0.5 tabular-nums" data-inbox-count>{countsByView['needs-action']}</span>
+        <span className="flex-1" />
+        {scope === 'mine' && <IconBtn label={delegation ? t('Delegation active', 'التفويض مفعّل') : t('Delegate my inbox', 'تفويض صندوق الوارد')} onClick={() => setDelegating(true)} active={!!delegation} attrs={{ 'data-delegate-open': '' }}><DelegateGlyph /></IconBtn>}
+        <MoreMenu rows={rows} layout={layout} onLayout={changeLayout} scopeLabel={scope === 'team' ? t('Team queue', 'قائمة الفريق') : t('My tasks', 'مهامي')} viewLabel={label(FILTERS.find((f) => f.key === view)!)} isAr={isAr} t={t} />
+      </div>
+      <p className="mt-1 text-[13px] text-neutral-500">{scope === 'team' ? t('Unassigned requests waiting for an officer. Assign them or take one yourself.', 'طلبات غير مسندة تنتظر أخصائياً. أسندها أو تولَّ أحدها بنفسك.') : t('Tasks waiting for your action.', 'المهام التي تنتظر إجراءك.')}</p>
+      {scope === 'mine' && <DelegationBanner isAr={isAr} t={t} />}
+      {scope === 'mine' && <TeamQueueBanner isAr={isAr} t={t} onOpen={goTeam} />}
+    </>
+  );
+  const search = (
+    <div className="relative">
+      <SearchIcon className={`w-4 h-4 text-neutral-400 absolute top-1/2 -translate-y-1/2 ${isAr ? 'right-3' : 'left-3'} pointer-events-none`} />
+      <input value={q} onChange={(e) => setQ(e.target.value)}
+        placeholder={layout === 'list' ? t('Search request no., project, department…', 'ابحث برقم الطلب أو المشروع أو الإدارة…') : t('Search tasks…', 'ابحث في المهام…')}
+        className={`w-full h-10 ${isAr ? 'pr-9 pl-3' : 'pl-9 pr-3'} text-[13px] rounded-lg border border-neutral-300 bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none`} />
+    </div>
+  );
+  const tabs = (
+    <div className={`flex items-center gap-0.5 p-1 rounded-full bg-neutral-100 ${layout === 'list' ? 'w-[420px] max-w-full' : ''}`} data-inbox-tabs>
+      {FILTERS.map((f) => {
+        const active = view === f.key;
+        const c = countsByView[f.key];
+        const empty = c === 0 && !active;
+        return (
+          <button key={f.key} type="button" onClick={() => setView(f.key)} aria-current={active ? "page" : undefined} data-inbox-tab={f.key}
+            className={`flex-1 h-9 px-2.5 inline-flex items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all duration-200 ${active ? 'bg-white text-neutral-900 shadow-[0_1px_2px_rgba(16,24,40,0.08)] ring-1 ring-neutral-200/70' : empty ? 'text-neutral-400 hover:text-neutral-600' : 'text-neutral-600 hover:text-neutral-900'}`}>
+            {label(f)}
+            {active && c > 0 && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-brand-50 text-brand-700 text-[11px] font-semibold tabular-nums inline-flex items-center justify-center">{c}</span>}
+            {!active && f.key === 'overdue' && c > 0 && <span className="w-1.5 h-1.5 rounded-full bg-error-500" aria-label={`${c}`} />}
+          </button>
+        );
+      })}
+    </div>
+  );
+  const empty = (
+    <div className="px-6 py-16 text-center">
+      <div className="mx-auto w-11 h-11 rounded-full bg-neutral-100 text-neutral-400 flex items-center justify-center"><NavInboxIcon className="w-5 h-5" /></div>
+      <p className="mt-3 text-[13px] font-semibold text-neutral-700">{scope === 'mine' && delegation && view === 'needs-action' ? t(`Your tasks are with ${delegation.to.name}`, `مهامك لدى ${delegation.to.nameAr ?? delegation.to.name}`) : scope === 'team' && view === 'needs-action' ? t('Queue is clear', 'القائمة فارغة') : t('Nothing here', 'لا يوجد شيء')}</p>
+      <p className="mt-0.5 text-[12px] text-neutral-500">{scope === 'mine' && delegation && view === 'needs-action' ? t('Find them under All. Cancel the delegation to bring them back.', 'تجدها ضمن الكل. ألغِ التفويض لإعادتها.') : t('No tasks match this filter.', 'لا توجد مهام تطابق هذا التصفية.')}</p>
+    </div>
+  );
+  const dialogs = delegating && <DelegateDialog isAr={isAr} t={t} onClose={() => setDelegating(false)} />;
+
+  /* ── List view: full-width table; a task opens as its own page ─────────── */
+  if (layout === 'list') {
+    if (selected) return (
+      <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-neutral-50" data-task-page>
+        <LoadedTask key={selected.id}><TaskDetail task={selected} asPage onBack={() => setSelectedId(null)} onSideOpenChange={setSideOpen} /></LoadedTask>
+      </div>
+    );
+    return (
+      <div className={`flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-white ${delegation && scope === 'mine' ? 'shadow-[inset_0_3px_0_#2A3466]' : ''}`} data-scope-panel={scope} data-layout-active="list">
+        <div className="px-5 sm:px-8 pt-6 pb-4 border-b border-neutral-200">
+          <div className="max-w-none">{titleRow}</div>
+          <div className="mt-4 flex items-center gap-3 flex-wrap">
+            {tabs}
+            <span className="flex-1" />
+            <div className="w-full sm:w-[360px]">{search}</div>
+          </div>
+        </div>
+        {rows.length === 0 ? empty : listBusy ? <ul className="px-4">{<TaskRowsSkeleton />}</ul> : <InboxList rows={rows} isAr={isAr} t={t} onOpen={select} />}
+        {dialogs}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-neutral-50">
+    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-neutral-50" data-layout-active="compact">
       {/* ── Left: task list (hidden on mobile while a task is open) ─── */}
       <div className={`${selected ? (sideOpen ? 'hidden xl:flex' : 'hidden sm:flex') : 'flex'} w-full sm:w-[380px] lg:w-[420px] flex-shrink-0 flex-col border-e border-neutral-200 bg-white ${delegation && scope === 'mine' ? 'shadow-[inset_0_3px_0_#2A3466]' : ''}`} data-scope-panel={scope}>
         <div className="px-5 pt-6 border-b border-neutral-200">
-          <div className="flex items-center gap-2">
-            <ScopeSwitcher scope={scope} onChange={(s) => { setScope(s); setView('needs-action'); setSelectedId(null); }} mine={myCounts['needs-action']} team={teamCounts['needs-action']} isAr={isAr} t={t} />
-            <span className="text-[12px] font-semibold text-neutral-500 bg-neutral-100 rounded-full px-2 py-0.5 tabular-nums" data-inbox-count>{countsByView['needs-action']}</span>
-            <span className="flex-1" />
-            {scope === 'mine' && <IconBtn label={delegation ? t('Delegation active', 'التفويض مفعّل') : t('Delegate my inbox', 'تفويض صندوق الوارد')} onClick={() => setDelegating(true)} active={!!delegation} attrs={{ 'data-delegate-open': '' }}><DelegateGlyph /></IconBtn>}
-            <MoreMenu rows={rows} scopeLabel={scope === 'team' ? t('Team queue', 'قائمة الفريق') : t('My tasks', 'مهامي')} viewLabel={label(FILTERS.find((f) => f.key === view)!)} isAr={isAr} t={t} />
-          </div>
-          <p className="mt-1 text-[13px] text-neutral-500">{scope === 'team' ? t('Unassigned requests waiting for an officer. Assign them or take one yourself.', 'طلبات غير مسندة تنتظر أخصائياً. أسندها أو تولَّ أحدها بنفسك.') : t('Tasks waiting for your action.', 'المهام التي تنتظر إجراءك.')}</p>
-          {scope === 'mine' && <DelegationBanner isAr={isAr} t={t} />}
-          <div className="relative mt-4">
-            <SearchIcon className={`w-4 h-4 text-neutral-400 absolute top-1/2 -translate-y-1/2 ${isAr ? 'right-3' : 'left-3'} pointer-events-none`} />
-            <input value={q} onChange={(e) => setQ(e.target.value)}
-              placeholder={t('Search tasks…', 'ابحث في المهام…')}
-              className={`w-full h-10 ${isAr ? 'pr-9 pl-3' : 'pl-9 pr-3'} text-[13px] rounded-lg border border-neutral-300 bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none`} />
-          </div>
+          {titleRow}
+          <div className="mt-4">{search}</div>
           {/* View tabs — segmented pill control */}
-          <div className="mt-4 mb-4 flex items-center gap-0.5 p-1 rounded-full bg-neutral-100" data-inbox-tabs>
-            {FILTERS.map((f) => {
-              const active = view === f.key;
-              const c = countsByView[f.key];
-              const empty = c === 0 && !active;
-              return (
-                <button key={f.key} type="button" onClick={() => setView(f.key)} aria-current={active ? "page" : undefined} data-inbox-tab={f.key}
-                  className={`flex-1 h-9 px-2.5 inline-flex items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all duration-200 ${active ? 'bg-white text-neutral-900 shadow-[0_1px_2px_rgba(16,24,40,0.08)] ring-1 ring-neutral-200/70' : empty ? 'text-neutral-400 hover:text-neutral-600' : 'text-neutral-600 hover:text-neutral-900'}`}>
-                  {label(f)}
-                  {active && c > 0 && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-brand-50 text-brand-700 text-[11px] font-semibold tabular-nums inline-flex items-center justify-center">{c}</span>}
-                  {!active && f.key === 'overdue' && c > 0 && <span className="w-1.5 h-1.5 rounded-full bg-error-500" aria-label={`${c}`} />}
-                </button>
-              );
-            })}
-          </div>
+          <div className="mt-4 mb-4">{tabs}</div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {rows.length === 0 ? (
-            <div className="px-6 py-16 text-center">
-              <div className="mx-auto w-11 h-11 rounded-full bg-neutral-100 text-neutral-400 flex items-center justify-center"><NavInboxIcon className="w-5 h-5" /></div>
-              <p className="mt-3 text-[13px] font-semibold text-neutral-700">{scope === 'mine' && delegation && view === 'needs-action' ? t(`Your tasks are with ${delegation.to.name}`, `مهامك لدى ${delegation.to.nameAr ?? delegation.to.name}`) : scope === 'team' && view === 'needs-action' ? t('Queue is clear', 'القائمة فارغة') : t('Nothing here', 'لا يوجد شيء')}</p>
-              <p className="mt-0.5 text-[12px] text-neutral-500">{scope === 'mine' && delegation && view === 'needs-action' ? t('Find them under All. Cancel the delegation to bring them back.', 'تجدها ضمن الكل. ألغِ التفويض لإعادتها.') : t('No tasks match this filter.', 'لا توجد مهام تطابق هذا التصفية.')}</p>
-            </div>
-          ) : (
+          {rows.length === 0 ? empty : (
             <ul className="divide-y divide-neutral-100 py-1">
               {listBusy ? <TaskRowsSkeleton /> : rows.map((task) => <TaskRow key={task.id} task={task} isAr={isAr} t={t} active={selectedId === task.id} onSelect={() => select(task.id)} tasks={tasks} />)}
             </ul>
@@ -105,7 +150,7 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {delegating && <DelegateDialog isAr={isAr} t={t} onClose={() => setDelegating(false)} />}
+      {dialogs}
       {/* ── Right: detail or empty state (single instance) ──────────── */}
       <div className={`${selected ? 'flex' : 'hidden sm:flex'} flex-1 min-w-0 flex-col bg-neutral-50`}>
         {selected

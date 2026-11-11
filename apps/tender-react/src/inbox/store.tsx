@@ -201,6 +201,9 @@ interface InboxCtx {
   markNoticesRead: () => void;
   dismissNotice: (id: string) => void;
   markSeen: (taskId: string) => void;
+  /** Whose view the app shows: the signed-in user, or the Team Lead (header switcher). */
+  persona: 'me' | 'tl';
+  setPersona: (p: 'me' | 'tl') => void;
   /** Team queue (Team Lead). */
   teamCounts: Record<InboxView, number>;
   teamTasksForView: (v: InboxView) => Task[];
@@ -256,6 +259,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   const [notices, setNotices] = useState<TaskNotice[]>([]);
   const [focusTaskId, focusTask] = useState<string | null>(null);
   const [delegation, setDelegation] = useState<Delegation | null>(null);
+  const [persona, setPersona] = useState<'me' | 'tl'>('me');
   const delegationRef = useRef(delegation);
   delegationRef.current = delegation;
   const markNoticesRead = useCallback(() => setNotices((ns) => ns.map((n) => ({ ...n, read: true }))), []);
@@ -443,9 +447,9 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
       notices, markNoticesRead, dismissNotice, markSeen, focusTaskId, focusTask,
       teamCounts, teamTasksForView: (v) => tasks.filter((t) => teamViewOf(t).includes(v)), assignQueued,
-      delegation, delegatableIds, delegate, cancelDelegation,
+      delegation, delegatableIds, delegate, cancelDelegation, persona, setPersona,
     };
-  }, [assignQueued, delegation, delegatableIds, delegate, cancelDelegation, tasks, addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, notices, markNoticesRead, dismissNotice, markSeen, focusTaskId]);
+  }, [persona, assignQueued, delegation, delegatableIds, delegate, cancelDelegation, tasks, addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, notices, markNoticesRead, dismissNotice, markSeen, focusTaskId]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

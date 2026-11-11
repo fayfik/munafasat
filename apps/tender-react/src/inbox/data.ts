@@ -808,6 +808,8 @@ export const PROC_TEAM: (Person & { load: number })[] = [
   { ...P.tl, load: 1 },
 ];
 export const TEAM_NAME = sup('Procurement team', 'فريق المشتريات');
+/** Persona for the Team Lead view (header switcher). */
+export const TL_PERSON: Person = person('u-omran', 'Mohammed Al-Omran', 'محمد العمران', 'Procurement Team Lead', 'رئيس فريق المشتريات', 'Procurement', 'المشتريات');
 
 // Requests waiting in the Procurement team queue for an officer (Team Lead assigns).
 {

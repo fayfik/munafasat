@@ -66,7 +66,7 @@ export function ActionHead({ title, desc, progress, bulk, extra, aside, note }: 
         </div>
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
           {aside}
-          <ReviewLink />
+          {!(progress || extra) && <ReviewLink />}
           {bulk}
         </div>
       </div>
@@ -79,6 +79,7 @@ export function ActionHead({ title, desc, progress, bulk, extra, aside, note }: 
             </>
           )}
           {extra}
+          <span className="ms-auto -me-2 -mb-1"><ReviewLink /></span>
         </div>
       )}
     </section>

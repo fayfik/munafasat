@@ -49,10 +49,10 @@ function slaInfo(task: Task) {
   return { deadline, remH, breached: !terminal && remMs < 0, tight: !terminal && remMs >= 0 && remH <= 8 };
 }
 
-interface ActionDef { id: TaskAction; label: [string, string]; variant: 'primary' | 'secondary' | 'danger'; needsNote?: boolean; gated?: boolean; decision?: Bilingual }
+export interface ActionDef { id: TaskAction; label: [string, string]; variant: 'primary' | 'secondary' | 'danger'; needsNote?: boolean; gated?: boolean; decision?: Bilingual }
 // CTA hierarchy across tasks: primary (Approve / Complete) → Reject → Return / others.
 const CTA_RANK = (a: ActionDef) => (a.variant === 'primary' ? 0 : a.variant === 'danger' ? 1 : 2);
-function actionsFor(task: Task): ActionDef[] {
+export function actionsFor(task: Task): ActionDef[] {
   return baseActions(task).map((a, i) => ({ a, i })).sort((x, y) => CTA_RANK(x.a) - CTA_RANK(y.a) || x.i - y.i).map((x) => x.a);
 }
 function baseActions(task: Task): ActionDef[] {
@@ -82,7 +82,7 @@ function baseActions(task: Task): ActionDef[] {
   }
 }
 
-export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: Task; onBack: () => void; onSideOpenChange?: (open: boolean) => void }) {
+export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: { task: Task; onBack: () => void; onSideOpenChange?: (open: boolean) => void; /** Opened from the List view as its own page: breadcrumb back to the Inbox. */ asPage?: boolean }) {
   const { isAr } = useLanguage();
   const t = useT();
   const { decide, addComment, resolveComment, updateRfp, setTaskData, assignQueued, me } = useInbox();
@@ -175,7 +175,18 @@ export default function TaskDetail({ task, onBack, onSideOpenChange }: { task: T
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
         {/* Header — one title block and one quiet row of key facts */}
-        <div className="@container bg-white border-b border-neutral-200 px-5 sm:px-8 pt-8 pb-7">
+        <div className={`@container bg-white border-b border-neutral-200 px-5 sm:px-8 ${asPage ? 'pt-5' : 'pt-8'} pb-7`}>
+          {asPage && (
+            <nav className="hidden sm:flex items-center gap-2.5 mb-5 text-[13px]" aria-label={t('Breadcrumb', 'مسار التنقل')} data-task-breadcrumb>
+              <button type="button" onClick={onBack} data-task-back title={t('Back to Inbox', 'العودة إلى الوارد')}
+                className="w-8 h-8 rounded-full border border-neutral-200 inline-flex items-center justify-center text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900">
+                <ArrowLeftIcon className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
+              </button>
+              <button type="button" onClick={onBack} className="text-neutral-500 hover:text-neutral-900">{t('Inbox', 'الوارد')}</button>
+              <span className="text-neutral-300">/</span>
+              <span className="font-semibold text-neutral-800 truncate">{isAr ? task.stageAr : task.stageEn}</span>
+            </nav>
+          )}
           {/* Eyebrow — reference · task id · status */}
           <div className="flex items-center gap-2 text-[12px] text-neutral-400 font-medium" data-task-eyebrow>
             <span className="font-semibold text-neutral-500 tabular-nums" dir="ltr">{task.entity.ref}</span>
@@ -1085,7 +1096,7 @@ function nextStepsFor(task: Task, id: TaskAction): NextStep[] {
   return o ? [s(o.action.en, o.action.ar, o.next.en, o.next.ar)] : [];
 }
 
-function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: Task; action: ActionDef; isAr: boolean; t: T; onCancel: () => void; onConfirm: (note: string) => void }) {
+export function DecisionModal({ task, action, isAr, t, onCancel, onConfirm }: { task: Task; action: ActionDef; isAr: boolean; t: T; onCancel: () => void; onConfirm: (note: string) => void }) {
   const [choice, setChoice] = useState<'yes' | 'no' | null>(null);
   const [note, setNote] = useState(() => (action.id === 'return' && task.finReview === 'gl' ? glReturnDraft(task, isAr) : action.id === 'return' && task.eaReview ? eaReturnDraft(task, isAr) : task.cyberReview ? cyberCommentDigest(task, isAr) : ''));
   // EA / Cyber returns carry one or more standard reasons (department meetings).

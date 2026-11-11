@@ -10,6 +10,8 @@ import {
 } from './Icons';
 import { useLanguage, useT } from '../context/LanguageContext';
 import type { FullPage } from '../App';
+import { TL_PERSON } from '../inbox/data';
+import { useEffect, useRef } from 'react';
 
 export type AppPage = 'dashboard' | 'my-requests' | 'inbox' | 'reports';
 
@@ -74,18 +76,8 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
           <NotificationBell onOpenTask={openTask} />
           <TaskPushHost onOpenTask={openTask} />
 
-          {/* User pill */}
-          <div className="flex items-center gap-2 ps-3 ms-1 border-s border-white/25">
-            <div className="w-7 h-7 rounded-full bg-white text-brand-700 flex items-center justify-center text-[11px] font-bold select-none">
-              {initials}
-            </div>
-            <div className="hidden sm:block leading-tight">
-              <p className="text-[12px] font-semibold text-white">{displayName}</p>
-              <p className="text-[10px] text-white/75">
-                {t('Requester', 'مقدم الطلب')} · IT &amp; Digital
-              </p>
-            </div>
-          </div>
+          {/* User pill — switches between the signed-in view and the Team Lead view */}
+          <PersonaMenu displayName={displayName} initials={initials} />
         </div>
       </header>
 
@@ -189,6 +181,53 @@ export default function AppShell({ currentPage, onNavigate, onNewRequest, childr
         </main>
         <TopProgress />
       </div>
+    </div>
+  );
+}
+
+function PersonaMenu({ displayName, initials }: { displayName: string; initials: string }) {
+  const { persona, setPersona, teamCounts } = useInbox();
+  const { isAr } = useLanguage();
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', off); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', off); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  const tl = persona === 'tl';
+  const tlName = isAr ? TL_PERSON.nameAr ?? TL_PERSON.name : TL_PERSON.name;
+  const tlInit = TL_PERSON.name.split(' ').map((w) => w[0]).slice(0, 2).join('');
+  const Opt = ({ v, init, name, sub, badge }: { v: 'me' | 'tl'; init: string; name: string; sub: string; badge?: number }) => (
+    <button type="button" role="menuitemradio" aria-checked={persona === v} data-persona={v} onClick={() => { setPersona(v); setOpen(false); }}
+      className={`w-full text-start flex items-center gap-3 px-3 py-2.5 rounded-lg ${persona === v ? 'bg-brand-50/70' : 'hover:bg-neutral-50'}`}>
+      <span className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold ${v === 'tl' ? 'bg-[#2A3466] text-white' : 'bg-brand-600 text-white'}`}>{init}</span>
+      <span className="min-w-0 flex-1"><span className="block text-[13px] font-semibold text-neutral-900 truncate">{name}</span><span className="block text-[11.5px] text-neutral-500 truncate">{sub}</span></span>
+      {badge ? <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-warning-100 text-warning-800 text-[11px] font-bold inline-flex items-center justify-center">{badge}</span> : null}
+      {persona === v && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="w-4 h-4 text-brand-600"><path d="M5 12l5 5L20 7" /></svg>}
+    </button>
+  );
+  return (
+    <div ref={ref} className="relative ps-3 ms-1 border-s border-white/25">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} data-persona-switch
+        className="flex items-center gap-2 rounded-lg px-1.5 py-1 -my-1 hover:bg-white/10">
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold select-none ${tl ? 'bg-[#2A3466] text-white ring-2 ring-white/80' : 'bg-white text-brand-700'}`}>{tl ? tlInit : initials}</div>
+        <div className="hidden sm:block leading-tight text-start">
+          <p className="text-[12px] font-semibold text-white flex items-center gap-1.5">{tl ? tlName : displayName}{tl && <span className="px-1.5 py-px rounded bg-white/20 text-[9.5px] font-bold uppercase tracking-wide" data-tl-tag>{t('TL view', 'عرض رئيس الفريق')}</span>}</p>
+          <p className="text-[10px] text-white/75">{tl ? t('Team Lead · Procurement', 'رئيس الفريق · المشتريات') : <>{t('Requester', 'مقدم الطلب')} · IT &amp; Digital</>}</p>
+        </div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`w-3.5 h-3.5 text-white/70 transition-transform ${open ? 'rotate-180' : ''}`}><path d="M6 9l6 6 6-6" /></svg>
+      </button>
+      {open && (
+        <div role="menu" className="pop-in absolute end-0 top-11 z-50 w-[300px] rounded-xl bg-white border border-neutral-200 shadow-xl p-1.5 text-neutral-900">
+          <p className="px-3 pt-1.5 pb-1 text-[10.5px] font-semibold uppercase tracking-wide text-neutral-400">{t('Switch view', 'تبديل العرض')}</p>
+          <Opt v="me" init={initials} name={displayName} sub={t('Requester · IT & Digital', 'مقدم الطلب · تقنية المعلومات')} />
+          <Opt v="tl" init={tlInit} name={tlName} sub={t('TL view · Procurement team', 'عرض رئيس الفريق · المشتريات')} badge={teamCounts['needs-action']} />
+        </div>
+      )}
     </div>
   );
 }

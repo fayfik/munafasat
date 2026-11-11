@@ -13,6 +13,13 @@ export interface BudgetResult {
   remaining: number; remainingPct: number; checkedAt: string;
 }
 
+/** Same arithmetic as the checker, without the delay — for list rows. */
+export function budgetFits(task: Task): boolean {
+  const cfg = task.budgetCheck;
+  if (!cfg) return true;
+  return cfg.total - cfg.consumed - Math.round((task.amount ?? 0) * 1.15) >= 0;
+}
+
 /** Runs the budget check when the task opens and on refresh. */
 export function useBudgetCheck(task: Task) {
   const cfg = task.budgetCheck;

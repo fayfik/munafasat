@@ -1030,8 +1030,19 @@ async function openRequest(title) {
   });
 
   // ── Team queue · delegation · Excel ─────────────────────────────────────────
-  await test('Team queue: switch from Inbox title, assign to an officer, row moves to Assigned', async () => {
+  await test('TL view: header persona switch shows the team-queue banner; queue only in TL view', async () => {
     await page.goto(BASE); await wait(600); await nav('Inbox'); await wait(LOAD);
+    expect(await count('[data-scope-switch]') === 0 && await count('[data-team-banner]') === 0, 'no team queue outside TL view');
+    await page.click('[data-persona-switch]'); await wait(150);
+    await page.click('[data-persona="tl"]'); await wait(200);
+    expect(await count('[data-tl-tag]') === 1, 'TL view tag in header');
+    expect(await page.getAttribute('[data-team-banner]', 'data-team-banner') === '4', 'banner counts unassigned');
+    await page.click('[data-team-banner-open]'); await wait(300);
+    expect(await page.getAttribute('[data-scope-panel]', 'data-scope-panel') === 'team', 'banner opens the team queue');
+  });
+  await test('Team queue: switch from Inbox title, assign to an officer, row moves to Assigned', async () => {
+    await page.click('[data-scope-switch]'); await wait(150);
+    await page.click('[data-scope="mine"]'); await wait(200);
     await page.click('[data-scope-switch]'); await wait(150);
     await page.click('[data-scope="team"]'); await wait(300);
     expect(await count('li[data-task-id]') === 4, 'four unassigned requests');
@@ -1066,6 +1077,34 @@ async function openRequest(title) {
     await page.click('[data-inbox-more]'); await wait(150);
     const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-export-excel]')]);
     expect(/\.xlsx$/.test(dl.suggestedFilename()), `file ${dl.suggestedFilename()}`);
+  });
+
+  // ── Layouts: Compact (default) / List ──────────────────────────────────────
+  await test('List view: More → View → List; row decisions, gated rows locked, eye opens the task page', async () => {
+    await page.goto(BASE); await wait(600); await nav('Inbox'); await wait(LOAD);
+    await page.click('[data-inbox-more]'); await wait(120);
+    await page.hover('[data-view-menu]'); await wait(200);
+    expect(await count('[data-view-sub]') === 1, 'View submenu opens on hover');
+    await page.click('[data-layout="list"]'); await wait(LOAD);
+    expect(await count('[data-layout-active="list"]') === 1 && await count('[data-list-row]') === Number(await page.locator('[data-inbox-count]').innerText()), 'table lists the tasks');
+    expect(await page.locator('[data-list-row="TSK-4478-01"] [data-row-action="approve"]').isDisabled(), 'insufficient budget blocks approve in the row');
+    expect(await page.locator('[data-list-row="TSK-4433-02"] [data-row-action="approve"]').isDisabled(), 'gated approve locked in the row');
+    await page.click('[data-sort="due"]'); await wait(100);
+    // Approve from the row
+    await page.click('[data-list-row="TSK-4471-01"] [data-row-action="approve"]'); await wait(300);
+    await page.getByRole('radio', { name: /Yes/ }).first().click(); await wait(100);
+    await page.locator('[role="dialog"]').getByRole('button', { name: 'Complete' }).click(); await wait(300);
+    expect(await count('[data-list-row="TSK-4471-01"]') === 0, 'approved row leaves Needs action');
+    // Eye → full page, everything from the task detail is there
+    await page.click('[data-row-view="TSK-4433-03"]'); await wait(LOAD);
+    expect(await count('[data-task-page] [data-task-breadcrumb]') === 1 && await count('[data-cyber-review]') === 1, 'task page with breadcrumb and the Cyber panel');
+    expect(await count('[data-action-head] [data-review-link]') === 1, 'Comment on request inside the action card');
+    await page.click('[data-task-back]'); await wait(300);
+    expect(await count('[data-inbox-list]') === 1, 'back to the list');
+    // Back to compact for the rest of the suite
+    await page.click('[data-inbox-more]'); await page.hover('[data-view-menu]'); await wait(150);
+    await page.click('[data-layout="compact"]'); await wait(300);
+    expect(await count('[data-layout-active="compact"]') === 1, 'compact restored');
   });
 
   await browser.close();

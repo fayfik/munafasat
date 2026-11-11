@@ -28,7 +28,7 @@ function useOutside(open: boolean, close: () => void) {
 }
 
 /* ── Title switcher: Inbox ▾ (My tasks · Team queue) ─────────────────────── */
-export function ScopeSwitcher({ scope, onChange, mine, team, isAr, t }: { scope: Scope; onChange: (s: Scope) => void; mine: number; team: number; isAr: boolean; t: T }) {
+export function ScopeSwitcher({ scope, onChange, mine, team, isAr, t, tl }: { scope: Scope; onChange: (s: Scope) => void; mine: number; team: number; isAr: boolean; t: T; tl: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useOutside(open, () => setOpen(false));
   const Opt = ({ s, title, sub, n, tag }: { s: Scope; title: string; sub: string; n: number; tag?: string }) => (
@@ -42,6 +42,7 @@ export function ScopeSwitcher({ scope, onChange, mine, team, isAr, t }: { scope:
       <span className="text-[12px] font-semibold text-neutral-500 tabular-nums pt-0.5">{n}</span>
     </button>
   );
+  if (!tl) return <h1 className="text-[22px] font-bold text-neutral-900">{t('Inbox', 'الوارد')}</h1>;
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} data-scope-switch
@@ -74,21 +75,49 @@ export const DelegateGlyph = ({ className = 'w-[18px] h-[18px]' }: { className?:
 const MoreGlyph = () => <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></svg>;
 const SheetGlyph = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M4 9h16M4 15h16M10 3v18" /></svg>;
 
-/* ── Overflow menu ───────────────────────────────────────────────────────── */
-export function MoreMenu({ rows, scopeLabel, viewLabel, isAr, t }: { rows: Task[]; scopeLabel: string; viewLabel: string; isAr: boolean; t: T }) {
+/* ── Overflow menu: View (List / Compact) · Download as Excel ─────────────── */
+export type Layout = 'compact' | 'list';
+const ListGlyph = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>;
+const SplitGlyph = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M10 4v16" /></svg>;
+const ViewGlyph = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>;
+export function MoreMenu({ rows, scopeLabel, viewLabel, isAr, t, layout, onLayout }: { rows: Task[]; scopeLabel: string; viewLabel: string; isAr: boolean; t: T; layout: Layout; onLayout: (l: Layout) => void }) {
   const [open, setOpen] = useState(false);
-  const ref = useOutside(open, () => setOpen(false));
+  const [sub, setSub] = useState(false);
+  const ref = useOutside(open, () => { setOpen(false); setSub(false); });
+  const Item = ({ icon, title, hint, onClick, attrs, tone = 'neutral', children }: { icon: ReactNode; title: string; hint?: string; onClick?: () => void; attrs?: Record<string, string>; tone?: 'neutral' | 'success'; children?: ReactNode }) => (
+    <button type="button" role="menuitem" onClick={onClick} {...attrs} className="w-full text-start flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-neutral-50">
+      <span className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${tone === 'success' ? 'bg-success-50 text-success-700' : 'bg-neutral-100 text-neutral-600'}`}>{icon}</span>
+      <span className="min-w-0 flex-1"><span className="block text-[13px] font-semibold text-neutral-900">{title}</span>{hint && <span className="block text-[11.5px] text-neutral-500">{hint}</span>}</span>
+      {children}
+    </button>
+  );
+  const LayoutOpt = ({ v, icon, title, hint }: { v: Layout; icon: ReactNode; title: string; hint: string }) => (
+    <button type="button" role="menuitemradio" aria-checked={layout === v} data-layout={v} onClick={() => { onLayout(v); setOpen(false); setSub(false); }}
+      className={`w-full text-start flex items-center gap-3 px-3 py-2.5 rounded-lg ${layout === v ? 'bg-brand-50/70' : 'hover:bg-neutral-50'}`}>
+      <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${layout === v ? 'bg-brand-600 text-white' : 'bg-neutral-100 text-neutral-600'}`}>{icon}</span>
+      <span className="min-w-0 flex-1"><span className="block text-[13px] font-semibold text-neutral-900">{title}</span><span className="block text-[11.5px] text-neutral-500">{hint}</span></span>
+      {layout === v && <CheckIcon className="w-4 h-4 text-brand-600" />}
+    </button>
+  );
   return (
     <div ref={ref} className="relative">
       <IconBtn label={t('More', 'المزيد')} onClick={() => setOpen((v) => !v)} active={false} attrs={{ 'data-inbox-more': '' }}><MoreGlyph /></IconBtn>
       {open && (
-        <div role="menu" className="pop-in absolute end-0 top-11 z-40 w-[260px] rounded-xl bg-white border border-neutral-200 shadow-xl p-1.5">
-          <button type="button" role="menuitem" data-export-excel onClick={() => { void exportExcel(rows, scopeLabel, viewLabel, isAr, t); setOpen(false); }}
-            className="w-full text-start flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-neutral-50">
-            <span className="w-8 h-8 rounded-lg bg-success-50 text-success-700 flex items-center justify-center flex-shrink-0"><SheetGlyph /></span>
-            <span className="min-w-0"><span className="block text-[13px] font-semibold text-neutral-900">{t('Download as Excel', 'تنزيل كملف Excel')}</span>
-              <span className="block text-[11.5px] text-neutral-500">{t(`${rows.length} tasks · ${scopeLabel} · ${viewLabel}`, `${rows.length} مهام · ${scopeLabel} · ${viewLabel}`)}</span></span>
-          </button>
+        <div role="menu" className="pop-in absolute end-0 top-11 z-40 w-[270px] rounded-xl bg-white border border-neutral-200 shadow-xl p-1.5">
+          <div className="relative" onMouseEnter={() => setSub(true)} onMouseLeave={() => setSub(false)}>
+            <Item icon={<ViewGlyph />} title={t('View', 'طريقة العرض')} hint={layout === 'list' ? t('List view', 'عرض القائمة') : t('Compact view', 'العرض المضغوط')} onClick={() => setSub((v) => !v)} attrs={{ 'data-view-menu': '' }}>
+              <ChevronDownIcon className={`w-4 h-4 text-neutral-400 ${isAr ? 'rotate-90' : '-rotate-90'}`} />
+            </Item>
+            {sub && (
+              <div role="menu" data-view-sub className="pop-in absolute top-0 end-full me-1.5 w-[270px] rounded-xl bg-white border border-neutral-200 shadow-xl p-1.5">
+                <LayoutOpt v="list" icon={<ListGlyph />} title={t('List view', 'عرض القائمة')} hint={t('Full-width table, act from the row', 'جدول بعرض كامل، اتخذ القرار من السطر')} />
+                <LayoutOpt v="compact" icon={<SplitGlyph />} title={t('Compact view', 'العرض المضغوط')} hint={t('List and task side by side', 'القائمة والمهمة جنباً إلى جنب')} />
+              </div>
+            )}
+          </div>
+          <div className="my-1 h-px bg-neutral-100" />
+          <Item icon={<SheetGlyph />} tone="success" title={t('Download as Excel', 'تنزيل كملف Excel')} hint={t(`${rows.length} tasks · ${scopeLabel} · ${viewLabel}`, `${rows.length} مهام · ${scopeLabel} · ${viewLabel}`)}
+            attrs={{ 'data-export-excel': '' }} onClick={() => { void exportExcel(rows, scopeLabel, viewLabel, isAr, t); setOpen(false); }} />
         </div>
       )}
     </div>
@@ -229,6 +258,26 @@ export function DelegationBanner({ isAr, t }: { isAr: boolean; t: T }) {
         <p className="text-[11.5px] text-white/70 mt-0.5">{t(`Until ${fmtDate(delegation.until, isAr)} · ${n} tasks with them`, `حتى ${fmtDate(delegation.until, isAr)} · ${n} مهام لديه`)}{delegation.includeNew ? t(' · new tasks too', ' · والمهام الجديدة') : ''}</p>
       </div>
       <button type="button" data-delegation-cancel onClick={cancelDelegation} className="relative h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-[12px] font-semibold whitespace-nowrap">{t('Cancel delegation', 'إلغاء التفويض')}</button>
+    </div>
+  );
+}
+
+/* ── TL view: unassigned requests waiting in the team queue ───────────────── */
+export function TeamQueueBanner({ isAr, t, onOpen }: { isAr: boolean; t: T; onOpen: () => void }) {
+  const { teamCounts, persona } = useInbox();
+  const n = teamCounts['needs-action'];
+  if (persona !== 'tl' || !n) return null;
+  const late = teamCounts.overdue;
+  return (
+    <div className="mt-3 rounded-xl border border-warning-200 bg-warning-50 px-3.5 py-3 flex items-center gap-3" data-team-banner={n}>
+      <span className="w-8 h-8 rounded-lg bg-white border border-warning-200 text-warning-700 flex items-center justify-center flex-shrink-0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5" /><path d="M19 8v6M16 11h6" /></svg>
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-semibold text-warning-900">{t(`${n} unassigned request${n > 1 ? 's' : ''} in the team queue`, `${n} طلبات غير مسندة في قائمة الفريق`)}</p>
+        <p className="text-[11.5px] text-warning-800/80">{late ? t(`${late} overdue · ${isAr ? TEAM_NAME.ar : TEAM_NAME.en}`, `${late} متأخرة · ${TEAM_NAME.ar}`) : (isAr ? TEAM_NAME.ar : TEAM_NAME.en)}</p>
+      </div>
+      <button type="button" data-team-banner-open onClick={onOpen} className="h-8 px-3 rounded-lg bg-white border border-warning-300 text-warning-900 text-[12px] font-semibold hover:bg-warning-100 whitespace-nowrap">{t('Assign now', 'إسناد الآن')}</button>
     </div>
   );
 }
