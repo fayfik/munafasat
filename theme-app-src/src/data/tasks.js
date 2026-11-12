@@ -1,12 +1,13 @@
-// The 17 inbox tasks from the design-review, one per workflow role (the prototype
-// user plays every role). `type` picks the Required-action component.
+// The 17 inbox tasks from the design-review. Each belongs to the actor who owns its
+// `step` (see data/actors.js); `type` picks the Required-action component.
 
+// The signed-in person now comes from state/actor.jsx (switchable in the top bar).
 export const ME = { name: 'Mohammed H.', initials: 'MH', me: true };
 
 // The approval workflow every tender request goes through (15 steps).
 export const WORKFLOW = [
   { id: 'submitted', name: 'Request submitted' },
-  { id: 'dept', name: 'Department approval', who: 'Department Manager' },
+  { id: 'dept', name: 'Department approval', who: 'Nasser Al-Harthi' },
   { id: 'tech', name: 'Technical member review', who: 'Sara Al-Zahrani' },
   { id: 'cyber', name: 'Cyber Security', group: 'spec', who: 'Noura Al-Shamrani' },
   { id: 'bcm', name: 'Enterprise Risk (BCM)', group: 'spec', who: 'Turki Al-Anazi' },

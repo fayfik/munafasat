@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon, Btn, Segment, Avatar, Empty } from './ui.jsx';
 import { useStore } from '../state/store.jsx';
-import { WORKFLOW, ME, nextSteps } from '../data/tasks.js';
-
-const DEPT_MANAGER = { 'REQ-4478': 'Nasser Al-Harthi', 'REQ-4433': 'Faisal Al-Dossari', 'REQ-4471': 'Department Manager' };
+import { WORKFLOW, nextSteps } from '../data/tasks.js';
+import { useActor } from '../state/actor.jsx';
 
 /* Workflow state for a request, seen from the task's step. */
-export function processFor(task, request) {
+export function processFor(task, request, me) {
   const cur = WORKFLOW.findIndex((s) => s.id === task.step);
   return WORKFLOW.map((s, i) => {
-    let who = s.id === 'submitted' ? request.requester.name : s.id === 'dept' ? (DEPT_MANAGER[request.id] || s.who) : s.who;
+    let who = s.id === 'submitted' ? request.requester.name : s.who;
     const state = i < cur ? 'done' : i === cur ? 'current' : (WORKFLOW[cur].group && s.group === WORKFLOW[cur].group) ? 'parallel' : 'upcoming';
-    if (state === 'current') who = `${ME.name} (you)`;
+    if (state === 'current' && me) who = `${me.name} (you)`;
     return { ...s, who, state, when: s.id === 'submitted' ? request.submitted.at.split(',')[0] : null };
   });
 }
@@ -19,7 +18,8 @@ export function processFor(task, request) {
 /* ---------- Activity tab ---------- */
 export function Activity({ task, request }) {
   const { state } = useStore();
-  const steps = processFor(task, request);
+  const { actor } = useActor();
+  const steps = processFor(task, request, actor);
   const cur = steps.find((s) => s.state === 'current');
   const left = steps.filter((s) => s.state === 'upcoming' || s.state === 'parallel').length;
   const next = steps.find((s) => s.state === 'upcoming');
@@ -60,11 +60,13 @@ export function Activity({ task, request }) {
 /* ---------- Side panel: Comments & Process ---------- */
 function CommentItem({ c, req, onReply, onGoto, isReply }) {
   const { dispatch, state } = useStore();
+  const { actor } = useActor();
+  const mine = c.author.name === actor.name;
   const ref = useRef(null);
   useEffect(() => { if (state.lastComment === c.id) { ref.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); ref.current?.classList.add('enter', 'landed'); setTimeout(() => ref.current?.classList.remove('landed'), 1400); } }, []);
   return (
-    <div ref={ref} className={`cmt${c.author.me ? ' mine' : ''}${c.resolved ? ' resolved' : ''}`}>
-      <Avatar person={c.author} size={isReply ? 22 : 28} tone={c.author.me ? '' : 'alt'} />
+    <div ref={ref} className={`cmt${mine ? ' mine' : ''}${c.resolved ? ' resolved' : ''}`}>
+      <Avatar person={{ ...c.author, me: mine }} size={isReply ? 22 : 28} tone={mine ? '' : 'alt'} />
       <div className="cmt-main">
         <div className="cmt-meta"><span className="t-label">{c.author.name}</span><span className="t-caption muted">{c.author.role ? `${c.author.role} · ` : ''}{c.at}</span></div>
         {c.anchor && <button type="button" className="anchor-chip" onClick={() => onGoto(c.anchor)}><Icon name="icon-anchor" size={12} /><span>{c.anchor.label}</span></button>}
@@ -84,6 +86,7 @@ function CommentItem({ c, req, onReply, onGoto, isReply }) {
 
 export function SidePanel({ open, view, setView, onClose, task, request, replyTo, setReplyTo, onGoto }) {
   const { state, dispatch } = useStore();
+  const { actor } = useActor();
   const comments = state.comments[request.id] || [];
   const total = comments.reduce((n, c) => n + 1 + (c.replies?.length || 0), 0);
   const openReview = comments.filter((c) => c.anchor && !c.resolved).length;
@@ -99,10 +102,10 @@ export function SidePanel({ open, view, setView, onClose, task, request, replyTo
   useEffect(() => { if (replyTo) ta.current?.focus(); }, [replyTo]);
   const post = () => {
     if (!text.trim()) return;
-    dispatch({ type: 'comment', req: request.id, author: ME, text: text.trim(), replyTo: replyTo?.id });
+    dispatch({ type: 'comment', req: request.id, author: actor, text: text.trim(), replyTo: replyTo?.id });
     setText(''); setReplyTo(null);
   };
-  const steps = processFor(task, request);
+  const steps = processFor(task, request, actor);
   const curIdx = steps.findIndex((s) => s.state === 'current');
   const doneCount = steps.filter((s) => s.state === 'done').length;
   const firstUp = steps.findIndex((s, i) => i > curIdx && s.state === 'upcoming');
