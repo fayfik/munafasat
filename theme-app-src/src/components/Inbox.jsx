@@ -1,19 +1,19 @@
 import { useMemo, useState } from 'react';
 import { Icon, Segment } from './ui.jsx';
-import { TASKS, ACTION_PAST } from '../data/tasks.js';
+import { ACTION_PAST } from '../data/tasks.js';
 import { REQUESTS } from '../data/requests.js';
 import { useStore } from '../state/store.jsx';
 
-export function InboxColumn({ currentId, onOpen }) {
+export function InboxColumn({ tasks, currentId, onOpen }) {
   const { state } = useStore();
   const [view, setView] = useState('needs');
   const [q, setQ] = useState('');
   const [searching, setSearching] = useState(false);
-  const pending = TASKS.filter((t) => !state.done[t.id]);
-  const done = TASKS.filter((t) => state.done[t.id]);
+  const pending = tasks.filter((t) => !state.done[t.id]);
+  const done = tasks.filter((t) => state.done[t.id]);
   const query = q.trim().toLowerCase();
   const match = (t) => !query || [t.req, t.title, REQUESTS[t.req].project, REQUESTS[t.req].requester.name].join(' ').toLowerCase().includes(query);
-  const list = (view === 'done' ? done : view === 'all' ? TASKS : pending).filter(match);
+  const list = (view === 'done' ? done : view === 'all' ? tasks : pending).filter(match);
   const groups = view === 'needs'
     ? [['Due within a day', list.filter((t) => t.hours <= 24)], ['Later this week', list.filter((t) => t.hours > 24)]]
     : [[view === 'done' ? 'Done' : 'All tasks', list]];

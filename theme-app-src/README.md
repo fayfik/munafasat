@@ -20,6 +20,7 @@ Commit both `theme-app-src/` and `theme-app/` after a build.
 | Path | What's in it |
 |---|---|
 | `src/data/requests.js` | The four requests (REQ-4478, 4471, 4433, 4429): details, BOQ, budget, comments |
+| `src/data/actors.js` | The 14 people who act on a request and the workflow steps each owns (drives the per-person inbox) |
 | `src/data/tasks.js` | The 17 inbox tasks, the 15-step workflow, decision copy |
 | `src/data/content.js` | Review content per task type (cyber, BCM, op-risk, EA, GL, assets…) and the libraries |
 | `src/data/newRequest.js` | New Request reference data: projects, cost centers, people, samples, standards library, BCM / third-party risk questions |
@@ -34,6 +35,8 @@ Commit both `theme-app-src/` and `theme-app/` after a build.
 
 Content is transcribed from the design-review build deployed on 11 Nov 2026.
 Review progress, comments, decisions and requests you create are kept for the browser session only.
+
+Switch person from the profile menu in the top bar; each sees only their own inbox and requests. A link to someone else’s task opens it as that person.
 
 Routes: `#/inbox/<task>` · `#/requests` · `#/requests/new` · `#/requests/<id>`.
 

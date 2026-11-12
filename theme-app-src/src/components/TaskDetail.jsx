@@ -5,7 +5,8 @@ import { RequestDetails } from './RequestDetails.jsx';
 import { Activity, SidePanel, DecisionDialog } from './Panels.jsx';
 import { useStore, useReview } from '../state/store.jsx';
 import { REQUESTS, sar } from '../data/requests.js';
-import { ME, ACTION_PAST } from '../data/tasks.js';
+import { ACTION_PAST } from '../data/tasks.js';
+import { useActor } from '../state/actor.jsx';
 import { OFFICERS } from '../data/content.js';
 import { DeptApproval, DoaApproval, EstimatedPrice, ProcLead, ProcOfficer } from '../tasks/Approvals.jsx';
 import { TechEval, Specialist, EaReview, Qualification } from '../tasks/Reviews.jsx';
@@ -16,6 +17,7 @@ const STATUS = { dept: 'Pending your decision', doa: 'Pending your decision', pr
 
 export function TaskDetail({ task, onComplete, panel, setPanel }) {
   const { state, dispatch } = useStore();
+  const { actor } = useActor();
   const request = REQUESTS[task.req];
   const review = useReview(task.id);
   const [tab, setTab] = useState('action');
@@ -29,7 +31,7 @@ export function TaskDetail({ task, onComplete, panel, setPanel }) {
 
   useEffect(() => { dispatch({ type: 'read', task: task.id }); }, [task.id]);
 
-  const comment = (anchor, text) => dispatch({ type: 'comment', req: request.id, author: ME, text, anchor });
+  const comment = (anchor, text) => dispatch({ type: 'comment', req: request.id, author: actor, text, anchor });
   const openDetails = (on) => { setTab('details'); setCommenting(on); scroller.current?.scrollTo({ top: 0, behavior: 'smooth' }); };
   const openComments = (replyId) => { setPanel({ open: true, view: 'comments' }); if (replyId) setReplyTo((state.comments[request.id] || []).find((c) => c.id === replyId) || null); };
   const gotoAnchor = (anchor) => {

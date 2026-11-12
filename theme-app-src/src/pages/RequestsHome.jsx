@@ -2,19 +2,23 @@
 // this session. The full list (table, filters, status variants) is the next batch.
 import { Btn, Empty } from '../components/ui.jsx';
 import { useRequests } from '../state/requests.jsx';
+import { useActor } from '../state/actor.jsx';
 import { sarFmt } from '../components/FormKit.jsx';
 import { totals, visibleSteps, sectionStatus } from '../lib/requestRules.js';
 
 const when = (d) => new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 export function RequestsHome({ onNew, onOpen }) {
-  const { list } = useRequests();
+  const { list: all } = useRequests();
+  const { actor } = useActor();
+  // Each person sees the requests they started (older drafts without an owner belong to the requester).
+  const list = all.filter((r) => (r.createdBy || 'requester') === actor.id);
   return (
     <main className="detail standalone req-home" aria-labelledby="rh-title">
       <div className="req-home-head">
         <div>
           <h1 className="t-display" id="rh-title">My requests</h1>
-          <p className="t-body-small muted" style={{ margin: '4px 0 0' }}>Requests you start here are kept for this browser session.</p>
+          <p className="t-body-small muted" style={{ margin: '4px 0 0' }}>{actor.name} · requests you start here are kept for this browser session.</p>
         </div>
         <Btn variant="primary" icon="icon-plus" onClick={onNew}>New request</Btn>
       </div>

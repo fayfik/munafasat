@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, Btn, Tooltip } from '../components/ui.jsx';
 import { FormCtx, Dialog } from '../components/FormKit.jsx';
 import { useRequests, emptyForm } from '../state/requests.jsx';
+import { useActor } from '../state/actor.jsx';
 import { PROJECTS } from '../data/newRequest.js';
 import { visibleSteps, sectionStatus, qualityIssues, blockers, uid } from '../lib/requestRules.js';
 import { RouteStep } from '../steps/RouteStep.jsx';
@@ -19,6 +20,7 @@ const time = (d) => new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', m
 
 export function NewRequest({ id, onExit, onOpen }) {
   const store = useRequests();
+  const { actor } = useActor();
   const saved = id ? store.get(id) : null;
   const [reqId] = useState(() => id || uid());
   const [f, setF] = useState(() => (saved ? { ...emptyForm(), ...saved.form } : emptyForm()));
@@ -35,7 +37,7 @@ export function NewRequest({ id, onExit, onOpen }) {
     if (!dirty.current) return;
     const h = setTimeout(() => {
       const p = PROJECTS.find((x) => x.id === f.projectId);
-      store.save(reqId, { form: f, routeConfirmed, step, title: p?.name || 'Untitled request', type: f.sourceType });
+      store.save(reqId, { form: f, routeConfirmed, step, title: p?.name || 'Untitled request', type: f.sourceType, createdBy: saved?.createdBy || actor.id });
       setSavedAt(new Date().toISOString());
       if (!id) history.replaceState(null, '', `#/requests/${reqId}`);
     }, 700);
@@ -74,7 +76,7 @@ export function NewRequest({ id, onExit, onOpen }) {
     }));
     if (o.movedToDraft) {
       const did = uid();
-      store.save(did, { title: `${p?.name || 'Request'} — moved items`, type: o.movedToDraft.route, status: 'draft', routeConfirmed: false, step: 'route', form: { ...emptyForm(), projectId: o.projectId, sourceType: o.movedToDraft.route, selectedItemIds: o.movedToDraft.ids || [], routeChoice: o.movedToDraft.route === 'emarket' ? 'emarket' : 'tender' }, moved: o.movedToDraft.names });
+      store.save(did, { createdBy: actor.id, title: `${p?.name || 'Request'} — moved items`, type: o.movedToDraft.route, status: 'draft', routeConfirmed: false, step: 'route', form: { ...emptyForm(), projectId: o.projectId, sourceType: o.movedToDraft.route, selectedItemIds: o.movedToDraft.ids || [], routeChoice: o.movedToDraft.route === 'emarket' ? 'emarket' : 'tender' }, moved: o.movedToDraft.names });
     }
     setRouteConfirmed(true);
     goto('setup');
@@ -92,7 +94,7 @@ export function NewRequest({ id, onExit, onOpen }) {
     const d = new Date();
     const requestNo = `${em ? 'PR' : 'TEN'}-${d.getFullYear()}-${reqId.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
     const p = PROJECTS.find((x) => x.id === f.projectId);
-    const rec = { form: f, routeConfirmed, step, status: 'submitted', requestNo, submittedAt: d.toISOString(), title: p?.name || 'Request', type: f.sourceType };
+    const rec = { form: f, routeConfirmed, step, status: 'submitted', createdBy: saved?.createdBy || actor.id, requestNo, submittedAt: d.toISOString(), title: p?.name || 'Request', type: f.sourceType };
     store.save(reqId, rec);
     setSubmitted({ ...rec, id: reqId });
   };

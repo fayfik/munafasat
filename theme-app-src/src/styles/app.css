@@ -316,3 +316,26 @@ tr.c-target:hover:not(:has(.c-target:hover)) .c-cell > .c-btn, tr.c-open .c-cell
 }
 
 .item-req { flex: none; font-size: 12px; line-height: 16px; color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
+
+/* Actor switcher (profile segment) */
+.topbar { position: relative; z-index: 50; }
+.actor-switch { position: relative; }
+button.me { border: 0; background: transparent; color: inherit; text-align: left; padding: 4px 10px 4px 8px; margin-left: 4px; border-radius: 999px; transition: background-color 0.15s ease; }
+button.me:hover, button.me[aria-expanded="true"] { background: rgba(255, 255, 255, 0.14); }
+button.me:focus-visible { outline-color: #fff; }
+.me-chev { filter: brightness(0) invert(1); opacity: 0.85; transition: transform 0.2s var(--ease-out); }
+.me-chev.up { transform: rotate(180deg); }
+.actor-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: 360px; border: 1px solid var(--border-default); border-radius: 14px; background: var(--bg-surface); box-shadow: 0 16px 40px rgba(27, 35, 22, 0.16); color: var(--ink-primary); overflow: hidden; }
+.actor-menu-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--border-soft); display: flex; flex-direction: column; gap: 2px; }
+.actor-menu-list { max-height: min(460px, calc(100vh - 140px)); overflow-y: auto; padding: 4px 6px 8px; }
+.actor-group { padding: 10px 10px 4px; }
+.actor-row { width: 100%; display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 0; border-radius: 10px; background: transparent; text-align: left; color: inherit; }
+.actor-row:hover, .actor-row:focus-visible { background: var(--bg-subtle); outline: none; }
+.actor-row[aria-checked="true"] { background: var(--brand-50); }
+.actor-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.actor-text > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.actor-count { min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--brand-700); color: #fff; font-weight: 500; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+.actor-count.zero { background: transparent; color: var(--ink-muted); }
+.actor-tick { width: 14px; flex: none; }
+.inbox-blank { align-items: center; justify-content: center; gap: 12px; }
+@media (prefers-reduced-motion: no-preference) { .actor-menu { animation: pop 160ms var(--ease-out) both; transform-origin: top right; } }
