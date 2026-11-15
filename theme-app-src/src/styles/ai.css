@@ -131,3 +131,14 @@
 .collapse.open > .collapse-body { padding-top: 14px; }
 .edit-table { table-layout: fixed; } .edit-table th:first-child { width: 52px; }
 .plain-table.boq td:nth-child(4) { white-space: nowrap; }
+
+/* Yes/No switch hugs its two options instead of stretching across the cell. */
+.ffield > .yesno { align-self: flex-start; }
+/* Inline field: label and a small control on one line, spanning the row. */
+.ffield.inline { flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px; padding: 4px 0; }
+.ffield.inline > .ffield-hint, .ffield.inline > .ffield-error { flex-basis: 100%; }
+.ffield.inline { flex-wrap: wrap; }
+.ffield.inline > .yesno { align-self: center; }
+
+/* Content column: wide enough for table rows and two-up fields, not full width. */
+.req-content { max-width: 960px; }

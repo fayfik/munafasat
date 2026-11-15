@@ -317,7 +317,7 @@ function ItemDialog({ row, em, budgeted, due, onClose, onSave }) {
               <FieldBlock label="Official working hours"><NumInput value={r.officialWorkingHours ?? ''} onChange={s('officialWorkingHours')} placeholder="e.g. 8" suffix="h/day" /></FieldBlock>
               <FieldBlock label="Expected extra hours" optional><NumInput value={r.extraWorkingHours ?? ''} onChange={s('extraWorkingHours')} placeholder="e.g. 2" suffix="h/day" /></FieldBlock>
               <FieldBlock label="Rate per staff (SAR)" required hint="Total = staff count × rate."><NumInput value={r.unitPrice} onChange={s('unitPrice')} placeholder="0.00" /></FieldBlock>
-              <FieldBlock label="Nationality required?"><YesNo name="Nationality required" value={!!r.nationalityRequired} onChange={s('nationalityRequired')} /></FieldBlock>
+              <FieldBlock label="Nationality required?" inline><YesNo name="Nationality required" value={!!r.nationalityRequired} onChange={s('nationalityRequired')} /></FieldBlock>
               {r.nationalityRequired && (
                 <FieldBlock label="Nationalities" wide>
                   <div className="chips">{NATIONALITIES.map((n) => { const on = (r.nationalities || []).includes(n); return <button key={n} type="button" className={`chip-btn${on ? ' on' : ''}`} aria-pressed={on} onClick={() => setR((x) => ({ ...x, nationalities: on ? x.nationalities.filter((y) => y !== n) : [...(x.nationalities || []), n] }))}>{n}</button>; })}</div>
@@ -331,7 +331,7 @@ function ItemDialog({ row, em, budgeted, due, onClose, onSave }) {
               <FieldBlock label="Unit price (SAR)" required><NumInput value={r.unitPrice} onChange={s('unitPrice')} placeholder="0.00" /></FieldBlock>
               <FieldBlock label="Needed by" optional><Input type="date" value={r.deliveryDate} onChange={s('deliveryDate')} /></FieldBlock>
               {goods && <FieldBlock label="Mandatory list reference" optional wide info="Material and equipment may fall under the mandatory list of national products and must be bought from approved listed companies."><Input value={r.mandatoryList} onChange={s('mandatoryList')} placeholder="Listed company or product reference…" /></FieldBlock>}
-              <FieldBlock label="Specific brand required?"><YesNo name="Brand name" value={!!r.hasBrandName} onChange={s('hasBrandName')} /></FieldBlock>
+              <FieldBlock label="Specific brand required?" inline><YesNo name="Brand name" value={!!r.hasBrandName} onChange={s('hasBrandName')} /></FieldBlock>
               {r.hasBrandName && <FieldBlock label="Brand justification" required wide><TextArea rows={2} value={r.brandJustification} onChange={s('brandJustification')} placeholder="Explain why a specific brand is required…" /></FieldBlock>}
             </>
           )}
