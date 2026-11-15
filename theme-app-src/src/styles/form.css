@@ -398,3 +398,22 @@ tr:hover .row-actions .icon-btn, .row-actions .icon-btn:focus-visible { opacity:
 .ar-under { text-align: left; }
 
 .req-content > .stack { gap: 24px; }
+
+/* My requests list */
+.count-chip { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; margin-left: 6px; border-radius: 999px; background: var(--bg-track); color: var(--ink-secondary); font-weight: 500; vertical-align: middle; }
+.rh-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.rh-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rh-search { height: 36px; width: 260px; }
+.rh-type { width: 170px; min-height: 36px; padding-top: 7px; padding-bottom: 7px; font-size: 13px; }
+.req-table th, .req-table td { white-space: nowrap; }
+.req-table td:first-child { white-space: normal; min-width: 260px; }
+.req-row.seed { cursor: default; }
+.req-row.seed:hover td { background: transparent; }
+.rh-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.status-pill.st-draft { background: var(--bg-page); color: var(--ink-secondary); } .status-pill.st-draft .pill-dot { background: #a8b39d; }
+.status-pill.st-submitted { background: #eef4fb; color: #2a6193; } .status-pill.st-submitted .pill-dot { background: #3b6fd4; }
+.status-pill.st-under-review { background: var(--amber-50); color: var(--amber-text); } .status-pill.st-under-review .pill-dot { background: #e3a008; }
+.status-pill.st-approved { background: var(--brand-50); color: var(--brand-800); } .status-pill.st-approved .pill-dot { background: var(--brand-500); }
+.status-pill.st-returned { background: var(--danger-50); color: var(--danger-text); } .status-pill.st-returned .pill-dot { background: var(--danger-text); }
+.tag.em { background: #fbf5ea; border-color: #f0e0bf; color: #8a5a12; }
+.req-home > * { flex: none; }
