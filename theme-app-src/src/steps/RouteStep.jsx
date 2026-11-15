@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Icon, Btn } from '../components/ui.jsx';
 import { useForm, Block, FieldBlock, Select, TextArea, Input, Dialog } from '../components/FormKit.jsx';
+import { AiBtn } from '../components/AiKit.jsx';
 import { PROJECTS, ROUTES, ROUTE_MODES, EXPENSE_TYPES, EXAMPLE_ITEMS, BOQ_CATEGORIES } from '../data/newRequest.js';
 import { classify, expenseTypeOf, parseItemNames, looksReal, uid } from '../lib/requestRules.js';
 
@@ -145,9 +146,10 @@ export function RouteStep() {
               <TextArea rows={4} value={text} onChange={(e) => { setText(e.target.value); setError(''); }} placeholder={`One item per line, e.g.\n${EXAMPLE_ITEMS}`} aria-label="Items you need" />
               <div className="row-gap">
                 <Btn variant="ghost-sm" icon="icon-file" onClick={() => fileRef.current?.click()}>Attach a list</Btn>
-                <input ref={fileRef} type="file" hidden accept=".xlsx,.xls,.csv,.txt,.pdf,.docx" onChange={(e) => { if (e.target.files?.[0]) { setText(EXAMPLE_ITEMS); setFree(parseItemNames(EXAMPLE_ITEMS).map((n) => ({ id: uid(), name: n }))); } e.target.value = ''; }} />
-                <Btn variant="ghost-sm" disabled={!text.trim()} onClick={() => setFree(parseItemNames(text).map((n) => ({ id: uid(), name: n })))}>Pick out items</Btn>
+                <input ref={fileRef} type="file" hidden accept=".xlsx,.xls,.csv,.txt,.pdf,.docx" onChange={(e) => { if (e.target.files?.[0]) { setText(EXAMPLE_ITEMS); setFree([]); } e.target.value = ''; }} />
+                <AiBtn label="Identify items with AI" busyLabel="Reading your list…" disabled={!text.trim()} delay={700} onRun={() => setFree(parseItemNames(text).map((n) => ({ id: uid(), name: n })))} />
               </div>
+              {free.length > 0 && <div className="t-body-small ai-found"><span className="ai-text t-body-medium">AI identified {free.length} item{free.length === 1 ? '' : 's'}</span> <span className="muted">— review and edit:</span></div>}
               {free.length > 0 && (
                 <ul className="free-list">
                   {free.map((x) => (

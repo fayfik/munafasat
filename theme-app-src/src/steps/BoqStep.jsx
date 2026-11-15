@@ -1,6 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
-import { Icon, Btn, Segment } from '../components/ui.jsx';
+import { createPortal } from 'react-dom';
+import { Icon, Btn, Segment, Tooltip } from '../components/ui.jsx';
 import { useForm, Block, FieldBlock, Input, Select, TextArea, NumInput, YesNo, Dialog, ConfirmDelete, MoreMenu, sarFmt } from '../components/FormKit.jsx';
+import { AiBtn, AiCard, AiSpark, AiMark } from '../components/AiKit.jsx';
+import { PURCHASE_TYPES, MATERIAL_GROUPS, ptypeName, mgOf, suggestAccounting, withAccounting } from '../lib/accounting.js';
 import { PROJECTS, UNITS, BOQ_CATEGORIES, QUALIFICATIONS, NATIONALITIES, AI_BOQ, AI_EM_BOQ } from '../data/newRequest.js';
 import { totals, lineTotal, checkEtimad, etimadStale, needsEtimadReason, boqTypeOf, words, MIN_WORDS, num } from '../lib/requestRules.js';
 
@@ -20,18 +23,19 @@ function download(name, text) {
 const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
 export function BoqStep() {
-  const { f, list, em } = useForm();
+  const { f, list, em, headEl } = useForm();
   const rows = list('boqItems');
   const [editing, setEditing] = useState(null); // row or {} for new
-  const [view, setView] = useState('grouped');
+  const [view, setView] = useState('grid');
   const [confirmAll, setConfirmAll] = useState(false);
   const [template, setTemplate] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [checking, setChecking] = useState(false);
   const [detail, setDetail] = useState(null);
+  const [collapsed, setCollapsed] = useState({});
   const p = PROJECTS.find((x) => x.id === f.projectId);
   const budgeted = p ? p.items.filter((i) => (f.selectedItemIds || []).includes(i.id)) : [];
   const t = totals(f);
+  const due = scopeEnd(f);
 
   const suggest = () => {
     setBusy(true);
@@ -41,19 +45,18 @@ export function BoqStep() {
         const names = budgeted.map((b) => b.name);
         const pick = AI_BOQ.filter((r) => !names.length || names.includes(r.projectItem));
         const src = pick.length ? pick : budgeted.map((b) => ({ projectItem: b.name, category: boqTypeOf(b.name, b.type), itemName: b.name, itemDescription: `Supply of ${b.name.toLowerCase()} as described in the scope of work, including delivery and handover`, unitOfMeasure: 'Service', quantity: 1, unitPrice: 100000 }));
-        rows.addMany(src.map((r) => ({ ...r })));
+        rows.addMany(src.map((r) => withAccounting({ ...r, deliveryDate: r.deliveryDate || due })));
       }
       setBusy(false);
     }, 1100);
   };
+  const addRows = (rs) => rows.addMany(em ? rs : rs.map((r) => withAccounting(r)));
+  const save = (r) => { if (r.id) rows.update(r.id, r); else rows.add(r); setEditing(null); };
 
-  const checkAll = () => {
-    setChecking(true);
-    setTimeout(() => { f.boqItems.forEach((r) => { if (!r.etimad || etimadStale(r)) rows.update(r.id, { etimad: checkEtimad(r) }); }); setChecking(false); }, 900);
-  };
+  const checkAll = () => f.boqItems.forEach((r) => rows.update(r.id, { etimad: checkEtimad(r) }));
 
   const groups = useMemo(() => {
-    if (view !== 'grouped' || em) return [['', f.boqItems]];
+    if (view === 'table' || em) return [['', f.boqItems]];
     const m = new Map();
     f.boqItems.forEach((r) => { const k = r.projectItem || 'Other items'; if (!m.has(k)) m.set(k, []); m.get(k).push(r); });
     return [...m.entries()];
@@ -61,118 +64,175 @@ export function BoqStep() {
 
   const unchecked = f.boqItems.filter((r) => !r.etimad || etimadStale(r)).length;
   const exportCsv = () => download('boq.csv', [COLS.join(','), ...f.boqItems.map((r) => [r.projectItem, catName(r.category), r.itemName, r.itemDescription, r.unitOfMeasure, r.quantity, r.unitPrice].map(csvCell).join(','))].join('\n'));
+  const dialogs = (
+    <>
+      {editing && <ItemDialog row={editing} em={em} budgeted={budgeted} due={due} onClose={() => setEditing(null)} onSave={save} />}
+      {detail && <DetailDialog r={f.boqItems.find((x) => x.id === detail.id) || detail} em={em} onClose={() => setDetail(null)} onEdit={() => { setEditing(detail); setDetail(null); }} />}
+      <TemplateDialog open={template} onClose={() => setTemplate(false)} onRows={addRows} existing={f.boqItems} />
+      <ConfirmDelete open={confirmAll} onClose={() => setConfirmAll(false)} onConfirm={rows.clear} title="Delete all items?" />
+    </>
+  );
 
   if (!f.boqItems.length && !busy) {
     return (
       <div className="stack" id="q-boq">
-        <p className="lede t-body muted">{em ? 'Add the products and services you’re buying directly from the Etimad E-Market catalogue.' : 'Define every item, quantity and unit price for this tender. Choose how you want to start — you can mix methods later.'}</p>
+        <p className="lede t-body muted">{em ? 'Add the products and services you’re buying directly from the Etimad E-Market catalogue. Choose how you want to start.' : 'Define every item, quantity and unit price for this tender. Choose how you want to start — you can mix methods later.'}</p>
         <div className="start-grid">
-          <button type="button" className="start-card rec" onClick={suggest}>
-            <span className="tag strong">Recommended</span>
-            <span className="t-title">Draft items with AI</span>
-            <span className="t-body-small muted">Drafts items from your budgeted items and scope. Review and adjust each one.</span>
-          </button>
           <button type="button" className="start-card" onClick={() => setTemplate(true)}>
-            <span className="t-title">Use a template</span>
-            <span className="t-body-small muted">Download the sheet, fill it in, upload it back. Fastest for long lists.</span>
+            <span className="start-icon green"><Icon name="icon-upload" size={18} /></span>
+            <span className="start-title">Upload via template</span>
+            <span className="start-desc">Download the Excel template, fill it in, and upload. Fastest for long lists.</span>
+            <span className="start-link green">Choose a file<Icon name="icon-chevron-right-green" size={12} /></span>
+          </button>
+          <button type="button" className="start-card ai" onClick={suggest}>
+            <span className="ai-pill start-pill">Recommended</span>
+            <span className="start-icon ai"><AiSpark size={18} /></span>
+            <span className="start-title ai-text">Generate with AI</span>
+            <span className="start-desc">{em ? 'Let AI pick catalogue items from your purpose, then review and adjust.' : 'Let AI draft items from your project scope, then review and adjust.'}</span>
+            <span className="start-link ai-link-v">Suggest items<Icon name="icon-chevron-right-ai" size={12} /></span>
           </button>
           <button type="button" className="start-card" onClick={() => setEditing({})}>
-            <span className="t-title">Add items one by one</span>
-            <span className="t-body-small muted">Full control over every detail.</span>
+            <span className="start-icon"><Icon name="icon-plus-ink" size={18} /></span>
+            <span className="start-title">Add manually</span>
+            <span className="start-desc">Enter each item yourself with full control over every detail.</span>
+            <span className="start-link">Add first item<Icon name="icon-chevron-right-ink" size={12} /></span>
           </button>
         </div>
-        <TemplateDialog open={template} onClose={() => setTemplate(false)} onRows={(rs) => rows.addMany(rs)} />
-        {editing && <ItemDialog row={editing} em={em} budgeted={budgeted} onClose={() => setEditing(null)} onSave={(r) => { if (r.id) rows.update(r.id, r); else rows.add(r); setEditing(null); }} />}
+        {dialogs}
       </div>
     );
   }
 
   return (
     <div className="stack" id="q-boq">
-      {busy && <div className="checking compact" role="status"><span className="spinner" aria-hidden="true" /><span className="t-body">Drafting items from your project…</span></div>}
+      {headEl && createPortal(
+        <>
+          <Btn variant="secondary-sm" icon="icon-plus" onClick={() => setTemplate(true)}>Use a Template</Btn>
+          <AiBtn label={busy ? 'Drafting…' : 'Draft with AI'} onRun={suggest} disabled={busy} delay={0} />
+        </>, headEl)}
+      {busy && <div className="checking compact" role="status"><AiSpark size={18} spin /><span className="t-body ai-text">Drafting items from your project…</span></div>}
 
       <Block title={`${f.boqItems.length} item${f.boqItems.length === 1 ? '' : 's'}`} actions={
         <>
-          {!em && <Segment size="sm" label="BOQ view" value={view} onChange={setView} items={[{ id: 'grouped', label: 'Grouped' }, { id: 'table', label: 'Table' }]} />}
-          <Btn variant="secondary-sm" icon="icon-plus" onClick={() => setEditing({})}>Add item</Btn>
+          {!em && <Segment size="sm" label="BOQ view" value={view} onChange={setView} items={[{ id: 'grid', label: 'Grid' }, { id: 'table', label: 'Table' }, { id: 'grouped', label: 'Grouped' }]} />}
           <MoreMenu items={[
-            { label: 'Draft more with AI', onClick: suggest },
-            { label: 'Upload from a template', onClick: () => setTemplate(true) },
+            { label: 'Add item', onClick: () => setEditing({}) },
             { label: 'Download as CSV', onClick: exportCsv },
             { label: 'Delete all items', danger: true, onClick: () => setConfirmAll(true) },
           ]} />
         </>
       }>
         {!em && (
-          <div className="etimad-bar">
-            <div className="t-body-small"><span className="t-body-medium">Etimad E-Market availability</span> <span className="muted">· {unchecked ? `${unchecked} item${unchecked === 1 ? '' : 's'} not checked yet` : 'All items checked'}</span></div>
-            <Btn variant="ghost-sm" disabled={!unchecked || checking} onClick={checkAll}>{checking ? 'Checking Etimad…' : 'Check all in Etimad'}</Btn>
+          <AiCard className="etimad-ai" title={`Etimad E-Market availability · ${unchecked ? `${unchecked} item${unchecked === 1 ? '' : 's'} not checked yet` : 'All items checked'}`}
+            info={<Tooltip text="AI matches each line against the Etimad E-Market catalogue. Off-the-shelf items listed there are normally bought on E-Market — keep them here only with a reason." label="About the Etimad check" />}
+            right={<AiBtn variant="outline" label="Check in Etimad" busyLabel="Checking Etimad…" onRun={checkAll} />} />
+        )}
+
+        {view === 'grid' && !em ? (
+          <div className="boq-cards">
+            {groups.map(([g, rs]) => {
+              const shut = !!collapsed[g];
+              return (
+                <section key={g} className={`boq-card${shut ? ' shut' : ''}`}>
+                  <button type="button" className="boq-card-head" aria-expanded={!shut} onClick={() => setCollapsed((c) => ({ ...c, [g]: !shut }))}>
+                    <span className="boq-card-name"><Icon name="icon-chevron-down-ink" size={16} className="chev" /><span className="t-body-medium">{g}</span></span>
+                    <span className="t-body-small muted tnum">{sarFmt(rs.reduce((s, r) => s + lineTotal(r, em), 0))}</span>
+                  </button>
+                  {!shut && (
+                    <div className="table-scroll">
+                      <table className="plain-table boq-table">
+                        <BoqHead em={em} />
+                        <tbody>{rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={() => setEditing(r)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => rows.update(r.id, { etimad: checkEtimad(r) })} onReason={(v) => rows.update(r.id, { etimadReason: v })} />)}</tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="table-scroll boq-flat">
+            <table className="plain-table boq-table">
+              <BoqHead em={em} />
+              {groups.map(([g, rs]) => (
+                <tbody key={g || 'all'}>
+                  {g && <tr className="group-row"><td colSpan={COLSPAN}>{g}<span className="muted" style={{ fontWeight: 400 }}> · {sarFmt(rs.reduce((s, r) => s + lineTotal(r, em), 0))}</span></td></tr>}
+                  {rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={() => setEditing(r)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => rows.update(r.id, { etimad: checkEtimad(r) })} onReason={(v) => rows.update(r.id, { etimadReason: v })} />)}
+                </tbody>
+              ))}
+            </table>
           </div>
         )}
-        <div className="table-scroll">
-          <table className="plain-table boq-table">
-            <thead><tr>
-              <th>Item</th>
-              {em ? <><th>Supplier</th><th className="num">Qty / period</th></> : <><th className="num">Qty</th><th className="num">Unit price</th></>}
-              <th className="num">Total</th>
-              {!em && <th>Etimad</th>}
-              <th aria-label="Actions" />
-            </tr></thead>
-            {groups.map(([g, rs]) => (
-              <tbody key={g || 'all'}>
-                {g && <tr className="group-row"><td colSpan={6}>{g}<span className="muted" style={{ fontWeight: 400 }}> · {sarFmt(rs.reduce((s, r) => s + lineTotal(r, em), 0))}</span></td></tr>}
-                {rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={() => setEditing(r)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => rows.update(r.id, { etimad: checkEtimad(r) })} onReason={(v) => rows.update(r.id, { etimadReason: v })} />)}
-              </tbody>
-            ))}
-            <tfoot>
-              <tr><td colSpan={em ? 3 : 3} className="muted">Subtotal</td><td className="num">{sarFmt(t.subtotal, 2)}</td><td colSpan={2} /></tr>
-              <tr><td colSpan={3} className="muted">VAT (15%)</td><td className="num">{sarFmt(t.vat, 2)}</td><td colSpan={2} /></tr>
-              <tr className="grand"><td colSpan={3}>Total incl. VAT</td><td className="num">{sarFmt(t.total, 2)}</td><td colSpan={2} /></tr>
-            </tfoot>
-          </table>
-        </div>
         <button type="button" className="add-row" onClick={() => setEditing({})}><Icon name="icon-plus" size={14} />Add item</button>
+        <dl className="boq-totals">
+          <div><dt className="muted">Subtotal</dt><dd className="tnum">{sarFmt(t.subtotal, 2)}</dd></div>
+          <div><dt className="muted">VAT (15%)</dt><dd className="tnum">{sarFmt(t.vat, 2)}</dd></div>
+          <div className="grand"><dt>Total incl. VAT</dt><dd className="tnum">{sarFmt(t.total, 2)}</dd></div>
+        </dl>
       </Block>
-
-      {editing && <ItemDialog row={editing} em={em} budgeted={budgeted} onClose={() => setEditing(null)} onSave={(r) => { if (r.id) rows.update(r.id, r); else rows.add(r); setEditing(null); }} />}
-      {detail && <DetailDialog r={f.boqItems.find((x) => x.id === detail.id) || detail} em={em} onClose={() => setDetail(null)} onEdit={() => { setEditing(detail); setDetail(null); }} />}
-      <TemplateDialog open={template} onClose={() => setTemplate(false)} onRows={(rs) => rows.addMany(rs)} existing={f.boqItems} />
-      <ConfirmDelete open={confirmAll} onClose={() => setConfirmAll(false)} onConfirm={rows.clear} title="Delete all items?" />
+      {dialogs}
     </div>
   );
 }
 
+const COLSPAN = 5;
+const scopeEnd = (f) => {
+  if (!f.startDate || !f.contractDuration) return '';
+  const d = new Date(f.startDate); const n = Number(f.contractDuration);
+  if (f.contractDurationType === 'days') d.setDate(d.getDate() + n); else if (f.contractDurationType === 'years') d.setFullYear(d.getFullYear() + n); else d.setMonth(d.getMonth() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+function BoqHead({ em }) {
+  return (
+    <thead><tr>
+      <th>Item</th>
+      {em ? <><th>Supplier</th><th className="num">Qty / period</th></> : <><th className="num">Qty</th><th className="num">Unit price</th></>}
+      <th className="num">Total</th>
+      <th className="row-actions" aria-label="Actions" />
+    </tr></thead>
+  );
+}
+
 function BoqRow({ r, em, onEdit, onView, onRemove, onCheck, onReason }) {
-  const st = r.etimad && !etimadStale(r) ? ETIMAD[r.etimad.status] : null;
+  const fresh = r.etimad && !etimadStale(r);
   const thin = !em && words(r.itemDescription) < MIN_WORDS.boqDesc;
   const brandMissing = r.hasBrandName && !(r.brandJustification ?? '').trim();
+  const acc = em ? null : (r.mg ? r : withAccounting(r));
+  const mg = acc && mgOf(acc.mg);
   return (
     <>
       <tr className="boq-row">
         <td>
           <button type="button" className="row-title" onClick={onView}><span className="t-body-medium">{r.itemName || 'Unnamed item'}</span></button>
-          <div className="t-body-small muted clamp-2">{em ? [r.purchaseType && (r.purchaseType === 'vehicle-leasing' ? 'Vehicle leasing' : r.purchaseType[0].toUpperCase() + r.purchaseType.slice(1)), r.productId].filter(Boolean).join(' · ') : r.itemDescription}</div>
+          <div className="t-body-small muted clamp-2 row-desc">{em ? [r.purchaseType && (r.purchaseType === 'vehicle-leasing' ? 'Vehicle leasing' : r.purchaseType[0].toUpperCase() + r.purchaseType.slice(1)), r.productId].filter(Boolean).join(' · ') : r.itemDescription}</div>
+          {acc && (
+            <>
+              <div className="row-meta">
+                {acc.ptype && <span className="status-pill t-caption-medium type-pill">{ptypeName(acc.ptype)}</span>}
+                {r.deliveryDate && <span className="t-caption muted" title="Needed by">{r.deliveryDate}</span>}
+                {fresh && r.etimad.status === 'uncertain' && <span className="t-caption amber" title={r.etimad.comment}>Confirm on Etimad</span>}
+                {r.etimad && !fresh && <button type="button" className="inline-link t-caption" onClick={onCheck}>Item changed — re-check Etimad</button>}
+              </div>
+              {mg && <div className="t-caption muted row-mg">Material group: {mg.en} · {mg.code}{acc.acctSource === 'ai' && <AiMark />}</div>}
+            </>
+          )}
           {(thin || brandMissing) && <div className="issue t-caption"><Icon name="icon-warn" size={12} />{brandMissing ? 'Brand name needs a justification' : 'Add a clearer description'}</div>}
         </td>
         {em ? (
           <><td className="muted">{r.supplier || '—'}</td><td className="num">{r.purchaseType === 'product' ? `${num(r.quantity) || 1} ${r.orderUnit || ''}` : r.startDate && r.endDate ? `${r.startDate} → ${r.endDate}` : '—'}</td></>
         ) : (
-          <><td className="num">{r.category === 'manpower' ? `${num(r.staffCount) || num(r.quantity)} staff` : `${num(r.quantity)} ${r.unitOfMeasure || ''}`}</td><td className="num">{sarFmt(r.unitPrice)}</td></>
+          <><td className="num mid">{r.category === 'manpower' ? `${num(r.staffCount) || num(r.quantity)} staff` : `${num(r.quantity)} ${r.unitOfMeasure || ''}`}</td><td className="num mid">{sarFmt(r.unitPrice)}</td></>
         )}
-        <td className="num t-body-medium">{sarFmt(lineTotal(r, em))}</td>
-        {!em && (
-          <td>
-            {st ? <span className={`state-tag ${st.cls}`} title={r.etimad.comment}>{st.label}</span>
-              : <button type="button" className="inline-link t-body-small" onClick={onCheck}>{r.etimad ? 'Item changed — re-check' : 'Check'}</button>}
-          </td>
-        )}
-        <td className="row-actions">
+        <td className="num mid t-body-medium">{sarFmt(lineTotal(r, em))}</td>
+        <td className="row-actions mid">
+          <button type="button" className="icon-btn" aria-label={`View ${r.itemName}`} onClick={onView}><Icon name="icon-eye" size={16} /></button>
           <button type="button" className="icon-btn" aria-label={`Edit ${r.itemName}`} onClick={onEdit}><Icon name="icon-pencil" size={16} /></button>
-          <button type="button" className="icon-btn" aria-label={`Delete ${r.itemName}`} onClick={onRemove}><Icon name="icon-x" size={16} /></button>
+          <button type="button" className="icon-btn" aria-label={`Delete ${r.itemName}`} onClick={onRemove}><Icon name="icon-trash" size={16} /></button>
         </td>
       </tr>
-      {!em && st && r.etimad.status === 'available' && (
-        <tr className="boq-sub"><td colSpan={6}>
+      {!em && fresh && r.etimad.status === 'available' && (
+        <tr className="boq-sub"><td colSpan={COLSPAN}>
           <div className="etimad-note">
             <span className="t-body-small">{r.etimad.comment} Keep it in this tender only if it must be bundled — say why.</span>
             <TextArea rows={1} value={r.etimadReason || ''} onChange={(e) => onReason(e.target.value)} placeholder="Why tender this instead of buying it on E-Market?" aria-label={`Why tender ${r.itemName}`} />
@@ -184,11 +244,20 @@ function BoqRow({ r, em, onEdit, onView, onRemove, onCheck, onReason }) {
   );
 }
 
+/** Sample "Generate with AI" description from the item name and category. */
+function aiDescription(r, cat) {
+  const n = r.itemName.trim();
+  if (cat === 'manpower') return `${n} working on site in Riyadh during official hours. Responsible for delivering the assigned workstream, reporting progress weekly and handing over documentation at the end of the assignment.`;
+  if (cat === 'service') return `${n} delivered by qualified specialists, covering planning, execution, documentation and handover, with weekly progress reports and sign-off by the project owner.`;
+  if (cat === 'material') return `${n} — new, original manufacturer stock with the standard warranty, delivered to the head office in Riyadh with licence keys and documentation where applicable.`;
+  return `${n} — new equipment to the agreed specification, delivered, installed and tested on site, with a 3-year manufacturer warranty and spare-parts availability.`;
+}
+
 const EMPTY = { projectItem: '', category: '', itemName: '', itemDescription: '', unitOfMeasure: 'Each', quantity: '', unitPrice: '', deliveryDate: '', hasBrandName: false, brandJustification: '', mandatoryList: '' };
 const EM_EMPTY = { purchaseType: 'product', itemName: '', productId: '', supplier: '', orderUnit: 'Each', quantity: 1, unitPrice: '', shippingCharges: '', startDate: '', endDate: '', deliveryDate: '', respName: '', respMobile: '' };
 
-function ItemDialog({ row, em, budgeted, onClose, onSave }) {
-  const [r, setR] = useState(() => ({ ...(em ? EM_EMPTY : EMPTY), ...row }));
+function ItemDialog({ row, em, budgeted, due, onClose, onSave }) {
+  const [r, setR] = useState(() => ({ ...(em ? EM_EMPTY : EMPTY), deliveryDate: row.id ? '' : due || '', ...row }));
   const s = (k) => (v) => setR((x) => ({ ...x, [k]: v && v.target ? v.target.value : v }));
   const isNew = !row.id;
   const cat = r.category || (r.itemName ? boqTypeOf(r.itemName) : '');
@@ -196,7 +265,11 @@ function ItemDialog({ row, em, budgeted, onClose, onSave }) {
   const goods = cat === 'material' || cat === 'equipment';
   const valid = r.itemName.trim() && (em ? num(r.unitPrice) > 0 : (mp ? num(r.staffCount) > 0 : num(r.quantity) > 0) && num(r.unitPrice) > 0 && (!r.hasBrandName || r.brandJustification.trim()));
   // A changed name, description, quantity or price makes the stored Etimad check stale (see etimadStale).
-  const save = () => onSave({ ...r, category: em ? undefined : cat });
+  const ai = !em && r.acctSource !== 'user' ? suggestAccounting(r.itemName, r.itemDescription) : null;
+  const acc = r.acctSource === 'user' ? { ptype: r.ptype, mg: r.mg } : ai || { ptype: r.ptype, mg: r.mg };
+  const setAcc = (k) => (e) => setR((x) => ({ ...x, ptype: acc.ptype, mg: acc.mg, [k]: e.target.value, acctSource: 'user' }));
+  const save = () => onSave(em ? r : { ...r, category: cat, ptype: acc.ptype, mg: acc.mg, acctSource: r.acctSource === 'user' ? 'user' : ai ? 'ai' : r.acctSource });
+  const aiNote = ai && r.acctSource !== 'user' ? 'Suggested by AI from the name and description' : undefined;
 
   return (
     <Dialog open onClose={onClose} title={isNew ? 'Add item' : 'Edit item'} sub={isNew ? (em ? 'Fields adapt to the purchase type.' : 'Fill the fields, then save to add it to the table.') : (em ? undefined : 'Changing the name, quantity or price resets the Etimad check.')} className="sheet wide"
@@ -231,7 +304,8 @@ function ItemDialog({ row, em, budgeted, onClose, onSave }) {
             <Select value={r.category} onChange={s('category')}><option value="">Detect from the item</option>{BOQ_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.en}</option>)}</Select>
           </FieldBlock>
           <FieldBlock label={mp ? 'Role' : 'Item name'} required wide><Input value={r.itemName} onChange={s('itemName')} placeholder={mp ? 'e.g. Senior ERP Consultant' : 'Item name…'} /></FieldBlock>
-          <FieldBlock label="Description" wide hint={`${words(r.itemDescription)} of ${MIN_WORDS.boqDesc}+ words — EA checks the specification and Finance picks the material group from it.`}>
+          <FieldBlock label="Description" wide hint={`${words(r.itemDescription)} of ${MIN_WORDS.boqDesc}+ words — EA checks the specification and Finance picks the material group from it.`}
+            action={<AiBtn label="Generate with AI" busyLabel="Writing…" className="ai-sm" disabled={!r.itemName.trim()} onRun={() => setR((x) => ({ ...x, itemDescription: aiDescription(x, cat) }))} delay={800} />}>
             <TextArea rows={3} value={r.itemDescription} onChange={s('itemDescription')} placeholder={mp ? 'Describe the role, responsibilities and requirements…' : 'Describe this item…'} />
           </FieldBlock>
           {mp ? (
@@ -255,12 +329,18 @@ function ItemDialog({ row, em, budgeted, onClose, onSave }) {
               <FieldBlock label="Unit"><Select value={r.unitOfMeasure} onChange={s('unitOfMeasure')}>{UNITS.map((u) => <option key={u}>{u}</option>)}</Select></FieldBlock>
               <FieldBlock label="Quantity" required><NumInput value={r.quantity} onChange={s('quantity')} min={1} placeholder="0" /></FieldBlock>
               <FieldBlock label="Unit price (SAR)" required><NumInput value={r.unitPrice} onChange={s('unitPrice')} placeholder="0.00" /></FieldBlock>
-              <FieldBlock label="Delivery date" optional><Input type="date" value={r.deliveryDate} onChange={s('deliveryDate')} /></FieldBlock>
+              <FieldBlock label="Needed by" optional><Input type="date" value={r.deliveryDate} onChange={s('deliveryDate')} /></FieldBlock>
               {goods && <FieldBlock label="Mandatory list reference" optional wide info="Material and equipment may fall under the mandatory list of national products and must be bought from approved listed companies."><Input value={r.mandatoryList} onChange={s('mandatoryList')} placeholder="Listed company or product reference…" /></FieldBlock>}
               <FieldBlock label="Specific brand required?"><YesNo name="Brand name" value={!!r.hasBrandName} onChange={s('hasBrandName')} /></FieldBlock>
               {r.hasBrandName && <FieldBlock label="Brand justification" required wide><TextArea rows={2} value={r.brandJustification} onChange={s('brandJustification')} placeholder="Explain why a specific brand is required…" /></FieldBlock>}
             </>
           )}
+          <FieldBlock label={<>Purchase type{aiNote && <AiMark />}</>} hint={aiNote}>
+            <Select value={acc.ptype || ''} onChange={setAcc('ptype')}><option value="">Select…</option>{PURCHASE_TYPES.map((x) => <option key={x.id} value={x.id}>{x.en}</option>)}</Select>
+          </FieldBlock>
+          <FieldBlock label={<>Material group{aiNote && <AiMark />}</>} hint={acc.mg ? `GL: ${mgOf(acc.mg)?.gl}` : 'Finance books the line to this group’s GL account.'}>
+            <Select value={acc.mg || ''} onChange={setAcc('mg')}><option value="">Select…</option>{MATERIAL_GROUPS.map((m) => <option key={m.code} value={m.code}>{m.en} · {m.code}</option>)}</Select>
+          </FieldBlock>
           <div className="dlg-total t-body wide"><span className="muted">Line total</span><span className="t-body-medium">{sarFmt(lineTotal({ ...r, category: cat }), 2)}</span></div>
         </div>
       )}
@@ -271,7 +351,7 @@ function ItemDialog({ row, em, budgeted, onClose, onSave }) {
 function DetailDialog({ r, em, onClose, onEdit }) {
   const rows = em
     ? [['Purchase type', r.purchaseType], ['Product ID', r.productId], ['Supplier', r.supplier], ['Price', sarFmt(r.unitPrice, 2)], ['Quantity', r.quantity], ['Shipping', sarFmt(r.shippingCharges, 2)], ['Period', r.startDate && `${r.startDate} → ${r.endDate}`], ['Responsible', [r.respName, r.respMobile].filter(Boolean).join(' · ')], ['Line total', sarFmt(lineTotal(r, true), 2)]]
-    : [['Budgeted item', r.projectItem], ['Category', catName(r.category)], ['Description', r.itemDescription], ['Quantity', r.category === 'manpower' ? `${r.staffCount} staff` : `${r.quantity} ${r.unitOfMeasure}`], ['Unit price', sarFmt(r.unitPrice, 2)], ['Job title', r.jobTitle], ['Min. qualification', QUALIFICATIONS.find((q) => q.value === r.minQualification)?.en], ['Experience', r.minExperienceYears && `${r.minExperienceYears}+ years`], ['Nationalities', r.nationalityRequired && (r.nationalities || []).join(', ')], ['Brand', r.hasBrandName ? r.brandJustification : 'Not required'], ['Mandatory list', r.mandatoryList], ['Etimad', r.etimad && `${ETIMAD[r.etimad.status].label} — ${r.etimad.comment}`], ['Line total', sarFmt(lineTotal(r), 2)]];
+    : [['Budgeted item', r.projectItem], ['Category', catName(r.category)], ['Description', r.itemDescription], ['Quantity', r.category === 'manpower' ? `${r.staffCount} staff` : `${r.quantity} ${r.unitOfMeasure}`], ['Unit price', sarFmt(r.unitPrice, 2)], ['Needed by', r.deliveryDate], ['Purchase type', ptypeName(r.ptype) + (r.acctSource === 'ai' ? ' · suggested by AI' : '')], ['Material group', mgOf(r.mg) && `${mgOf(r.mg).en} · ${r.mg}`], ['Job title', r.jobTitle], ['Min. qualification', QUALIFICATIONS.find((q) => q.value === r.minQualification)?.en], ['Experience', r.minExperienceYears && `${r.minExperienceYears}+ years`], ['Nationalities', r.nationalityRequired && (r.nationalities || []).join(', ')], ['Brand', r.hasBrandName ? r.brandJustification : 'Not required'], ['Mandatory list', r.mandatoryList], ['Etimad', r.etimad && `${ETIMAD[r.etimad.status].label} — ${r.etimad.comment}`], ['Line total', sarFmt(lineTotal(r), 2)]];
   return (
     <Dialog open onClose={onClose} title={r.itemName || 'Unnamed item'} className="sheet" foot={<><Btn variant="secondary" onClick={onClose}>Close</Btn><Btn variant="primary" icon="icon-pencil" onClick={onEdit}>Edit</Btn></>}>
       <dl className="kv-list">{rows.filter(([, v]) => v !== undefined && v !== '' && v !== null && v !== false).map(([k, v]) => <div key={k}><dt className="t-caption muted">{k}</dt><dd className="t-body">{String(v)}</dd></div>)}</dl>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Icon } from '../components/ui.jsx';
 import { useForm, Block, Input, NumInput, AiBtn, TotalBar, MoreMenu, ConfirmDelete, sarFmt } from '../components/FormKit.jsx';
 import { AI_PAYMENTS } from '../data/newRequest.js';
+import { useImport } from '../components/AiImport.jsx';
 import { totals, num, words, MIN_WORDS } from '../lib/requestRules.js';
 
 export function PaymentStep() {
@@ -10,11 +11,13 @@ export function PaymentStep() {
   const [confirmAll, setConfirmAll] = useState(false);
   const t = totals(f);
   const base = t.subtotal;
+  const [importBtn, importBanner] = useImport('payment', (rs) => { const prev = f.paymentStages; rows.clear(); rows.addMany(rs); return () => { rows.clear(); rows.addMany(prev); }; });
 
   return (
     <div className="stack" id="q-payment">
       <Block title="Payment stages" info="Tie each payment to a milestone. Enter a percentage or an amount — the other is worked out from the BOQ subtotal. The total must equal 100%."
-        actions={<><AiBtn label="Suggest stages" onRun={() => { rows.clear(); rows.addMany(AI_PAYMENTS.map((x) => ({ ...x }))); }} />{f.paymentStages.length > 0 && <MoreMenu items={[{ label: 'Delete all stages', danger: true, onClick: () => setConfirmAll(true) }]} />}</>}>
+        actions={<>{importBtn}<AiBtn label="Suggest stages" onRun={() => { rows.clear(); rows.addMany(AI_PAYMENTS.map((x) => ({ ...x }))); }} />{f.paymentStages.length > 0 && <MoreMenu items={[{ label: 'Delete all stages', danger: true, onClick: () => setConfirmAll(true) }]} />}</>}>
+        {importBanner}
         {f.paymentStages.length ? (
           <div className="table-scroll">
             <table className="plain-table edit-table">

@@ -28,6 +28,7 @@ export function NewRequest({ id, onExit, onOpen }) {
   const [step, setStep] = useState(() => saved?.step || 'route');
   const [savedAt, setSavedAt] = useState(saved?.updatedAt || null);
   const [gate, setGate] = useState(null);
+  const [headEl, setHeadEl] = useState(null);
   const [submitted, setSubmitted] = useState(saved?.status === 'submitted' ? saved : null);
   const dirty = useRef(false);
   const scroller = useRef(null);
@@ -99,7 +100,7 @@ export function NewRequest({ id, onExit, onOpen }) {
     setSubmitted({ ...rec, id: reqId });
   };
 
-  const ctx = useMemo(() => ({ f, set, patch, list, routeConfirmed, confirmRoute, goto, em, reqId, scroller }), [f, set, patch, list, routeConfirmed, confirmRoute, goto, em, reqId]);
+  const ctx = useMemo(() => ({ f, set, patch, list, routeConfirmed, confirmRoute, goto, em, reqId, scroller, headEl }), [f, set, patch, list, routeConfirmed, confirmRoute, goto, em, reqId, headEl]);
   const project = PROJECTS.find((x) => x.id === f.projectId);
   const doneCount = steps.filter((s) => s.id !== 'review' && sectionStatus(s.id, f, routeConfirmed) === 'done').length;
   const countable = steps.filter((s) => s.id !== 'review').length;
@@ -154,35 +155,38 @@ export function NewRequest({ id, onExit, onOpen }) {
           <div className="req-scroll" ref={scroller}>
             <div className="req-content" key={cur.id}>
               <div className="req-head">
-                <div className="t-caption muted">Step {pos + 1} of {steps.length}</div>
+                <div className="t-caption muted">Step {pos + 1} of {routeConfirmed ? steps.length : '–'}</div>
                 <div className="title">
-                  <h1 className="t-display" id="req-step-title">{stepTitle}</h1>
-                  <Tooltip text={cur.desc} label="About this step" />
+                  <div className="title-main">
+                    <h1 className="t-display" id="req-step-title">{stepTitle}</h1>
+                    <Tooltip text={cur.desc} label="About this step" />
+                  </div>
+                  <div className="req-head-actions" ref={setHeadEl} />
                 </div>
               </div>
               <Body />
+              {cur.id !== 'route' && (
+                <div className="req-foot">
+                  <Btn variant="ghost" icon="icon-arrow-left" onClick={back}>Back</Btn>
+                  <span className="grow" />
+                  <Btn variant="secondary" onClick={saveNow}>Save draft</Btn>
+                  {cur.id !== 'review'
+                    ? <Btn variant="primary" onClick={next}>Continue<Icon name="icon-arrow-right" size={16} className="invert" /></Btn>
+                    : <span className="gate-wrap" title={bl.length ? 'Fix the items above first' : undefined}><Btn variant="primary" icon="icon-approve" disabled={bl.length > 0} onClick={submit}>Submit request</Btn></span>}
+                </div>
+              )}
             </div>
-            {cur.id !== 'route' && (
-              <div className="req-foot">
-                <Btn variant="ghost" icon="icon-arrow-left" onClick={back}>Back</Btn>
-                <span className="grow" />
-                <Btn variant="secondary" onClick={saveNow}>Save draft</Btn>
-                {cur.id !== 'review'
-                  ? <Btn variant="primary" onClick={next}>Continue<Icon name="icon-arrow-right" size={16} className="invert" /></Btn>
-                  : <span className="gate-wrap" title={bl.length ? 'Fix the items above first' : undefined}><Btn variant="primary" icon="icon-approve" disabled={bl.length > 0} onClick={submit}>Submit request</Btn></span>}
-              </div>
-            )}
           </div>
         </div>
       </main>
 
-      <Dialog open={!!gate} onClose={() => setGate(null)} title="Add more detail before you continue" sub="As it stands, this step is likely to be returned by a reviewer. Fixing it now saves a review round."
+      <Dialog open={!!gate} tone="warning" onClose={() => setGate(null)} title="Add more detail before you continue" sub="As it stands, this step is likely to be returned by a reviewer. Fixing it now saves a review round."
         foot={<><Btn variant="ghost" onClick={() => { setGate(null); goto(steps[pos + 1].id); }}>Continue anyway</Btn><Btn variant="primary" onClick={() => { const fid = gate?.[0]?.field; setGate(null); setTimeout(() => { const el = document.getElementById(fid); el?.scrollIntoView({ block: 'center', behavior: 'smooth' }); el?.querySelector('input,textarea,select,button')?.focus({ preventScroll: true }); el?.classList.add('flash'); setTimeout(() => el?.classList.remove('flash'), 1400); }, 60); }}>Fix now</Btn></>}>
         <ul className="gate-list">
           {gate?.map((g) => (
             <li key={g.id}>
               <Icon name="icon-warn" size={16} />
-              <div><div className="t-body-medium">{g.en}</div><div className="t-body-small muted">{g.why}</div>{g.meta && <div className="t-caption muted" style={{ marginTop: 2 }}>{g.meta}</div>}</div>
+              <div><div className="t-body-medium">{g.en}</div><div className="t-body-small muted">{g.why}{g.ai && ' Try to add more details, or use AI to draft it for you.'}</div></div>
             </li>
           ))}
         </ul>

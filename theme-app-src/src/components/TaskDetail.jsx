@@ -11,6 +11,8 @@ import { OFFICERS } from '../data/content.js';
 import { DeptApproval, DoaApproval, EstimatedPrice, ProcLead, ProcOfficer } from '../tasks/Approvals.jsx';
 import { TechEval, Specialist, EaReview, Qualification } from '../tasks/Reviews.jsx';
 import { GlReview, GlChanged, AssetTreatment } from '../tasks/Finance.jsx';
+import { AiCard, AiSpark, AiTag } from './AiKit.jsx';
+import { executiveSummary } from '../data/aiContent.js';
 
 const BODIES = { dept: DeptApproval, tech: TechEval, cyber: Specialist, bcm: Specialist, orm: Specialist, ea: EaReview, gl: GlReview, glchanged: GlChanged, assets: AssetTreatment, qual: Qualification, lead: ProcLead, officer: ProcOfficer, doa: DoaApproval, price: EstimatedPrice };
 const STATUS = { dept: 'Pending your decision', doa: 'Pending your decision', price: 'Pending your decision', lead: 'Pending your decision', glchanged: 'Changed after approval' };
@@ -102,7 +104,7 @@ export function TaskDetail({ task, onComplete, panel, setPanel }) {
               </div>
             )}
             <div className="panel" key={tab} role="tabpanel">
-              {tab === 'action' && <fieldset className="plain-fieldset" disabled={!!done}><Body /></fieldset>}
+              {tab === 'action' && <><ExecSummary request={request} type={task.type} /><fieldset className="plain-fieldset" disabled={!!done}><Body /></fieldset></>}
               {tab === 'details' && <RequestDetails />}
               {tab === 'activity' && <Activity task={task} request={request} />}
             </div>
@@ -131,5 +133,28 @@ export function TaskDetail({ task, onComplete, panel, setPanel }) {
           onConfirm={(note) => { setDialog(null); onComplete(task, dialog, note); }} />
       )}
     </TaskCtx.Provider>
+  );
+}
+
+/** AI executive summary of the request, tailored to what this reviewer decides. */
+function ExecSummary({ request, type }) {
+  const [open, setOpen] = useState(true);
+  const [v, setV] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const regen = () => { setBusy(true); setTimeout(() => { setV((x) => x + 1); setBusy(false); }, 900); };
+  const lines = executiveSummary(request, type, v);
+  return (
+    <AiCard className="exec-summary" title="AI executive summary"
+      right={<span className="row-gap" style={{ gap: 12 }}>
+        {open && <button type="button" className="ai-link" onClick={regen} disabled={busy}>{busy ? <><AiSpark size={12} spin />Regenerating…</> : 'Regenerate'}</button>}
+        <button type="button" className="ai-link" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Show'}</button>
+      </span>}>
+      {open && (
+        <>
+          <ul className={`exec-lines${busy ? ' dim' : ''}`}>{lines.map((l) => <li key={l} className="t-body-small">{l}</li>)}</ul>
+          <AiTag>AI generated — check it against the request details</AiTag>
+        </>
+      )}
+    </AiCard>
   );
 }

@@ -25,6 +25,10 @@ Commit both `theme-app-src/` and `theme-app/` after a build.
 | `src/data/content.js` | Review content per task type (cyber, BCM, op-risk, EA, GL, assets…) and the libraries |
 | `src/data/newRequest.js` | New Request reference data: projects, cost centers, people, samples, standards library, BCM / third-party risk questions |
 | `src/lib/requestRules.js` | Routing, step completeness, “will this be returned?” checks, standards and continuity screening |
+| `src/lib/accounting.js` | AI purchase type + material group for each BOQ line (GL follows the material group) |
+| `src/lib/preReview.js` | AI pre-review on Review & submit — what each reviewer is likely to return, with fixes to apply |
+| `src/data/aiContent.js` | Sample content behind the AI touchpoints: similar requests, import payloads, project library, executive summary |
+| `src/components/AiKit.jsx` · `src/styles/ai.css` | The shared AI look — spark, gradient text, AI card, AI buttons, “AI generated” tag |
 | `src/pages/` | New Request form shell and the interim My requests page |
 | `src/steps/` | One component per New Request step |
 | `src/components/` | Shell, inbox column, task page, review kit (Accept / Modify / Comment), request details, side panel, dialogs |
@@ -37,6 +41,8 @@ Content is transcribed from the design-review build deployed on 11 Nov 2026.
 Review progress, comments, decisions and requests you create are kept for the browser session only.
 
 Switch person from the profile menu in the top bar; each sees only their own inbox and requests. A link to someone else’s task opens it as that person.
+
+AI touchpoints (sample content, no live model): similar requests to import on Project setup, “Identify items with AI” in Help me decide, Generate scope / terms / purpose / location, Generate with AI on the BOQ (start card, title row and item descriptions), AI Etimad check, AI purchase type + material group per line, Import from similar projects (payment, requirements, criteria, qualification), AI pre-review on Review & submit, AI suggestions on My requests, and an AI executive summary on every reviewer task.
 
 Routes: `#/inbox/<task>` · `#/requests` · `#/requests/new` · `#/requests/<id>`.
 

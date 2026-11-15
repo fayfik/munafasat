@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Icon, Btn } from '../components/ui.jsx';
+import { useImport } from '../components/AiImport.jsx';
 import { useForm, Block, FieldBlock, Input, TextArea, NumInput, AiBtn, TotalBar, ChipList, PeoplePicker, MoreMenu, ConfirmDelete } from '../components/FormKit.jsx';
 import { PEOPLE, MANDATORY_DOCS, AI_TECH_DOCS, AI_TECH_REQ, AI_EVAL } from '../data/newRequest.js';
 import { totals, words, MIN_WORDS } from '../lib/requestRules.js';
@@ -14,6 +15,8 @@ export function TechStep() {
   const member = f.technicalCommitteeMembers[0];
   const pass = Number(f.technicalPassingPercentage);
 
+  const [reqImport, reqBanner] = useImport('requirements', (rs) => { const prev = f.technicalRequirements; req.clear(); req.addMany(rs); return () => { req.clear(); req.addMany(prev); }; });
+  const [evImport, evBanner] = useImport('criteria', (rs) => { const prev = f.evaluationCriteria; ev.clear(); ev.addMany(rs); return () => { ev.clear(); ev.addMany(prev); }; });
   return (
     <div className="stack">
       <Block title="Technical evaluator" info="The one person who scores technical proposals. People who reviewed RFPs in this project are listed first.">
@@ -36,7 +39,8 @@ export function TechStep() {
       </Block>
 
       <Block title="Technical requirements" id="q-req" info="What the solution must meet, with acceptance criteria. EA returns requirements that only have a title."
-        actions={<><AiBtn label="Suggest requirements" onRun={() => { req.clear(); req.addMany(AI_TECH_REQ.map((x) => ({ ...x }))); }} />{f.technicalRequirements.length > 0 && <MoreMenu items={[{ label: 'Delete all requirements', danger: true, onClick: () => setDel('req') }]} />}</>}>
+        actions={<>{reqImport}<AiBtn label="Suggest requirements" onRun={() => { req.clear(); req.addMany(AI_TECH_REQ.map((x) => ({ ...x }))); }} />{f.technicalRequirements.length > 0 && <MoreMenu items={[{ label: 'Delete all requirements', danger: true, onClick: () => setDel('req') }]} />}</>}>
+        {reqBanner}
         {f.technicalRequirements.length ? (
           <ol className="edit-list">
             {f.technicalRequirements.map((r, i) => (
@@ -56,7 +60,8 @@ export function TechStep() {
       </Block>
 
       <Block title="Evaluation criteria" id="q-eval" info="Weighted criteria the evaluator scores. Weights must total 100%; say how each one is applied."
-        actions={<><AiBtn label="Suggest criteria" onRun={() => { ev.clear(); ev.addMany(AI_EVAL.map((x) => ({ ...x }))); }} />{f.evaluationCriteria.length > 0 && <MoreMenu items={[{ label: 'Delete all criteria', danger: true, onClick: () => setDel('eval') }]} />}</>}>
+        actions={<>{evImport}<AiBtn label="Suggest criteria" onRun={() => { ev.clear(); ev.addMany(AI_EVAL.map((x) => ({ ...x }))); }} />{f.evaluationCriteria.length > 0 && <MoreMenu items={[{ label: 'Delete all criteria', danger: true, onClick: () => setDel('eval') }]} />}</>}>
+        {evBanner}
         {f.evaluationCriteria.length ? (
           <ol className="edit-list">
             {f.evaluationCriteria.map((r, i) => (
