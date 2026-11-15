@@ -181,11 +181,11 @@ export function LibraryDialog({ title, items, onInsert, onClose }) {
   return (
     <dialog ref={ref} className="dialog sheet" aria-labelledby="lib-title">
       <div className="dialog-head">
-        <div>
-          <h2 id="lib-title" className="t-heading" style={{ fontSize: 18, lineHeight: '24px', margin: 0 }}>{title}</h2>
-          <p className="t-body-small muted" style={{ margin: '4px 0 0' }}>Vendor-ready wording. It is inserted into the request and marked as accepted.</p>
+        <div className="dialog-titles">
+          <h2 id="lib-title" className="t-heading">{title}</h2>
+          <p className="t-body-small muted">Vendor-ready wording. It is inserted into the request and marked as accepted.</p>
         </div>
-        <button className="icon-btn" type="button" aria-label="Close" onClick={() => ref.current.close()}><Icon name="icon-x" size={14} /></button>
+        <button className="icon-btn" type="button" aria-label="Close" onClick={() => ref.current.close()}><Icon name="icon-x" size={18} /></button>
       </div>
       <div className="dialog-body">
         {items.length === 0 && <p className="t-body-small muted">Everything from this library is already in the request.</p>}

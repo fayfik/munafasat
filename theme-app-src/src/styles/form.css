@@ -55,7 +55,7 @@ img.invert, .btn-primary > img, .btn-primary-sm > img { filter: brightness(0) in
 
 /* ---------- Blocks & fields ---------- */
 .fblock { display: flex; flex-direction: column; gap: 12px; }
-.fblock-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border-soft); flex-wrap: wrap; }
+.fblock-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .fblock-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .fblock-title h2 { margin: 0; }
 .fblock-title .t-caption { margin-left: 6px; }
@@ -396,3 +396,5 @@ tr:hover .row-actions .icon-btn, .row-actions .icon-btn:focus-visible { opacity:
 .result-group .rg-head { padding-bottom: 12px; border-bottom: 1px solid var(--border-default); }
 .result-group.on .rg-head { border-bottom-color: var(--brand-200); }
 .ar-under { text-align: left; }
+
+.req-content > .stack { gap: 24px; }

@@ -26,7 +26,7 @@ export function Block({ title, info, actions, children, id, meta }) {
   );
 }
 
-export function FieldBlock({ label, hint, info, required, error, id, children, wide, optional, action }) {
+export function FieldBlock({ label, hint, info, required, error, id, children, wide, optional, action, inline }) {
   const auto = useId();
   // Link the label to the control when the child is one of our inputs.
   const linkable = isValidElement(children) && [Input, Select, TextArea, NumInput].includes(children.type);
@@ -34,7 +34,7 @@ export function FieldBlock({ label, hint, info, required, error, id, children, w
   const hintId = `${auto}-hint`;
   const child = linkable ? cloneElement(children, { id: inputId, 'aria-describedby': error || hint ? hintId : undefined, 'aria-invalid': error ? true : undefined }) : children;
   return (
-    <div className={`ffield${wide ? ' wide' : ''}${error ? ' has-error' : ''}`} id={id}>
+    <div className={`ffield${wide || inline ? ' wide' : ''}${inline ? ' inline' : ''}${error ? ' has-error' : ''}`} id={id}>
       {label && (
         <div className="ffield-label t-label">
           <label htmlFor={inputId}>{label}{required && <span className="req" aria-hidden="true"> *</span>}{optional && <span className="t-caption muted"> · optional</span>}</label>
