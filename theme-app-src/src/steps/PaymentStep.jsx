@@ -21,7 +21,7 @@ export function PaymentStep() {
         {f.paymentStages.length ? (
           <div className="table-scroll">
             <table className="plain-table edit-table">
-              <thead><tr><th style={{ width: 28 }} aria-label="Order" /><th>Stage</th><th>Deliverables it pays for</th><th className="num" style={{ width: 110 }}>Share</th><th className="num" style={{ width: 160 }}>Amount (SAR)</th><th aria-label="Actions" /></tr></thead>
+              <thead><tr><th style={{ width: 52 }} aria-label="Order" /><th>Stage</th><th>Deliverables it pays for</th><th className="num" style={{ width: 88 }}>Share</th><th className="num" style={{ width: 124 }}>Amount (SAR)</th><th aria-label="Actions" style={{ width: 40 }} /></tr></thead>
               <tbody>
                 {f.paymentStages.map((r, i) => {
                   const amount = typeof r.amount === 'number' ? r.amount : (num(r.percentage) / 100) * base;

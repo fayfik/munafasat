@@ -63,17 +63,39 @@
 
 @media (prefers-reduced-motion: reduce) { .ai-spark-svg.spin { animation-duration: 3s; } }
 
-/* Form dialogs — gradient heads (Figma "dialog sheet - normal / warning") */
-.dialog.tone-normal, .dialog.tone-warning { border: 0; overflow: hidden; box-shadow: 0 12px 32px rgba(27, 35, 22, 0.14); }
-.dialog.tone-normal .dialog-head, .dialog.tone-warning .dialog-head { align-items: flex-start; padding: 20px 20px 20px 24px; }
-.dialog.tone-normal .dialog-head { background: linear-gradient(0deg, #fff 0%, rgba(255, 255, 255, 0) 100%), linear-gradient(90deg, #7de8fc 0%, #bbd6a9 100%); }
-.dialog.tone-warning .dialog-head { background: linear-gradient(0deg, #fff 0%, rgba(255, 255, 255, 0) 100%), linear-gradient(90deg, #f3e2b8 0%, #f2c9c4 100%); }
+/* Dialogs — one style everywhere (Figma "dialog sheet - normal / warning"):
+   no border, soft shadow, gradient head fading to white, 40% backdrop. */
+.dialog { border: 0; overflow: hidden; box-shadow: 0 12px 32px rgba(27, 35, 22, 0.14); }
+.dialog::backdrop { background: rgba(27, 35, 22, 0.4); }
+.dialog .dialog-head { align-items: flex-start; padding: 20px 20px 20px 24px; background: linear-gradient(0deg, #fff 0%, rgba(255, 255, 255, 0) 100%), linear-gradient(90deg, #7de8fc 0%, #bbd6a9 100%); }
+.dialog.tone-warning .dialog-head { padding-top: 24px; background: linear-gradient(0deg, #fff 0%, rgba(255, 255, 255, 0) 100%), linear-gradient(90deg, #f3e2b8 0%, #f2c9c4 100%); }
+.dialog.tone-plain .dialog-head { background: none; }
 .dialog-titles { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .dialog-titles h2 { margin: 0; font-size: 20px; line-height: 26px; }
 .dialog-titles p { margin: 0; max-width: 440px; }
-.dialog.tone-normal .dialog-head .icon-btn, .dialog.tone-warning .dialog-head .icon-btn { width: 28px; height: 28px; margin: -4px -4px 0 0; }
+.dialog .dialog-head .icon-btn { width: 28px; height: 28px; margin: -4px -4px 0 0; flex: none; }
 .dialog.tone-warning.sheet { width: 480px; }
 .dialog.sheet .dialog-foot { padding: 13px 24px 20px; }
+/* Decision dialog: the gradient sits behind the title column. */
+.decision-main { background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0, #fff 116px), linear-gradient(90deg, #7de8fc 0%, #bbd6a9 100%) 0 0 / 100% 116px no-repeat; }
+.decision-dlg.danger .decision-main { background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0, #fff 116px), linear-gradient(90deg, #f3e2b8 0%, #f2c9c4 100%) 0 0 / 100% 116px no-repeat; }
+.whats-next { border-radius: 0; }
+
+/* Section headers — no rule under the title (Figma). */
+.fblock-head, .sec-head { border-bottom: 0; padding-bottom: 0; }
+
+/* Tables — soft rounded frame, tinted header, no rule under the last row (Figma). */
+.plain-table { border-collapse: separate; border-spacing: 0; border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; }
+.plain-table thead th { background: var(--bg-subtle); border-bottom: 1px solid var(--border-soft); padding: 8px 10px 9px; }
+.plain-table tbody:last-of-type tr:last-child td, .plain-table tbody:last-child tr:last-child td { border-bottom: 0; }
+.plain-table tfoot td { border-top: 1px solid var(--border-soft); }
+.plain-table tfoot tr + tr td { border-top: 0; }
+.plain-table tfoot .grand td { border-top: 1px solid var(--border-default); }
+.plain-table .group-row td { background: var(--bg-subtle); }
+.plain-table .group-row td .muted { font-weight: 400; }
+/* Tables that already sit in a framed card don't get a second frame. */
+.boq-card .plain-table, .boq-flat .plain-table { border: 0; border-radius: 0; }
+.boq-card .plain-table thead th { background: none; border-bottom: 1px solid var(--border-default); }
 
 /* AI pre-review (Review & submit) */
 .pre-review { gap: 12px; padding: 12px 14px; }
@@ -101,3 +123,11 @@
 .exec-lines.dim { opacity: 0.4; }
 .home-ai { margin-bottom: 4px; }
 .ai-link:disabled { opacity: 0.6; cursor: default; }
+
+/* Collapsible sections follow the BOQ group card: soft frame, tinted header band. */
+.collapse { border-color: var(--border-soft); overflow: hidden; }
+.collapse-head { background: var(--bg-subtle); }
+.collapse.open > .collapse-head { border-bottom: 1px solid var(--border-soft); }
+.collapse.open > .collapse-body { padding-top: 14px; }
+.edit-table { table-layout: fixed; } .edit-table th:first-child { width: 52px; }
+.plain-table.boq td:nth-child(4) { white-space: nowrap; }
