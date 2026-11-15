@@ -55,7 +55,7 @@ img.invert, .btn-primary > img, .btn-primary-sm > img { filter: brightness(0) in
 
 /* ---------- Blocks & fields ---------- */
 .fblock { display: flex; flex-direction: column; gap: 12px; }
-.fblock-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border-soft); flex-wrap: wrap; }
+.fblock-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .fblock-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .fblock-title h2 { margin: 0; }
 .fblock-title .t-caption { margin-left: 6px; }
@@ -396,3 +396,16 @@ tr:hover .row-actions .icon-btn, .row-actions .icon-btn:focus-visible { opacity:
 .result-group .rg-head { padding-bottom: 12px; border-bottom: 1px solid var(--border-default); }
 .result-group.on .rg-head { border-bottom-color: var(--brand-200); }
 .ar-under { text-align: left; }
+
+/* Figma: form tables sit in a soft rounded frame with a tinted header. */
+.req-form .plain-table.compact { border-collapse: separate; border-spacing: 0; border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; }
+.req-form .plain-table.compact thead th { background: var(--bg-subtle); border-bottom: 1px solid var(--border-soft); padding: 8px 10px 9px; }
+.req-form .plain-table.compact tbody tr:last-child td { border-bottom: 0; }
+.req-form .plain-table.compact tfoot td { border-top: 1px solid var(--border-soft); }
+.req-form .plain-table.compact tfoot tr + tr td { border-top: 0; }
+.req-form .plain-table.compact tfoot .grand td { border-top: 1px solid var(--border-default); }
+.req-form .plain-table .group-row td { background: var(--bg-subtle); }
+.req-form .plain-table .group-row td .muted { font-weight: 400; }
+.dialog.tone-warning .dialog-head { padding-top: 24px; }
+.dialog.tone-warning::backdrop, .dialog.tone-normal::backdrop { background: rgba(27, 35, 22, 0.4); }
+.req-content > .stack { gap: 24px; }
