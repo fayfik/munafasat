@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTask, ReviewHeader, SectionHead, ReviewRow, Banner, countDone, isDone } from '../components/ReviewKit.jsx';
 import { Icon, Btn, Segment } from '../components/ui.jsx';
+import { AiMark, AiTag } from '../components/AiKit.jsx';
 import { GL_LINES, GL_CHANGES, MATERIAL_GROUPS, ASSET_FLAGGED, ASSET_UNFLAGGED } from '../data/content.js';
 
 /* ---------- Finance review — GL ---------- */
@@ -14,8 +15,8 @@ function GlCells({ line, v }) {
         <div className="t-caption muted">{line.desc}</div>
         <div className="t-caption muted">{line.qty}</div>
       </div>
-      <div><span className="t-caption muted">Purchase type</span><div className="t-body-small">{v?.ptype ?? line.ptype}</div></div>
-      <div><span className="t-caption muted">Material group</span><div className="t-body-small">{mg}</div></div>
+      <div><span className="t-caption muted">Purchase type{!v?.ptype && <AiMark title="Classified by AI when the line was created" />}</span><div className="t-body-small">{v?.ptype ?? line.ptype}</div></div>
+      <div><span className="t-caption muted">Material group{!v?.mg && <AiMark title="Classified by AI when the line was created" />}</span><div className="t-body-small">{mg}</div></div>
       <div><span className="t-caption muted">GL main / sub</span><div className="t-body-small">{v?.glMain ?? line.glMain}</div><div className={`t-body-small ${sub ? '' : 'danger-text'}`}>{sub || 'Sub-account missing'}</div></div>
     </div>
   );
@@ -33,6 +34,7 @@ export function GlReview() {
     <div className="stack">
       <ReviewHeader title="Review the accounting classification" desc="AI classified each line at creation. Accept it, or modify the classification. Lines that disagree come first." done={done} total={keys.length} noun="BOQ items reviewed"
         onAll={() => review.set(keys.filter((k) => !review.decisions[k]), { state: 'accepted' })} />
+      <AiTag>Purchase types and material groups were classified by AI from each line’s name and description — accept or modify them.</AiTag>
       <Banner tone="info" icon="icon-clock" title="Assets review in progress">Lama Al-Subaie is reviewing the asset lines; their decisions will appear here.</Banner>
       <section className="sec">
         <SectionHead name="BOQ items — accounting" hint={`${toCheck.length} lines disagree and are highlighted.`}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Icon, Btn, Collapsible, Field } from '../components/ui.jsx';
+import { Icon, Btn, Collapsible, Field, Segment, Tooltip } from '../components/ui.jsx';
 import { useForm, Block, FieldBlock, Input, TextArea, YesNo, ChipList, sarFmt } from '../components/FormKit.jsx';
 import { PROJECTS, COST_CENTERS, STD_GROUPS, STD_VERSION, BCM_VERDICT, RISK_RATING, NEXT_STEPS, BOQ_CATEGORIES, SECTIONS } from '../data/newRequest.js';
 import {
@@ -7,6 +7,8 @@ import {
   bcmQuestions, tprQuestions, bcmVerdict, bcmClauses, tprRating, num,
 } from '../lib/requestRules.js';
 import { fileExt, fileSize } from './AttachmentsStep.jsx';
+import { AiCard, AiSpark } from '../components/AiKit.jsx';
+import { preReview, REVIEWERS, SEVERITY, CHECK_ORDER } from '../lib/preReview.js';
 
 const stepTitle = (id, em) => { const s = SECTIONS.find((x) => x.id === id); return id === 'setup' && em ? s.emTitle : s.title; };
 
@@ -35,6 +37,8 @@ export function ReviewStep() {
       ) : (
         <div className="banner brand"><Icon name="icon-check-brand" size={16} /><div className="banner-text"><div className="t-body-medium">Ready to submit</div><div className="t-body-small">Every required step is complete and nothing here is likely to be returned.</div></div></div>
       )}
+
+      <PreReview />
 
       {!em && inEaScope(f) && <Standards />}
       {!em && <Continuity />}
@@ -93,6 +97,88 @@ export function ReviewStep() {
         </Collapsible>
       </div>
     </div>
+  );
+}
+
+/* ── AI pre-review ───────────────────────────────────────────────────────── */
+function PreReview() {
+  const { f, patch, goto, em } = useForm();
+  const [phase, setPhase] = useState(f.preReviewRan ? 'done' : 'idle');
+  const [at, setAt] = useState(0);
+  const [tab, setTab] = useState('all');
+  const [dismissed, setDismissed] = useState([]);
+  const [applied, setApplied] = useState(null);
+  const recs = preReview(f).filter((r) => !dismissed.includes(r.id));
+  const order = em ? ['manager', 'procurement'] : CHECK_ORDER;
+  const run = () => {
+    setPhase('running'); setAt(0);
+    order.forEach((_, i) => setTimeout(() => setAt(i + 1), 380 * (i + 1)));
+    setTimeout(() => { setPhase('done'); patch({ preReviewRan: true }); }, 380 * (order.length + 1));
+  };
+  const toFix = recs.filter((r) => r.severity === 'return').length;
+  const shown = recs.filter((r) => tab === 'all' || r.severity === tab);
+  const apply = (r) => {
+    const next = r.apply(f);
+    const prev = Object.fromEntries(Object.keys(next).map((k) => [k, f[k]]));
+    patch(next); setApplied({ title: r.title, prev });
+  };
+
+  if (phase === 'idle') {
+    return (
+      <AiCard className="pre-review" title="AI pre-review" info={<Tooltip text="Checks the request the way each reviewer would — Manager, Finance, EA, Cybersecurity, Risk and Procurement — and suggests fixes before you submit." label="About the AI pre-review" />}
+        right={<button type="button" className="ai-btn ai-outline" onClick={run}><AiSpark /><span className="ai-text">Run pre-review</span></button>}>
+        <p className="t-body-small" style={{ margin: 0 }}>See what each reviewer is likely to return, and fix it now instead of waiting a review round.</p>
+      </AiCard>
+    );
+  }
+  if (phase === 'running') {
+    return (
+      <AiCard className="pre-review" title="AI pre-review" right={<span className="t-caption muted">Checking…</span>}>
+        <ul className="ai-think" role="status" aria-live="polite">
+          {order.map((d, i) => <li key={d} className={at > i ? 'done' : at === i ? 'now' : ''}><span className="dot" />{REVIEWERS[d].en}<span className="t-caption muted">· {REVIEWERS[d].check}</span></li>)}
+        </ul>
+      </AiCard>
+    );
+  }
+  return (
+    <AiCard className="pre-review" title="AI pre-review"
+      info={<Tooltip text="Recommendations update as you edit. Apply a suggestion to fill it in, or go to the step to change it yourself." label="About the AI pre-review" />}
+      right={<button type="button" className="ai-link" onClick={run}>Run again</button>}>
+      <div className="pre-summary">
+        <span className="t-body-medium">{recs.length === 0 ? 'Nothing to fix — every reviewer should accept this request.' : `${recs.length} recommendation${recs.length === 1 ? '' : 's'} · ${toFix ? `${toFix} to fix before you submit` : 'nothing blocking'}`}</span>
+        {recs.length > 0 && <Segment size="sm" label="Filter recommendations" value={tab} onChange={setTab} items={[{ id: 'all', label: 'All', count: recs.length }, ...Object.entries(SEVERITY).map(([k, v]) => ({ id: k, label: v, count: recs.filter((r) => r.severity === k).length, disabled: !recs.some((r) => r.severity === k) }))]} />}
+      </div>
+      {applied && (
+        <div className="ai-done" role="status"><Icon name="icon-check-brand" size={16} /><div className="grow"><span className="t-body-medium">AI recommendation applied</span><span className="t-body-small muted">{applied.title}</span></div><button type="button" className="inline-link t-body-small" onClick={() => { patch(applied.prev); setApplied(null); }}>Undo</button></div>
+      )}
+      {shown.length > 0 && (
+        <ul className="rec-list">
+          {shown.map((r) => (
+            <li key={r.id} className={`rec sev-${r.severity}`}>
+              <div className="rec-head">
+                <span className="tag">{REVIEWERS[r.dept].short}</span>
+                <span className={`rec-sev t-caption-medium sev-${r.severity}`}>{SEVERITY[r.severity]}</span>
+              </div>
+              <div className="t-body-medium">{r.title}</div>
+              <div className="t-body-small muted">{r.why}</div>
+              {r.proposal && (
+                <div className="rec-proposal">
+                  <div className="t-caption ai-label"><AiSpark size={12} />{r.proposal.label}{r.proposal.replaces ? ` · replaces your ${r.proposal.replaces}` : ''}{r.proposal.append ? ' · added after what you wrote' : ''}</div>
+                  {r.proposal.text && <p className="t-body-small pre">{r.proposal.text}</p>}
+                  {r.proposal.rows && <ul>{r.proposal.rows.map((x, i) => <li key={i}><span className="grow"><span className="t-body-small">{x.title}</span>{x.sub && <span className="t-caption muted">{x.sub}</span>}</span>{x.badge && <span className="t-caption-medium tnum">{x.badge}</span>}</li>)}</ul>}
+                </div>
+              )}
+              {r.manual && <div className="t-body-small">{r.manual}</div>}
+              <div className="rec-actions">
+                {r.apply && <Btn variant="primary-sm" onClick={() => apply(r)}>Apply</Btn>}
+                <Btn variant="ghost-sm" onClick={() => goto(r.step)}>Go to {stepTitle(r.step, em)}</Btn>
+                <Btn variant="ghost-sm" onClick={() => setDismissed((d) => [...d, r.id])}>Dismiss</Btn>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </AiCard>
   );
 }
 

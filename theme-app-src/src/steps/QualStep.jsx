@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Icon, Btn } from '../components/ui.jsx';
 import { useForm, Block, FieldBlock, Input, NumInput, AiBtn, TotalBar, PeoplePicker } from '../components/FormKit.jsx';
 import { PEOPLE, AI_QUAL } from '../data/newRequest.js';
+import { useImport } from '../components/AiImport.jsx';
 import { totals, num } from '../lib/requestRules.js';
 
 export function QualStep() {
@@ -13,6 +14,7 @@ export function QualStep() {
   const updSub = (mid, sid, p) => upd(mid, (m) => ({ ...m, subCriteria: m.subCriteria.map((s) => (s.id === sid ? { ...s, ...p } : s)) }));
   const suggest = () => set('qualificationCriteria', (cs) => cs.map((m) => { const a = AI_QUAL[m.id]; return a ? { ...m, percentage: a.percentage, subCriteria: m.subCriteria.map((s) => (a.sub[s.id] ? { ...s, range: a.sub[s.id][0], percentage: a.sub[s.id][1] } : s)) } : m; }));
   const members = f.qualificationCommitteeMembers;
+  const [qImport, qBanner] = useImport('qualification', () => { const prev = f.qualificationCriteria; suggest(); return () => set('qualificationCriteria', prev); });
 
   return (
     <div className="stack">
@@ -36,7 +38,8 @@ export function QualStep() {
         )}
       </Block>
 
-      <Block title="Qualification criteria" info="The criteria are fixed across Munafasat; you set the range and weight. Main criteria must total 100%, and so must each group of sub-criteria." actions={<AiBtn label="Suggest values" onRun={suggest} />}>
+      <Block title="Qualification criteria" info="The criteria are fixed across Munafasat; you set the range and weight. Main criteria must total 100%, and so must each group of sub-criteria." actions={<>{qImport}<AiBtn label="Suggest values" onRun={suggest} /></>}>
+        {qBanner}
         <div className="qual">
           {f.qualificationCriteria.map((m) => {
             const sub = m.subCriteria.reduce((s, c) => s + num(c.percentage), 0);

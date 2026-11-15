@@ -6,6 +6,7 @@ import { ActorProvider } from './state/actor.jsx';
 import './styles/theme.css';
 import './styles/app.css';
 import './styles/form.css';
+import './styles/ai.css';
 
 createRoot(document.getElementById('root')).render(
   <StoreProvider>

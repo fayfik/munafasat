@@ -26,7 +26,7 @@ export function Block({ title, info, actions, children, id, meta }) {
   );
 }
 
-export function FieldBlock({ label, hint, info, required, error, id, children, wide, optional }) {
+export function FieldBlock({ label, hint, info, required, error, id, children, wide, optional, action }) {
   const auto = useId();
   // Link the label to the control when the child is one of our inputs.
   const linkable = isValidElement(children) && [Input, Select, TextArea, NumInput].includes(children.type);
@@ -39,6 +39,7 @@ export function FieldBlock({ label, hint, info, required, error, id, children, w
         <div className="ffield-label t-label">
           <label htmlFor={inputId}>{label}{required && <span className="req" aria-hidden="true"> *</span>}{optional && <span className="t-caption muted"> · optional</span>}</label>
           {info && <Tooltip text={info} label={`About ${label}`} />}
+          {action && <span className="ffield-action">{action}</span>}
         </div>
       )}
       {child}
@@ -78,16 +79,7 @@ export function DetailMeter({ text, min }) {
   );
 }
 
-/** "Draft with AI" — the prototype fills sample content after a short pause. */
-export function AiBtn({ onRun, label = 'Draft with AI', busyLabel = 'Drafting…', delay = 900, variant = 'ghost-sm', disabled }) {
-  const [busy, setBusy] = useState(false);
-  const run = () => { setBusy(true); setTimeout(() => { onRun(); setBusy(false); }, delay); };
-  return (
-    <button type="button" className={`btn btn-${variant} ai-btn${busy ? ' busy' : ''}`} onClick={run} disabled={busy || disabled} aria-busy={busy}>
-      <span className="ai-spark" aria-hidden="true" />{busy ? busyLabel : label}
-    </button>
-  );
-}
+export { AiBtn } from './AiKit.jsx';
 
 export function YesNo({ value, onChange, name, suggested }) {
   return (
@@ -135,14 +127,16 @@ export function TotalBar({ label, value, target = 100, suffix = '%', extra }) {
   );
 }
 
-export function Dialog({ open, onClose, title, sub, children, foot, className = 'sheet' }) {
+/** Modal sheet. tone: normal (cyan→green head) · warning (amber→rose head) · plain. */
+export function Dialog({ open, onClose, title, sub, children, foot, className = 'sheet', tone = 'normal' }) {
   const ref = useRef(null);
+  const tid = useId();
   useEffect(() => { const d = ref.current; if (!d) return; if (open && !d.open) d.showModal(); if (!open && d.open) d.close(); }, [open]);
   if (!open) return null;
   return (
-    <dialog ref={ref} className={`dialog ${className}`} onCancel={(e) => { e.preventDefault(); onClose(); }} onClick={(e) => { if (e.target === ref.current) onClose(); }} aria-labelledby="fdlg-title">
+    <dialog ref={ref} className={`dialog ${className} tone-${tone}`} onCancel={(e) => { e.preventDefault(); onClose(); }} onClick={(e) => { if (e.target === ref.current) onClose(); }} aria-labelledby={tid}>
       <div className="dialog-head">
-        <div><h2 className="t-heading" id="fdlg-title" style={{ fontSize: 20, lineHeight: '26px' }}>{title}</h2>{sub && <p className="t-body-small muted" style={{ margin: '4px 0 0' }}>{sub}</p>}</div>
+        <div className="dialog-titles"><h2 className="t-heading" id={tid}>{title}</h2>{sub && <p className="t-body-small muted">{sub}</p>}</div>
         <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}><Icon name="icon-x" size={18} /></button>
       </div>
       <div className="dialog-body">{children}</div>

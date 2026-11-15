@@ -34,7 +34,7 @@ export function routeOf(name, type) {
 export function classify(item) {
   const boqType = boqTypeOf(item.name, item.type);
   const route = routeOf(item.name, item.type);
-  return { ...item, boqType, route, reason: route === 'emarket' ? 'Standard catalogue item — buy it on E-Market' : 'Needs a competitive tender' };
+  return { ...item, boqType, route, reason: route === 'emarket' ? 'Standard catalogue item · Buy it on E-Market' : 'Needs a competitive tender' };
 }
 export function parseItemNames(text) {
   return text.split(/\r?\n/)
@@ -160,15 +160,15 @@ export function qualityIssues(id, f) {
   const out = [];
   if (id === 'setup') {
     const n = words(f.purpose);
-    if (n < MIN_WORDS.purpose) out.push({ id: 'purpose', field: 'q-purpose', en: 'Describe the purpose of this request', why: 'Your manager returns requests that don’t say why the purchase is needed.', meta: `${n} of ${MIN_WORDS.purpose} words` });
+    if (n < MIN_WORDS.purpose) out.push({ id: 'purpose', field: 'q-purpose', en: 'Describe the purpose of this request', why: 'Your manager returns requests that don’t say why the purchase is needed.', ai: true, meta: `${n} of ${MIN_WORDS.purpose} words` });
   }
   if (id === 'scope') {
     const n = words(f.scopeOfWork);
-    if (n < MIN_WORDS.scope) out.push({ id: 'sow', field: 'q-scope', en: 'Add more detail to the scope of work', why: 'EA and your manager return a short scope. Say what is delivered, where, by whom, and what is out of scope.', meta: `${n} of ${MIN_WORDS.scope} words` });
+    if (n < MIN_WORDS.scope) out.push({ id: 'sow', field: 'q-scope', en: 'Add more detail to the scope of work', why: 'EA and your manager return a short scope. Say what is delivered, where, by whom, and what is out of scope.', ai: true, meta: `${n} of ${MIN_WORDS.scope} words` });
   }
   if (id === 'boq') {
     const thin = f.boqItems.filter((r) => words(r.itemDescription) < MIN_WORDS.boqDesc);
-    if (thin.length) out.push({ id: 'boq-desc', field: 'q-boq', en: `${thin.length} BOQ item${thin.length === 1 ? ' needs' : 's need'} a clearer description`, why: 'EA checks the specification and Finance picks the material group from it — a one-liner gets returned.', meta: thin.slice(0, 3).map((r) => r.itemName || 'Unnamed item').join(' · ') });
+    if (thin.length) out.push({ id: 'boq-desc', field: 'q-boq', en: `${thin.length} BOQ item${thin.length === 1 ? ' needs' : 's need'} a clearer description`, why: 'EA checks the specification and Finance picks the material group from it — a one-liner gets returned.', ai: true, meta: thin.slice(0, 3).map((r) => r.itemName || 'Unnamed item').join(' · ') });
     const noPrice = f.boqItems.filter((r) => !(num(r.unitPrice) > 0) || !(num(r.quantity) > 0 || num(r.staffCount) > 0));
     if (noPrice.length) out.push({ id: 'boq-price', field: 'q-boq', en: `${noPrice.length} BOQ item${noPrice.length === 1 ? ' has' : 's have'} no quantity or unit price`, why: 'Your manager can’t approve the budget without an estimated amount for every line.' });
   }

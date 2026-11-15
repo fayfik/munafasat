@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icon, Btn } from '../components/ui.jsx';
 import { useForm, Block, FieldBlock, TextArea, Input, NumInput, DetailMeter, AiBtn, Dialog } from '../components/FormKit.jsx';
+import { AiTag } from '../components/AiKit.jsx';
 import { Segment } from '../components/ui.jsx';
 import { PROJECTS, CATEGORIES, DEPARTMENTS, AI_SCOPE, AI_TERMS, AI_LOCATION } from '../data/newRequest.js';
 import { lockedCategories, workflowFor, MIN_WORDS } from '../lib/requestRules.js';
@@ -37,7 +38,7 @@ export function ScopeStep() {
                 title={isLocked ? 'Picked from your items' : undefined}
                 onClick={() => set('scopeIncludes', on ? f.scopeIncludes.filter((x) => x !== c.id) : [...f.scopeIncludes, c.id])}>
                 <span className="cat-check" aria-hidden="true">{on && <Icon name="icon-check-white" size={11} />}</span>
-                <span className="t-body-medium">{c.en}{isLocked && <span className="t-caption muted"> · from your items</span>}</span>
+                <span className="cat-name"><span className="t-body-medium">{c.en}</span>{isLocked && <span className="t-caption muted">From your items</span>}</span>
                 <span className="t-body-small muted">{c.desc}</span>
               </button>
             );
@@ -50,34 +51,32 @@ export function ScopeStep() {
         </div>
       </Block>
 
-      <Block title="Scope of work" info="Describe the full scope, deliverable expectations and technical requirements. Say what is delivered, where, by whom, and what is out of scope." actions={<AiBtn onRun={() => set('scopeOfWork', AI_SCOPE)} />}>
+      <Block title="Scope of work" info="Describe the full scope, deliverable expectations and technical requirements. Say what is delivered, where, by whom, and what is out of scope." actions={<AiBtn label="Generate Scope" busyLabel="Generating…" onRun={() => set('scopeOfWork', AI_SCOPE)} />}>
         <FieldBlock id="q-scope">
           <TextArea id="q-scope-input" rows={8} value={f.scopeOfWork} onChange={(e) => set('scopeOfWork', e.target.value)} placeholder="Describe what the vendor will deliver…" aria-label="Scope of work" />
-          <DetailMeter text={f.scopeOfWork} min={MIN_WORDS.scope} />
+          <div className="with-ai-tag"><DetailMeter text={f.scopeOfWork} min={MIN_WORDS.scope} />{f.scopeOfWork === AI_SCOPE && <AiTag />}</div>
         </FieldBlock>
       </Block>
 
-      <Block title="Scope-specific terms & conditions" info="Terms that apply only to this scope — compliance, hosting, warranty, subcontracting." actions={<AiBtn onRun={() => set('scopeTerms', AI_TERMS)} />}>
+      <Block title="Scope-specific terms & conditions" info="Terms that apply only to this scope — compliance, hosting, warranty, subcontracting." actions={<AiBtn label="Generate Terms" busyLabel="Generating…" onRun={() => set('scopeTerms', AI_TERMS)} />}>
         <FieldBlock optional>
           <TextArea rows={5} value={f.scopeTerms} onChange={(e) => set('scopeTerms', e.target.value)} placeholder="Add any terms that apply to this scope…" aria-label="Scope-specific terms and conditions" />
+          {f.scopeTerms === AI_TERMS && <AiTag />}
         </FieldBlock>
       </Block>
 
       <Block title="Contract duration & location">
         <div className="form-grid">
-          <FieldBlock label="Where the work happens" wide id="q-location">
-            <div className="with-action">
-              <TextArea rows={2} value={f.executionLocation} onChange={(e) => set('executionLocation', e.target.value)} placeholder="e.g. Head office — Riyadh" aria-label="Execution location" />
-              <AiBtn label="Suggest" onRun={() => set('executionLocation', AI_LOCATION)} delay={600} />
-            </div>
+          <FieldBlock label="Where the work happens" wide id="q-location" action={<AiBtn label="Suggest" busyLabel="Suggesting…" className="ai-sm" onRun={() => set('executionLocation', AI_LOCATION)} delay={600} />}>
+            <TextArea rows={2} value={f.executionLocation} onChange={(e) => set('executionLocation', e.target.value)} placeholder="e.g. Head office — Riyadh" aria-label="Execution location" />
           </FieldBlock>
           <FieldBlock label="Start date" id="q-start" error={past ? 'Start date can’t be in the past — pick today or a later date.' : ''}>
             <Input id="q-start-input" type="date" min={today} value={f.startDate} onChange={(e) => set('startDate', e.target.value)} />
           </FieldBlock>
           <FieldBlock label="Duration" id="q-duration" hint={end ? `Ends around ${end}` : 'The end date is worked out for you'}>
             <div className="duration">
-              <NumInput value={f.contractDuration} onChange={(v) => set('contractDuration', v === '' ? '' : String(v))} min={1} placeholder="e.g. 18" aria-label="Number of units" />
               <Segment size="sm" label="Duration unit" value={f.contractDurationType} onChange={(v) => set('contractDurationType', v)} items={[{ id: 'days', label: 'Days' }, { id: 'months', label: 'Months' }, { id: 'years', label: 'Years' }]} />
+              <NumInput value={f.contractDuration} onChange={(v) => set('contractDuration', v === '' ? '' : String(v))} min={1} placeholder="e.g. 18" aria-label="Number of units" />
             </div>
           </FieldBlock>
         </div>
