@@ -140,14 +140,21 @@ export function sectionStatus(id, f, routeConfirmed) {
 
 /* ── Etimad availability (per BOQ line, tender only) ──────────────────────── */
 export const etimadKey = (r) => [r.itemName?.trim(), r.itemDescription?.trim(), r.unitOfMeasure, r.quantity, r.unitPrice].join('|');
+const CATALOGUE_WORDS = ['license', 'licence', 'laptop', 'desktop', 'printer', 'switch', 'router', 'server', 'storage', 'monitor', 'furniture', 'chair', 'toner', 'paper', 'software', 'subscription', 'device', 'equipment', 'hardware', 'supplies'];
 export function checkEtimad(r) {
   // Judge the item by its name; descriptions often use words like "managed" for products.
   const b = r.category || boqTypeOf(r.itemName || '');
-  let status = 'not-available', comment = 'Custom scope or a service with its own SLA — this needs a tender.';
+  let status = 'not-available', comment = 'Custom scope or a service with its own SLA — not a catalogue item, so it needs a tender.';
   if (b === 'material' || b === 'equipment') {
+    const name = (r.itemName || '').toLowerCase();
+    const kw = CATALOGUE_WORDS.find((w) => new RegExp(`\\b${w}`).test(name)) || 'standard product';
+    const total = lineTotal(r);
     if (has(r.itemName || '', TENDER_SIGNAL)) { status = 'uncertain'; comment = 'Standard product, but it is bundled with work. Confirm on Etimad before you keep it here.'; }
-    else if (lineTotal(r) > 1_000_000) { status = 'uncertain'; comment = 'Catalogue-type item, but the volume is large enough that a tender may get a better price.'; }
-    else { status = 'available'; comment = 'Off-the-shelf item with a fixed specification — likely listed on Etimad E-Market.'; }
+    else {
+      status = 'available';
+      comment = `A standard catalogue-type item ("${kw}") that registered suppliers usually list on Etimad E-Market.`;
+      if (total > 1_000_000) comment += ` The value is large (SAR ${total.toLocaleString('en-US')}), which may justify a tender to get a better price.`;
+    }
   }
   return { status, comment, key: etimadKey(r), at: new Date().toISOString() };
 }
