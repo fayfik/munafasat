@@ -417,3 +417,4 @@ tr:hover .row-actions .icon-btn, .row-actions .icon-btn:focus-visible { opacity:
 .status-pill.st-returned { background: var(--danger-50); color: var(--danger-text); } .status-pill.st-returned .pill-dot { background: var(--danger-text); }
 .tag.em { background: #fbf5ea; border-color: #f0e0bf; color: #8a5a12; }
 .req-home > * { flex: none; }
+.req-foot.inline { padding-bottom: 28px; }
