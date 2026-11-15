@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom';
 import { Icon, Btn, Segment, Tooltip } from '../components/ui.jsx';
 import { useForm, Block, FieldBlock, Input, Select, TextArea, NumInput, YesNo, Dialog, ConfirmDelete, MoreMenu, sarFmt } from '../components/FormKit.jsx';
 import { AiBtn, AiCard, AiSpark, AiMark } from '../components/AiKit.jsx';
+import { useRequests, emptyForm } from '../state/requests.jsx';
+import { useActor } from '../state/actor.jsx';
+import { uid } from '../lib/requestRules.js';
 import { PURCHASE_TYPES, MATERIAL_GROUPS, ptypeName, mgOf, suggestAccounting, withAccounting } from '../lib/accounting.js';
 import { PROJECTS, UNITS, BOQ_CATEGORIES, QUALIFICATIONS, NATIONALITIES, AI_BOQ, AI_EM_BOQ } from '../data/newRequest.js';
 import { totals, lineTotal, checkEtimad, etimadStale, needsEtimadReason, boqTypeOf, words, MIN_WORDS, num } from '../lib/requestRules.js';
@@ -23,7 +26,7 @@ function download(name, text) {
 const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
 export function BoqStep() {
-  const { f, list, em, headEl } = useForm();
+  const { f, list, em, headEl, set } = useForm();
   const rows = list('boqItems');
   const [editing, setEditing] = useState(null); // row or {} for new
   const [view, setView] = useState('grid');
@@ -54,6 +57,23 @@ export function BoqStep() {
   const save = (r) => { if (r.id) rows.update(r.id, r); else rows.add(r); setEditing(null); };
 
   const checkAll = () => f.boqItems.forEach((r) => rows.update(r.id, { etimad: checkEtimad(r) }));
+  const [checking, setChecking] = useState([]);
+  const checkOne = (r) => { setChecking((c) => [...c, r.id]); setTimeout(() => { rows.update(r.id, { etimad: checkEtimad(r) }); setChecking((c) => c.filter((x) => x !== r.id)); }, 900); };
+  const store = useRequests();
+  const { actor } = useActor();
+  const [moved, setMoved] = useState(null);
+  const moveToEm = (r) => {
+    const keep = f.emDraftId && store.get(f.emDraftId)?.status !== 'submitted' ? f.emDraftId : null;
+    const did = keep || uid();
+    const prev = keep ? store.get(did) : null;
+    const base = prev?.form || { ...emptyForm(), projectId: f.projectId, costCenterId: f.costCenterId, sourceType: 'emarket', routeChoice: 'emarket', purpose: `Catalogue items moved out of the ${p?.name || ''} tender after the Etimad check.`.replace('  ', ' ') };
+    const emRow = { id: uid(), purchaseType: r.ptype === 'service' ? 'service' : 'product', itemName: r.itemName, productId: '', supplier: '', orderUnit: r.unitOfMeasure || 'Each', quantity: num(r.quantity) || 1, unitPrice: num(r.unitPrice), shippingCharges: 0 };
+    store.save(did, { createdBy: prev?.createdBy || actor.id, title: `${p?.name || 'Request'} — E-Market items`, type: 'emarket', status: 'draft', routeConfirmed: true, step: 'boq', form: { ...base, boqItems: [...(base.boqItems || []), emRow] }, moved: [...(prev?.moved || []), r.itemName] });
+    const before = f.boqItems;
+    rows.remove(r.id);
+    if (!keep) set('emDraftId', did);
+    setMoved({ name: r.itemName, did, undo: () => { set('boqItems', before); store.save(did, prev ? { form: prev.form, moved: prev.moved } : { form: { ...base, boqItems: [] }, moved: [] }); setMoved(null); } });
+  };
 
   const groups = useMemo(() => {
     if (view === 'table' || em) return [['', f.boqItems]];
@@ -127,6 +147,12 @@ export function BoqStep() {
             info={<Tooltip text="AI matches each line against the Etimad E-Market catalogue. Off-the-shelf items listed there are normally bought on E-Market — keep them here only with a reason." label="About the Etimad check" />}
             right={<AiBtn variant="outline" label="Check in Etimad" busyLabel="Checking Etimad…" onRun={checkAll} />} />
         )}
+        {moved && (
+          <div className="ai-done" role="status"><Icon name="icon-check-brand" size={16} />
+            <div className="grow"><span className="t-body-medium">Moved “{moved.name}” to an Etimad E-Market request</span><span className="t-body-small muted">It’s saved as a draft in My requests — buy it there directly from the catalogue.</span></div>
+            <button type="button" className="inline-link t-body-small" onClick={moved.undo}>Undo</button>
+          </div>
+        )}
 
         {view === 'grid' && !em ? (
           <div className="boq-cards">
@@ -142,7 +168,7 @@ export function BoqStep() {
                     <div className="table-scroll">
                       <table className="plain-table boq-table">
                         <BoqHead em={em} />
-                        <tbody>{rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={() => setEditing(r)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => rows.update(r.id, { etimad: checkEtimad(r) })} onReason={(v) => rows.update(r.id, { etimadReason: v })} />)}</tbody>
+                        <tbody>{rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={() => setEditing(r)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => checkOne(r)} checking={checking.includes(r.id)} onReason={(v) => rows.update(r.id, { etimadReason: v })} onKeep={(on) => rows.update(r.id, { etimadDecision: on ? 'keep' : '' })} onMove={() => moveToEm(r)} />)}</tbody>
                       </table>
                     </div>
                   )}
@@ -157,7 +183,7 @@ export function BoqStep() {
               {groups.map(([g, rs]) => (
                 <tbody key={g || 'all'}>
                   {g && <tr className="group-row"><td colSpan={COLSPAN}>{g}<span className="muted" style={{ fontWeight: 400 }}> · {sarFmt(rs.reduce((s, r) => s + lineTotal(r, em), 0))}</span></td></tr>}
-                  {rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={() => setEditing(r)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => rows.update(r.id, { etimad: checkEtimad(r) })} onReason={(v) => rows.update(r.id, { etimadReason: v })} />)}
+                  {rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={() => setEditing(r)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => checkOne(r)} checking={checking.includes(r.id)} onReason={(v) => rows.update(r.id, { etimadReason: v })} onKeep={(on) => rows.update(r.id, { etimadDecision: on ? 'keep' : '' })} onMove={() => moveToEm(r)} />)}
                 </tbody>
               ))}
             </table>
@@ -194,28 +220,30 @@ function BoqHead({ em }) {
   );
 }
 
-function BoqRow({ r, em, onEdit, onView, onRemove, onCheck, onReason }) {
+function BoqRow({ r, em, onEdit, onView, onRemove, onCheck, onReason, onMove, onKeep, checking }) {
   const fresh = r.etimad && !etimadStale(r);
   const thin = !em && words(r.itemDescription) < MIN_WORDS.boqDesc;
   const brandMissing = r.hasBrandName && !(r.brandJustification ?? '').trim();
   const acc = em ? null : (r.mg ? r : withAccounting(r));
   const mg = acc && mgOf(acc.mg);
+  const onEm = !em && fresh && r.etimad.status === 'available';
   return (
     <>
-      <tr className="boq-row">
+      <tr className={`boq-row${onEm ? ' on-em' : ''}`}>
         <td>
-          <button type="button" className="row-title" onClick={onView}><span className="t-body-medium">{r.itemName || 'Unnamed item'}</span></button>
+          <div className="row-name">
+            <button type="button" className="row-title" onClick={onView}><span className="t-body-medium">{r.itemName || 'Unnamed item'}</span></button>
+            {acc?.ptype && <span className="status-pill t-caption-medium type-pill">{ptypeName(acc.ptype)}</span>}
+          </div>
           <div className="t-body-small muted clamp-2 row-desc">{em ? [r.purchaseType && (r.purchaseType === 'vehicle-leasing' ? 'Vehicle leasing' : r.purchaseType[0].toUpperCase() + r.purchaseType.slice(1)), r.productId].filter(Boolean).join(' · ') : r.itemDescription}</div>
           {acc && (
-            <>
-              <div className="row-meta">
-                {acc.ptype && <span className="status-pill t-caption-medium type-pill">{ptypeName(acc.ptype)}</span>}
-                {r.deliveryDate && <span className="t-caption muted" title="Needed by">{r.deliveryDate}</span>}
-                {fresh && r.etimad.status === 'uncertain' && <span className="t-caption amber" title={r.etimad.comment}>Confirm on Etimad</span>}
-                {r.etimad && !fresh && <button type="button" className="inline-link t-caption" onClick={onCheck}>Item changed — re-check Etimad</button>}
-              </div>
-              {mg && <div className="t-caption muted row-mg">Material group: {mg.en} · {mg.code}{acc.acctSource === 'ai' && <AiMark />}</div>}
-            </>
+            <div className="row-meta t-caption">
+              {r.deliveryDate && <span className="muted" title="Needed by">Needed by {r.deliveryDate}</span>}
+              {mg && <span className="row-mg">{r.deliveryDate && <span className="sep">·</span>}Material group: {mg.en} · {mg.code}{acc.acctSource === 'ai' && <AiMark />}</span>}
+              {fresh && r.etimad.status === 'uncertain' && <span className="amber" title={r.etimad.comment}><span className="sep">·</span>Confirm on Etimad</span>}
+              {fresh && r.etimad.status === 'not-available' && <span className="row-mg" title={r.etimad.comment}><span className="sep">·</span>Not on E-Market</span>}
+              {r.etimad && !fresh && <span className="amber"><span className="sep">·</span>Changed — check Etimad again</span>}
+            </div>
           )}
           {(thin || brandMissing) && <div className="issue t-caption"><Icon name="icon-warn" size={12} />{brandMissing ? 'Brand name needs a justification' : 'Add a clearer description'}</div>}
         </td>
@@ -226,17 +254,42 @@ function BoqRow({ r, em, onEdit, onView, onRemove, onCheck, onReason }) {
         )}
         <td className="num mid t-body-medium">{sarFmt(lineTotal(r, em))}</td>
         <td className="row-actions mid">
-          <button type="button" className="icon-btn" aria-label={`View ${r.itemName}`} onClick={onView}><Icon name="icon-eye" size={16} /></button>
-          <button type="button" className="icon-btn" aria-label={`Edit ${r.itemName}`} onClick={onEdit}><Icon name="icon-pencil" size={16} /></button>
-          <button type="button" className="icon-btn" aria-label={`Delete ${r.itemName}`} onClick={onRemove}><Icon name="icon-trash" size={16} /></button>
+          {!em && (
+            <button type="button" className={`icon-btn ai-check${checking ? ' busy' : ''}${r.etimad && !fresh ? ' due' : ''}`} onClick={onCheck} disabled={checking}
+              aria-label={`Check ${r.itemName} in Etimad E-Market`} title={checking ? 'Checking Etimad…' : r.etimad && fresh ? 'Check in Etimad again' : 'Check in Etimad'}>
+              <AiSpark size={16} spin={checking} />
+            </button>
+          )}
+          <button type="button" className="icon-btn" aria-label={`View ${r.itemName}`} title="View" onClick={onView}><Icon name="icon-eye" size={16} /></button>
+          <button type="button" className="icon-btn" aria-label={`Edit ${r.itemName}`} title="Edit" onClick={onEdit}><Icon name="icon-pencil" size={16} /></button>
+          <button type="button" className="icon-btn" aria-label={`Delete ${r.itemName}`} title="Delete" onClick={onRemove}><Icon name="icon-trash" size={16} /></button>
         </td>
       </tr>
-      {!em && fresh && r.etimad.status === 'available' && (
+      {onEm && (
         <tr className="boq-sub"><td colSpan={COLSPAN}>
-          <div className="etimad-note">
-            <span className="t-body-small">{r.etimad.comment} Keep it in this tender only if it must be bundled — say why.</span>
-            <TextArea rows={1} value={r.etimadReason || ''} onChange={(e) => onReason(e.target.value)} placeholder="Why tender this instead of buying it on E-Market?" aria-label={`Why tender ${r.itemName}`} />
-            {needsEtimadReason(r) && <span className="t-caption amber">A reason is needed before you can submit.</span>}
+          <div className="em-box" role="group" aria-label={`${r.itemName} is available in Etimad E-Market`}>
+            <div className="em-box-head">
+              <span className="em-box-title"><Icon name="icon-warn-amber" size={18} />Available in Etimad E-Market</span>
+              <button type="button" className="ai-btn ai-pillbtn" onClick={onCheck} disabled={checking}><AiSpark size={14} spin={checking} /><span>{checking ? 'Checking…' : 'Check again'}</span></button>
+            </div>
+            <p className="t-body-small">{r.etimad.comment}</p>
+            {r.etimadDecision !== 'keep' ? (
+              <>
+                <p className="t-body-small">We suggest buying this item through a separate Etimad E-Market request instead of this tender.</p>
+                <div className="em-box-actions">
+                  <button type="button" className="btn btn-em-primary" onClick={onMove}>Move to Etimad E-Market request</button>
+                  <button type="button" className="btn btn-em-secondary" onClick={() => onKeep(true)}>Keep in this tender</button>
+                </div>
+              </>
+            ) : (
+              <div className="em-keep">
+                <TextArea rows={2} autoFocus={!r.etimadReason} value={r.etimadReason || ''} onChange={(e) => onReason(e.target.value)} placeholder="Why tender this instead of buying it on E-Market? e.g. it must be bundled with installation under one contract." aria-label={`Why keep ${r.itemName} in this tender`} />
+                <div className="em-keep-foot">
+                  {needsEtimadReason(r) ? <span className="t-caption">A reason is needed before you can submit.</span> : <span className="t-caption">Kept in this tender with a reason.</span>}
+                  <button type="button" className="inline-link t-caption" onClick={onMove}>Move to E-Market instead</button>
+                </div>
+              </div>
+            )}
           </div>
         </td></tr>
       )}

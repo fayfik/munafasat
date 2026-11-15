@@ -142,3 +142,32 @@
 
 /* Content column: wide enough for table rows and two-up fields, not full width. */
 .req-content { max-width: 960px; }
+
+/* BOQ row: type tag beside the name; quieter, greyish-green meta line. */
+.row-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row-name .type-pill { height: 20px; padding: 0 8px; font-size: 11px; }
+.row-meta { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; column-gap: 0; row-gap: 2px; font-size: 11px; line-height: 16px; }
+.row-meta .row-mg, .row-mg { color: #7f8f74; margin-top: 0; font-size: 11px; }
+.row-meta .sep { margin: 0 6px; color: #b5bfac; }
+/* Per-item AI check (no label). */
+.row-actions .icon-btn.ai-check { opacity: 1; }
+.icon-btn.ai-check:hover:not(:disabled) { background: var(--ai-bg); }
+.icon-btn.ai-check.due { box-shadow: inset 0 0 0 1px rgba(104, 52, 216, 0.35); }
+.row-actions { width: 136px; }
+
+/* "Available in Etimad E-Market" box */
+.boq-row.on-em td { border-bottom: 0; }
+.em-box { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; border: 1px solid var(--amber-border); border-radius: 10px; background: #fdf3e1; color: var(--amber-text); }
+.em-box p { margin: 0; color: var(--amber-text); }
+.em-box-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.em-box-title { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; line-height: 22px; font-weight: 500; }
+.ai-pillbtn { height: 30px; padding: 0 12px; gap: 6px; border: 1px solid #cbbaf3; border-radius: 8px; background: #f3efff; color: var(--ai-ink); font-size: 13px; }
+.ai-pillbtn:hover:not(:disabled) { background: #ebe4ff; }
+.em-box-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.btn-em-primary { height: 36px; padding: 0 16px; border: 1px solid var(--brand-500); border-radius: 8px; background: var(--brand-500); color: #fff; font-size: 14px; font-weight: 500; }
+.btn-em-primary:hover { background: var(--brand-700); border-color: var(--brand-700); }
+.btn-em-secondary { height: 36px; padding: 0 16px; border: 1px solid #ecd9a8; border-radius: 8px; background: #fff; color: var(--amber-text); font-size: 14px; font-weight: 500; }
+.btn-em-secondary:hover { border-color: #e3a008; }
+.em-keep { display: flex; flex-direction: column; gap: 6px; }
+.em-keep .finput { background: #fff; border-color: #ecd9a8; }
+.em-keep-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
