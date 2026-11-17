@@ -234,6 +234,10 @@ export interface TenderFormData {
   qualificationCriteria: QualMainCriteria[];
   /** Minimum qualification score (out of 100%) a vendor needs to qualify. */
   qualificationPassingPercentage?: string;
+  /** Project priority set by the requester — drives the recommended qualification ranges. */
+  projectPriority?: 'low' | 'medium' | 'high' | 'critical' | '';
+  /** Financial qualification criteria (two fixed ratios) — filled by the requester, reviewed by Finance. */
+  finCriteria?: { liquidity: { min: string; max: string; weight: number | '' }; cash: { min: string; max: string; weight: number | '' } };
   /** Project nature — prefilled from the BOQ and Scope of Work, editable. Drives the recommended qualification ranges. */
   projectArea?: 'it' | 'non-it' | '';
   deliveryType?: 'one-time' | 'multi-year' | 'operations' | 'services' | '';

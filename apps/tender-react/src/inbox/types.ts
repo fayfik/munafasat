@@ -320,7 +320,9 @@ export interface RfpDetail {
   qualification: { reqEn: string; reqAr: string; evidenceEn?: string; evidenceAr?: string }[];
   qualCriteria?: { nameEn: string; nameAr: string; pct: number; subs: { nameEn: string; nameAr: string; range: string; pct: number; justification?: string }[] }[];
   qualPassing?: number;
-  /** Project nature set at creation (prefilled from BOQ & Scope). */
+  /** Project priority set by the requester (TL can adjust it in the procurement method). */
+  projectPriority?: ProjectPriority;
+  /** Project nature — auto-determined from BOQ & Scope, confirmed at Review & Confirm. */
   projectArea?: 'it' | 'non-it';
   deliveryType?: 'one-time' | 'multi-year' | 'operations' | 'services';
   /** Financial qualification — owned by Finance; visible to Finance and Procurement only. */
@@ -390,7 +392,7 @@ export interface FinRatio { min: string; max: string; weight: number }
 export interface FinQual { liquidity: FinRatio; cash: FinRatio; passing: number; valueRequested?: boolean; by?: string; at?: string }
 export type ContractType = 'direct' | 'tender' | 'closed';
 export type EnvelopeType = 'one' | 'two';
-export type ProjectPriority = 'high' | 'medium' | 'low';
+export type ProjectPriority = 'critical' | 'high' | 'medium' | 'low';
 export interface ProcMethod {
   contractType?: ContractType; envelope?: EnvelopeType; priority?: ProjectPriority;
   directJustification?: string; invitedVendors?: string[];

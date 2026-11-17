@@ -279,7 +279,11 @@ export default function TenderForm({ onBack }: Props) {
 
             {/* Step navigation — hidden on the Procurement Route step, which drives its own flow */}
             {!isFirstSection && (
-            <div className="flex items-center justify-end gap-3 flex-wrap mt-8 pt-6 border-t border-neutral-200">
+            <div className="flex items-center justify-between gap-3 flex-wrap mt-8 pt-6 border-t border-neutral-200" data-step-nav>
+              <Button variant="ghost" onClick={() => goToSection(prevOrig)} disabled={isFirstSection} data-step-back>
+                <ArrowLeftIcon className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
+                {t('Back', 'رجوع')}
+              </Button>
               <div className="flex items-center gap-3 flex-wrap justify-end">
                 {!isLastSection ? (
                   <Button variant="primary" size="md" onClick={goNext} data-continue>
@@ -296,10 +300,6 @@ export default function TenderForm({ onBack }: Props) {
                   </Button>
                 ) : null}
                 {!submitted && <Button variant="secondary" size="md" onClick={() => saveNow()} loading={isSaving}>{t('Save Draft', 'حفظ كمسودة')}</Button>}
-                <Button variant="ghost" onClick={() => goToSection(prevOrig)} disabled={isFirstSection}>
-                  <ArrowLeftIcon className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
-                  {t('Back', 'رجوع')}
-                </Button>
               </div>
             </div>
             )}

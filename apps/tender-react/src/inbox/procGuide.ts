@@ -2,7 +2,7 @@
    suggested priority, and the request record read as creation data (for recommended ranges). */
 import type { RfpDetail, FinQual, ContractType, EnvelopeType, ProjectPriority, Task } from './types';
 import type { TenderFormData } from '../types/tender';
-import { aboveRange, recText, tierOf, AREA_OPTS, DELIVERY_OPTS } from '../lib/qualGuide';
+import { aboveRange, recText, suggestFin, AREA_OPTS, DELIVERY_OPTS } from '../lib/qualGuide';
 
 export const CONTRACT_OPTS: { id: ContractType; en: string; ar: string; hintEn: string; hintAr: string }[] = [
   { id: 'tender', en: 'Tendering', ar: 'منافسة عامة', hintEn: 'Open to every qualified vendor on Etimad', hintAr: 'مفتوحة لكل مورد مؤهل في اعتماد' },
@@ -14,6 +14,7 @@ export const ENVELOPE_OPTS: { id: EnvelopeType; en: string; ar: string; hintEn: 
   { id: 'two', en: 'Two envelopes', ar: 'ظرفان', hintEn: 'Financial offer opened only for technically passing vendors', hintAr: 'يُفتح العرض المالي للمتأهلين فنياً فقط' },
 ];
 export const PRIORITY_OPTS: { id: ProjectPriority; en: string; ar: string; cls: string }[] = [
+  { id: 'critical', en: 'Critical', ar: 'حرجة', cls: 'bg-error-600 text-white border-error-600' },
   { id: 'high', en: 'High', ar: 'عالية', cls: 'bg-error-50 text-error-700 border-error-200' },
   { id: 'medium', en: 'Medium', ar: 'متوسطة', cls: 'bg-warning-50 text-warning-700 border-warning-200' },
   { id: 'low', en: 'Low', ar: 'منخفضة', cls: 'bg-neutral-100 text-neutral-600 border-neutral-200' },
@@ -33,7 +34,7 @@ export const monthsOf = (r: RfpDetail) => Number(String(r.duration ?? '').match(
 export function formLike(r: RfpDetail): TenderFormData {
   return {
     tenderingPurpose: r.purposeEn ?? '', scopeOfWork: r.scopeEn ?? '', contractDuration: String(monthsOf(r) || ''),
-    projectArea: r.projectArea ?? '', deliveryType: r.deliveryType ?? '',
+    projectArea: r.projectArea ?? '', deliveryType: r.deliveryType ?? '', projectPriority: r.projectPriority ?? '',
     boqItems: r.boq.map((l, i) => ({ id: `b${i}`, projectItem: l.budgetEn ?? '', itemName: l.itemEn, itemDescription: l.descEn ?? '', unitOfMeasure: l.unit, quantity: Number(l.qty) || 1, unitPrice: l.unitPrice, deliveryDate: '' })),
     qualificationCriteria: (r.qualCriteria ?? []).map((m, i) => ({ id: `qm-${i + 1}`, name: m.nameEn, nameAr: m.nameAr, percentage: m.pct,
       subCriteria: m.subs.map((s, j) => ({ id: `qs-${i + 1}-${j + 1}`, name: s.nameEn, nameAr: s.nameAr, range: s.range, percentage: s.pct })) })),
@@ -46,21 +47,17 @@ export function qualFlags(r: RfpDetail) {
 }
 export const smeOpenRfp = (r: RfpDetail) => qualFlags(r).size === 0;
 
-/** Finance: suggested ratio bands and weights for this project profile. */
+/** Finance: suggested ratio bands and weights for this project's priority and nature. */
 export function suggestFinQual(r: RfpDetail): FinQual {
-  const tier = tierOf(boqValueOf(r));
-  const long = monthsOf(r) > 12 || r.deliveryType === 'operations' || r.deliveryType === 'multi-year';
-  const liq = tier === 'large' ? ['1.2', '2.0'] : tier === 'medium' ? ['1.0', '1.8'] : ['0.8', '1.5'];
-  const cash = tier === 'large' ? ['0.4', '1.0'] : tier === 'medium' ? ['0.3', '0.8'] : ['0.2', '0.6'];
-  // Long contracts lean on liquidity; one-off supply leans on cash.
-  const lw = long ? 70 : r.deliveryType === 'one-time' ? 60 : 70;
-  return { liquidity: { min: liq[0], max: liq[1], weight: lw }, cash: { min: cash[0], max: cash[1], weight: 100 - lw }, passing: 60 };
+  const s = suggestFin(r.projectPriority, r.deliveryType);
+  return { liquidity: { ...s.liquidity, weight: Number(s.liquidity.weight) }, cash: { ...s.cash, weight: Number(s.cash.weight) }, passing: 60 };
 }
 export const finQualOk = (f?: FinQual) => !!f && f.liquidity.weight + f.cash.weight === 100 && f.passing > 0 && f.passing <= 100
   && [f.liquidity, f.cash].every((x) => x.min !== '' && x.max !== '' && Number(x.min) <= Number(x.max));
 
 /** Suggested project priority: value, duration and how soon it starts. */
 export function suggestPriority(r: RfpDetail): ProjectPriority {
+  if (r.projectPriority) return r.projectPriority;   // the requester's priority
   const v = boqValueOf(r);
   const startsIn = r.startDate ? (new Date(r.startDate).getTime() - Date.now()) / 86400000 : 999;
   if (v >= 5_000_000 || startsIn < 60) return 'high';

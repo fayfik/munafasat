@@ -398,7 +398,7 @@ async function openRequest(title) {
     await page.locator('[data-inbox-tab="all"]').click(); await wait(300);
     const titles = await page.locator('ul li > button:visible p:first-child, ul li > button:visible h3').allInnerTexts().catch(() => []);
     const body = (await page.locator('ul li > button:visible').allInnerTexts()).join('\n').replace(/\s+/g, ' ');
-    for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Set financial qualification criteria for request #4433 from IT & Digital', 'Review qualification criteria for request #4433 from IT & Digital', 'Set procurement method & assign request #4433', 'Review & confirm request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Create request #4433 in Etimad', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
+    for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Review financial qualification criteria for request #4433 from IT & Digital', 'Review qualification criteria for request #4433 from IT & Digital', 'Set procurement method & assign request #4433', 'Review & confirm request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Create request #4433 in Etimad', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
       expect(body.includes(want), `missing task "${want}"`);
     expect(!/\bRFP\b/.test(body), 'the word RFP is still listed');
     const top3 = (await page.locator('ul li > button:visible', { hasText: 'REQ-' }).allInnerTexts()).slice(0, 3).join(' | ');
@@ -453,7 +453,7 @@ async function openRequest(title) {
   });
   const openTitled = async (title) => { await page.locator('[data-inbox-tab="all"]').click(); await wait(250); await page.locator('ul li > button:visible', { hasText: title }).first().click(); await wait(LOAD); };
   await test('Finance qualification: profile, suggested ratios 70/30, weights stay at 100%, 1–7 key, gated Complete', async () => {
-    await openTitled('Set financial qualification criteria');
+    await openTitled('Review financial qualification criteria');
     expect(await count('[data-fin-qual]') === 1 && await count('[data-fin-profile]') === 1, 'finance qualification panel');
     expect(await count('[data-fin-ratio]') === 2, 'liquidity and cash ratios');
     expect(await page.locator('[data-fin-ratio="liquidity"] [data-fin-weight]').inputValue() === '70', 'liquidity 70% default');
@@ -467,10 +467,11 @@ async function openRequest(title) {
     expect(await count('#rfp-financial') === 1, 'Finance sees the financial criteria in request details');
     await tab('Required action'); await wait(200);
   });
-  await test('Financial criteria are hidden from steps before Finance (department approval)', async () => {
+  await test('Request details: requester-entered financial criteria, project priority and nature on every task', async () => {
     await openTitled('Review & approve request #4433');
     await tab('Request details'); await wait(300);
-    expect(await count('#rfp-financial') === 0 && await count('[data-rfp-fin-qual]') === 0, 'financial criteria leaked before Finance');
+    expect(await count('#rfp-financial') === 1 && await count('[data-rfp-fin-qual]') === 1, 'financial criteria shown from creation');
+    expect(await count('[data-rfp-field="priority"]') === 1, 'project priority in Project Setup');
     expect(await count('[data-rfp-field="area"]') === 1 && await count('[data-rfp-field="delivery"]') === 1, 'project nature shown in Project Setup');
   });
   await test('Procurement qualification: comment-only review, typical-range hint, Suggest values, return reasons', async () => {
@@ -493,7 +494,7 @@ async function openRequest(title) {
   await test('Procurement TL: contract type, envelope, suggested priority, assign with workload, gated', async () => {
     await openTitled('Set procurement method & assign');
     expect(await count('[data-tl-method]') === 1, 'TL method panel');
-    expect(await page.getAttribute('[data-priority]', 'data-priority') === 'high' && await count('[data-priority-suggested="high"]') === 1, 'priority suggested and prefilled');
+    expect(await page.getAttribute('[data-priority]', 'data-priority') === 'medium' && await count('[data-priority-suggested="medium"]') === 1, 'prefilled with the requester’s priority');
     const go = page.getByRole('button', { name: 'Assign to officer', exact: true });
     expect(await go.isDisabled(), 'gated until set');
     await page.click('[data-contract] [data-opt="closed"]'); await wait(200);
@@ -510,7 +511,7 @@ async function openRequest(title) {
     await page.click('[data-contract] [data-opt="tender"]'); await wait(150);
     await tab('Request details'); await wait(300);
     expect(/Procurement method \(set by Procurement TL\)/.test(await page.locator('#rfp-method').innerText()), 'labelled method block');
-    expect(await count('#rfp-method [data-project-priority="high"]') === 1, 'priority on request details');
+    expect(await count('#rfp-method [data-project-priority="medium"]') === 1, 'priority on request details');
     await tab('Required action'); await wait(200);
   });
   await test('Procurement Officer: one view incl. TL choices, confirms value & duration, gated Good to go', async () => {
@@ -745,25 +746,35 @@ async function openRequest(title) {
     expect(/Cannot exceed 100%/.test(await page.locator('#q-qualPassing').innerText()), '>100 warning');
     await page.fill('#qualification-passing-pct', '60');
   });
-  await test('Creation: project nature prefilled from BOQ & Scope, guided qualification ranges, SME tag, justification above range', async () => {
+  await test('Creation: priority sets the qualification ranges, financial criteria by requester, nature auto-detected at Review, Back on the left', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', scopeOfWork: 'Implement SAP S/4HANA cloud subscription with integration to the HR system.',
       boqItems: [{ id: 'n0', projectItem: 'Software', itemName: 'SAP S/4HANA subscription', itemDescription: 'Cloud ERP licences', unitOfMeasure: 'Each', quantity: 2, unitPrice: 1000, deliveryDate: '', hasBrandName: false, brandJustification: '' }] });
     await page.locator('button', { hasText: 'Project Setup' }).first().click(); await wait(600);
-    expect(await count('[data-project-nature]') === 1, 'project nature on Project Setup');
-    expect(await page.getAttribute('[data-nature-area]', 'data-nature-area') === 'it', 'IT suggested from the BOQ');
-    expect(await count('[data-nature-suggested]') >= 1, 'suggested chip');
-    await page.click('[data-nature-delivery] button:has-text("Services")'); await wait(150);
-    expect(await page.getAttribute('[data-nature-delivery]', 'data-nature-delivery') === 'services', 'delivery type editable');
+    expect(await count('[data-project-nature]') === 0, 'no project nature on Project Setup');
+    const back = await page.locator('[data-step-back]').boundingBox(); const cont = await page.locator('[data-continue]').boundingBox();
+    expect(back && cont && back.x < cont.x - 200, 'Back sits on the left, away from the main CTA');
+    await page.locator('button', { hasText: 'Qualification Criteria' }).first().click(); await wait(700);
+    expect(await count('[data-qual-no-priority]') === 1, 'asks for the priority before showing ranges');
+    await page.locator('button', { hasText: 'Project Setup' }).first().click(); await wait(600);
+    expect(await count('[data-project-priority-field] [data-opt]') === 4, 'Low / Medium / High / Critical');
+    await page.click('[data-project-priority-field] [data-opt="low"]'); await wait(150);
     await page.locator('button', { hasText: 'Qualification Criteria' }).first().click(); await wait(700);
     expect(await page.locator('#qualification-passing-pct').inputValue() === '60', 'passing defaults to 60%');
-    expect(await count('[data-qual-rec]') >= 5 && /2–5 years/.test(await page.locator('[data-qual-sub="qs-1-1"] [data-qual-rec]').innerText()), 'recommended range from value and nature');
+    expect(/2–5 years/.test(await page.locator('[data-qual-sub="qs-1-1"] [data-qual-rec]').innerText()), 'low priority range');
     expect(await count('[data-sme="open"]') === 1, 'open to SMEs when in range');
     await page.locator('[data-qual-sub="qs-1-1"] input[type="text"]').fill('10+ years'); await wait(200);
     expect(await count('[data-qual-justify="qs-1-1"]') === 1 && await count('[data-sme="restricted"]') === 1, 'above range asks for a justification and flags SMEs');
-    await page.locator('[data-qual-justify="qs-1-1"] input').fill('Regulated core system'); await wait(150);
-    expect(await count('[data-sme="restricted"]') === 1 && !/without a justification/.test(await page.locator('#q-qualification').locator('..').innerText()), 'justified');
     await page.locator('[data-qual-sub="qs-1-1"] input[type="text"]').fill('3+ years'); await wait(150);
-    expect(await count('[data-qual-justify]') === 0 && await count('[data-sme="open"]') === 1, 'back in range');
+    expect(await count('[data-qual-justify]') === 0, 'back in range');
+    expect(await count('[data-fin-criteria-form] [data-fin-row]') === 2, 'two fixed financial criteria');
+    await page.locator('[data-fin-row="liquidity"] [data-fin="min"]').fill('1.0');
+    await page.locator('[data-fin-row="liquidity"] [data-fin="weight"]').fill('60'); await wait(150);
+    expect(await page.locator('[data-fin-row="cash"] [data-fin="weight"]').inputValue() === '40' && (await page.locator('[data-fin-total]').innerText()).includes('100%'), 'weights rebalance');
+    await page.getByRole('button', { name: 'Suggest values', exact: true }).first().click(); await wait(200);
+    expect(await page.locator('[data-fin-row="cash"] [data-fin="max"]').inputValue() !== '', 'suggest fills the ranges');
+    await openReview();
+    expect(await count('[data-project-nature]') === 1 && await page.getAttribute('[data-nature-area]', 'data-nature-area') === 'it', 'nature auto-detected at Review & Confirm');
+    expect(await count('[data-review-fin] tbody tr') === 2, 'financial criteria on Review & Confirm');
   });
   await test('AI pre-review: animated department review → tabs → Fix it opens the step → Apply it', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', scopeOfWork: 'Implement SAP S/4HANA cloud subscription. Integrate with HR. Employee payroll data.', paymentStages: [], evaluationCriteria: [], technicalPassingPercentage: '',

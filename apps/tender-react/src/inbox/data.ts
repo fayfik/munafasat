@@ -59,7 +59,7 @@ const TITLE = {
   techEvalFromUser: () => sup(`Review technical evaluation criteria for request #${REQ.no} from ${reqUser()}`, `مراجعة معايير التقييم الفني للطلب رقم ${REQ.no} من ${reqUser(true)}`),
   reviewFromDept: () => sup(`Review request #${REQ.no} from ${reqDept()}`, `مراجعة الطلب رقم ${REQ.no} من ${reqDept(true)}`),
   qualFromDept: () => sup(`Review request & add qualification criteria for request #${REQ.no} from ${reqDept()}`, `مراجعة الطلب وإضافة معايير التأهيل للطلب رقم ${REQ.no} من ${reqDept(true)}`),
-  finQual: () => sup(`Set financial qualification criteria for request #${REQ.no} from ${reqDept()}`, `تحديد معايير التأهيل المالي للطلب رقم ${REQ.no} من ${reqDept(true)}`),
+  finQual: () => sup(`Review financial qualification criteria for request #${REQ.no} from ${reqDept()}`, `مراجعة معايير التأهيل المالي للطلب رقم ${REQ.no} من ${reqDept(true)}`),
   procQual: () => sup(`Review qualification criteria for request #${REQ.no} from ${reqDept()}`, `مراجعة معايير التأهيل للطلب رقم ${REQ.no} من ${reqDept(true)}`),
   method: () => sup(`Set procurement method & assign request #${REQ.no}`, `تحديد طريقة الشراء وإسناد الطلب رقم ${REQ.no}`),
   confirm: () => sup(`Review & confirm request #${REQ.no} from ${reqDept()}`, `مراجعة وتأكيد الطلب رقم ${REQ.no} من ${reqDept(true)}`),
@@ -258,7 +258,7 @@ const SPECS: Spec[] = [
     actions: [{ ...APPROVE_RETURN[0], gated: true }, APPROVE_RETURN[1]],
     extra: { parallelGroup: 'pg-specialist', finReview: 'assets', finAssetDecisions: {} } },
   { n: 9, type: 'data-collection', title: TITLE.finQual(),
-    summary: sup('Set the financial qualification criteria: liquidity and cash ratio ranges, their weights and the passing percentage. Requesters don’t see these.', 'حدد معايير التأهيل المالي: نطاقات نسبتي السيولة والنقدية وأوزانهما ونسبة الاجتياز. لا يراها مقدّمو الطلبات.'),
+    summary: sup('Review the financial criteria the requester entered — liquidity and cash ratio ranges and weights — adjust them for the project profile and set the passing percentage.', 'راجع المعايير المالية التي أدخلها مقدّم الطلب — نطاقات نسبتي السيولة والنقدية وأوزانهما — وعدّلها حسب ملف المشروع وحدد نسبة الاجتياز.'),
     stage: sup('Qualification — Finance', 'التأهيل — المالية'), assignee: P.finQual, sla: 1, priority: 'medium', received: 0,
     actions: [{ id: 'complete', labelEn: 'Complete', labelAr: 'إكمال', variant: 'primary', gated: true, decision: sup('Financial criteria set', 'تم تحديد المعايير المالية') }],
     extra: { procStep: 'fin-qual' } },
@@ -538,6 +538,7 @@ function completeRfp(r0: RfpDetail): RfpDetail {
     qualCriteria: QUAL_CRITERIA_FIXED,
     techDocs: r.techDocs ?? TECH_DOCS_DEFAULT,
     qualPassing: r.qualPassing ?? 60,
+    projectPriority: r.projectPriority ?? 'medium',
     projectArea: r.projectArea ?? 'it',
     deliveryType: r.deliveryType ?? 'services',
     qualCommittee: r.qualCommittee ?? QUAL_COMMITTEE,
@@ -590,14 +591,15 @@ const REQ_RFP = completeRfp({
 });
 // One criterion above the typical range, with the requester's reason — what Procurement qualification reviews.
 REQ_RFP.qualCriteria = REQ_RFP.qualCriteria!.map((m, i) => i === 0 ? { ...m, subs: m.subs.map((sb, j) => j === 0 ? { ...sb, range: '10+ years', justification: 'Core ERP migration — needs a proven S/4HANA track record' } : sb) } : m);
+// Financial criteria as the requester filled them at creation.
+REQ_RFP.finQual = suggestFinQual(REQ_RFP);
 for (const tk of SEED_TASKS) {
   tk.trail = trailFor(tk);
   tk.rfp = REQ_RFP;
   // Later steps open with what the earlier procurement steps decided.
   const n = Number(tk.id.match(/-(\d+)$/)?.[1] ?? 0);
   if (n >= 10) {
-    const fq = suggestFinQual(REQ_RFP);
-    tk.rfp = { ...REQ_RFP, finQual: { ...fq, by: P.finQual.name, at: iso(-1, 11) } };
+    tk.rfp = { ...REQ_RFP, finQual: { ...REQ_RFP.finQual!, by: P.finQual.name, at: iso(-1, 11) } };
     if (n >= 12) tk.rfp.procMethod = { contractType: 'tender', envelope: 'two', priority: 'high', officerId: P.officer.id, officerName: P.officer.name, officerNameAr: P.officer.nameAr, by: P.tl.name, byAr: P.tl.nameAr, at: iso(-1, 14) };
     if (n >= 15) tk.rfp.officerConfirm = { value: REQ.amount, duration: REQ_RFP.duration ?? '18 months', by: P.officer.name, byAr: P.officer.nameAr, at: iso(-1, 15) };
   }

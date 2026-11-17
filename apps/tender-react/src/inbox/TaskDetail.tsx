@@ -31,7 +31,7 @@ import { DeploymentHero, StandardsList } from '../components/TechStandards';
 import { bcmVerdict, bcmClauseById, tprRating, VERDICT, RATING, TPR_QUESTIONS } from '../lib/continuityRisk';
 import CyberReview from './CyberReview';
 import { FinQualEditor, TlMethod, OfficerConfirm, EtimadCreate, EtimadBanner, PriorityChip } from './ProcSteps';
-import { CONTRACT_OPTS, ENVELOPE_OPTS, optLabel, areaLabel, deliveryLabel, qualFlags } from './procGuide';
+import { CONTRACT_OPTS, ENVELOPE_OPTS, PRIORITY_OPTS, optLabel, areaLabel, deliveryLabel, qualFlags } from './procGuide';
 import { scoreBands } from './ProcSteps';
 import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
@@ -210,7 +210,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
             <span className="tabular-nums" dir="ltr">{task.id}</span>
             <span className="ms-1"><StateChip state={task.state} isAr={isAr} /></span>
             <span className="ms-1"><PriorityTag priority={task.priority} isAr={isAr} /></span>
-            {task.rfp?.procMethod?.priority && <span className="ms-1"><PriorityChip p={task.rfp.procMethod.priority} isAr={isAr} /></span>}
+            {(task.rfp?.procMethod?.priority ?? task.rfp?.projectPriority) && <span className="ms-1"><PriorityChip p={task.rfp?.procMethod?.priority ?? task.rfp?.projectPriority} isAr={isAr} /></span>}
           </div>
           {/* Title · CTAs */}
           <div className="mt-2 flex items-start justify-between gap-6 flex-wrap">
@@ -638,8 +638,8 @@ function CommitteeChips({ members, isAr }: { members?: RfpDetail['evalCommittee'
 }
 
 /** Financial criteria are seen by Finance and Procurement only — the steps from Finance qualification on. */
-export const financeView = (task: Task) => flowStep(task) >= 9;
-export function RfpTab({ rfp, amount, isAr, t, showFinance }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T; showFinance?: boolean }) {
+export const financeView = (_task: Task) => true;   // the requester fills them at creation, so everyone sees them
+export function RfpTab({ rfp, amount, isAr, t, showFinance = true }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T; showFinance?: boolean }) {
   const [preview, setPreview] = useState<PreviewDoc | null>(null);
   const boqOpen = useBoqOpen();
   if (!rfp) return <div className="rounded-xl border border-neutral-200 bg-white p-6 text-[13px] text-neutral-500 shadow-sm">{t('No request record linked to this task.', 'لا يوجد سجل منافسة مرتبط بهذه المهمة.')}</div>;
@@ -1014,6 +1014,7 @@ export function RfpTab({ rfp, amount, isAr, t, showFinance }: { rfp?: RfpDetail;
               { id: 'name-ar', k: t('Project Name (Arabic)', 'اسم المشروع (بالعربية)'), v: rfp.projectNameAr },
               { id: 'cc', k: t('Cost Center', 'مركز التكلفة'), v: rfp.costCenters?.join(', ') },
               { id: 'route', k: t('Procurement route', 'مسار الشراء'), v: rfp.route === 'souq-etimad' ? t('Etimad E-Market', 'سوق اعتماد') : t('Competitive Tender', 'منافسة عامة') },
+              ...(rfp.route !== 'souq-etimad' && rfp.projectPriority ? [{ id: 'priority', k: t('Project priority', 'أولوية المشروع'), v: optLabel(PRIORITY_OPTS, rfp.projectPriority, isAr) }] : []),
               ...(rfp.route !== 'souq-etimad' && rfp.projectArea ? [
                 { id: 'area', k: t('Area', 'المجال'), v: areaLabel(rfp, isAr) },
                 { id: 'delivery', k: t('Delivery type', 'نوع التوريد'), v: deliveryLabel(rfp, isAr) },
@@ -1047,7 +1048,7 @@ export function RfpTab({ rfp, amount, isAr, t, showFinance }: { rfp?: RfpDetail;
         )}
 
         {finSection && (
-          <RfpSection id="financial" title={t('Financial Criteria', 'المعايير المالية')} label={{ en: 'Financial Criteria', ar: 'المعايير المالية' }} meta={t('Finance & Procurement only', 'للمالية والمشتريات فقط')}>{finSection}</RfpSection>
+          <RfpSection id="financial" title={t('Financial Criteria', 'المعايير المالية')} label={{ en: 'Financial Criteria', ar: 'المعايير المالية' }} meta={`${t('Liquidity', 'السيولة')} ${fq?.liquidity.weight}% · ${t('Cash', 'النقدية')} ${fq?.cash.weight}%`}>{finSection}</RfpSection>
         )}
         {pm?.contractType && (
           <RfpSection id="method" title={t('Procurement method (set by Procurement TL)', 'طريقة الشراء (حددها رئيس فريق المشتريات)')} label={{ en: 'Procurement method', ar: 'طريقة الشراء' }}>

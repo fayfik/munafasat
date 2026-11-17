@@ -22,6 +22,8 @@ import { useAiReview } from '../context/AiReviewContext';
 import { qualityIssues } from '../lib/quality';
 import { focusField } from '../components/QualityGate';
 import AiReviewPanel from '../components/AiReview';
+import { ProjectNatureReview } from '../components/ProjectNature';
+import { PRIORITY_LEVELS, FIN_ITEMS, finTotal } from '../lib/qualGuide';
 
 function formatSAR(n: number) {
   return new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -230,6 +232,7 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
           <ReviewField label={t('Project', 'المشروع')} value={(isAr ? selectedProject?.nameAr : selectedProject?.name) ?? '—'} />
           <ReviewField label={t('Project Code', 'رمز المشروع')} value={selectedProject?.code ?? '—'} ltr />
           {extraCCs.length > 0 && <ReviewField label={t('Additional Cost Centers', 'مراكز تكلفة إضافية')} value={extraCCs.map((c) => `${c.name} (${c.code})`).join(', ')} />}
+          {!isEsouq && <ReviewField label={t('Project priority', 'أولوية المشروع')} value={(() => { const o = PRIORITY_LEVELS.find((x) => x.id === formData.projectPriority); return o ? (isAr ? o.ar : o.en) : '—'; })()} />}
           <ReviewField label={t('Source Type', 'نوع المصدر')} value={formData.sourceType === 'tendering' ? t('Competitive Tender', 'منافسة') : t('Etimad E-Market', 'سوق اعتماد')} />
         </dl>
         {formData.tenderingPurpose && (
@@ -238,6 +241,7 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
             <p className="text-[13px] text-neutral-700 leading-relaxed whitespace-pre-line">{formData.tenderingPurpose}</p>
           </div>
         )}
+        {!isEsouq && <ProjectNatureReview />}
       </ReviewSection>
 
       {/* ── Scope of work ────────────────────────────────────────── */}
@@ -485,6 +489,21 @@ export default function ReviewConfirm({ onExit }: { onExit?: () => void }) {
               </div>
             </>
           ) : <p className="mt-3 text-sm text-neutral-400 italic">{t('No qualification criteria', 'لا توجد معايير تأهيل')}</p>}
+          <div className="mt-4" data-review-fin>
+            <SubLabel>{t('Financial criteria', 'المعايير المالية')}</SubLabel>
+            <div className="mt-2 rounded-xl border border-neutral-200 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="bg-neutral-50 border-b border-neutral-200 text-[11px] text-neutral-500">
+                  <th className="text-start px-4 py-2 font-medium">{t('Ratio', 'النسبة')}</th><th className="text-end px-4 py-2 font-medium">{t('Minimum', 'الحد الأدنى')}</th><th className="text-end px-4 py-2 font-medium">{t('Target', 'المستهدف')}</th><th className="text-end px-4 py-2 font-medium w-24">{t('Weight (%)', 'الوزن (%)')}</th>
+                </tr></thead>
+                <tbody>{FIN_ITEMS.map((it) => { const r = formData.finCriteria?.[it.k]; return (
+                  <tr key={it.k} className="border-b border-neutral-100 last:border-b-0"><td className="px-4 py-2 text-[12.5px] font-medium text-neutral-800">{isAr ? it.ar : it.en}</td>
+                    <td className="px-4 py-2 text-end text-[12.5px] tabular-nums">{r?.min || '—'}</td><td className="px-4 py-2 text-end text-[12.5px] tabular-nums">{r?.max || '—'}</td><td className="px-4 py-2 text-end text-[12.5px] tabular-nums">{Number(r?.weight) || 0}%</td></tr>
+                ); })}</tbody>
+              </table>
+            </div>
+            <p className={`mt-2 text-[12px] font-semibold ${finTotal(formData.finCriteria) === 100 ? 'text-success-600' : 'text-warning-600'}`}>{t('Financial weights total', 'إجمالي الأوزان المالية')}: {finTotal(formData.finCriteria)}%</p>
+          </div>
         </ReviewSection>
       )}
 

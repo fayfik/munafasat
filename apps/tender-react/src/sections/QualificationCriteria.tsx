@@ -7,7 +7,7 @@ import { useAiAction, AiNote, num, str } from '../lib/useAiAction';
 import { aiQualification, type AiQual } from '../lib/aiTender';
 import ImportCriteriaDrawer, { type DrawerItem } from '../components/ImportCriteriaDrawer';
 import { SIMILAR_PROJECTS, QUAL_LIBRARY, type LibQualMain } from '../lib/criteriaLibrary';
-import { recommendedFor, recText, aboveRange, suggestedRange, natureOf, boqValue, tierOf, TIER_LABEL, AREA_OPTS, DELIVERY_OPTS } from '../lib/qualGuide';
+import { recommendedFor, recText, aboveRange, suggestedRange, natureOf, tierOf, TIER_LABEL, FIN_ITEMS, EMPTY_FIN, suggestFin, finTotal, type FinCriteria } from '../lib/qualGuide';
 
 const RANGE_PLACEHOLDERS: Record<string, [string, string]> = {
   'qs-1-1': ['e.g. 5–15 years', 'مثال: 5–15 سنة'],
@@ -33,7 +33,7 @@ const AI_QUAL_RANGES_AR: Record<string, AISuggestion> = {
 };
 
 export default function QualificationCriteria() {
-  const { formData, updateField, updateQualMain, updateQualSub, setQualificationCommitteeMembers, qualPctTotal } = useTender();
+  const { formData, updateField, updateQualMain, updateQualSub, setQualificationCommitteeMembers, qualPctTotal, goToSection } = useTender();
   const { isAr } = useLanguage();
   const t = useT();
   const qualAi = useAiAction();
@@ -103,7 +103,17 @@ export default function QualificationCriteria() {
   const flagged = new Map(flags.map((f) => [f.subId, f]));
   const unjustified = flags.filter((f) => !f.justified).length;
   const nature = natureOf(formData);
-  const tier = tierOf(boqValue(formData));
+  const tier = tierOf(formData);
+  const fin: FinCriteria = (formData.finCriteria as FinCriteria) ?? EMPTY_FIN;
+  const finSug = suggestFin(formData.projectPriority, nature.delivery);
+  const setFin = (k: keyof FinCriteria, patch: Partial<FinCriteria['liquidity']>) => {
+    const other = k === 'liquidity' ? 'cash' : 'liquidity';
+    const next = { ...fin, [k]: { ...fin[k], ...patch } } as FinCriteria;
+    // Two weights always total 100: editing one moves the other.
+    if (patch.weight !== undefined && patch.weight !== '') next[other] = { ...fin[other], weight: Math.max(0, 100 - Number(patch.weight)) };
+    updateField('finCriteria', next);
+  };
+  const fTotal = finTotal(fin);
   const setJust = (id: string, v: string) => updateField('qualJustifications', { ...(formData.qualJustifications ?? {}), [id]: v });
   const mainPctOk = qualPctTotal === 100;
   const mainPctOver = qualPctTotal > 100;
@@ -161,10 +171,9 @@ export default function QualificationCriteria() {
           {flags.length === 0
             ? <span className="inline-flex items-center gap-1.5 rounded-full bg-success-50 border border-success-200 px-2.5 py-1 text-[12px] font-semibold text-success-700 fade-in" data-sme="open"><CheckCircleIcon className="w-3.5 h-3.5" />{t('Open to SMEs', 'متاح للمنشآت الصغيرة والمتوسطة')}</span>
             : <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-50 border border-warning-200 px-2.5 py-1 text-[12px] font-semibold text-warning-700 fade-in" data-sme="restricted"><AlertTriangleIcon className="w-3.5 h-3.5" />{t(`May exclude SMEs — ${flags.length} above range`, `قد يستبعد المنشآت الصغيرة — ${flags.length} فوق النطاق`)}</span>}
-          <span className="text-[12px] text-neutral-500">{t('Recommended ranges for', 'النطاقات الموصى بها لـ')} <span className="font-semibold text-neutral-700">{isAr ? TIER_LABEL[tier][1] : TIER_LABEL[tier][0]}</span>
-            {nature.area && <> · {(() => { const o = AREA_OPTS.find((x) => x.id === nature.area)!; return isAr ? o.ar : o.en; })()}</>}
-            {nature.delivery && <> · {(() => { const o = DELIVERY_OPTS.find((x) => x.id === nature.delivery)!; return isAr ? o.ar : o.en; })()}</>}
-          </span>
+          {tier
+            ? <span className="text-[12px] text-neutral-500">{t('Recommended ranges for', 'النطاقات الموصى بها لـ')} <span className="font-semibold text-neutral-700">{isAr ? TIER_LABEL[tier][1] : TIER_LABEL[tier][0]}</span></span>
+            : <span className="text-[12px] text-warning-700" data-qual-no-priority>{t('Set the project priority to see recommended ranges.', 'حدد أولوية المشروع لعرض النطاقات الموصى بها.')} <button type="button" className="font-semibold underline underline-offset-2" onClick={() => goToSection(1)}>{t('Go to Project Setup', 'الانتقال إلى إعداد المشروع')}</button></span>}
         </div>
         <div className="rounded-xl border border-neutral-200 overflow-x-auto mt-3" id="q-qualification">
           <table className="w-full text-sm">
@@ -223,7 +232,7 @@ export default function QualificationCriteria() {
                             value={sub.range}
                             onChange={(e) => updateQualSub(main.id, sub.id, { range: e.target.value })}
                             className="w-full text-xs border border-transparent rounded px-2 py-1 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-transparent text-neutral-600 placeholder-neutral-300 transition-colors"
-                            placeholder={(() => { const p = RANGE_PLACEHOLDERS[sub.id]; return p ? t(p[0], p[1]) : t('e.g. specify range…', 'مثال: حدد النطاق…'); })()}
+                            placeholder={(() => { const sg = suggestedRange(sub.id, formData, isAr); if (sg) return t(`e.g. ${sg}`, `مثال: ${sg}`); const p = RANGE_PLACEHOLDERS[sub.id]; return p ? t(p[0], p[1]) : t('e.g. specify range…', 'مثال: حدد النطاق…'); })()}
                           />
                         </td>
                         <td className="px-4 py-2.5 text-[12px] whitespace-nowrap" data-qual-rec>
@@ -320,6 +329,42 @@ export default function QualificationCriteria() {
             'يجب أن تبلغ نسب المعايير الفرعية ضمن كل فئة رئيسية 100% بشكل مستقل. كما يجب أن تبلغ الفئات الرئيسية 100% أيضاً.'
           )}
         </InfoBanner>
+      </SectionCard>
+
+      {/* Financial criteria — two fixed ratios from the Finance qualification committee */}
+      <SectionCard title="Financial Criteria" titleAr="المعايير المالية"
+        action={<AIButton onClick={() => updateField('finCriteria', finSug)} loading={false} label={t('Suggest values', 'اقتراح القيم')} />}>
+        <div className="rounded-xl border border-neutral-200 overflow-x-auto" id="q-finCriteria" data-fin-criteria-form>
+          <table className="w-full text-sm min-w-[520px]">
+            <thead><tr className="bg-neutral-50 border-b border-neutral-200">
+              <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500 min-w-[220px]">{t('Criteria', 'المعايير')}</th>
+              <th className="text-end px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Minimum', 'الحد الأدنى')}</th>
+              <th className="text-end px-4 py-2.5 text-xs font-medium text-neutral-500">{t('Target', 'المستهدف')}</th>
+              <th className="text-end px-4 py-2.5 text-xs font-medium text-neutral-500 w-28">{t('Weight (%)', 'الوزن (%)')}</th>
+            </tr></thead>
+            <tbody>
+              {FIN_ITEMS.map((it) => (
+                <tr key={it.k} className="border-b border-neutral-100 last:border-b-0" data-fin-row={it.k}>
+                  <td className="px-4 py-2.5"><p className="text-[13px] font-semibold text-neutral-800">{isAr ? it.ar : it.en}</p><p className="text-[11px] text-neutral-400">{isAr ? it.fAr : it.fEn}</p></td>
+                  {(['min', 'max'] as const).map((f) => (
+                    <td key={f} className="px-4 py-2.5 text-end"><input type="number" step="0.1" min={0} value={fin[it.k][f]} data-fin={f}
+                      placeholder={finSug[it.k][f]} onChange={(e) => setFin(it.k, { [f]: e.target.value })}
+                      className="w-20 text-xs text-end border border-neutral-200 rounded px-2 py-1 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-white text-neutral-700 tabular-nums placeholder-neutral-300" /></td>
+                  ))}
+                  <td className="px-4 py-2.5"><div className="flex items-center justify-end gap-1">
+                    <input type="number" min={0} max={100} value={fin[it.k].weight} data-fin="weight" onChange={(e) => setFin(it.k, { weight: e.target.value === '' ? '' : Math.min(100, Number(e.target.value)) })}
+                      className="w-16 text-xs text-end border border-neutral-300 rounded px-2 py-1 focus:border-brand-400 focus:ring-0 focus:bg-brand-50 bg-white text-neutral-800 font-semibold tabular-nums" />
+                    <span className="text-xs text-neutral-500">%</span></div></td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot><tr className={`border-t border-neutral-200 ${fTotal === 100 ? 'bg-success-50/40' : 'bg-warning-50/40'}`}>
+              <td colSpan={3} className="px-4 py-1.5 text-end text-xs text-neutral-500 italic">{t('Total weight', 'إجمالي الأوزان')}</td>
+              <td className={`px-4 py-1.5 text-end text-xs font-semibold tabular-nums ${fTotal === 100 ? 'text-success-600' : 'text-warning-600'}`} data-fin-total>{fTotal}%</td>
+            </tr></tfoot>
+          </table>
+        </div>
+        <p className="mt-2 text-[12px] text-neutral-500">{t('Ratios from the vendor’s latest audited financial statements. Finance reviews these after approval.', 'النسب من أحدث قوائم مالية مدققة للمورد. تراجعها المالية بعد الاعتماد.')}</p>
       </SectionCard>
 
       <ImportCriteriaDrawer

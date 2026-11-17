@@ -1,4 +1,4 @@
-/* Guided qualification criteria — recommended ranges by project size (BOQ value) and nature.
+/* Guided qualification criteria — recommended ranges by project priority (set by the requester) and nature.
    Requesters set the criteria; going above the recommended range needs a one-line justification,
    because over-demanding criteria shut out SMEs. Priority is NOT an input here (the Procurement TL sets it). */
 import type { TenderFormData } from '../types/tender';
@@ -49,25 +49,34 @@ export function natureOf(f: TenderFormData) {
 export function boqValue(f: TenderFormData) {
   return f.boqItems.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0), 0);
 }
-export type Tier = 'small' | 'medium' | 'large';
-export function tierOf(value: number): Tier { return value < 1_000_000 ? 'small' : value <= 10_000_000 ? 'medium' : 'large'; }
+export type Priority = 'low' | 'medium' | 'high' | 'critical';
+export const PRIORITY_LEVELS: { id: Priority; en: string; ar: string; hintEn: string; hintAr: string }[] = [
+  { id: 'low', en: 'Low', ar: 'منخفضة', hintEn: 'Routine purchase — open to most vendors', hintAr: 'شراء اعتيادي — مفتوح لمعظم الموردين' },
+  { id: 'medium', en: 'Medium', ar: 'متوسطة', hintEn: 'Standard business need', hintAr: 'احتياج عمل اعتيادي' },
+  { id: 'high', en: 'High', ar: 'عالية', hintEn: 'Important to operations — needs proven vendors', hintAr: 'مهم للعمليات — يتطلب موردين ذوي خبرة' },
+  { id: 'critical', en: 'Critical', ar: 'حرجة', hintEn: 'Core or regulated system — highest bar', hintAr: 'نظام أساسي أو خاضع للتنظيم — أعلى متطلبات' },
+];
+/** Project priority drives the recommended qualification bands. */
+export type Tier = Priority;
+export const tierOf = (f: Pick<TenderFormData, 'projectPriority'>): Tier | undefined => (f.projectPriority || undefined) as Tier | undefined;
 export const TIER_LABEL: Record<Tier, [string, string]> = {
-  small: ['Under SAR 1M', 'أقل من 1 مليون ريال'], medium: ['SAR 1M–10M', '1–10 مليون ريال'], large: ['Over SAR 10M', 'أكثر من 10 ملايين ريال'],
+  low: ['Low priority', 'أولوية منخفضة'], medium: ['Medium priority', 'أولوية متوسطة'], high: ['High priority', 'أولوية عالية'], critical: ['Critical priority', 'أولوية حرجة'],
 };
 
 type Unit = 'years' | 'projects' | 'sar' | 'employees' | 'pct';
 type Rec = { min: number; max: number; unit: Unit };
 /* Recommended minimum-threshold band per sub-criterion. Existing obligations (qm-2) cap a vendor's load, so they get no ceiling check. */
 const BASE: Record<string, Record<Tier, Rec>> = {
-  'qs-1-1': { small: { min: 2, max: 5, unit: 'years' }, medium: { min: 3, max: 7, unit: 'years' }, large: { min: 5, max: 10, unit: 'years' } },
-  'qs-1-2': { small: { min: 1, max: 3, unit: 'projects' }, medium: { min: 2, max: 5, unit: 'projects' }, large: { min: 3, max: 8, unit: 'projects' } },
-  'qs-1-3': { small: { min: 300_000, max: 2_000_000, unit: 'sar' }, medium: { min: 1_000_000, max: 10_000_000, unit: 'sar' }, large: { min: 5_000_000, max: 50_000_000, unit: 'sar' } },
-  'qs-3-1': { small: { min: 10, max: 100, unit: 'employees' }, medium: { min: 25, max: 250, unit: 'employees' }, large: { min: 50, max: 500, unit: 'employees' } },
-  'qs-3-2': { small: { min: 20, max: 40, unit: 'pct' }, medium: { min: 25, max: 50, unit: 'pct' }, large: { min: 30, max: 60, unit: 'pct' } },
+  'qs-1-1': { low: { min: 2, max: 5, unit: 'years' }, medium: { min: 3, max: 7, unit: 'years' }, high: { min: 5, max: 10, unit: 'years' }, critical: { min: 7, max: 15, unit: 'years' } },
+  'qs-1-2': { low: { min: 1, max: 3, unit: 'projects' }, medium: { min: 2, max: 5, unit: 'projects' }, high: { min: 3, max: 8, unit: 'projects' }, critical: { min: 5, max: 10, unit: 'projects' } },
+  'qs-1-3': { low: { min: 300_000, max: 2_000_000, unit: 'sar' }, medium: { min: 1_000_000, max: 10_000_000, unit: 'sar' }, high: { min: 5_000_000, max: 50_000_000, unit: 'sar' }, critical: { min: 10_000_000, max: 100_000_000, unit: 'sar' } },
+  'qs-3-1': { low: { min: 10, max: 100, unit: 'employees' }, medium: { min: 25, max: 250, unit: 'employees' }, high: { min: 50, max: 500, unit: 'employees' }, critical: { min: 100, max: 1000, unit: 'employees' } },
+  'qs-3-2': { low: { min: 20, max: 40, unit: 'pct' }, medium: { min: 25, max: 50, unit: 'pct' }, high: { min: 30, max: 60, unit: 'pct' }, critical: { min: 35, max: 70, unit: 'pct' } },
 };
 
 export function recommendedFor(subId: string, f: TenderFormData): Rec | null {
-  const b = BASE[subId]?.[tierOf(boqValue(f))];
+  const tier = tierOf(f);
+  const b = tier ? BASE[subId]?.[tier] : undefined;
   if (!b) return null;
   const { delivery } = natureOf(f);
   // People-heavy work needs a bigger workforce; one-time supply needs less track record.
@@ -121,3 +130,23 @@ export function suggestedRange(subId: string, f: TenderFormData, ar: boolean): s
     case 'sar': return ar ? `${fmtSar(mid, true)}+ ريال` : `SAR ${fmtSar(mid, false)}+`;
   }
 }
+
+/* ── Financial criteria (2 fixed ratios) — filled by the requester, reviewed by Finance ── */
+export type FinRow = { min: string; max: string; weight: number | '' };
+export type FinCriteria = { liquidity: FinRow; cash: FinRow };
+export const FIN_ITEMS: { k: keyof FinCriteria; en: string; ar: string; fEn: string; fAr: string }[] = [
+  { k: 'liquidity', en: 'Liquidity ratio', ar: 'نسبة السيولة', fEn: 'Current assets ÷ current liabilities', fAr: 'الأصول المتداولة ÷ الخصوم المتداولة' },
+  { k: 'cash', en: 'Cash ratio', ar: 'نسبة النقدية', fEn: 'Cash & equivalents ÷ current liabilities', fAr: 'النقد وما يعادله ÷ الخصوم المتداولة' },
+];
+export const EMPTY_FIN: FinCriteria = { liquidity: { min: '', max: '', weight: 70 }, cash: { min: '', max: '', weight: 30 } };
+/** Suggested ratio bands by priority — long or people-heavy work leans on liquidity. */
+export function suggestFin(priority?: string, delivery?: string): FinCriteria {
+  const B: Record<string, [string, string, string, string]> = {
+    low: ['0.8', '1.5', '0.2', '0.6'], medium: ['1.0', '1.8', '0.3', '0.8'], high: ['1.2', '2.0', '0.4', '1.0'], critical: ['1.5', '2.5', '0.5', '1.2'],
+  };
+  const b = B[priority || 'medium'];
+  const lw = delivery === 'one-time' ? 60 : 70;
+  return { liquidity: { min: b[0], max: b[1], weight: lw }, cash: { min: b[2], max: b[3], weight: 100 - lw } };
+}
+export const finTotal = (c?: FinCriteria) => (c ? (Number(c.liquidity.weight) || 0) + (Number(c.cash.weight) || 0) : 0);
+export const finComplete = (c?: FinCriteria) => !!c && finTotal(c) === 100 && FIN_ITEMS.every(({ k }) => c[k].min !== '' && c[k].max !== '' && Number(c[k].min) <= Number(c[k].max));

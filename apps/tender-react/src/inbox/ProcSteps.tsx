@@ -53,7 +53,7 @@ export const PriorityChip = ({ p, isAr }: { p?: string; isAr: boolean }) => {
 
 /** Project priority for list rows: set by the TL, or suggested (dashed) while a request waits in the team queue. */
 export function ProjectPriority({ task, isAr }: { task: Task; isAr: boolean }) {
-  const set = task.rfp?.procMethod?.priority;
+  const set = task.rfp?.procMethod?.priority ?? task.rfp?.projectPriority;
   if (set) return <PriorityChip p={set} isAr={isAr} />;
   if (!task.queue || !task.rfp) return null;
   const o = PRIORITY_OPTS.find((x) => x.id === suggestPriority(task.rfp!))!;
@@ -72,7 +72,6 @@ export function FinQualEditor({ task, isAr, t, readOnly, onRfp }: P) {
   const rfp = task.rfp!;
   const sug = suggestFinQual(rfp);
   const fq = rfp.finQual ?? sug;
-  useEffect(() => { if (!rfp.finQual && !readOnly) onRfp({ ...rfp, finQual: { ...sug, by: task.assignee.name, at: now() } }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (p: Partial<FinQual>) => onRfp({ ...rfp, finQual: { ...fq, ...p, by: task.assignee.name, at: now() } });
   const setR = (k: 'liquidity' | 'cash', p: Partial<FinRatio>) => {
     const next = { ...fq[k], ...p };
@@ -89,15 +88,15 @@ export function FinQualEditor({ task, isAr, t, readOnly, onRfp }: P) {
   const inp = 'w-20 text-[12.5px] text-end border border-neutral-200 rounded-md px-2 py-1.5 bg-white tabular-nums focus:outline-none focus:border-brand-400 disabled:bg-neutral-50';
   return (
     <div className="space-y-5" data-fin-qual>
-      <ActionHead title={t('Set the financial qualification criteria', 'تحديد معايير التأهيل المالي')}
-        desc={t('Finance owns these — requesters never see them. Ranges and weights are suggested from the project profile; adjust if needed.', 'تملكها المالية — لا يراها مقدّمو الطلبات. النطاقات والأوزان مقترحة من ملف المشروع؛ عدّلها عند الحاجة.')}
-        extra={<span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600" data-fin-hidden>{t('Hidden from requester', 'مخفية عن مقدّم الطلب')}</span>} />
+      <ActionHead title={t('Review the financial qualification criteria', 'مراجعة معايير التأهيل المالي')}
+        desc={t('The requester entered these at creation. Check them against the project profile, adjust ranges or weights if needed, and set the passing percentage.', 'أدخلها مقدّم الطلب عند الإنشاء. راجعها مقابل ملف المشروع وعدّل النطاقات أو الأوزان عند الحاجة وحدد نسبة الاجتياز.')} />
 
       <Card title={t('Project profile', 'ملف المشروع')} attr={{ 'data-fin-profile': '' }}>
         <KvGrid>
           <Kv k={t('Estimated value (excl. VAT)', 'القيمة التقديرية (بدون ضريبة)')} v={fmtSAR(boqValueOf(rfp))} ltr />
           <Kv k={t('Duration', 'المدة')} v={rfp.duration ?? '—'} />
           <Kv k={t('Nature', 'الطبيعة')} v={`${areaLabel(rfp, isAr)} · ${deliveryLabel(rfp, isAr)}`} />
+          <Kv k={t('Project priority', 'أولوية المشروع')} v={<PriorityChip p={rfp.projectPriority} isAr={isAr} />} />
         </KvGrid>
         <p className="mt-3 text-[12.5px] text-neutral-600 leading-relaxed line-clamp-2"><span className="font-semibold text-neutral-700">{t('Scope', 'النطاق')}: </span>{isAr ? rfp.scopeAr : rfp.scopeEn}</p>
         {!readOnly && (
@@ -115,7 +114,7 @@ export function FinQualEditor({ task, isAr, t, readOnly, onRfp }: P) {
 
       <Card title={t('Financial criteria', 'المعايير المالية')} attr={{ 'data-fin-criteria': '' }}
         aside={isSug
-          ? <span className="inline-flex items-center gap-1 rounded-full bg-ai-50 border border-ai-200 px-2 py-0.5 text-[11px] font-semibold text-ai-700"><SparklesIcon className="w-3 h-3" />{t('Suggested for this profile', 'مقترحة لهذا الملف')}</span>
+          ? <span className="inline-flex items-center gap-1 rounded-full bg-success-50 border border-success-200 px-2 py-0.5 text-[11px] font-semibold text-success-700"><CheckIcon className="w-3 h-3" />{t('Matches the typical values', 'مطابقة للقيم المعتادة')}</span>
           : !readOnly && <Button size="sm" variant="ghost" data-fin-reset onClick={() => set({ liquidity: sug.liquidity, cash: sug.cash, passing: sug.passing })}><SparklesIcon className="w-3.5 h-3.5" />{t('Use suggested', 'استخدام المقترح')}</Button>}>
         <div className="overflow-x-auto rounded-lg border border-neutral-200">
           <table className="w-full text-[12.5px] min-w-[520px]">
@@ -217,9 +216,9 @@ export function TlMethod({ task, isAr, t, readOnly, onRfp }: P) {
       </Card>
 
       <Card title={t('Project priority', 'أولوية المشروع')} attr={{ 'data-tl-priority': '' }}
-        aside={<span className="inline-flex items-center gap-1 rounded-full bg-ai-50 border border-ai-200 px-2 py-0.5 text-[11px] font-semibold text-ai-700" data-priority-suggested={sugP}><SparklesIcon className="w-3 h-3" />{t(`Suggested: ${optLabel(PRIORITY_OPTS, sugP, false)}`, `المقترح: ${optLabel(PRIORITY_OPTS, sugP, true)}`)}</span>}>
+        aside={<span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 border border-neutral-200 px-2 py-0.5 text-[11px] font-semibold text-neutral-600" data-priority-suggested={sugP}>{t(`Requester: ${optLabel(PRIORITY_OPTS, sugP, false)}`, `مقدّم الطلب: ${optLabel(PRIORITY_OPTS, sugP, true)}`)}</span>}>
         <Segmented opts={PRIORITY_OPTS} value={prio} onPick={(k) => set({ priority: k })} isAr={isAr} disabled={readOnly} attr="data-priority" />
-        <p className="mt-2 text-[12px] text-neutral-500">{t('From the value, duration and start date. Shown to the team in the queue and on the request.', 'من القيمة والمدة وتاريخ البدء. تظهر للفريق في قائمة الانتظار وعلى الطلب.')}</p>
+        <p className="mt-2 text-[12px] text-neutral-500">{t('Set by the requester — change it if needed. Shown to the team in the queue and on the request.', 'حددها مقدّم الطلب — عدّلها عند الحاجة. تظهر للفريق في قائمة الانتظار وعلى الطلب.')}</p>
       </Card>
 
       <Card title={t('Assign officer', 'إسناد إلى أخصائي')} attr={{ 'data-tl-assign': '' }}>

@@ -1,4 +1,4 @@
-import { aboveRange, natureOf, recText } from './qualGuide';
+import { aboveRange, recText } from './qualGuide';
 // "Will this be returned?" checks — run when the requester presses Continue.
 // Each rule mirrors a common reason a manager, EA or Finance returns a request,
 // so the requester fixes it now instead of after a review round-trip.
@@ -24,13 +24,6 @@ export function qualityIssues(sectionId: string, f: TenderFormData): QualityIssu
   const out: QualityIssue[] = [];
   switch (sectionId) {
     case 'project-setup': {
-      const nat = natureOf(f);
-      if (f.boqItems.length && (!nat.area || !nat.delivery)) out.push({
-        id: 'nature', field: 'q-nature',
-        en: 'Set the project nature', ar: 'حدد طبيعة المشروع',
-        whyEn: 'Finance and Procurement size the qualification criteria from it (IT / non-IT and delivery type).',
-        whyAr: 'تحدد المالية والمشتريات معايير التأهيل بناءً عليها (تقني / غير تقني ونوع التوريد).',
-      });
       const n = words(f.tenderingPurpose);
       if (n < MIN_WORDS.purpose) out.push({
         id: 'purpose', field: 'q-tenderingPurpose',

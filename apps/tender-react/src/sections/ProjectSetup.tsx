@@ -8,7 +8,7 @@ import BrowseRfpsDialog from '../components/BrowseRfpsDialog';
 import { rfpsForProjectByRoute, buildRfpImport, formatRfpDate, IMPORTED_SECTIONS_EN, IMPORTED_SECTIONS_AR, type PastRfp } from '../lib/rfpLibrary';
 import type { TenderFormData, BOQRow } from '../types/tender';
 import { SectionCard, Textarea, Badge, AIButton } from '../components/ui';
-import ProjectNature from '../components/ProjectNature';
+import { ProjectPriorityCard } from '../components/ProjectNature';
 import { CheckCircleIcon, CheckIcon, ArrowLeftIcon, SparklesIcon, ChevronDownIcon } from '../components/Icons';
 import { useAiAction, AiNote } from '../lib/useAiAction';
 import { aiPurpose } from '../lib/aiTender';
@@ -243,7 +243,7 @@ export default function ProjectSetup() {
             <AiNote error={purposeAi.error} usedSample={purposeAi.usedSample} />
           </SectionCard>
 
-          {!isEsouq && <ProjectNature />}
+          {!isEsouq && <ProjectPriorityCard />}
 
           {!isEsouq && showRfpDialog && <BrowseRfpsDialog projectId={selectedProject.id} onClose={() => setShowRfpDialog(false)} onImport={handleImport} />}
         </>

@@ -5,6 +5,7 @@ import { continuityOpen } from '../components/ContinuityRisk';
 import { qualityIssues } from '../lib/quality';
 import { useRequests } from './RequestStore';
 import { PROJECTS } from '../data/mockData';
+import { finComplete } from '../lib/qualGuide';
 import type {
   TenderFormData,
   BOQRow,
@@ -92,6 +93,8 @@ const INITIAL: TenderFormData = {
   evaluationCriteria: [],
   technicalPassingPercentage: '',
   qualificationPassingPercentage: '60',
+  projectPriority: '',
+  finCriteria: { liquidity: { min: '', max: '', weight: 70 }, cash: { min: '', max: '', weight: 30 } },
   projectArea: '',
   deliveryType: '',
   qualJustifications: {},
@@ -431,7 +434,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       case 'procurement-route':
         return routeConfirmed ? 'completed' : 'not-started';
       case 'project-setup':
-        if (formData.costCenterId && formData.projectId) return 'completed';
+        if (formData.costCenterId && formData.projectId && (formData.sourceType === 'souq-etimad' || formData.projectPriority)) return 'completed';
         if (formData.costCenterId || formData.projectId) return 'missing';
         return 'not-started';
       case 'scope-of-work': {
@@ -458,7 +461,8 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       case 'qualification':
         if (qualPctTotal === 100 && formData.qualificationCriteria.every((m) =>
           m.subCriteria.reduce((t, c) => t + (typeof c.percentage === 'number' ? c.percentage : 0), 0) === 100)
-          && Number(formData.qualificationPassingPercentage) > 0 && Number(formData.qualificationPassingPercentage) <= 100) return 'completed';
+          && Number(formData.qualificationPassingPercentage) > 0 && Number(formData.qualificationPassingPercentage) <= 100
+          && finComplete(formData.finCriteria)) return 'completed';
         if (formData.qualificationCommitteeMembers.length > 0 || qualPctTotal > 0) return 'missing';
         return 'not-started';
       case 'attachments':
