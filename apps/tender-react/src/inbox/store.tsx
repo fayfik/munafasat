@@ -9,6 +9,7 @@ import { deptRowKeys } from './cyberReview';
 import { SEED_TASKS, ME, buildCommentResponseTask } from './data';
 import type { Person } from './types';
 import type { RfpDetail, Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry } from './types';
+import { finQualOk, suggestPriority } from './procGuide';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
 export const fmtSAR = (n: number) =>
@@ -84,6 +85,26 @@ export function completionStatus(task: Task): Completion {
       total++;
       const ok = checkItemDone(c) && (!c.evidenceRequired || (c.evidence?.length ?? 0) > 0);
       if (ok) done++; else missing.push(c.label);
+    }
+  } else if (task.procStep) {
+    const r = task.rfp;
+    const need = (ok: boolean, en: string, ar: string) => { total++; if (ok) done++; else missing.push({ en, ar }); };
+    if (task.procStep === 'fin-qual') {
+      const f = r?.finQual;
+      need(!!f && f.liquidity.weight + f.cash.weight === 100, 'Financial criteria weights must total 100%', 'يجب أن تبلغ أوزان المعايير المالية 100%');
+      need(finQualOk(f), 'Set a minimum and target for each ratio, and the passing %', 'حدد الحد الأدنى والمستهدف لكل نسبة ونسبة الاجتياز');
+    } else if (task.procStep === 'tl-method') {
+      const m = r?.procMethod;
+      need(!!m?.contractType, 'Choose the contract type', 'اختر نوع العقد');
+      if (m?.contractType === 'direct') need(!!m.directJustification?.trim(), 'Justify the direct purchase', 'اذكر مبرر الشراء المباشر');
+      if (m?.contractType === 'closed') need(!!m.invitedVendors?.length, 'Invite at least one vendor', 'ادعُ مورداً واحداً على الأقل');
+      need(!!m?.envelope, 'Choose the envelope type', 'اختر نوع الظرف');
+      need(!!(m?.priority ?? (r && suggestPriority(r))), 'Set the project priority', 'حدد أولوية المشروع');
+      need(!!m?.officerId, 'Assign an officer', 'أسند إلى أخصائي');
+    } else if (task.procStep === 'officer-confirm') {
+      need(!!r?.officerConfirm, 'Confirm the estimated value and duration', 'أكّد القيمة التقديرية والمدة');
+    } else if (task.procStep === 'etimad') {
+      need(!!r?.etimad?.ref, 'Record the Etimad reference', 'سجّل مرجع اعتماد');
     }
   } else if (task.qualEditor) {
     const crit = task.qualForm?.criteria ?? [];
@@ -240,11 +261,12 @@ function nextFlowSteps(step: number, action: string, done: (n: number) => boolea
   if (step === 1) return action === 'approve' ? [2] : [];
   if (step === 2) return action === 'approve' ? PARALLEL : [];
   if (PARALLEL.includes(step)) return action === 'approve' && PARALLEL.every((n) => n === step || done(n)) ? [9] : [];
-  if (step === 9) return [10];
-  if (step === 10) return [11];
-  if (step === 11) return action === 'approve' ? [13] : action === 'complete' ? [12] : [];
-  if (step === 12) return action === 'submit' ? [13] : [];
+  if (step === 9) return action === 'complete' ? [10] : [];
+  if (step === 10) return action === 'approve' ? [11] : [];
+  if (step === 11) return action === 'complete' ? [12] : [];
+  if (step === 12) return action === 'approve' ? [13] : [];
   if (step === 13) return [14];
+  if (step === 14) return action === 'approve' ? [15] : [];
   return [];
 }
 

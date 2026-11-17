@@ -7,6 +7,7 @@ import { useAiAction, AiNote, num, str } from '../lib/useAiAction';
 import { aiQualification, type AiQual } from '../lib/aiTender';
 import ImportCriteriaDrawer, { type DrawerItem } from '../components/ImportCriteriaDrawer';
 import { SIMILAR_PROJECTS, QUAL_LIBRARY, type LibQualMain } from '../lib/criteriaLibrary';
+import { recommendedFor, recText, aboveRange, suggestedRange, natureOf, boqValue, tierOf, TIER_LABEL, AREA_OPTS, DELIVERY_OPTS } from '../lib/qualGuide';
 
 const RANGE_PLACEHOLDERS: Record<string, [string, string]> = {
   'qs-1-1': ['e.g. 5–15 years', 'مثال: 5–15 سنة'],
@@ -78,7 +79,8 @@ export default function QualificationCriteria() {
           updateQualMain(m.id, { percentage: aiM.percentage });
           m.subCriteria.forEach((s) => {
             const aiS = aiM.subRanges[s.id as keyof typeof aiM.subRanges];
-            if (aiS) updateQualSub(m.id, s.id, { range: aiS.range, percentage: aiS.percentage });
+            // Ranges come from the recommended band for this project's size and nature, so suggestions never exclude SMEs.
+            if (aiS) updateQualSub(m.id, s.id, { range: suggestedRange(s.id, formData, isAr) ?? aiS.range, percentage: aiS.percentage });
           });
         }
       });
@@ -97,6 +99,12 @@ export default function QualificationCriteria() {
     qualAi.run(() => aiQualification(formData, isAr), applyAi, applySample);
   }
 
+  const flags = aboveRange(formData);
+  const flagged = new Map(flags.map((f) => [f.subId, f]));
+  const unjustified = flags.filter((f) => !f.justified).length;
+  const nature = natureOf(formData);
+  const tier = tierOf(boqValue(formData));
+  const setJust = (id: string, v: string) => updateField('qualJustifications', { ...(formData.qualJustifications ?? {}), [id]: v });
   const mainPctOk = qualPctTotal === 100;
   const mainPctOver = qualPctTotal > 100;
 
@@ -149,12 +157,22 @@ export default function QualificationCriteria() {
         )}
 
         <AiNote error={qualAi.error} usedSample={qualAi.usedSample} />
-        <div className="rounded-xl border border-neutral-200 overflow-x-auto mt-3">
+        <div className="flex items-center gap-2 flex-wrap mt-1" data-qual-basis>
+          {flags.length === 0
+            ? <span className="inline-flex items-center gap-1.5 rounded-full bg-success-50 border border-success-200 px-2.5 py-1 text-[12px] font-semibold text-success-700 fade-in" data-sme="open"><CheckCircleIcon className="w-3.5 h-3.5" />{t('Open to SMEs', 'متاح للمنشآت الصغيرة والمتوسطة')}</span>
+            : <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-50 border border-warning-200 px-2.5 py-1 text-[12px] font-semibold text-warning-700 fade-in" data-sme="restricted"><AlertTriangleIcon className="w-3.5 h-3.5" />{t(`May exclude SMEs — ${flags.length} above range`, `قد يستبعد المنشآت الصغيرة — ${flags.length} فوق النطاق`)}</span>}
+          <span className="text-[12px] text-neutral-500">{t('Recommended ranges for', 'النطاقات الموصى بها لـ')} <span className="font-semibold text-neutral-700">{isAr ? TIER_LABEL[tier][1] : TIER_LABEL[tier][0]}</span>
+            {nature.area && <> · {(() => { const o = AREA_OPTS.find((x) => x.id === nature.area)!; return isAr ? o.ar : o.en; })()}</>}
+            {nature.delivery && <> · {(() => { const o = DELIVERY_OPTS.find((x) => x.id === nature.delivery)!; return isAr ? o.ar : o.en; })()}</>}
+          </span>
+        </div>
+        <div className="rounded-xl border border-neutral-200 overflow-x-auto mt-3" id="q-qualification">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-neutral-50 border-b border-neutral-200">
                 <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500 min-w-[220px]">{t('Criteria', 'المعايير')}</th>
                 <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500 min-w-[140px]">{t('Range', 'النطاق')}</th>
+                <th className="text-start px-4 py-2.5 text-xs font-medium text-neutral-500 min-w-[130px]">{t('Recommended', 'الموصى به')}</th>
                 <th className="text-end px-4 py-2.5 text-xs font-medium text-neutral-500 w-28">{t('Weight (%)', 'الوزن (%)')}</th>
               </tr>
             </thead>
@@ -172,6 +190,7 @@ export default function QualificationCriteria() {
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-xs text-neutral-400 italic">{t('Main category', 'فئة رئيسية')}</td>
+                      <td />
                       <td className="px-4 py-2.5">
                         <div className="relative flex items-center justify-end gap-1">
                           <input
@@ -187,8 +206,9 @@ export default function QualificationCriteria() {
                       </td>
                     </tr>
                     {/* Sub rows */}
-                    {main.subCriteria.map((sub) => (
-                      <tr key={sub.id} className="bg-white hover:bg-neutral-50/30 transition-colors border-b border-neutral-100 last:border-b-0">
+                    {main.subCriteria.map((sub) => { const rec = recommendedFor(sub.id, formData); const fl = flagged.get(sub.id); return (
+                      <React.Fragment key={sub.id}>
+                      <tr className={`transition-colors border-b border-neutral-100 last:border-b-0 ${fl ? 'bg-warning-50/40' : 'bg-white hover:bg-neutral-50/30'}`} data-qual-sub={sub.id} data-above={fl ? 'true' : undefined}>
                         <td className="px-4 py-2.5 ps-8">
                           <div className="flex items-start gap-2">
                             <span className="text-neutral-300 mt-0.5">└</span>
@@ -206,6 +226,9 @@ export default function QualificationCriteria() {
                             placeholder={(() => { const p = RANGE_PLACEHOLDERS[sub.id]; return p ? t(p[0], p[1]) : t('e.g. specify range…', 'مثال: حدد النطاق…'); })()}
                           />
                         </td>
+                        <td className="px-4 py-2.5 text-[12px] whitespace-nowrap" data-qual-rec>
+                          {rec ? <span className={fl ? 'text-warning-700 font-semibold' : 'text-neutral-500'}>{recText(rec, isAr)}{fl && <> · {t('above', 'أعلى')}</>}</span> : <span className="text-neutral-300">—</span>}
+                        </td>
                         <td className="px-4 py-2.5">
                           <div className="relative flex items-center justify-end gap-1">
                             <input
@@ -220,11 +243,22 @@ export default function QualificationCriteria() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      {fl && (
+                        <tr className="bg-warning-50/40 border-b border-warning-100 fade-in" data-qual-justify={sub.id}>
+                          <td colSpan={4} className="px-4 pb-3 ps-12">
+                            <label className="block text-[11.5px] font-semibold text-warning-800 mb-1">{t('Why is a higher threshold needed?', 'لماذا يلزم حد أعلى؟')} <span className="text-error-600">*</span></label>
+                            <input type="text" value={formData.qualJustifications?.[sub.id] ?? ''} onChange={(e) => setJust(sub.id, e.target.value)}
+                              placeholder={t('One line, e.g. “Core banking migration — needs proven scale”', 'سطر واحد، مثال: “ترحيل النظام المصرفي — يتطلب خبرة مثبتة”')}
+                              className={`w-full text-xs rounded-lg border px-3 py-2 bg-white focus:outline-none focus:border-brand-400 ${fl.justified ? 'border-neutral-200' : 'border-warning-300'}`} />
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
+                    ); })}
                     {/* Sub total row */}
                     <tr className={`border-b-2 border-neutral-200 ${subOk ? 'bg-success-50/40' : 'bg-warning-50/40'}`}>
                       <td className="px-4 py-1.5 ps-8 text-xs text-neutral-400 italic">{t('Sub-criteria total', 'إجمالي المعايير الفرعية')}</td>
-                      <td />
+                      <td /><td />
                       <td className={`px-4 py-1.5 text-end text-xs font-semibold tabular-nums ${subOk ? 'text-success-600' : 'text-warning-600'}`}>
                         {subTotal}% {!subOk && '⚠'}
                       </td>
@@ -236,6 +270,12 @@ export default function QualificationCriteria() {
           </table>
         </div>
 
+        {unjustified > 0 && (
+          <InfoBanner variant="warning" className="mt-4">
+            {t(`${unjustified} criterion${unjustified === 1 ? ' is' : 'a are'} above the recommended range without a justification. Add one line each, or lower the threshold so SMEs can compete.`,
+              `${unjustified} من المعايير أعلى من النطاق الموصى به دون مبرر. أضف سطراً لكل منها أو خفّض الحد ليتمكن المنشآت الصغيرة والمتوسطة من المنافسة.`)}
+          </InfoBanner>
+        )}
         {/* Main % total indicator */}
         <div className={`flex items-center justify-between rounded-lg px-4 py-2.5 mt-4 text-sm border ${
           mainPctOk ? 'bg-success-50 border-success-200 text-success-700' : mainPctOver ? 'bg-error-50 border-error-200 text-error-700' : 'bg-warning-50 border-warning-200 text-warning-700'
@@ -258,7 +298,7 @@ export default function QualificationCriteria() {
                 {t('Qualification Passing Percentage', 'نسبة اجتياز التأهيل')} <span className="text-error-600">*</span>
               </label>
               <p className="text-[12px] text-neutral-500 mt-0.5 leading-relaxed">
-                {t('Minimum score out of 100% a vendor must achieve to qualify.', 'الحد الأدنى للدرجة من 100% التي يجب على المورد تحقيقها ليتأهل.')}
+                {t('Minimum score out of 100% a vendor must achieve to qualify. Default 60%.', 'الحد الأدنى للدرجة من 100% التي يجب على المورد تحقيقها ليتأهل. الافتراضي 60%.')}
               </p>
             </div>
             <div className="relative w-28 flex-shrink-0">

@@ -10,7 +10,7 @@ import { Badge, Button, FormField, Input, Textarea } from '../components/ui';
 import { createPortal } from 'react-dom';
 import { ArrowLeftIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, DownloadIcon, ChevronRightIcon, CheckIcon } from '../components/Icons';
 import type { Bilingual, Task, TaskAction, Person, RfpDetail } from './types';
-import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR } from './store';
+import { useInbox, completionStatus, dueInfo, fmtDate, fmtDateTime, fmtSAR, flowStep } from './store';
 import { TaskBody, hasTaskBody } from './renderers';
 import DocPreview, { downloadDocPdf, type PreviewDoc } from '../components/DocPreview';
 import { BudgetChecker, useBudgetCheck } from './BudgetCheck';
@@ -30,6 +30,9 @@ import { deptKind, reasonsFor, deptCommentDigest, ORM_LIBRARY } from './cyberRev
 import { DeploymentHero, StandardsList } from '../components/TechStandards';
 import { bcmVerdict, bcmClauseById, tprRating, VERDICT, RATING, TPR_QUESTIONS } from '../lib/continuityRisk';
 import CyberReview from './CyberReview';
+import { FinQualEditor, TlMethod, OfficerConfirm, EtimadCreate, EtimadBanner, PriorityChip } from './ProcSteps';
+import { CONTRACT_OPTS, ENVELOPE_OPTS, optLabel, areaLabel, deliveryLabel, qualFlags } from './procGuide';
+import { scoreBands } from './ProcSteps';
 import QualEditor from './QualEditor';
 import { StateChip, PriorityTag, ENTITY_META, tb } from './meta';
 import { useRequests } from '../context/RequestStore';
@@ -207,6 +210,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
             <span className="tabular-nums" dir="ltr">{task.id}</span>
             <span className="ms-1"><StateChip state={task.state} isAr={isAr} /></span>
             <span className="ms-1"><PriorityTag priority={task.priority} isAr={isAr} /></span>
+            {task.rfp?.procMethod?.priority && <span className="ms-1"><PriorityChip p={task.rfp.procMethod.priority} isAr={isAr} /></span>}
           </div>
           {/* Title · CTAs */}
           <div className="mt-2 flex items-start justify-between gap-6 flex-wrap">
@@ -289,11 +293,11 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
         </div>
 
         {/* Tabs */}
-        <div className="px-5 sm:px-8 border-b border-neutral-200 bg-white sticky top-0 z-10">
-          <div className="flex items-center gap-6">
+        <div className="px-5 sm:px-8 pt-1 pb-4 bg-white sticky top-0 z-10 border-b border-neutral-100">
+          <div className="inline-flex items-center gap-0.5 p-1 rounded-full bg-neutral-100" data-task-tabs>
             {TABS.map((tb2) => (
-              <button key={tb2.key} type="button" onClick={() => setTab(tb2.key)}
-                className={`py-3 text-[13.5px] font-semibold border-b-2 -mb-px transition-colors ${tab === tb2.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-neutral-500 hover:text-neutral-800'}`}>
+              <button key={tb2.key} type="button" aria-pressed={tab === tb2.key} onClick={() => setTab(tb2.key)}
+                className={`h-9 px-4 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all duration-200 ${tab === tb2.key ? 'bg-white text-neutral-900 shadow-[0_1px_2px_rgba(16,24,40,0.08)] ring-1 ring-neutral-200/70' : 'text-neutral-600 hover:text-neutral-900'}`}>
                 {isAr ? tb2.ar : tb2.en}
               </button>
             ))}
@@ -333,7 +337,10 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
           )}
           {tab === 'overview' && !queued && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
-            mainWidget={(task.cyberReview || task.deptReview) && task.rfp
+            mainWidget={task.procStep && task.rfp
+              ? (() => { const P = { task, isAr, t, readOnly: terminal, onRfp: (rfp: RfpDetail) => setTaskData(task.id, { rfp }) };
+                  return task.procStep === 'fin-qual' ? <FinQualEditor {...P} /> : task.procStep === 'tl-method' ? <TlMethod {...P} /> : task.procStep === 'officer-confirm' ? <OfficerConfirm {...P} /> : <EtimadCreate {...P} />; })()
+              : (task.cyberReview || task.deptReview) && task.rfp
               ? <CyberReview task={task} isAr={isAr} t={t} readOnly={terminal}
                   onDecide={(k, d) => { const next = { ...(task.cyberDecisions ?? {}) }; if (d) next[k] = d; else delete next[k]; setTaskData(task.id, { cyberDecisions: next }); }}
                   onAcceptAll={(ks) => setTaskData(task.id, { cyberDecisions: { ...(task.cyberDecisions ?? {}), ...Object.fromEntries(ks.map((k) => [k, { state: 'accepted' as const }])) } })}
@@ -400,14 +407,14 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
               {task.respondComments
                 ? <RespondBar editOn={editEnabled} onToggleEdit={() => setEditEnabled((v) => !v)} total={anchored.length} resolved={anchored.filter((c) => c.resolved).length} t={t} disabled={!respond} onOpenComments={() => setSide('comments')} />
                 : <ReviewBar on={commentMode} onToggle={() => setCommentMode((m) => !m)} count={anchored.length} isAr={isAr} t={t} disabled={terminal} onOpenComments={() => setSide('comments')} />}
-              <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />
+              <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} showFinance={financeView(task)} />
             </CommentLayer>
-          ) : <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} />)}
+          ) : <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} showFinance={financeView(task)} />)}
           {tab === 'activity' && <ActivityTab task={task} isAr={isAr} t={t} onComment={(x) => addComment(task.id, x)} terminal={terminal} onJump={jumpTo} />}
           </div>
         </div>
       </div>
-      {tab === 'rfp' && task.rfp && <JumpFab sections={rfpSections(task.rfp)} isAr={isAr} t={t} />}
+      {tab === 'rfp' && task.rfp && <JumpFab sections={rfpSections(task.rfp, financeView(task))} isAr={isAr} t={t} />}
       </div>
 
       {/* ── Right pane: Comments / Approval flow ─────────────────
@@ -563,7 +570,7 @@ function RfpSection({ id, title, meta, views, children, label }: { id: string; t
   );
 }
 
-export function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: string }[] {
+export function rfpSections(rfp: RfpDetail, showFinance = false): { id: string; en: string; ar: string }[] {
   return [
     { id: 'overview', en: 'Project Setup', ar: 'إعداد المشروع' },
     { id: 'scope', en: 'Scope of Work', ar: 'نطاق العمل' },
@@ -571,6 +578,8 @@ export function rfpSections(rfp: RfpDetail): { id: string; en: string; ar: strin
     ...(rfp.payment.length ? [{ id: 'payment', en: 'Payment Schedule', ar: 'جدول الدفعات' }] : []),
     ...(rfp.evaluation.length ? [{ id: 'evaluation', en: 'Technical Evaluation', ar: 'التقييم الفني' }] : []),
     ...(rfp.qualCriteria?.length ? [{ id: 'qualification', en: 'Qualification Criteria', ar: 'معايير التأهيل' }] : []),
+    ...(showFinance && rfp.finQual ? [{ id: 'financial', en: 'Financial Criteria', ar: 'المعايير المالية' }] : []),
+    ...(rfp.procMethod?.contractType ? [{ id: 'method', en: 'Procurement method', ar: 'طريقة الشراء' }] : []),
     ...(rfp.documents.length ? [{ id: 'documents', en: 'Attachments', ar: 'المرفقات' }] : []),
     ...(rfp.techStandards?.length ? [{ id: 'standards', en: 'Technical standards', ar: 'المعايير التقنية' }] : []),
     ...(rfp.bcm || rfp.tpr ? [{ id: 'continuity', en: 'Continuity & risk', ar: 'الاستمرارية والمخاطر' }] : []),
@@ -628,7 +637,9 @@ function CommitteeChips({ members, isAr }: { members?: RfpDetail['evalCommittee'
   );
 }
 
-export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T }) {
+/** Financial criteria are seen by Finance and Procurement only — the steps from Finance qualification on. */
+export const financeView = (task: Task) => flowStep(task) >= 9;
+export function RfpTab({ rfp, amount, isAr, t, showFinance }: { rfp?: RfpDetail; amount?: number; isAr: boolean; t: T; showFinance?: boolean }) {
   const [preview, setPreview] = useState<PreviewDoc | null>(null);
   const boqOpen = useBoqOpen();
   if (!rfp) return <div className="rounded-xl border border-neutral-200 bg-white p-6 text-[13px] text-neutral-500 shadow-sm">{t('No request record linked to this task.', 'لا يوجد سجل منافسة مرتبط بهذه المهمة.')}</div>;
@@ -899,11 +910,33 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
   );
 
   // ── Qualification ──
+  const qFlags = qualFlags(rfp);
   const qualPass = (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-rfp-qual-stats>
       <MiniStat label={t('Qualification Passing Percentage', 'نسبة اجتياز التأهيل')} value={rfp.qualPassing != null ? `${rfp.qualPassing}%` : '—'} />
+      {rfp.route !== 'souq-etimad' && <MiniStat label={t('SMEs', 'المنشآت الصغيرة والمتوسطة')} value={qFlags.size === 0 ? t('Open to SMEs', 'متاح') : t(`${qFlags.size} above typical`, `${qFlags.size} فوق المعتاد`)} />}
     </div>
   );
+  const fq = rfp.finQual;
+  const finSection = showFinance && fq ? (
+    <div className="space-y-4" data-rfp-fin-qual>
+      <div className="overflow-x-auto rounded-xl border border-neutral-200">
+        <table className="w-full min-w-[520px] text-[12.5px]">
+          <thead><tr className="bg-neutral-50 border-b border-neutral-200">
+            <th className={`${TH} text-start`}>{t('Ratio', 'النسبة')}</th><th className={`${TH} text-end`}>{t('Minimum', 'الحد الأدنى')}</th><th className={`${TH} text-end`}>{t('Target', 'المستهدف')}</th><th className={`${TH} text-end w-24`}>{t('Weight', 'الوزن')}</th>
+          </tr></thead>
+          <tbody className="divide-y divide-neutral-100">
+            {([['liquidity', t('Liquidity ratio', 'نسبة السيولة')], ['cash', t('Cash ratio', 'نسبة النقدية')]] as const).map(([k, l]) => (
+              <tr key={k} className="bg-white"><td className="px-3 py-2 font-semibold text-neutral-800">{l}</td><td className="px-3 py-2 text-end tabular-nums">{fq[k].min}</td><td className="px-3 py-2 text-end tabular-nums">{fq[k].max}</td><td className="px-3 py-2 text-end font-semibold tabular-nums">{fq[k].weight}%</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3"><MiniStat label={t('Financial passing percentage', 'نسبة الاجتياز المالي')} value={`${fq.passing}%`} />
+        <MiniStat label={t('Scoring key', 'مفتاح التقييم')} value={`1–7 · ${scoreBands(fq.liquidity)[6]}`} /></div>
+    </div>
+  ) : null;
+  const pm = rfp.procMethod;
   const qualChart = (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
       {(rfp.qualCriteria ?? []).map((m, i) => (
@@ -947,13 +980,14 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
                       <td className="px-3 py-2 text-[11px] text-neutral-400 italic">{t('Main category', 'فئة رئيسية')}</td>
                       <td className="px-3 py-2 text-end font-semibold text-neutral-800 tabular-nums">{m.pct}%</td>
                     </tr></Commentable>
-                    {m.subs.map((s, j) => (
-                      <Commentable key={j} id={`qual-${i}-${j}`} label={{ en: s.nameEn, ar: s.nameAr }}><tr className="bg-white border-b border-neutral-100">
-                        <td className="px-3 py-2 ps-7 text-neutral-700"><span className="text-neutral-300 me-1">└</span>{isAr ? s.nameAr : s.nameEn}</td>
+                    {m.subs.map((s, j) => { const fl = qFlags.get(`${i + 1}-${j + 1}`); return (
+                      <Commentable key={j} id={`qual-${i}-${j}`} label={{ en: s.nameEn, ar: s.nameAr }}><tr className={`border-b border-neutral-100 ${fl ? 'bg-warning-50/40' : 'bg-white'}`} data-rfp-qual-above={fl ? '' : undefined}>
+                        <td className="px-3 py-2 ps-7 text-neutral-700"><span className="text-neutral-300 me-1">└</span>{isAr ? s.nameAr : s.nameEn}
+                          {fl && <span className="block text-[11.5px] text-warning-800 mt-0.5">{t(`Above typical (${fl.typicalEn})`, `أعلى من المعتاد (${fl.typicalAr})`)}{s.justification && <> — <span className="italic">“{s.justification}”</span></>}</span>}</td>
                         <td className="px-3 py-2 text-neutral-600" dir="auto">{s.range}</td>
                         <td className="px-3 py-2 text-end text-neutral-700 tabular-nums">{s.pct}%</td>
                       </tr></Commentable>
-                    ))}
+                    ); })}
                   </Fragment>
                 ))}
               </tbody>
@@ -971,6 +1005,7 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
 
   return (
     <div className="space-y-5 stagger" data-rfp-tab>
+        <EtimadBanner rfp={rfp} isAr={isAr} t={t} />
         <RfpSection id="overview" title={t('Project Setup', 'إعداد المشروع')} label={{ en: 'Project Setup', ar: 'إعداد المشروع' }}>
           <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4" data-rfp-setup>
             {[
@@ -979,6 +1014,10 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
               { id: 'name-ar', k: t('Project Name (Arabic)', 'اسم المشروع (بالعربية)'), v: rfp.projectNameAr },
               { id: 'cc', k: t('Cost Center', 'مركز التكلفة'), v: rfp.costCenters?.join(', ') },
               { id: 'route', k: t('Procurement route', 'مسار الشراء'), v: rfp.route === 'souq-etimad' ? t('Etimad E-Market', 'سوق اعتماد') : t('Competitive Tender', 'منافسة عامة') },
+              ...(rfp.route !== 'souq-etimad' && rfp.projectArea ? [
+                { id: 'area', k: t('Area', 'المجال'), v: areaLabel(rfp, isAr) },
+                { id: 'delivery', k: t('Delivery type', 'نوع التوريد'), v: deliveryLabel(rfp, isAr) },
+              ] : []),
             ].map((f) => (
               <Commentable key={f.id} id={`setup-${f.id}`} label={{ en: f.k, ar: f.k }}><div className="min-w-0" data-rfp-field={f.id}><dt className="text-[10.5px] uppercase tracking-wide text-neutral-400">{f.k}</dt>
                 <dd className="text-[13px] font-medium text-neutral-800 mt-0.5" dir={f.ltr ? 'ltr' : undefined}>{f.v || '—'}</dd></div></Commentable>
@@ -1005,6 +1044,27 @@ export function RfpTab({ rfp, amount, isAr, t }: { rfp?: RfpDetail; amount?: num
         )}
         {(rfp.qualCriteria?.length ?? 0) > 0 && (
           <RfpSection id="qualification" title={t('Qualification Criteria', 'معايير التأهيل')} label={{ en: 'Qualification Criteria', ar: 'معايير التأهيل' }} meta={`${rfp.qualCriteria?.length ?? 0} ${t('main criteria', 'معايير رئيسية')} · ${(rfp.qualCriteria ?? []).reduce((n, m) => n + m.subs.length, 0)} ${t('sub-criteria', 'معايير فرعية')} · ${t('passing', 'الاجتياز')} ${rfp.qualPassing ?? 0}%`} views={{ table: qualTable, chart: qualChart }} />
+        )}
+
+        {finSection && (
+          <RfpSection id="financial" title={t('Financial Criteria', 'المعايير المالية')} label={{ en: 'Financial Criteria', ar: 'المعايير المالية' }} meta={t('Finance & Procurement only', 'للمالية والمشتريات فقط')}>{finSection}</RfpSection>
+        )}
+        {pm?.contractType && (
+          <RfpSection id="method" title={t('Procurement method (set by Procurement TL)', 'طريقة الشراء (حددها رئيس فريق المشتريات)')} label={{ en: 'Procurement method', ar: 'طريقة الشراء' }}>
+            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4" data-rfp-method>
+              {[
+                { id: 'contract', k: t('Contract type', 'نوع العقد'), v: optLabel(CONTRACT_OPTS, pm.contractType, isAr) },
+                { id: 'envelope', k: t('Envelope type', 'نوع الظرف'), v: optLabel(ENVELOPE_OPTS, pm.envelope, isAr) },
+                { id: 'priority', k: t('Project priority', 'أولوية المشروع'), v: <PriorityChip p={pm.priority} isAr={isAr} /> },
+                ...(pm.contractType === 'closed' ? [{ id: 'vendors', k: t('Invited vendors', 'الموردون المدعوون'), v: (pm.invitedVendors ?? []).join(', ') }] : []),
+                ...(pm.contractType === 'direct' ? [{ id: 'justification', k: t('Direct purchase justification', 'مبرر الشراء المباشر'), v: pm.directJustification }] : []),
+                ...(pm.officerName ? [{ id: 'officer', k: t('Procurement Officer', 'أخصائي المشتريات'), v: isAr ? pm.officerNameAr ?? pm.officerName : pm.officerName }] : []),
+                ...(rfp.officerConfirm ? [{ id: 'confirmed', k: t('Confirmed value · duration', 'القيمة والمدة المؤكدة'), v: `${fmtSAR(rfp.officerConfirm.value)} · ${rfp.officerConfirm.duration}` }] : []),
+              ].map((f) => (
+                <div key={f.id} className="min-w-0" data-rfp-method-field={f.id}><dt className="text-[10.5px] uppercase tracking-wide text-neutral-400">{f.k}</dt><dd className="text-[13px] font-medium text-neutral-800 mt-0.5">{f.v || '—'}</dd></div>
+              ))}
+            </dl>
+          </RfpSection>
         )}
 
         {rfp.documents.length > 0 && (

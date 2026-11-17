@@ -3,6 +3,7 @@
 // This is demonstration data only — nothing here is persisted or connected to SAP.
 
 import type { Bilingual, ChecklistItem, Person, Task, TaskActionDef, RfpDetail, TrailStep, FinLine, FinChange } from './types';
+import { suggestFinQual } from './procGuide';
 
 const DAY = 86400000;
 const base = Date.now();
@@ -58,6 +59,11 @@ const TITLE = {
   techEvalFromUser: () => sup(`Review technical evaluation criteria for request #${REQ.no} from ${reqUser()}`, `مراجعة معايير التقييم الفني للطلب رقم ${REQ.no} من ${reqUser(true)}`),
   reviewFromDept: () => sup(`Review request #${REQ.no} from ${reqDept()}`, `مراجعة الطلب رقم ${REQ.no} من ${reqDept(true)}`),
   qualFromDept: () => sup(`Review request & add qualification criteria for request #${REQ.no} from ${reqDept()}`, `مراجعة الطلب وإضافة معايير التأهيل للطلب رقم ${REQ.no} من ${reqDept(true)}`),
+  finQual: () => sup(`Set financial qualification criteria for request #${REQ.no} from ${reqDept()}`, `تحديد معايير التأهيل المالي للطلب رقم ${REQ.no} من ${reqDept(true)}`),
+  procQual: () => sup(`Review qualification criteria for request #${REQ.no} from ${reqDept()}`, `مراجعة معايير التأهيل للطلب رقم ${REQ.no} من ${reqDept(true)}`),
+  method: () => sup(`Set procurement method & assign request #${REQ.no}`, `تحديد طريقة الشراء وإسناد الطلب رقم ${REQ.no}`),
+  confirm: () => sup(`Review & confirm request #${REQ.no} from ${reqDept()}`, `مراجعة وتأكيد الطلب رقم ${REQ.no} من ${reqDept(true)}`),
+  etimad: () => sup(`Create request #${REQ.no} in Etimad`, `إنشاء الطلب رقم ${REQ.no} في منصة اعتماد`),
   doaFromDept: () => sup('Approval DOA', 'اعتماد تفويض الصلاحيات'),
   priceFromDept: () => sup(`Approve estimated price for request #${REQ.no} from ${reqDept()}`, `اعتماد السعر التقديري للطلب رقم ${REQ.no} من ${reqDept(true)}`),
 };
@@ -66,9 +72,9 @@ const step = (titleEn: string, titleAr: string, descEn: string, descAr: string) 
 const MANAGER_STEPS: NonNullable<Task['decisionSteps']> = {
   approve: [
     step('Specialist & finance reviews', 'المراجعات التخصصية والمالية', 'Cyber Security, Risk, Enterprise Architecture and Finance review the request in parallel.', 'تراجع الأمن السيبراني والمخاطر والبنية المؤسسية والمالية الطلب بالتوازي.'),
-    step('Qualification', 'التأهيل', 'Finance and Procurement add the qualification criteria.', 'تضيف المالية والمشتريات معايير التأهيل.'),
-    step('Procurement review & DOA', 'مراجعة المشتريات والصلاحيات', 'The procurement Team Lead and Officer review the request, then it goes for DOA approval.', 'يراجع رئيس فريق المشتريات والأخصائي الطلب ثم تُرسل لاعتماد الصلاحيات.'),
-    step('Estimated price approval', 'اعتماد السعر التقديري', 'The Director approves the estimated price and the PR is created in SAP ECC.', 'يعتمد المدير السعر التقديري ويُنشأ طلب الشراء في SAP ECC.'),
+    step('Qualification', 'التأهيل', 'Finance sets the financial criteria; Procurement reviews the qualification criteria.', 'تحدد المالية المعايير المالية وتراجع المشتريات معايير التأهيل.'),
+    step('Procurement method, review & DOA', 'طريقة الشراء والمراجعة والصلاحيات', 'The Team Lead sets the method and priority, the Officer confirms, then DOA approval.', 'يحدد رئيس الفريق الطريقة والأولوية ويؤكد الأخصائي ثم اعتماد الصلاحيات.'),
+    step('Estimated price & Etimad', 'السعر التقديري واعتماد', 'Your Director approves the estimated price; the Officer creates the request in Etimad.', 'يعتمد مديرك السعر التقديري وينشئ الأخصائي الطلب في اعتماد.'),
   ],
   return: [
     step('Back to the requester', 'العودة إلى مقدّم الطلب', `A "Review comments for request #${REQ.no}" task is created for ${reqUser()}.`, `تُنشأ مهمة "مراجعة التعليقات على المنافسة رقم ${REQ.no}" لـ ${reqUser(true)}.`),
@@ -89,13 +95,16 @@ const returnSteps = (who: Person) => [
 const S = {
   specialist: step('Specialist & finance reviews', 'المراجعات التخصصية والمالية', 'Cyber Security, Enterprise Risk (BCM), Operational Risk, EA, GL and Assets review in parallel.', 'تراجع الأمن السيبراني والمخاطر المؤسسية والتشغيلية والبنية المؤسسية ودفتر الأستاذ والأصول بالتوازي.'),
   waitParallel: step('Wait for parallel reviewers', 'انتظار بقية المراجعين', 'Your approval is held until every other specialist and finance reviewer completes.', 'يُحتفظ باعتمادك حتى يكمل جميع المراجعين الآخرين.'),
-  finQual: step('Finance qualification', 'التأهيل المالي', 'Finance adds the financial qualification criteria (cash ratio, quick ratio, passing %).', 'تضيف المالية معايير التأهيل المالي (نسبة النقدية والسيولة السريعة ونسبة الاجتياز).'),
-  procQual: step('Procurement qualification', 'تأهيل المشتريات', 'Procurement completes the qualification criteria ranges and weights.', 'تكمل المشتريات نطاقات وأوزان معايير التأهيل.'),
+  finQual: step('Finance qualification', 'التأهيل المالي', 'Finance sets the financial criteria (liquidity and cash ratios, weights, passing %).', 'تحدد المالية المعايير المالية (نسبتا السيولة والنقدية والأوزان ونسبة الاجتياز).'),
+  procQual: step('Procurement qualification', 'تأهيل المشتريات', 'Procurement reviews the requester’s qualification criteria and comments where needed.', 'تراجع المشتريات معايير التأهيل التي حددها مقدّم الطلب وتعلّق عند الحاجة.'),
+  method: step('Procurement method & assign', 'طريقة الشراء والإسناد', 'The Team Lead sets contract type, envelope and priority, and assigns an officer.', 'يحدد رئيس الفريق نوع العقد والظرف والأولوية ويسند إلى أخصائي.'),
+  confirm: step('Officer review & confirm', 'مراجعة وتأكيد الأخصائي', 'The officer reviews everything and confirms value and duration.', 'يراجع الأخصائي كل شيء ويؤكد القيمة والمدة.'),
+  etimad: step('Create in Etimad', 'الإنشاء في اعتماد', 'The officer creates the request in Etimad and records the reference.', 'ينشئ الأخصائي الطلب في اعتماد ويسجل المرجع.'),
   tl: step('Procurement Team Lead review', 'مراجعة رئيس فريق المشتريات', 'No comments → DOA approval; new request or comments → assigned to an officer.', 'لا ملاحظات ← اعتماد الصلاحيات؛ طلب جديد أو ملاحظات ← إسناد إلى أخصائي.'),
   officer: step('Procurement Officer review', 'مراجعة أخصائي المشتريات', 'The officer checks the request and either submits it for DOA approval or returns it with comments.', 'يراجع الأخصائي الطلب ثم يرسلها لاعتماد الصلاحيات أو يعيدها مع ملاحظات.'),
   backTl: step('Back to the Team Lead', 'العودة إلى رئيس الفريق', 'The Team Lead takes the officer-checked request to DOA approval.', 'يحيل رئيس الفريق الطلب بعد مراجعة الأخصائي لاعتماد الصلاحيات.'),
   doa: step('DOA approval', 'اعتماد تفويض الصلاحيات', 'Approved per the delegation of authority matrix.', 'يُعتمد وفق مصفوفة تفويض الصلاحيات.'),
-  price: step('Estimated price approval', 'اعتماد السعر التقديري', 'The Director approves the estimated price.', 'يعتمد المدير السعر التقديري.'),
+  price: step('Estimated price approval', 'اعتماد السعر التقديري', 'The Director of the requesting department approves the estimated price.', 'يعتمد مدير الإدارة الطالبة السعر التقديري.'),
   pr: step('Create PR in SAP ECC', 'إنشاء طلب الشراء في SAP ECC', 'Hands off to PR approval DOA (5 levels) and the Etimad stage.', 'ينتقل إلى اعتماد طلب الشراء (5 مستويات) ومرحلة اعتماد.'),
 };
 /** "What's next?" steps per task (n) and action, from the process task list. */
@@ -103,12 +112,13 @@ const STEPS_BY_TASK: Record<number, (who: Person) => NonNullable<Task['decisionS
   2: (w) => ({ approve: [step('Risk review', 'مراجعة المخاطر', 'Technical evaluation verified — the request moves to the specialist reviews.', 'تم التحقق من التقييم الفني — ينتقل الطلب إلى المراجعات التخصصية.'), S.specialist, S.finQual], return: returnSteps(w) }),
   3: (w) => ({ approve: [S.waitParallel, S.finQual, S.procQual], return: returnSteps(w) }),
   7: (w) => ({ approve: [S.waitParallel, S.finQual, S.procQual], return: returnSteps(w) }),
-  9: () => ({ complete: [S.procQual, S.tl] }),
-  10: () => ({ complete: [S.tl, S.doa] }),
-  11: () => ({ approve: [S.doa, S.price, S.pr], complete: [S.officer, S.backTl, S.doa] }),
-  12: (w) => ({ submit: [S.backTl, S.doa, S.price], return: returnSteps(w) }),
-  13: () => ({ approve: [S.price, S.pr] }),
-  14: () => ({ approve: [S.pr, step('PR approval DOA', 'اعتماد طلب الشراء', 'Five approval levels in SAP ECC.', 'خمسة مستويات اعتماد في SAP ECC.'), step('Etimad', 'اعتماد', 'Estimated prices request and publishing on Etimad.', 'طلب الأسعار التقديرية والنشر في منصة اعتماد.')] }),
+  9: () => ({ complete: [S.procQual, S.method] }),
+  10: (w) => ({ approve: [S.method, S.confirm], return: returnSteps(w) }),
+  11: () => ({ complete: [S.confirm, S.doa, S.price] }),
+  12: (w) => ({ approve: [S.doa, S.price, S.etimad], return: returnSteps(w) }),
+  13: () => ({ approve: [S.price, S.etimad] }),
+  14: () => ({ approve: [S.etimad] }),
+  15: () => ({ complete: [step('Open for bids', 'مفتوح للعروض', 'Vendors see the competition in Etimad. Vendor evaluation follows.', 'يرى الموردون المنافسة في اعتماد. يلي ذلك تقييم الموردين.')] }),
 };
 const stepsFor = (n: number, who: Person) => (STEPS_BY_TASK[n] ?? (n >= 3 && n <= 6 ? STEPS_BY_TASK[3] : n === 8 ? STEPS_BY_TASK[7] : undefined))?.(who);
 
@@ -247,42 +257,32 @@ const SPECS: Spec[] = [
     stage: sup('Finance review — Assets', 'مراجعة مالية — الأصول'), assignee: P.assets, sla: 1, priority: 'medium', received: 0,
     actions: [{ ...APPROVE_RETURN[0], gated: true }, APPROVE_RETURN[1]],
     extra: { parallelGroup: 'pg-specialist', finReview: 'assets', finAssetDecisions: {} } },
-  { n: 9, type: 'data-collection', title: TITLE.qualFromDept(),
-    summary: sup('Add the qualification criteria for this request: ranges and weights for each main and sub-criterion, and the qualification member.', 'أضف معايير التأهيل لهذا الطلب: النطاقات والأوزان لكل معيار رئيسي وفرعي، وعضو التأهيل.'),
+  { n: 9, type: 'data-collection', title: TITLE.finQual(),
+    summary: sup('Set the financial qualification criteria: liquidity and cash ratio ranges, their weights and the passing percentage. Requesters don’t see these.', 'حدد معايير التأهيل المالي: نطاقات نسبتي السيولة والنقدية وأوزانهما ونسبة الاجتياز. لا يراها مقدّمو الطلبات.'),
     stage: sup('Qualification — Finance', 'التأهيل — المالية'), assignee: P.finQual, sla: 1, priority: 'medium', received: 0,
-    actions: [
-      { id: 'complete', labelEn: 'Complete', labelAr: 'إكمال', variant: 'primary', gated: true },
-    ],
-    extra: { qualReview: true, techDecisions: {} } },
-  { n: 10, type: 'data-collection', title: TITLE.qualFromDept(),
-    summary: sup('Complete the qualification criteria for this request: ranges and weights for each main and sub-criterion, and the qualification member.', 'أكمل معايير التأهيل لهذا الطلب: النطاقات والأوزان لكل معيار رئيسي وفرعي، وعضو التأهيل.'),
+    actions: [{ id: 'complete', labelEn: 'Complete', labelAr: 'إكمال', variant: 'primary', gated: true, decision: sup('Financial criteria set', 'تم تحديد المعايير المالية') }],
+    extra: { procStep: 'fin-qual' } },
+  { n: 10, type: 'approval', title: TITLE.procQual(),
+    summary: sup('Review the qualification criteria the requester set. Accept each one or comment where it is out of line with the project size or excludes SMEs.', 'راجع معايير التأهيل التي حددها مقدّم الطلب. اقبل كل معيار أو علّق حيث لا يتناسب مع حجم المشروع أو يستبعد المنشآت الصغيرة.'),
     stage: sup('Qualification — Procurement', 'التأهيل — المشتريات'), assignee: P.procQual, sla: 1, priority: 'medium', received: 0,
     actions: [
-      { id: 'complete', labelEn: 'Complete', labelAr: 'إكمال', variant: 'primary', gated: true },
+      { id: 'approve', labelEn: 'Confirm criteria', labelAr: 'تأكيد المعايير', variant: 'primary', gated: true, decision: sup('Qualification criteria confirmed', 'تم تأكيد معايير التأهيل') },
+      { id: 'return', labelEn: 'Return', labelAr: 'إعادة', variant: 'secondary', needsNote: true },
     ],
-    extra: { qualReview: true, techDecisions: {} } },
-  { n: 11, type: 'approval', title: TITLE.qualFromDept(),
-    summary: sup('Review the request. With no comments, send it for DOA approval; if it is new or has comments, assign it to an officer.', 'راجع الطلب. إن لم توجد ملاحظات أرسله لاعتماد تفويض الصلاحيات، وإن كان جديداً أو عليه ملاحظات أسنده إلى أخصائي.'),
-    stage: sup('Procurement review — Team Lead', 'مراجعة المشتريات — رئيس الفريق'), assignee: P.tl, sla: 4, priority: 'high', received: 0,
-    actions: [
-      { id: 'approve', labelEn: 'Submit for DOA approval', labelAr: 'إرسال لاعتماد الصلاحيات', variant: 'primary', decision: sup('Submitted for DOA approval', 'أُرسل لاعتماد الصلاحيات') },
-      { id: 'complete', labelEn: 'Assign to officer', labelAr: 'إسناد إلى أخصائي', variant: 'secondary', decision: sup('Assigned to officer', 'أُسند إلى أخصائي') },
-    ],
-    extra: { approvalRecord, assignTo: [P.officer, person('u-yousef', 'Yousef Al-Harthi', 'يوسف الحارثي', 'Procurement Officer', 'أخصائي مشتريات', 'Procurement', 'المشتريات'), person('u-amal', 'Amal Al-Qahtani', 'أمل القحطاني', 'Procurement Officer', 'أخصائي مشتريات', 'Procurement', 'المشتريات')] } },
-  { n: 12, type: 'review', title: TITLE.qualFromDept(),
-    summary: sup('Officer review of the request before DOA approval. Return it with comments if anything below needs correcting.', 'مراجعة الأخصائي للطلب قبل اعتماد الصلاحيات. أعدها مع ملاحظات إن احتاج أي بند أدناه إلى تصحيح.'),
+    extra: { deptReview: 'proc', reviewComments: true } },
+  { n: 11, type: 'data-collection', title: TITLE.method(),
+    summary: sup('Set how this request goes to market — contract type and envelope — set the project priority, and assign an officer.', 'حدد طريقة طرح الطلب — نوع العقد والظرف — وأولوية المشروع، ثم أسنده إلى أخصائي.'),
+    stage: sup('Procurement method — Team Lead', 'طريقة الشراء — رئيس الفريق'), assignee: P.tl, sla: 2, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Assign to officer', labelAr: 'إسناد إلى الأخصائي', variant: 'primary', gated: true, decision: sup('Method set and assigned', 'تم تحديد الطريقة والإسناد') }],
+    extra: { procStep: 'tl-method' } },
+  { n: 12, type: 'approval', title: TITLE.confirm(),
+    summary: sup('Review everything on the request, including the Team Lead’s method and priority. Confirm the estimated contract value and duration, then mark it good to go.', 'راجع كل ما في الطلب بما في ذلك طريقة الشراء والأولوية. أكّد القيمة التقديرية للعقد ومدته ثم اعتمد جاهزيته.'),
     stage: sup('Procurement review — Officer', 'مراجعة المشتريات — الأخصائي'), assignee: P.officer, sla: 2, priority: 'high', received: 0,
     actions: [
-      { id: 'submit', labelEn: 'Submit for DOA approval', labelAr: 'إرسال لاعتماد الصلاحيات', variant: 'primary', decision: sup('Submitted for DOA approval', 'أُرسل لاعتماد الصلاحيات') },
+      { id: 'approve', labelEn: 'Good to go', labelAr: 'جاهز للمتابعة', variant: 'primary', gated: true, decision: sup('Confirmed — good to go', 'تم التأكيد — جاهز') },
       { id: 'return', labelEn: 'Return with comments', labelAr: 'إعادة مع ملاحظات', variant: 'secondary', needsNote: true },
     ],
-    extra: { findingsLabel: sup('Officer comments', 'ملاحظات الأخصائي'), checklist: reviewChecklist([
-      ['Request comments addressed', 'تمت معالجة ملاحظات الطلب'],
-      ['Brand name details provided (if a brand is named)', 'تم تقديم تفاصيل العلامة التجارية (إن وُجدت)'],
-      ['Request is clear and its sections are linked', 'الطلب واضح وأقسامه مترابطة'],
-      ['No formal violations (unclear words or text)', 'لا توجد مخالفات شكلية (كلمات أو نصوص غير واضحة)'],
-      ['No systemic violations (mandatory list, brand names)', 'لا توجد مخالفات نظامية (القائمة الإلزامية، العلامات التجارية)'],
-    ]) } },
+    extra: { procStep: 'officer-confirm', reviewComments: true } },
   { n: 13, type: 'approval', title: TITLE.doaFromDept(),
     summary: sup('Approve the request per the delegation of authority (DOA).', 'اعتمد الطلب وفق مصفوفة تفويض الصلاحيات.'),
     stage: sup('DOA approval', 'اعتماد تفويض الصلاحيات'), assignee: P.tl, sla: 2, priority: 'high', received: 0,
@@ -293,13 +293,18 @@ const SPECS: Spec[] = [
       { label: sup('Request value', 'قيمة الطلب'), value: amountStr },
       { label: sup('DOA reference', 'مرجع تفويض الصلاحيات'), value: 'DOA Matrix 2026 · Procurement §4.2' },
       { label: sup('Prior reviews', 'المراجعات السابقة'), value: '12 of 12 complete' },
-      { label: sup('Officer review', 'مراجعة الأخصائي'), value: 'No comments' },
+      { label: sup('Officer review', 'مراجعة الأخصائي'), value: 'Confirmed — good to go' },
     ] } },
   { n: 14, type: 'approval', title: TITLE.priceFromDept(),
-    summary: sup('Approve the estimated price. Request approval completes here and hands off to PR creation in SAP ECC.', 'اعتمد السعر التقديري. يكتمل اعتماد الطلب هنا وينتقل إلى إنشاء طلب الشراء في SAP ECC.'),
+    summary: sup(`Approve the estimated price as Director of ${reqDept()}. After your approval the Procurement Officer creates the request in Etimad.`, `اعتمد السعر التقديري بصفتك مدير ${reqDept(true)}. بعد اعتمادك ينشئ أخصائي المشتريات الطلب في اعتماد.`),
     stage: sup('Estimated price approval', 'اعتماد السعر التقديري'), assignee: P.director, sla: 2, priority: 'medium', received: 0,
     actions: [{ id: 'approve', labelEn: 'Approve', labelAr: 'اعتماد', variant: 'primary' }],
     extra: { priceBreakdown: true, approvalRecord: [{ label: sup('Estimated price', 'السعر التقديري'), value: amountStr, emphasis: true }, ...approvalRecord.slice(1)] } },
+  { n: 15, type: 'data-collection', title: TITLE.etimad(),
+    summary: sup('The request and its estimated price are approved. Create the competition in Etimad with the approved settings and record the Etimad reference.', 'الطلب وسعره التقديري معتمدان. أنشئ المنافسة في اعتماد بالإعدادات المعتمدة وسجّل مرجع اعتماد.'),
+    stage: sup('Create in Etimad', 'الإنشاء في اعتماد'), assignee: P.officer, sla: 2, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Mark as published', labelAr: 'تحديد كمنشور', variant: 'primary', gated: true, decision: sup('Published in Etimad', 'نُشر في اعتماد') }],
+    extra: { procStep: 'etimad' } },
 ];
 
 
@@ -310,13 +315,13 @@ const OUTCOMES: Record<number, NonNullable<Task['outcomes']>> = {
   2: [{ action: sup('Approve', 'اعتماد'), next: sup('the technical evaluation is marked verified and the request moves to risk review', 'يُعتمد التقييم الفني وينتقل الطلب إلى مراجعة المخاطر'), tone: 'success' }, toRequester],
   3: [{ action: sup('Approve', 'اعتماد'), next: sup('it waits for the other parallel reviewers, then Finance and Procurement qualification starts', 'ينتظر بقية المراجعين بالتوازي ثم يبدأ تأهيل المالية والمشتريات'), tone: 'success' }, toRequester],
   7: [{ action: sup('Approve', 'اعتماد'), next: sup('Finance and Procurement qualification starts', 'يبدأ التأهيل المالي وتأهيل المشتريات'), tone: 'success' }, toRequester],
-  9: [{ action: sup('Complete', 'إكمال'), next: sup('Procurement qualification starts', 'يبدأ تأهيل المشتريات'), tone: 'success' }],
-  10: [{ action: sup('Complete', 'إكمال'), next: sup('it goes to the Procurement Team Lead for review', 'ينتقل إلى رئيس فريق المشتريات للمراجعة'), tone: 'success' }],
-  11: [{ action: sup('Submit for DOA approval', 'إرسال لاعتماد الصلاحيات'), next: sup('the DOA approver receives it (use this when there are no comments)', 'يصل إلى معتمد الصلاحيات (عند عدم وجود ملاحظات)'), tone: 'success' },
-       { action: sup('Assign to officer', 'إسناد إلى أخصائي'), next: sup('the officer reviews it (use this for new requests or when there are comments)', 'يراجعه الأخصائي (للطلبات الجديدة أو عند وجود ملاحظات)'), tone: 'info' }],
-  12: [{ action: sup('Submit for DOA approval', 'إرسال لاعتماد الصلاحيات'), next: sup('it goes back to the Team Lead for DOA approval', 'يعود إلى رئيس الفريق لاعتماد الصلاحيات'), tone: 'success' }, { ...toRequester, action: sup('Return with comments', 'إعادة مع ملاحظات') }],
-  13: [{ action: sup('Approve', 'اعتماد'), next: sup('it goes to the Director to approve the estimated price', 'ينتقل إلى المدير لاعتماد السعر التقديري'), tone: 'success' }],
-  14: [{ action: sup('Approve', 'اعتماد'), next: sup('request approval is complete and the PR is created in SAP ECC', 'يكتمل اعتماد الطلب ويُنشأ طلب الشراء في SAP ECC'), tone: 'success' }],
+  9: [{ action: sup('Complete', 'إكمال'), next: sup('Procurement reviews the qualification criteria', 'تراجع المشتريات معايير التأهيل'), tone: 'success' }],
+  10: [{ action: sup('Confirm criteria', 'تأكيد المعايير'), next: sup('the Procurement Team Lead sets the procurement method', 'يحدد رئيس فريق المشتريات طريقة الشراء'), tone: 'success' }, toRequester],
+  11: [{ action: sup('Assign to officer', 'إسناد إلى الأخصائي'), next: sup('the officer reviews everything and confirms value and duration', 'يراجع الأخصائي كل شيء ويؤكد القيمة والمدة'), tone: 'success' }],
+  12: [{ action: sup('Good to go', 'جاهز للمتابعة'), next: sup('it goes for DOA approval', 'ينتقل لاعتماد الصلاحيات'), tone: 'success' }, { ...toRequester, action: sup('Return with comments', 'إعادة مع ملاحظات') }],
+  13: [{ action: sup('Approve', 'اعتماد'), next: sup(`the Director of ${reqDept()} approves the estimated price`, `يعتمد مدير ${reqDept(true)} السعر التقديري`), tone: 'success' }],
+  14: [{ action: sup('Approve', 'اعتماد'), next: sup('the Procurement Officer creates the request in Etimad', 'ينشئ أخصائي المشتريات الطلب في اعتماد'), tone: 'success' }],
+  15: [{ action: sup('Mark as published', 'تحديد كمنشور'), next: sup('the request shows “Published in Etimad” everywhere and is open for vendors', 'يظهر الطلب «منشور في اعتماد» في كل مكان ويصبح متاحاً للموردين'), tone: 'success' }],
 };
 const outcomesFor = (n: number) => OUTCOMES[n] ?? (n >= 3 && n <= 6 ? OUTCOMES[3] : n === 8 ? OUTCOMES[7] : []);
 // Steps completed before each task (parallel reviewers only follow steps 1–2).
@@ -326,7 +331,8 @@ const at = (ms: number) => new Date(ms).toISOString();
 const PRIOR_NOTE: Record<number, string> = {
   1: 'Budget confirmed against the IT & Digital CAPEX line. Approved.',
   2: 'Technical criteria and weights verified.',
-  11: 'New request — assigning to the officer for a full request check.',
+  9: 'Financial criteria set for an IT services profile — 70/30, passing 60%.',
+  11: 'Tendering, two envelopes, high priority.',
 };
 export const SEED_TASKS: Task[] = SPECS.map((s) => {
   // Working-hour timestamps: two steps per working day (10:00, 14:00), newest = today.
@@ -340,7 +346,7 @@ export const SEED_TASKS: Task[] = SPECS.map((s) => {
     { id: 'a0c', kind: 'comment', actor: REQ.requester, at: at(t0 + 15 * 60000), text: 'Requesting approval for the ERP upgrade — the current ECC 6.0 support ends in 2027.' },
     ...prior.map((p, i) => ({
       id: `a${p.n}`, kind: 'decision' as const, actor: p.assignee, at: at(stepAt(i)),
-      decision: p.n === 11 ? sup('Assigned to officer', 'أُسند إلى أخصائي') : p.n === 12 ? sup('Submitted for DOA approval', 'أُرسل لاعتماد الصلاحيات') : p.type === 'data-collection' ? sup('Qualification criteria added', 'تمت إضافة معايير التأهيل') : sup('Approved', 'تم الاعتماد'),
+      decision: p.n === 9 ? sup('Financial criteria set', 'تم تحديد المعايير المالية') : p.n === 10 ? sup('Qualification criteria confirmed', 'تم تأكيد معايير التأهيل') : p.n === 11 ? sup('Method set and assigned', 'تم تحديد الطريقة والإسناد') : p.n === 12 ? sup('Confirmed — good to go', 'تم التأكيد — جاهز') : sup('Approved', 'تم الاعتماد'),
       text: PRIOR_NOTE[p.n],
       system: sup(p.stage.en, p.stage.ar),
     })),
@@ -532,6 +538,8 @@ function completeRfp(r0: RfpDetail): RfpDetail {
     qualCriteria: QUAL_CRITERIA_FIXED,
     techDocs: r.techDocs ?? TECH_DOCS_DEFAULT,
     qualPassing: r.qualPassing ?? 60,
+    projectArea: r.projectArea ?? 'it',
+    deliveryType: r.deliveryType ?? 'services',
     qualCommittee: r.qualCommittee ?? QUAL_COMMITTEE,
     boq: r.boq.map((l) => ({ hasBrand: false, ...l })),
     projectCode: r.projectCode ?? 'PRJ-2025-001',
@@ -580,9 +588,19 @@ const REQ_RFP = completeRfp({
   refId: REQ.ref, titleEn: REQ.titleEn, titleAr: REQ.titleAr,
   meta: RFP_S4HANA.meta.map((m) => m.label.en === 'Requesting department' ? { ...m, value: reqDept() } : m),
 });
+// One criterion above the typical range, with the requester's reason — what Procurement qualification reviews.
+REQ_RFP.qualCriteria = REQ_RFP.qualCriteria!.map((m, i) => i === 0 ? { ...m, subs: m.subs.map((sb, j) => j === 0 ? { ...sb, range: '10+ years', justification: 'Core ERP migration — needs a proven S/4HANA track record' } : sb) } : m);
 for (const tk of SEED_TASKS) {
   tk.trail = trailFor(tk);
   tk.rfp = REQ_RFP;
+  // Later steps open with what the earlier procurement steps decided.
+  const n = Number(tk.id.match(/-(\d+)$/)?.[1] ?? 0);
+  if (n >= 10) {
+    const fq = suggestFinQual(REQ_RFP);
+    tk.rfp = { ...REQ_RFP, finQual: { ...fq, by: P.finQual.name, at: iso(-1, 11) } };
+    if (n >= 12) tk.rfp.procMethod = { contractType: 'tender', envelope: 'two', priority: 'high', officerId: P.officer.id, officerName: P.officer.name, officerNameAr: P.officer.nameAr, by: P.tl.name, byAr: P.tl.nameAr, at: iso(-1, 14) };
+    if (n >= 15) tk.rfp.officerConfirm = { value: REQ.amount, duration: REQ_RFP.duration ?? '18 months', by: P.officer.name, byAr: P.officer.nameAr, at: iso(-1, 15) };
+  }
 }
 
 // ── Finance (GL / Assets) — BOQ lines with their accounting classification ──

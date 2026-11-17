@@ -349,7 +349,7 @@ async function openRequest(title) {
     const step = (id) => { const m = /^TSK-\d+-(\d+)(R)?(-R)?$/.exec(id); return m ? Number(m[1]) + (m[2] ? 0.5 : 0) + (m[3] ? 0.25 : 0) : 99; };
     const steps = ids.map(step);
     expect(steps.every((v, i) => i === 0 || v >= steps[i - 1]), `order: ${ids.join(', ')}`);
-    expect(ids.indexOf('TSK-4433-06') < ids.indexOf('TSK-4433-09') && ids.indexOf('TSK-4433-13') < ids.indexOf('TSK-4433-14'), 'flow order');
+    expect(ids.indexOf('TSK-4433-06') < ids.indexOf('TSK-4433-09') && ids.indexOf('TSK-4433-13') < ids.indexOf('TSK-4433-14') && ids.indexOf('TSK-4433-14') < ids.indexOf('TSK-4433-15'), 'flow order');
   });
 
   // ── Budget checker (manager approval) ─────────────────────────────────────
@@ -398,12 +398,12 @@ async function openRequest(title) {
     await page.locator('[data-inbox-tab="all"]').click(); await wait(300);
     const titles = await page.locator('ul li > button:visible p:first-child, ul li > button:visible h3').allInnerTexts().catch(() => []);
     const body = (await page.locator('ul li > button:visible').allInnerTexts()).join('\n').replace(/\s+/g, ' ');
-    for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Review request & add qualification criteria for request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
+    for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Set financial qualification criteria for request #4433 from IT & Digital', 'Review qualification criteria for request #4433 from IT & Digital', 'Set procurement method & assign request #4433', 'Review & confirm request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Create request #4433 in Etimad', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
       expect(body.includes(want), `missing task "${want}"`);
     expect(!/\bRFP\b/.test(body), 'the word RFP is still listed');
     const top3 = (await page.locator('ul li > button:visible', { hasText: 'REQ-' }).allInnerTexts()).slice(0, 3).join(' | ');
     expect(['#4478', '#4471', '#4433'].every((n) => top3.includes(`Review & approve request ${n}`)), `manager tasks not on top: ${top3.slice(0, 160)}`);
-    expect((body.match(/REQ-44\d\d/g) || []).length === 17, `expected 17 tasks, got ${(body.match(/REQ-44\d\d/g) || []).length}`);
+    expect((body.match(/REQ-44\d\d/g) || []).length === 18, `expected 18 tasks, got ${(body.match(/REQ-44\d\d/g) || []).length}`);
     void titles;
   });
 
@@ -451,34 +451,91 @@ async function openRequest(title) {
     expect(await page.locator('[data-weight-total]').getAttribute('data-weight-total') === '100', 'weights back to 100');
     expect(!(await approve.isDisabled()), 'approve should be enabled once everything is reviewed');
   });
-  await test('Qualification task: prefilled criteria with Accept / Modify, Complete gated', async () => {
-    await page.locator('ul li > button:visible', { hasText: 'Review request & add qualification criteria' }).first().click(); await wait(LOAD);
-    expect(await count('[data-qual-review]') === 1, 'qualification review missing');
-    for (const s of ['Qualification Member', 'Qualification Criteria', 'Previous Experience', 'Main Criteria Total: 100%'])
-      expect(await text(s).count() > 0, `missing ${s}`);
-    const keys = await page.locator('[data-qual-review] [data-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-row')));
-    expect(keys.length > 3 && keys.includes('qm-0') && keys.includes('qs-0-0'), `rows: ${keys}`);
-    expect(await count('[data-qual-review] [data-accept]') === keys.length, 'each row needs Accept');
-    expect(await count('[data-qual-review] [data-modify]') === keys.length, 'each row needs Modify');
-    const complete = page.getByRole('button', { name: 'Complete', exact: true });
-    expect(await complete.isDisabled(), 'complete should be disabled before review');
-    await page.click('[data-accept="qm-0"]');
-    expect(await page.getAttribute('[data-row="qm-0"]', 'data-state') === 'accepted', 'accept failed');
-    // Modify opens that row only
-    await page.click('[data-modify="qs-0-0"]');
-    expect(await count('[data-qual-review] [data-editing]') === 1, 'only one row should open');
-    const inputs = page.locator('[data-editing="qs-0-0"] input');
-    await inputs.nth(0).fill('≥ 7 years');
-    await page.click('[data-save="qs-0-0"]'); await wait(150);
-    expect(await page.getAttribute('[data-row="qs-0-0"]', 'data-state') === 'modified', 'modify failed');
-    expect(await text('≥ 7 years').count() > 0, 'modified range not shown');
-    await page.getByRole('button', { name: /Accept all remaining/ }).click(); await wait(150);
-    expect(await page.locator('[data-qual-progress]').getAttribute('data-qual-progress') === `${keys.length}/${keys.length}`, 'progress');
-    expect(!(await complete.isDisabled()), 'complete should be enabled after review');
-    await tab('Activity'); await wait(350); await tab('Required action'); await wait(300);
-    expect(await text('≥ 7 years').count() > 0, 'values lost after switching tabs');
+  const openTitled = async (title) => { await page.locator('[data-inbox-tab="all"]').click(); await wait(250); await page.locator('ul li > button:visible', { hasText: title }).first().click(); await wait(LOAD); };
+  await test('Finance qualification: profile, suggested ratios 70/30, weights stay at 100%, 1–7 key, gated Complete', async () => {
+    await openTitled('Set financial qualification criteria');
+    expect(await count('[data-fin-qual]') === 1 && await count('[data-fin-profile]') === 1, 'finance qualification panel');
+    expect(await count('[data-fin-ratio]') === 2, 'liquidity and cash ratios');
+    expect(await page.locator('[data-fin-ratio="liquidity"] [data-fin-weight]').inputValue() === '70', 'liquidity 70% default');
+    expect(await page.locator('[data-fin-passing]').inputValue() === '60', 'passing 60% default');
+    await page.locator('[data-fin-ratio="liquidity"] [data-fin-weight]').fill('60'); await wait(150);
+    expect(await page.locator('[data-fin-ratio="cash"] [data-fin-weight]').inputValue() === '40' && (await page.locator('[data-fin-total]').innerText()).includes('100%'), 'weights rebalance to 100%');
+    expect(await count('[data-fin-key] tbody tr') === 2 && await count('[data-fin-key] thead th') === 8, '1–7 scoring key');
+    expect(await count('[data-fin-request-value]') === 1, 'request estimated value');
+    expect(!(await page.getByRole('button', { name: 'Complete', exact: true }).isDisabled()), 'complete enabled with valid criteria');
+    await tab('Request details'); await wait(300);
+    expect(await count('#rfp-financial') === 1, 'Finance sees the financial criteria in request details');
+    await tab('Required action'); await wait(200);
   });
-
+  await test('Financial criteria are hidden from steps before Finance (department approval)', async () => {
+    await openTitled('Review & approve request #4433');
+    await tab('Request details'); await wait(300);
+    expect(await count('#rfp-financial') === 0 && await count('[data-rfp-fin-qual]') === 0, 'financial criteria leaked before Finance');
+    expect(await count('[data-rfp-field="area"]') === 1 && await count('[data-rfp-field="delivery"]') === 1, 'project nature shown in Project Setup');
+  });
+  await test('Procurement qualification: comment-only review, typical-range hint, Suggest values, return reasons', async () => {
+    await openTitled('Review qualification criteria for request');
+    expect(await count('[data-cyber-review][data-dept="proc"]') === 1, 'procurement qualification review');
+    expect(await count('[data-qual-review]') === 0 && await count('[data-modify]') === 0, 'no editing — comment only');
+    const flagged = page.locator('[data-cyber-section="criteria"]');
+    expect(/10\+ years/.test(await flagged.innerText()) && /typical 3–7 years/.test(await flagged.innerText()), 'typical range hint');
+    expect(/needs a proven S\/4HANA/.test(await flagged.innerText()), 'requester justification shown');
+    expect(await count('[data-proc-suggest]') === 1, 'Suggest values');
+    expect(await page.getByRole('button', { name: 'Confirm criteria', exact: true }).isDisabled(), 'confirm gated');
+    await page.click('[data-proc-suggest]'); await wait(250);
+    expect(await count('[data-cyber-draft-saved]') === 1, 'suggestion saved as a draft comment');
+    await page.getByRole('button', { name: 'Return', exact: true }).click(); await wait(300);
+    const dlg = page.getByRole('dialog');
+    await dlg.getByText('Yes', { exact: true }).first().click(); await wait(200);
+    expect(await dlg.getByText('Criteria exclude SMEs without a justification').count() === 1, 'SME return reason');
+    await dlg.getByRole('button', { name: 'Cancel' }).click(); await wait(250);
+  });
+  await test('Procurement TL: contract type, envelope, suggested priority, assign with workload, gated', async () => {
+    await openTitled('Set procurement method & assign');
+    expect(await count('[data-tl-method]') === 1, 'TL method panel');
+    expect(await page.getAttribute('[data-priority]', 'data-priority') === 'high' && await count('[data-priority-suggested="high"]') === 1, 'priority suggested and prefilled');
+    const go = page.getByRole('button', { name: 'Assign to officer', exact: true });
+    expect(await go.isDisabled(), 'gated until set');
+    await page.click('[data-contract] [data-opt="closed"]'); await wait(200);
+    expect(await count('[data-tl-vendors]') === 1, 'closed bid asks for invited vendors');
+    await page.click('[data-vendor="Elm Company"]');
+    await page.click('[data-envelope] [data-opt="two"]');
+    expect(await count('[data-tl-assign] [data-officer]') >= 3 && /open/.test(await page.locator('[data-tl-assign]').innerText()), 'officers with workload');
+    await page.locator('[data-officer="u-yousef"]').click(); await wait(200);
+    expect(!(await go.isDisabled()), 'assign enabled once everything is set');
+    await page.click('[data-contract] [data-opt="direct"]'); await wait(200);
+    expect(await go.isDisabled(), 'direct purchase needs a justification');
+    await page.fill('[data-tl-justification]', 'Sole licence holder for the existing platform'); await wait(150);
+    expect(!(await go.isDisabled()), 'enabled with justification');
+    await page.click('[data-contract] [data-opt="tender"]'); await wait(150);
+    await tab('Request details'); await wait(300);
+    expect(/Procurement method \(set by Procurement TL\)/.test(await page.locator('#rfp-method').innerText()), 'labelled method block');
+    expect(await count('#rfp-method [data-project-priority="high"]') === 1, 'priority on request details');
+    await tab('Required action'); await wait(200);
+  });
+  await test('Procurement Officer: one view incl. TL choices, confirms value & duration, gated Good to go', async () => {
+    await openTitled('Review & confirm request #4433');
+    expect(await count('[data-officer-confirm]') === 1 && /Tendering/.test(await page.locator('[data-officer-method]').innerText()), 'TL choices shown');
+    const go = page.getByRole('button', { name: 'Good to go', exact: true });
+    expect(await go.isDisabled(), 'gated until confirmed');
+    await page.click('[data-officer-confirm-btn]'); await wait(200);
+    expect(!(await go.isDisabled()), 'enabled after confirming value and duration');
+  });
+  await test('Create in Etimad: publication summary, record reference, published everywhere', async () => {
+    await openTitled('Create request #4433 in Etimad');
+    const sum = await page.locator('[data-etimad-summary]').innerText();
+    for (const s of ['Contract type', 'Envelope', 'Project priority', 'Technical criteria', 'Financial criteria', 'Qualification criteria']) expect(sum.includes(s), `summary missing ${s}`);
+    const go = page.getByRole('button', { name: 'Mark as published', exact: true });
+    expect(await go.isDisabled(), 'gated until the reference is recorded');
+    await page.fill('[data-etimad-input]', '260139001234'); await page.click('[data-etimad-save]'); await wait(200);
+    expect(!(await go.isDisabled()), 'enabled with the reference');
+    await tab('Request details'); await wait(300);
+    expect(/Published in Etimad · 260139001234/.test(await page.locator('[data-etimad-published]').innerText()), 'published banner');
+    await openTitled('Review & approve request #4433');
+    await tab('Request details'); await wait(300);
+    expect(await count('[data-etimad-published]') === 1, 'reference shows on every task of the request');
+    await tab('Required action'); await wait(200);
+  });
   // ── Reports ───────────────────────────────────────────────────────────────
   const rowCount = async () => Number(await page.locator('[data-row-count]').getAttribute('data-row-count'));
   await test('Reports landing: 33 report tiles in 5 groups, search, group filter, favourites', async () => {
@@ -688,6 +745,26 @@ async function openRequest(title) {
     expect(/Cannot exceed 100%/.test(await page.locator('#q-qualPassing').innerText()), '>100 warning');
     await page.fill('#qualification-passing-pct', '60');
   });
+  await test('Creation: project nature prefilled from BOQ & Scope, guided qualification ranges, SME tag, justification above range', async () => {
+    await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', scopeOfWork: 'Implement SAP S/4HANA cloud subscription with integration to the HR system.',
+      boqItems: [{ id: 'n0', projectItem: 'Software', itemName: 'SAP S/4HANA subscription', itemDescription: 'Cloud ERP licences', unitOfMeasure: 'Each', quantity: 2, unitPrice: 1000, deliveryDate: '', hasBrandName: false, brandJustification: '' }] });
+    await page.locator('button', { hasText: 'Project Setup' }).first().click(); await wait(600);
+    expect(await count('[data-project-nature]') === 1, 'project nature on Project Setup');
+    expect(await page.getAttribute('[data-nature-area]', 'data-nature-area') === 'it', 'IT suggested from the BOQ');
+    expect(await count('[data-nature-suggested]') >= 1, 'suggested chip');
+    await page.click('[data-nature-delivery] button:has-text("Services")'); await wait(150);
+    expect(await page.getAttribute('[data-nature-delivery]', 'data-nature-delivery') === 'services', 'delivery type editable');
+    await page.locator('button', { hasText: 'Qualification Criteria' }).first().click(); await wait(700);
+    expect(await page.locator('#qualification-passing-pct').inputValue() === '60', 'passing defaults to 60%');
+    expect(await count('[data-qual-rec]') >= 5 && /2–5 years/.test(await page.locator('[data-qual-sub="qs-1-1"] [data-qual-rec]').innerText()), 'recommended range from value and nature');
+    expect(await count('[data-sme="open"]') === 1, 'open to SMEs when in range');
+    await page.locator('[data-qual-sub="qs-1-1"] input[type="text"]').fill('10+ years'); await wait(200);
+    expect(await count('[data-qual-justify="qs-1-1"]') === 1 && await count('[data-sme="restricted"]') === 1, 'above range asks for a justification and flags SMEs');
+    await page.locator('[data-qual-justify="qs-1-1"] input').fill('Regulated core system'); await wait(150);
+    expect(await count('[data-sme="restricted"]') === 1 && !/without a justification/.test(await page.locator('#q-qualification').locator('..').innerText()), 'justified');
+    await page.locator('[data-qual-sub="qs-1-1"] input[type="text"]').fill('3+ years'); await wait(150);
+    expect(await count('[data-qual-justify]') === 0 && await count('[data-sme="open"]') === 1, 'back in range');
+  });
   await test('AI pre-review: animated department review → tabs → Fix it opens the step → Apply it', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', scopeOfWork: 'Implement SAP S/4HANA cloud subscription. Integrate with HR. Employee payroll data.', paymentStages: [], evaluationCriteria: [], technicalPassingPercentage: '',
       boqItems: [['SAP S/4HANA subscription', 'Cloud ERP licences'], ['Integration with HR system', 'APIs via iPaaS']].map(([n, d], i) => ({ id: 'ai' + i, projectItem: 'Software', itemName: n, itemDescription: d, unitOfMeasure: 'Each', quantity: 2, unitPrice: 1000, deliveryDate: '', hasBrandName: false, brandJustification: '' })) });
@@ -710,7 +787,7 @@ async function openRequest(title) {
     await page.click('[data-ai-tab="risk"]'); await wait(200);
     expect(await count('[data-ai-rec="risk-sla"]') === 1, 'risk reviewer finds the missing SLA');
     await page.click('[data-ai-tab="finqual"]'); await wait(200);
-    expect(await count('[data-ai-rec="fq-pass"]') === 1, 'qualification passing % sits with the finance qualification member');
+    expect(await count('[data-ai-rec="fq-committee"]') === 1 && await count('[data-ai-rec="fq-pass"]') === 0, 'qualification checks sit with the finance qualification member; passing % defaults to 60');
     expect(/recommendations/.test(await page.locator('[data-ai-summary]').innerText()), 'summary');
     await page.click('[data-ai-tab="finance"]'); await wait(150);
     await page.click('[data-ai-fix="fin-pay"]'); await wait(700);

@@ -234,6 +234,11 @@ export interface TenderFormData {
   qualificationCriteria: QualMainCriteria[];
   /** Minimum qualification score (out of 100%) a vendor needs to qualify. */
   qualificationPassingPercentage?: string;
+  /** Project nature — prefilled from the BOQ and Scope of Work, editable. Drives the recommended qualification ranges. */
+  projectArea?: 'it' | 'non-it' | '';
+  deliveryType?: 'one-time' | 'multi-year' | 'operations' | 'services' | '';
+  /** One-line reason per sub-criterion set above its recommended range (keyed by sub-criterion id). */
+  qualJustifications?: Record<string, string>;
   attachments: FileAttachment[];
   /** Etimad E-Market draft that receives BOQ items moved out of this tender. */
   linkedEtimadRequestId?: string;

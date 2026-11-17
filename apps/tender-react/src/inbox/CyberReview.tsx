@@ -5,10 +5,11 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Task } from './types';
-import { CheckIcon, ChevronDownIcon, PencilIcon } from '../components/Icons';
+import { CheckIcon, ChevronDownIcon, PencilIcon, SparklesIcon } from '../components/Icons';
 import BoqLineDetails, { BoqViewButton, useBoqOpen, viewFromRfpLine, rfpCostCenter } from '../components/BoqLineDetails';
 import { ActionHead, BulkButton } from './ActionHead';
 import { deptSections, deptKind, libraryFor, usedClauses, type CyberKind, type CyberClause, type DeptKind } from './cyberReview';
+import { procSuggestion } from './cyberReview';
 
 type T = (en: string, ar: string) => string;
 type Dec = { state: 'accepted' | 'comment'; comment?: string };
@@ -25,6 +26,8 @@ const ICON: Record<string, string> = {
   integration: 'M8 12h8M5 8a4 4 0 100 8M19 8a4 4 0 110 8',
   data: 'M4 7c0-2 16-2 16 0v10c0 2-16 2-16 0zM4 7c0 2 16 2 16 0M4 12c0 2 16 2 16 0',
   security: 'M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z',
+  profile: 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6',
+  criteria: 'M9 5h11M9 12h11M9 19h11M4 5l1 1 2-2M4 12l1 1 2-2M4 19l1 1 2-2',
 };
 
 export default function CyberReview({ task, isAr, t, readOnly, onDecide, onAcceptAll, onDraft, onInsert }: {
@@ -40,6 +43,7 @@ export default function CyberReview({ task, isAr, t, readOnly, onDecide, onAccep
   const COPY = {
     cyber: { title: t('Review the security requirements', 'مراجعة المتطلبات الأمنية'), desc: t('Only the sections Cyber owns. Accept each requirement, comment on it, or add a missing one from the library.', 'الأقسام التي يملكها الأمن السيبراني فقط. اقبل كل متطلب أو علّق عليه أو أضف متطلباً ناقصاً من المكتبة.'), noun: t('requirements reviewed', 'متطلبات تمت مراجعتها'), add: t('Add requirement', 'إضافة متطلب') },
     bcm: { title: t('Review business continuity', 'مراجعة استمرارية الأعمال'), desc: t('Confirm whether BCM applies to this service, then check every continuity clause. Add any that are missing from the BCM library.', 'أكّد انطباق استمرارية الأعمال على هذه الخدمة، ثم راجع كل بند. أضف الناقص من مكتبة الاستمرارية.'), noun: t('items reviewed', 'بنود تمت مراجعتها'), add: t('Add clause', 'إضافة بند') },
+    proc: { title: t('Review the qualification criteria', 'مراجعة معايير التأهيل'), desc: t('Comment-only: the requester owns the criteria. Accept each one, or comment where a threshold is out of line with the project size or shuts out SMEs.', 'ملاحظات فقط: مقدّم الطلب يملك المعايير. اقبل كل معيار أو علّق حيث يكون الحد غير متناسب مع حجم المشروع أو يستبعد المنشآت الصغيرة.'), noun: t('criteria reviewed', 'معايير تمت مراجعتها'), add: '' },
     orm: { title: t('Review operational risk', 'مراجعة المخاطر التشغيلية'), desc: t('A high-level confirmation: is the scope clear, what does the third-party checklist say, and are the right controls in the RFP?', 'تأكيد عام: هل النطاق واضح، وماذا تقول قائمة مخاطر الطرف الثالث، وهل الضوابط المناسبة في الطلب؟'), noun: t('items reviewed', 'بنود تمت مراجعتها'), add: t('Add control', 'إضافة ضابط') },
   }[kind];
   const notApplicable = kind === 'bcm' && secs.length === 2 && secs[0].rows[0]?.tone === 'success';
@@ -54,6 +58,7 @@ export default function CyberReview({ task, isAr, t, readOnly, onDecide, onAccep
   const boqOpen = useBoqOpen();
   const L = (en?: string, ar?: string) => (isAr ? ar || en || '' : en || '');
   const anyDraft = Object.values(drafts).some((x) => x?.trim());
+  const suggestKeys = kind === 'proc' ? keys.filter((k) => !dec[k] && procSuggestion(task, k, isAr)) : [];
 
   return (
     <div className="space-y-5" data-cyber-review data-dept={kind}>
@@ -62,7 +67,13 @@ export default function CyberReview({ task, isAr, t, readOnly, onDecide, onAccep
         progress={{ done, total: keys.length, label: COPY.noun, attrs: { 'data-cyber-progress': `${done}/${keys.length}` },
           tail: comments ? <span className="ms-1.5 text-warning-700">· {t(`${comments} with comments`, `${comments} بملاحظات`)}</span> : undefined }}
         extra={anyDraft ? <span className="text-[11.5px] text-neutral-400 inline-flex items-center gap-1" data-cyber-draft-saved><CheckIcon className="w-3 h-3" />{t('Drafts saved', 'تم حفظ المسودات')}</span> : undefined}
-        bulk={!readOnly && done < keys.length ? <BulkButton testAttr={{ 'data-cyber-all': '' }} onClick={() => onAcceptAll(keys.filter((k) => !dec[k]))}>{notApplicable ? t('Confirm not in BCM scope', 'تأكيد عدم انطباق الاستمرارية') : t('Accept all remaining', 'قبول جميع البنود المتبقية')}</BulkButton> : undefined} />
+        bulk={!readOnly && suggestKeys.length ? <span className="inline-flex items-center gap-2">
+          <button type="button" data-proc-suggest onClick={() => { suggestKeys.forEach((k) => onDraft(k, procSuggestion(task, k, isAr))); setOpen(suggestKeys[0]); }}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-ai-200 bg-ai-50 text-ai-700 text-[12.5px] font-semibold hover:bg-ai-100 transition-colors">
+            <SparklesIcon className="w-3.5 h-3.5" />{t(`Suggest values (${suggestKeys.length})`, `اقتراح القيم (${suggestKeys.length})`)}
+          </button>
+          {done < keys.length && <BulkButton testAttr={{ 'data-cyber-all': '' }} onClick={() => onAcceptAll(keys.filter((k) => !dec[k] && !suggestKeys.includes(k)))}>{t('Accept the rest', 'قبول البقية')}</BulkButton>}
+        </span> : !readOnly && done < keys.length ? <BulkButton testAttr={{ 'data-cyber-all': '' }} onClick={() => onAcceptAll(keys.filter((k) => !dec[k]))}>{notApplicable ? t('Confirm not in BCM scope', 'تأكيد عدم انطباق الاستمرارية') : t('Accept all remaining', 'قبول جميع البنود المتبقية')}</BulkButton> : undefined} />
 
       {secs.map((s) => {
         const sd = s.rows.filter((r) => dec[r.key]).length;

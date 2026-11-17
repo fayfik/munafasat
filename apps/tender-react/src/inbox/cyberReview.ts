@@ -3,8 +3,10 @@
 import type { Task } from './types';
 import { stdById } from '../lib/eaStandards';
 import { BCM_QUESTIONS, BCM_CLAUSES, TPR_QUESTIONS, VERDICT, RATING, bcmVerdict, bcmClauseById, tprRating } from '../lib/continuityRisk';
+import { qualFlags, formLike, areaLabel, deliveryLabel, boqValueOf } from './procGuide';
+import { recommendedFor, recText, suggestedRange } from '../lib/qualGuide';
 
-export type DeptKind = 'cyber' | 'bcm' | 'orm';
+export type DeptKind = 'cyber' | 'bcm' | 'orm' | 'proc';
 export type CyberKind = string;
 export interface CyberRow { key: string; en: string; ar: string; subEn?: string; subAr?: string; added?: boolean; tone?: 'warning' | 'success' | 'info' }
 export interface CyberSection { id: CyberKind; en: string; ar: string; hintEn: string; hintAr: string; rows: CyberRow[]; canAdd: boolean }
@@ -141,16 +143,53 @@ function ormSections(task: Task): CyberSection[] {
   ];
 }
 
+/* ═══════════════════════ Procurement Qualification (comment-only) ═══════════════════════ */
+export const PROC_RETURN_REASONS = [
+  { id: 'proc-disproportionate', en: 'Criteria disproportionate to the project size', ar: 'معايير لا تتناسب مع حجم المشروع' },
+  { id: 'proc-sme', en: 'Criteria exclude SMEs without a justification', ar: 'معايير تستبعد المنشآت الصغيرة والمتوسطة دون مبرر' },
+  { id: 'proc-template', en: 'Qualification template missing or incomplete', ar: 'نموذج التأهيل مفقود أو غير مكتمل' },
+  { id: 'proc-nature', en: 'Project nature doesn’t match the BOQ / Scope', ar: 'طبيعة المشروع لا تطابق جدول الكميات / النطاق' },
+];
+function procSections(task: Task): CyberSection[] {
+  const rfp = task.rfp!;
+  const flags = qualFlags(rfp);
+  const sme = flags.size === 0;
+  return [
+    { id: 'profile', en: 'Project profile', ar: 'ملف المشروع', hintEn: 'What the criteria are sized against.', hintAr: 'ما تُقاس عليه المعايير.', canAdd: false,
+      rows: [
+        { key: 'nature', en: `${areaLabel(rfp, false)} · ${deliveryLabel(rfp, false)}`, ar: `${areaLabel(rfp, true)} · ${deliveryLabel(rfp, true)}`, subEn: `BOQ value ${fmtM(boqValueOf(rfp))} · ${rfp.duration ?? '—'}`, subAr: `قيمة جدول الكميات ${fmtM(boqValueOf(rfp))} · ${rfp.duration ?? '—'}` },
+        { key: 'sme', en: sme ? 'Open to SMEs' : `May exclude SMEs — ${flags.size} above the typical range`, ar: sme ? 'متاح للمنشآت الصغيرة والمتوسطة' : `قد يستبعد المنشآت الصغيرة — ${flags.size} فوق النطاق المعتاد`, tone: sme ? 'success' : 'warning' },
+      ] },
+    { id: 'criteria', en: 'Qualification criteria', ar: 'معايير التأهيل', hintEn: 'Set by the requester. Comment where a threshold is out of line — you can’t edit them here.', hintAr: 'حددها مقدّم الطلب. علّق حيث يكون الحد غير مناسب — لا يمكنك تعديلها هنا.', canAdd: false,
+      rows: (rfp.qualCriteria ?? []).flatMap((m, i) => m.subs.map((sb, j) => {
+        const f = flags.get(`${i + 1}-${j + 1}`);
+        const typical = recommendedFor(`qs-${i + 1}-${j + 1}`, formLike(rfp));
+        return { key: `pq-${i}-${j}`, en: `${sb.nameEn}: ${sb.range} (${sb.pct}%)`, ar: `${sb.nameAr}: ${sb.range} (${sb.pct}%)`, tone: f ? 'warning' as const : undefined,
+          subEn: [typical ? `typical ${recText(typical, false)}` : '', f ? (sb.justification ? `Requester: “${sb.justification}”` : 'No justification given') : ''].filter(Boolean).join(' · ') || undefined,
+          subAr: [typical ? `المعتاد ${recText(typical, true)}` : '', f ? (sb.justification ? `مقدّم الطلب: «${sb.justification}»` : 'لا يوجد مبرر') : ''].filter(Boolean).join(' · ') || undefined };
+      })).concat([{ key: 'pq-passing', en: `Passing percentage: ${rfp.qualPassing ?? 60}%`, ar: `نسبة الاجتياز: ${rfp.qualPassing ?? 60}%`, tone: undefined, subEn: 'Default 60%', subAr: 'الافتراضي 60%' }]) },
+  ];
+}
+const fmtM = (n: number) => `SAR ${n >= 1_000_000 ? `${+(n / 1_000_000).toFixed(2)}M` : `${Math.round(n / 1000)}K`}`;
+/** Suggested comment for an above-range row: the typical band to use instead. */
+export function procSuggestion(task: Task, key: string, isAr: boolean): string | null {
+  const m = key.match(/^pq-(\d+)-(\d+)$/); if (!m || !task.rfp) return null;
+  const id = `${+m[1] + 1}-${+m[2] + 1}`;
+  const f = qualFlags(task.rfp).get(id); if (!f) return null;
+  const v = suggestedRange(`qs-${id}`, formLike(task.rfp), isAr);
+  return isAr ? `أعلى من المعتاد (${f.typicalAr}). نقترح: ${v}.` : `Above the typical range (${f.typicalEn}). Suggest: ${v}.`;
+}
+
 /* ═══════════════════════ Shared ═══════════════════════ */
 export const deptKind = (task: Task): DeptKind | null => task.deptReview ?? (task.cyberReview ? 'cyber' : null);
 export function deptSections(task: Task): CyberSection[] {
   if (!task.rfp) return [];
   const k = deptKind(task);
-  return k === 'bcm' ? bcmSections(task) : k === 'orm' ? ormSections(task) : cyberSections(task);
+  return k === 'bcm' ? bcmSections(task) : k === 'orm' ? ormSections(task) : k === 'proc' ? procSections(task) : cyberSections(task);
 }
 export const deptRowKeys = (task: Task) => deptSections(task).flatMap((s) => s.rows.map((r) => r.key));
-export const libraryFor = (k: DeptKind) => (k === 'bcm' ? BCM_LIBRARY : k === 'orm' ? ORM_LIBRARY : CYBER_LIBRARY);
-export const reasonsFor = (k: DeptKind) => (k === 'bcm' ? BCM_RETURN_REASONS : k === 'orm' ? ORM_RETURN_REASONS : CYBER_RETURN_REASONS);
+export const libraryFor = (k: DeptKind) => (k === 'bcm' ? BCM_LIBRARY : k === 'orm' ? ORM_LIBRARY : k === 'proc' ? [] : CYBER_LIBRARY);
+export const reasonsFor = (k: DeptKind) => (k === 'bcm' ? BCM_RETURN_REASONS : k === 'orm' ? ORM_RETURN_REASONS : k === 'proc' ? PROC_RETURN_REASONS : CYBER_RETURN_REASONS);
 /** Library clauses already in the request, for this department. */
 export function usedClauses(task: Task): Set<string> {
   const k = deptKind(task);

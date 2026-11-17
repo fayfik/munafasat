@@ -203,7 +203,9 @@ export interface Task {
   /** EA decision per section — accepted, or a comment for the requester. */
   eaDecisions?: Record<string, { state: 'accepted' | 'comment'; comment?: string }>;
   /** Department review in the Cyber pattern: Cybersecurity, Business Continuity (BCM) or Operational Risk (ORM). */
-  deptReview?: 'cyber' | 'bcm' | 'orm';
+  deptReview?: 'cyber' | 'bcm' | 'orm' | 'proc';
+  /** Procurement-side steps after qualification: Finance qualification, TL method & assign, Officer confirm, Create in Etimad. */
+  procStep?: 'fin-qual' | 'tl-method' | 'officer-confirm' | 'etimad';
   /** Cybersecurity: structured review of the sections Cyber owns (EA pattern). */
   cyberReview?: boolean;
   /** Cyber decision per row — accepted, or a comment for the requester. */
@@ -316,8 +318,19 @@ export interface RfpDetail {
   ormControls?: string[];
   evalCommittee?: CommitteeMember[];
   qualification: { reqEn: string; reqAr: string; evidenceEn?: string; evidenceAr?: string }[];
-  qualCriteria?: { nameEn: string; nameAr: string; pct: number; subs: { nameEn: string; nameAr: string; range: string; pct: number }[] }[];
+  qualCriteria?: { nameEn: string; nameAr: string; pct: number; subs: { nameEn: string; nameAr: string; range: string; pct: number; justification?: string }[] }[];
   qualPassing?: number;
+  /** Project nature set at creation (prefilled from BOQ & Scope). */
+  projectArea?: 'it' | 'non-it';
+  deliveryType?: 'one-time' | 'multi-year' | 'operations' | 'services';
+  /** Financial qualification — owned by Finance; visible to Finance and Procurement only. */
+  finQual?: FinQual;
+  /** Procurement method — set by the Procurement Team Lead. */
+  procMethod?: ProcMethod;
+  /** Procurement Officer confirmation of value and duration. */
+  officerConfirm?: { value: number; duration: string; by: string; byAr?: string; at: string };
+  /** Etimad reference once the officer has created the request in Etimad. */
+  etimad?: { ref: string; at: string; by: string; byAr?: string };
   qualCommittee?: CommitteeMember[];
   documents: { en: string; ar: string; type?: string; size?: string; by?: string }[];
 }
@@ -371,4 +384,16 @@ export interface FinChange {
   fieldEn: string; fieldAr: string;
   oldV: string; newV: string;
   impact: 'info' | 'decide' | 'rereview';
+}
+
+export interface FinRatio { min: string; max: string; weight: number }
+export interface FinQual { liquidity: FinRatio; cash: FinRatio; passing: number; valueRequested?: boolean; by?: string; at?: string }
+export type ContractType = 'direct' | 'tender' | 'closed';
+export type EnvelopeType = 'one' | 'two';
+export type ProjectPriority = 'high' | 'medium' | 'low';
+export interface ProcMethod {
+  contractType?: ContractType; envelope?: EnvelopeType; priority?: ProjectPriority;
+  directJustification?: string; invitedVendors?: string[];
+  officerId?: string; officerName?: string; officerNameAr?: string;
+  by?: string; byAr?: string; at?: string;
 }

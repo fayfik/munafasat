@@ -1,3 +1,4 @@
+import { aboveRange, natureOf, recText } from './qualGuide';
 // "Will this be returned?" checks — run when the requester presses Continue.
 // Each rule mirrors a common reason a manager, EA or Finance returns a request,
 // so the requester fixes it now instead of after a review round-trip.
@@ -23,12 +24,31 @@ export function qualityIssues(sectionId: string, f: TenderFormData): QualityIssu
   const out: QualityIssue[] = [];
   switch (sectionId) {
     case 'project-setup': {
+      const nat = natureOf(f);
+      if (f.boqItems.length && (!nat.area || !nat.delivery)) out.push({
+        id: 'nature', field: 'q-nature',
+        en: 'Set the project nature', ar: 'حدد طبيعة المشروع',
+        whyEn: 'Finance and Procurement size the qualification criteria from it (IT / non-IT and delivery type).',
+        whyAr: 'تحدد المالية والمشتريات معايير التأهيل بناءً عليها (تقني / غير تقني ونوع التوريد).',
+      });
       const n = words(f.tenderingPurpose);
       if (n < MIN_WORDS.purpose) out.push({
         id: 'purpose', field: 'q-tenderingPurpose',
         en: 'Describe the purpose of this request', ar: 'صف الغرض من هذا الطلب',
         whyEn: 'Your manager returns requests that don’t say why the purchase is needed.', whyAr: 'يعيد مديرك الطلبات التي لا توضح سبب الحاجة إلى الشراء.',
         metaEn: `${n} of ${MIN_WORDS.purpose} words`, metaAr: `${n} من ${MIN_WORDS.purpose} كلمة`,
+      });
+      break;
+    }
+    case 'qualification': {
+      const over = aboveRange(f).filter((x) => !x.justified);
+      if (over.length) out.push({
+        id: 'qual-above', field: 'q-qualification',
+        en: `${over.length} qualification criteri${over.length === 1 ? 'on is' : 'a are'} above the recommended range`, ar: `${over.length} من معايير التأهيل أعلى من النطاق الموصى به`,
+        whyEn: 'Procurement returns criteria that exclude SMEs or don’t fit the project size. Lower the threshold or add a one-line reason.',
+        whyAr: 'تعيد المشتريات المعايير التي تستبعد المنشآت الصغيرة والمتوسطة أو لا تناسب حجم المشروع. خفّض الحد أو أضف سبباً في سطر.',
+        metaEn: over.map((x) => `${x.nameEn}: ${x.value} (typical ${recText(x.rec, false)})`).join(' · '),
+        metaAr: over.map((x) => `${x.nameAr}: ${x.value} (المعتاد ${recText(x.rec, true)})`).join(' · '),
       });
       break;
     }

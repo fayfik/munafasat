@@ -11,6 +11,7 @@ import { StateChip, PRIORITY_META } from './meta';
 import TaskDetail from './TaskDetail';
 import { ScopeSwitcher, IconBtn, DelegateGlyph, MoreMenu, DelegateDialog, DelegationBanner, TeamQueueBanner, Avatar, type Scope, type Layout } from './InboxTools';
 import InboxList from './InboxList';
+import { ProjectPriority } from './ProcSteps';
 
 const FILTERS: { key: InboxView; en: string; ar: string; teamEn?: string; teamAr?: string }[] = [
   { key: 'needs-action', en: 'Needs action', ar: 'يحتاج إجراءً', teamEn: 'Unassigned', teamAr: 'غير مسندة' },
@@ -110,12 +111,12 @@ export default function InboxPage() {
   /* ── List view: full-width table; a task opens as its own page ─────────── */
   if (layout === 'list') {
     if (selected) return (
-      <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-neutral-50" data-task-page>
+      <div className="h-[calc(100vh-3.5rem)] p-3 sm:p-5 bg-neutral-100/70"><div className="flex flex-col h-full overflow-hidden bg-neutral-50 rounded-2xl border border-neutral-200 shadow-[0_1px_3px_rgba(16,24,40,0.06)]" data-task-page>
         <LoadedTask key={selected.id}><TaskDetail task={selected} asPage onBack={() => setSelectedId(null)} onSideOpenChange={setSideOpen} /></LoadedTask>
-      </div>
+      </div></div>
     );
     return (
-      <div className={`flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-white ${delegation && scope === 'mine' ? 'shadow-[inset_0_3px_0_#2A3466]' : ''}`} data-scope-panel={scope} data-layout-active="list">
+      <div className="h-[calc(100vh-3.5rem)] p-3 sm:p-5 bg-neutral-100/70"><div className={`flex flex-col h-full overflow-hidden bg-white rounded-2xl border border-neutral-200 shadow-[0_1px_3px_rgba(16,24,40,0.06)] ${delegation && scope === 'mine' ? 'ring-2 ring-[#2A3466]/70' : ''}`} data-scope-panel={scope} data-layout-active="list">
         <div className="px-5 sm:px-8 pt-6 pb-4 border-b border-neutral-200">
           <div className="max-w-none">{titleRow}</div>
           <div className="mt-4 flex items-center gap-3 flex-wrap">
@@ -126,12 +127,13 @@ export default function InboxPage() {
         </div>
         {rows.length === 0 ? empty : listBusy ? <ul className="px-4">{<TaskRowsSkeleton />}</ul> : <InboxList rows={rows} isAr={isAr} t={t} onOpen={select} />}
         {dialogs}
-      </div>
+      </div></div>
     );
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-neutral-50" data-layout-active="compact">
+    <div className="h-[calc(100vh-3.5rem)] p-3 sm:p-5 bg-neutral-100/70">
+    <div className="flex h-full overflow-hidden bg-neutral-50 rounded-2xl border border-neutral-200 shadow-[0_1px_3px_rgba(16,24,40,0.06)]" data-layout-active="compact">
       {/* ── Left: task list (hidden on mobile while a task is open) ─── */}
       <div className={`${selected ? (sideOpen ? 'hidden xl:flex' : 'hidden sm:flex') : 'flex'} w-full sm:w-[380px] lg:w-[420px] flex-shrink-0 flex-col border-e border-neutral-200 bg-white ${delegation && scope === 'mine' ? 'shadow-[inset_0_3px_0_#2A3466]' : ''}`} data-scope-panel={scope}>
         <div className="px-5 pt-6 border-b border-neutral-200">
@@ -157,6 +159,7 @@ export default function InboxPage() {
           ? <LoadedTask key={selected.id}><TaskDetail task={selected} onBack={() => setSelectedId(null)} onSideOpenChange={setSideOpen} /></LoadedTask>
           : <EmptyDetail t={t} />}
       </div>
+    </div>
     </div>
   );
 }
@@ -188,6 +191,7 @@ function TaskRow({ task, isAr, t, active, onSelect, tasks }: { task: Task; isAr:
             <span className="tabular-nums whitespace-nowrap" dir="ltr">{task.entity.ref}</span>
             <span className="text-neutral-300">·</span>
             <span className="truncate">{isAr && task.requester.nameAr ? task.requester.nameAr : task.requester.name}</span>
+            <ProjectPriority task={task} isAr={isAr} />
           </p>
           {task.delegatedTo
             ? <span className="inline-flex items-center gap-1.5 ps-0.5 pe-2 py-0.5 rounded-full bg-[#EEF0FB] text-[#2A3466] text-[11px] font-semibold whitespace-nowrap" data-row-delegated><Avatar p={task.delegatedTo} className="w-4 h-4 text-[7.5px]" />{t(`With ${task.delegatedTo.name.split(' ')[0]}`, `لدى ${(task.delegatedTo.nameAr ?? task.delegatedTo.name).split(' ')[0]}`)}</span>
