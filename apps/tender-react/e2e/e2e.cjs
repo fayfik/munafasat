@@ -464,13 +464,14 @@ async function openRequest(title) {
     expect(await count('[data-fin-request-value]') === 1, 'request estimated value');
     expect(!(await page.getByRole('button', { name: 'Complete', exact: true }).isDisabled()), 'complete enabled with valid criteria');
     await tab('Request details'); await wait(300);
-    expect(await count('#rfp-financial') === 1, 'Finance sees the financial criteria in request details');
+    const q = await page.locator('#rfp-qualification').innerText();
+    expect(/Financial Criteria/.test(q) && /Liquidity ratio/.test(q) && /Cash ratio/.test(q) && /40%/.test(q), 'financial criteria in the qualification table, synced with Finance edits');
     await tab('Required action'); await wait(200);
   });
   await test('Request details: requester-entered financial criteria, project priority and nature on every task', async () => {
     await openTitled('Review & approve request #4433');
     await tab('Request details'); await wait(300);
-    expect(await count('#rfp-financial') === 1 && await count('[data-rfp-fin-qual]') === 1, 'financial criteria shown from creation');
+    expect(/Liquidity ratio/.test(await page.locator('#rfp-qualification').innerText()), 'financial criteria shown from creation in the qualification table');
     expect(await count('[data-rfp-field="priority"]') === 1, 'project priority in Project Setup');
     expect(await count('[data-rfp-field="area"]') === 1 && await count('[data-rfp-field="delivery"]') === 1, 'project nature shown in Project Setup');
   });
@@ -766,15 +767,14 @@ async function openRequest(title) {
     expect(await count('[data-qual-justify="qs-1-1"]') === 1 && await count('[data-sme="restricted"]') === 1, 'above range asks for a justification and flags SMEs');
     await page.locator('[data-qual-sub="qs-1-1"] input[type="text"]').fill('3+ years'); await wait(150);
     expect(await count('[data-qual-justify]') === 0, 'back in range');
-    expect(await count('[data-fin-criteria-form] [data-fin-row]') === 2, 'two fixed financial criteria');
-    await page.locator('[data-fin-row="liquidity"] [data-fin="min"]').fill('1.0');
-    await page.locator('[data-fin-row="liquidity"] [data-fin="weight"]').fill('60'); await wait(150);
-    expect(await page.locator('[data-fin-row="cash"] [data-fin="weight"]').inputValue() === '40' && (await page.locator('[data-fin-total]').innerText()).includes('100%'), 'weights rebalance');
-    await page.getByRole('button', { name: 'Suggest values', exact: true }).first().click(); await wait(200);
-    expect(await page.locator('[data-fin-row="cash"] [data-fin="max"]').inputValue() !== '', 'suggest fills the ranges');
+    expect(await count('[data-qual-sub="qs-4-1"]') === 1 && await count('[data-qual-sub="qs-4-2"]') === 1, 'financial criteria are a main criterion in the table');
+    expect(/0\.8–1\.5/.test(await page.locator('[data-qual-sub="qs-4-1"] [data-qual-rec]').innerText()), 'ratio range for low priority');
+    await page.locator('[data-qual-sub="qs-4-1"] input[type="text"]').fill('3.0–4.0'); await wait(150);
+    expect(await count('[data-qual-justify="qs-4-1"]') === 1, 'ratio above range needs a reason');
+    await page.locator('[data-qual-sub="qs-4-1"] input[type="text"]').fill('1.0–1.5'); await wait(150);
     await openReview();
     expect(await count('[data-project-nature]') === 1 && await page.getAttribute('[data-nature-area]', 'data-nature-area') === 'it', 'nature auto-detected at Review & Confirm');
-    expect(await count('[data-review-fin] tbody tr') === 2, 'financial criteria on Review & Confirm');
+    expect(/Liquidity ratio/.test(await page.locator('body').innerText()), 'financial criteria on Review & Confirm');
   });
   await test('AI pre-review: animated department review → tabs → Fix it opens the step → Apply it', async () => {
     await openDraft({ sourceType: 'tender', costCenterId: 'cc-2401', projectId: 'proj-002', scopeOfWork: 'Implement SAP S/4HANA cloud subscription. Integrate with HR. Employee payroll data.', paymentStages: [], evaluationCriteria: [], technicalPassingPercentage: '',

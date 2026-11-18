@@ -8,7 +8,7 @@ import type { RfpDetail } from './types';
 import { PROJECTS, ALL_COST_CENTERS } from '../data/mockData';
 import { PROJECT_CATEGORIES } from '../components/ProjectIncludesSelect';
 import { crState } from '../components/ContinuityRisk';
-import { natureOf, finComplete, type FinCriteria } from '../lib/qualGuide';
+import { natureOf, finFromQual } from '../lib/qualGuide';
 
 const num = (v: number | '' | undefined) => (typeof v === 'number' ? v : Number(v) || 0);
 const both = (en: string, ar?: string) => ({ en, ar: ar || en });
@@ -80,9 +80,7 @@ export function rfpFromForm(f: TenderFormData, base: RfpDetail): RfpDetail {
     // Qualification
     qualCriteria: esouq ? [] : has(f.qualificationCriteria) ? f.qualificationCriteria.map((m) => ({ nameEn: m.name, nameAr: m.nameAr || m.name, pct: num(m.percentage), subs: m.subCriteria.map((s) => ({ nameEn: s.name, nameAr: s.nameAr || s.name, range: s.range, pct: num(s.percentage), justification: f.qualJustifications?.[s.id]?.trim() || undefined })) })) : base.qualCriteria,
     projectPriority: esouq ? undefined : (f.projectPriority || base.projectPriority) as RfpDetail['projectPriority'],
-    finQual: esouq ? undefined : f.finCriteria && finComplete(f.finCriteria as FinCriteria)
-      ? { liquidity: { ...f.finCriteria.liquidity, weight: Number(f.finCriteria.liquidity.weight) || 0 }, cash: { ...f.finCriteria.cash, weight: Number(f.finCriteria.cash.weight) || 0 }, passing: 60 }
-      : base.finQual,
+    finQual: esouq ? undefined : finFromQual(f) ?? base.finQual,
     projectArea: esouq ? undefined : (natureOf(f).area ?? base.projectArea),
     deliveryType: esouq ? undefined : (natureOf(f).delivery ?? base.deliveryType),
     qualPassing: esouq ? undefined : f.qualificationPassingPercentage ? Number(f.qualificationPassingPercentage) : base.qualPassing,

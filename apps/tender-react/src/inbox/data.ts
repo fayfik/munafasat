@@ -497,17 +497,27 @@ const TECH_REQ_DEFAULT: NonNullable<RfpDetail['techRequirements']> = [
 // Fixed qualification criteria — same main/sub list as the request-creation
 // step (TenderContext DEFAULT_QUAL), with ranges and weights filled in.
 const QUAL_CRITERIA_FIXED: NonNullable<RfpDetail['qualCriteria']> = [
-  { nameEn: 'Previous Experience', nameAr: 'الخبرة السابقة', pct: 40, subs: [
+  { nameEn: 'Previous Experience', nameAr: 'الخبرة السابقة', pct: 30, subs: [
     { nameEn: 'Number of years of experience', nameAr: 'عدد سنوات الخبرة', range: '5–15 years', pct: 30 },
     { nameEn: 'Number of projects (last 3 years)', nameAr: 'عدد المشاريع خلال 3 سنوات', range: '3–10 similar projects', pct: 40 },
     { nameEn: 'Total value of projects (last 3 years)', nameAr: 'إجمالي قيمة المشاريع خلال 3 سنوات', range: 'SAR 1M–10M', pct: 30 } ] },
-  { nameEn: 'Existing Contractual Obligations', nameAr: 'الالتزامات التعاقدية القائمة', pct: 30, subs: [
+  { nameEn: 'Existing Contractual Obligations', nameAr: 'الالتزامات التعاقدية القائمة', pct: 25, subs: [
     { nameEn: 'Number of existing projects', nameAr: 'عدد المشاريع القائمة', range: '2–8 active projects', pct: 50 },
     { nameEn: 'Value of existing projects', nameAr: 'قيمة المشاريع القائمة', range: 'SAR 3M–15M', pct: 50 } ] },
-  { nameEn: 'Human Resources', nameAr: 'الموارد البشرية', pct: 30, subs: [
+  { nameEn: 'Human Resources', nameAr: 'الموارد البشرية', pct: 25, subs: [
     { nameEn: 'Number of employees', nameAr: 'عدد الموظفين', range: '50–500 employees', pct: 40 },
     { nameEn: 'Percentage of Saudi employees', nameAr: 'نسبة الموظفين السعوديين', range: '25%–60% Saudi nationals', pct: 60 } ] },
+  { nameEn: 'Financial Criteria', nameAr: 'المعايير المالية', pct: 20, subs: [
+    { nameEn: 'Liquidity ratio (current assets ÷ current liabilities)', nameAr: 'نسبة السيولة (الأصول المتداولة ÷ الخصوم المتداولة)', range: '1.0–1.8', pct: 70 },
+    { nameEn: 'Cash ratio (cash & equivalents ÷ current liabilities)', nameAr: 'نسبة النقدية (النقد وما يعادله ÷ الخصوم المتداولة)', range: '0.3–0.8', pct: 30 } ] },
 ];
+/** Keep the Financial rows of the qualification table in step with Finance's edits. */
+export function withFinRows(r: RfpDetail): RfpDetail {
+  const f = r.finQual; if (!f || !r.qualCriteria) return r;
+  return { ...r, qualCriteria: r.qualCriteria.map((m, i) => i !== 3 ? m : { ...m, subs: [
+    { ...m.subs[0], range: `${f.liquidity.min}–${f.liquidity.max}`, pct: f.liquidity.weight },
+    { ...m.subs[1], range: `${f.cash.min}–${f.cash.max}`, pct: f.cash.weight } ] }) };
+}
 const TECH_DOCS_DEFAULT: NonNullable<RfpDetail['techDocs']> = [
   { en: 'Detailed technical compliance sheet', ar: 'جدول المطابقة الفنية التفصيلي' },
   { en: 'Implementation / delivery plan', ar: 'خطة التنفيذ / التسليم' },

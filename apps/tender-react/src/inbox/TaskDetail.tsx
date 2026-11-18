@@ -210,7 +210,6 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
             <span className="tabular-nums" dir="ltr">{task.id}</span>
             <span className="ms-1"><StateChip state={task.state} isAr={isAr} /></span>
             <span className="ms-1"><PriorityTag priority={task.priority} isAr={isAr} /></span>
-            {(task.rfp?.procMethod?.priority ?? task.rfp?.projectPriority) && <span className="ms-1"><PriorityChip p={task.rfp?.procMethod?.priority ?? task.rfp?.projectPriority} isAr={isAr} /></span>}
           </div>
           {/* Title · CTAs */}
           <div className="mt-2 flex items-start justify-between gap-6 flex-wrap">
@@ -293,7 +292,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
         </div>
 
         {/* Tabs */}
-        <div className="px-5 sm:px-8 pt-1 pb-4 bg-white sticky top-0 z-10 border-b border-neutral-100">
+        <div className="px-5 sm:px-8 py-3 bg-white sticky top-0 z-10 border-b border-neutral-100 flex items-center">
           <div className="inline-flex items-center gap-0.5 p-1 rounded-full bg-neutral-100" data-task-tabs>
             {TABS.map((tb2) => (
               <button key={tb2.key} type="button" aria-pressed={tab === tb2.key} onClick={() => setTab(tb2.key)}
@@ -578,7 +577,6 @@ export function rfpSections(rfp: RfpDetail, showFinance = false): { id: string; 
     ...(rfp.payment.length ? [{ id: 'payment', en: 'Payment Schedule', ar: 'جدول الدفعات' }] : []),
     ...(rfp.evaluation.length ? [{ id: 'evaluation', en: 'Technical Evaluation', ar: 'التقييم الفني' }] : []),
     ...(rfp.qualCriteria?.length ? [{ id: 'qualification', en: 'Qualification Criteria', ar: 'معايير التأهيل' }] : []),
-    ...(showFinance && rfp.finQual ? [{ id: 'financial', en: 'Financial Criteria', ar: 'المعايير المالية' }] : []),
     ...(rfp.procMethod?.contractType ? [{ id: 'method', en: 'Procurement method', ar: 'طريقة الشراء' }] : []),
     ...(rfp.documents.length ? [{ id: 'documents', en: 'Attachments', ar: 'المرفقات' }] : []),
     ...(rfp.techStandards?.length ? [{ id: 'standards', en: 'Technical standards', ar: 'المعايير التقنية' }] : []),
@@ -1047,9 +1045,6 @@ export function RfpTab({ rfp, amount, isAr, t, showFinance = true }: { rfp?: Rfp
           <RfpSection id="qualification" title={t('Qualification Criteria', 'معايير التأهيل')} label={{ en: 'Qualification Criteria', ar: 'معايير التأهيل' }} meta={`${rfp.qualCriteria?.length ?? 0} ${t('main criteria', 'معايير رئيسية')} · ${(rfp.qualCriteria ?? []).reduce((n, m) => n + m.subs.length, 0)} ${t('sub-criteria', 'معايير فرعية')} · ${t('passing', 'الاجتياز')} ${rfp.qualPassing ?? 0}%`} views={{ table: qualTable, chart: qualChart }} />
         )}
 
-        {finSection && (
-          <RfpSection id="financial" title={t('Financial Criteria', 'المعايير المالية')} label={{ en: 'Financial Criteria', ar: 'المعايير المالية' }} meta={`${t('Liquidity', 'السيولة')} ${fq?.liquidity.weight}% · ${t('Cash', 'النقدية')} ${fq?.cash.weight}%`}>{finSection}</RfpSection>
-        )}
         {pm?.contractType && (
           <RfpSection id="method" title={t('Procurement method (set by Procurement TL)', 'طريقة الشراء (حددها رئيس فريق المشتريات)')} label={{ en: 'Procurement method', ar: 'طريقة الشراء' }}>
             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4" data-rfp-method>

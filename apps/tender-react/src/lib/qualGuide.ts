@@ -63,7 +63,7 @@ export const TIER_LABEL: Record<Tier, [string, string]> = {
   low: ['Low priority', 'أولوية منخفضة'], medium: ['Medium priority', 'أولوية متوسطة'], high: ['High priority', 'أولوية عالية'], critical: ['Critical priority', 'أولوية حرجة'],
 };
 
-type Unit = 'years' | 'projects' | 'sar' | 'employees' | 'pct';
+type Unit = 'years' | 'projects' | 'sar' | 'employees' | 'pct' | 'ratio';
 type Rec = { min: number; max: number; unit: Unit };
 /* Recommended minimum-threshold band per sub-criterion. Existing obligations (qm-2) cap a vendor's load, so they get no ceiling check. */
 const BASE: Record<string, Record<Tier, Rec>> = {
@@ -71,6 +71,8 @@ const BASE: Record<string, Record<Tier, Rec>> = {
   'qs-1-2': { low: { min: 1, max: 3, unit: 'projects' }, medium: { min: 2, max: 5, unit: 'projects' }, high: { min: 3, max: 8, unit: 'projects' }, critical: { min: 5, max: 10, unit: 'projects' } },
   'qs-1-3': { low: { min: 300_000, max: 2_000_000, unit: 'sar' }, medium: { min: 1_000_000, max: 10_000_000, unit: 'sar' }, high: { min: 5_000_000, max: 50_000_000, unit: 'sar' }, critical: { min: 10_000_000, max: 100_000_000, unit: 'sar' } },
   'qs-3-1': { low: { min: 10, max: 100, unit: 'employees' }, medium: { min: 25, max: 250, unit: 'employees' }, high: { min: 50, max: 500, unit: 'employees' }, critical: { min: 100, max: 1000, unit: 'employees' } },
+  'qs-4-1': { low: { min: 0.8, max: 1.5, unit: 'ratio' }, medium: { min: 1.0, max: 1.8, unit: 'ratio' }, high: { min: 1.2, max: 2.0, unit: 'ratio' }, critical: { min: 1.5, max: 2.5, unit: 'ratio' } },
+  'qs-4-2': { low: { min: 0.2, max: 0.6, unit: 'ratio' }, medium: { min: 0.3, max: 0.8, unit: 'ratio' }, high: { min: 0.4, max: 1.0, unit: 'ratio' }, critical: { min: 0.5, max: 1.2, unit: 'ratio' } },
   'qs-3-2': { low: { min: 20, max: 40, unit: 'pct' }, medium: { min: 25, max: 50, unit: 'pct' }, high: { min: 30, max: 60, unit: 'pct' }, critical: { min: 35, max: 70, unit: 'pct' } },
 };
 
@@ -92,6 +94,7 @@ export function recText(r: Rec, ar: boolean) {
     case 'projects': return ar ? `${r.min}–${r.max} مشاريع` : `${r.min}–${r.max} projects`;
     case 'employees': return ar ? `${r.min}–${r.max} موظف` : `${r.min}–${r.max} employees`;
     case 'pct': return `${r.min}%–${r.max}%`;
+    case 'ratio': return `${r.min.toFixed(1)}–${r.max.toFixed(1)}`;
     case 'sar': return ar ? `${fmtSar(r.min, true)}–${fmtSar(r.max, true)} ريال` : `SAR ${fmtSar(r.min, false)}–${fmtSar(r.max, false)}`;
   }
 }
@@ -127,6 +130,7 @@ export function suggestedRange(subId: string, f: TenderFormData, ar: boolean): s
     case 'projects': return ar ? `${mid}+ مشاريع` : `${mid}+ projects`;
     case 'employees': return ar ? `${mid}+ موظف` : `${mid}+ employees`;
     case 'pct': return `${mid}%+`;
+    case 'ratio': return `${r.min.toFixed(1)}–${r.max.toFixed(1)}`;
     case 'sar': return ar ? `${fmtSar(mid, true)}+ ريال` : `SAR ${fmtSar(mid, false)}+`;
   }
 }
@@ -150,3 +154,16 @@ export function suggestFin(priority?: string, delivery?: string): FinCriteria {
 }
 export const finTotal = (c?: FinCriteria) => (c ? (Number(c.liquidity.weight) || 0) + (Number(c.cash.weight) || 0) : 0);
 export const finComplete = (c?: FinCriteria) => !!c && finTotal(c) === 100 && FIN_ITEMS.every(({ k }) => c[k].min !== '' && c[k].max !== '' && Number(c[k].min) <= Number(c[k].max));
+
+/** Financial criteria read from the Financial main criterion (qm-4) of the qualification table. */
+export function finFromQual(f: Pick<TenderFormData, 'qualificationCriteria'>) {
+  const m = f.qualificationCriteria.find((x) => x.id === 'qm-4'); if (!m) return undefined;
+  const row = (id: string) => {
+    const s = m.subCriteria.find((x) => x.id === id);
+    const n = String(s?.range ?? '').replace(/,/g, '').match(/(\d+(?:\.\d+)?)\s*[–-]\s*(\d+(?:\.\d+)?)/) ?? String(s?.range ?? '').match(/(\d+(?:\.\d+)?)/);
+    return { min: n?.[1] ?? '', max: n?.[2] ?? n?.[1] ?? '', weight: Number(s?.percentage) || 0 };
+  };
+  const liquidity = row('qs-4-1'), cash = row('qs-4-2');
+  if (!liquidity.min && !cash.min) return undefined;
+  return { liquidity, cash, passing: 60 };
+}

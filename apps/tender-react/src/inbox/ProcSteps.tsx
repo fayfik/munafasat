@@ -10,7 +10,7 @@ import { Button } from '../components/ui';
 import { CheckCircleIcon, CheckIcon, SparklesIcon, AlertTriangleIcon } from '../components/Icons';
 import { Avatar } from './InboxTools';
 import { toast } from '../components/Toast';
-import { PROC_TEAM } from './data';
+import { PROC_TEAM, withFinRows } from './data';
 import { fmtSAR, fmtDateTime } from './store';
 import {
   CONTRACT_OPTS, ENVELOPE_OPTS, PRIORITY_OPTS, VENDOR_POOL, optLabel, areaLabel, deliveryLabel, boqValueOf,
@@ -72,7 +72,7 @@ export function FinQualEditor({ task, isAr, t, readOnly, onRfp }: P) {
   const rfp = task.rfp!;
   const sug = suggestFinQual(rfp);
   const fq = rfp.finQual ?? sug;
-  const set = (p: Partial<FinQual>) => onRfp({ ...rfp, finQual: { ...fq, ...p, by: task.assignee.name, at: now() } });
+  const set = (p: Partial<FinQual>) => onRfp(withFinRows({ ...rfp, finQual: { ...fq, ...p, by: task.assignee.name, at: now() } }));
   const setR = (k: 'liquidity' | 'cash', p: Partial<FinRatio>) => {
     const next = { ...fq[k], ...p };
     // Two weights always add up to 100: editing one moves the other.

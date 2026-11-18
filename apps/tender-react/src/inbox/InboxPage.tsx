@@ -11,7 +11,6 @@ import { StateChip, PRIORITY_META } from './meta';
 import TaskDetail from './TaskDetail';
 import { ScopeSwitcher, IconBtn, DelegateGlyph, MoreMenu, DelegateDialog, DelegationBanner, TeamQueueBanner, Avatar, type Scope, type Layout } from './InboxTools';
 import InboxList from './InboxList';
-import { ProjectPriority } from './ProcSteps';
 
 const FILTERS: { key: InboxView; en: string; ar: string; teamEn?: string; teamAr?: string }[] = [
   { key: 'needs-action', en: 'Needs action', ar: 'يحتاج إجراءً', teamEn: 'Unassigned', teamAr: 'غير مسندة' },
@@ -191,7 +190,6 @@ function TaskRow({ task, isAr, t, active, onSelect, tasks }: { task: Task; isAr:
             <span className="tabular-nums whitespace-nowrap" dir="ltr">{task.entity.ref}</span>
             <span className="text-neutral-300">·</span>
             <span className="truncate">{isAr && task.requester.nameAr ? task.requester.nameAr : task.requester.name}</span>
-            <ProjectPriority task={task} isAr={isAr} />
           </p>
           {task.delegatedTo
             ? <span className="inline-flex items-center gap-1.5 ps-0.5 pe-2 py-0.5 rounded-full bg-[#EEF0FB] text-[#2A3466] text-[11px] font-semibold whitespace-nowrap" data-row-delegated><Avatar p={task.delegatedTo} className="w-4 h-4 text-[7.5px]" />{t(`With ${task.delegatedTo.name.split(' ')[0]}`, `لدى ${(task.delegatedTo.nameAr ?? task.delegatedTo.name).split(' ')[0]}`)}</span>

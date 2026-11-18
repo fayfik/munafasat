@@ -5,7 +5,6 @@ import { continuityOpen } from '../components/ContinuityRisk';
 import { qualityIssues } from '../lib/quality';
 import { useRequests } from './RequestStore';
 import { PROJECTS } from '../data/mockData';
-import { finComplete } from '../lib/qualGuide';
 import type {
   TenderFormData,
   BOQRow,
@@ -63,6 +62,16 @@ const DEFAULT_QUAL: QualMainCriteria[] = [
     subCriteria: [
       { id: 'qs-3-1', name: 'Number of employees', nameAr: 'عدد الموظفين', range: '', percentage: '' },
       { id: 'qs-3-2', name: 'Percentage of Saudi employees', nameAr: 'نسبة الموظفين السعوديين', range: '', percentage: '' },
+    ],
+  },
+  {
+    id: 'qm-4',
+    name: 'Financial Criteria',
+    nameAr: 'المعايير المالية',
+    percentage: '',
+    subCriteria: [
+      { id: 'qs-4-1', name: 'Liquidity ratio (current assets ÷ current liabilities)', nameAr: 'نسبة السيولة (الأصول المتداولة ÷ الخصوم المتداولة)', range: '', percentage: '' },
+      { id: 'qs-4-2', name: 'Cash ratio (cash & equivalents ÷ current liabilities)', nameAr: 'نسبة النقدية (النقد وما يعادله ÷ الخصوم المتداولة)', range: '', percentage: '' },
     ],
   },
 ];
@@ -461,8 +470,7 @@ export function TenderProvider({ children, requestId: givenId, initialForm, init
       case 'qualification':
         if (qualPctTotal === 100 && formData.qualificationCriteria.every((m) =>
           m.subCriteria.reduce((t, c) => t + (typeof c.percentage === 'number' ? c.percentage : 0), 0) === 100)
-          && Number(formData.qualificationPassingPercentage) > 0 && Number(formData.qualificationPassingPercentage) <= 100
-          && finComplete(formData.finCriteria)) return 'completed';
+          && Number(formData.qualificationPassingPercentage) > 0 && Number(formData.qualificationPassingPercentage) <= 100) return 'completed';
         if (formData.qualificationCommitteeMembers.length > 0 || qualPctTotal > 0) return 'missing';
         return 'not-started';
       case 'attachments':

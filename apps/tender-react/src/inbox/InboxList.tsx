@@ -11,7 +11,6 @@ import { PRIORITY_META, STATE_META, tb } from './meta';
 import { Avatar } from './InboxTools';
 import { EyeGlyph } from './TaskDetail';
 import { toast } from '../components/Toast';
-import { ProjectPriority } from './ProcSteps';
 
 type T = (en: string, ar: string) => string;
 type SortKey = 'ref' | 'task' | 'project' | 'status' | 'type' | 'dept' | 'requester' | 'received' | 'due';
@@ -115,7 +114,7 @@ export default function InboxList({ rows, isAr, t, onOpen }: { rows: Task[]; isA
                   <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-neutral-500 whitespace-nowrap"><span className="tabular-nums" dir="ltr">{compactSar(x.amount)}</span>
                     {typeOf(x) === 'esouq'
                       ? <span data-list-type="esouq" className="px-1.5 rounded border border-warning-200 bg-warning-50 text-warning-800 text-[10.5px] font-medium">{t('Etimad E-Market', 'سوق اعتماد')}</span>
-                      : <span data-list-type="tender" className="px-1.5 rounded border border-[#C9DBEC] bg-[#F3F8FC] text-[#21507A] text-[10.5px] font-medium">{t('Tender', 'منافسة')}</span>}<ProjectPriority task={x} isAr={isAr} /></p></td>
+                      : <span data-list-type="tender" className="px-1.5 rounded border border-[#C9DBEC] bg-[#F3F8FC] text-[#21507A] text-[10.5px] font-medium">{t('Tender', 'منافسة')}</span>}</p></td>
                 <td className="px-3 py-3.5"><span data-list-status={st.attr} className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11.5px] font-medium whitespace-nowrap ${st.cls}`}><span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />{st.label}</span></td>
                 <td className="px-3 py-3.5 text-[13px] text-neutral-700 max-w-[150px] leading-snug">{tb(x.department, isAr)}</td>
                 <td className="px-3 py-3.5"><span className="inline-flex items-center gap-2 text-[13px] text-neutral-800"><Avatar p={x.requester} className="w-6 h-6 text-[9px] !bg-[#517632]" /><span className="whitespace-nowrap">{L(x.requester.name, x.requester.nameAr)}</span></span></td>
