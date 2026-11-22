@@ -1,0 +1,23 @@
+/* Type: Inter for text, Fira Code for digits (0–9) — easier to read amounts,
+   dates and references. Both are bundled with the app (Fontsource), so they
+   work offline and without Google Fonts.
+
+   "Munafasat Digits" covers only U+0030–0039; every other character falls
+   through to Inter. Fira Code digits are fixed-width, so columns of numbers line up. */
+@import '@fontsource-variable/inter/index.css';
+
+@font-face {
+  font-family: "Munafasat Digits"; font-style: normal; font-weight: 300 450; font-display: swap;
+  src: url('@fontsource/fira-code/files/fira-code-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0030-0039;
+}
+@font-face {
+  font-family: "Munafasat Digits"; font-style: normal; font-weight: 451 550; font-display: swap;
+  src: url('@fontsource/fira-code/files/fira-code-latin-500-normal.woff2') format('woff2');
+  unicode-range: U+0030-0039;
+}
+@font-face {
+  font-family: "Munafasat Digits"; font-style: normal; font-weight: 551 900; font-display: swap;
+  src: url('@fontsource/fira-code/files/fira-code-latin-600-normal.woff2') format('woff2');
+  unicode-range: U+0030-0039;
+}

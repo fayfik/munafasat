@@ -3,6 +3,7 @@ import App from './App.jsx';
 import { StoreProvider } from './state/store.jsx';
 import { RequestsProvider } from './state/requests.jsx';
 import { ActorProvider } from './state/actor.jsx';
+import './styles/fonts.css';
 import './styles/theme.css';
 import './styles/app.css';
 import './styles/form.css';
