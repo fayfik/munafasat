@@ -122,7 +122,7 @@ export function sectionStatus(id, f, routeConfirmed) {
     }
     case 'boq': {
       if (!f.boqItems.length) return 'todo';
-      return f.boqItems.every((r) => (!r.hasBrandName || (r.brandJustification ?? '').trim()) && !needsEtimadReason(r)) ? 'done' : 'missing';
+      return f.boqItems.every((r) => !boqMissing(r, f.sourceType === 'emarket').length && !needsEtimadReason(r)) ? 'done' : 'missing';
     }
     case 'payment': return f.paymentStages.length ? (t.payPct === 100 ? 'done' : 'missing') : 'todo';
     case 'tech':
@@ -138,6 +138,32 @@ export function sectionStatus(id, f, routeConfirmed) {
     case 'attachments': return f.attachments.length ? 'done' : 'todo';
     default: return 'todo';
   }
+}
+
+/* ── BOQ line completeness ──────────────────────────────────────────────────
+   Every field is required unless the form marks it optional. Returns the empty
+   ones as { key, label } — key is the field's id in the item dialog (bi-<key>). */
+const empty = (v) => v === undefined || v === null || String(v).trim() === '' || (typeof v === 'number' && !(v > 0));
+export function boqMissing(r, em) {
+  const need = (key, label, v) => (empty(v) ? [{ key, label }] : []);
+  if (em) {
+    return [
+      ...need('itemName', 'Name', r.itemName), ...need('productId', 'Product ID', r.productId), ...need('supplier', 'Supplier', r.supplier), ...need('unitPrice', 'Price', num(r.unitPrice)),
+      ...(r.purchaseType === 'product'
+        ? [...need('quantity', 'Quantity', num(r.quantity)), ...need('orderUnit', 'Order unit', r.orderUnit), ...need('deliveryDate', 'Delivery date', r.deliveryDate)]
+        : [...need('startDate', 'Start date', r.startDate), ...need('endDate', 'End date', r.endDate)]),
+    ];
+  }
+  const mp = (r.category || boqTypeOf(r.itemName || '')) === 'manpower';
+  return [
+    ...need('projectItem', 'Budgeted item', r.projectItem), ...need('itemName', mp ? 'Role' : 'Item name', r.itemName), ...need('itemDescription', 'Description', r.itemDescription),
+    ...(mp
+      ? [...need('jobTitle', 'Job title', r.jobTitle), ...need('staffCount', 'Staff count', num(r.staffCount)), ...need('minQualification', 'Minimum qualification', r.minQualification), ...need('minExperienceYears', 'Minimum years of experience', r.minExperienceYears), ...need('officialWorkingHours', 'Official working hours', num(r.officialWorkingHours))]
+      : [...need('unitOfMeasure', 'Unit', r.unitOfMeasure), ...need('quantity', 'Quantity', num(r.quantity)), ...need('deliveryDate', 'Needed by', r.deliveryDate)]),
+    ...need('unitPrice', mp ? 'Rate per staff' : 'Unit price', num(r.unitPrice)),
+    ...(r.hasBrandName ? need('brandJustification', 'Brand justification', r.brandJustification) : []),
+    ...(r.nationalityRequired ? need('nationalities', 'Nationalities', (r.nationalities || []).join('')) : []),
+  ];
 }
 
 /* ── Etimad availability (per BOQ line, tender only) ──────────────────────── */
