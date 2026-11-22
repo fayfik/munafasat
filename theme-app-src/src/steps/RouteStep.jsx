@@ -7,6 +7,13 @@ import { classify, expenseTypeOf, parseItemNames, looksReal, uid } from '../lib/
 
 const catLabel = (id) => BOQ_CATEGORIES.find((c) => c.id === id)?.en || id;
 
+/* Route icons, as in design-review-manual: gavel (tender), cart (E-Market), question (help me decide). */
+const MODE_ICON = {
+  tender: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" aria-hidden="true"><path d="M14 4l6 6M12 6l6 6M9.5 8.5l6 6M4 20l7-7M3 21h8" /></svg>,
+  emarket: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" aria-hidden="true"><path d="M4 5h2l2.2 10.2a1.5 1.5 0 001.5 1.2h7.1a1.5 1.5 0 001.5-1.1L21 8H7" /><circle cx="10" cy="20" r="1.2" /><circle cx="18" cy="20" r="1.2" /></svg>,
+  help: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.1-1.5 2.2M12 17h.01" /></svg>,
+};
+
 export function RouteStep() {
   const { f, routeConfirmed, confirmRoute } = useForm();
   const [editing, setEditing] = useState(!routeConfirmed);
@@ -62,6 +69,7 @@ export function RouteStep() {
   const run = () => {
     const { fr, all } = input();
     if (!all.length) return;
+    if (mode === 'help' && !fr.length) { setError('Tell us what you’re looking for — list the items you need, or attach a file.'); document.getElementById('q-intake')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
     if (fr.length && !fr.some((x) => looksReal(x.name))) { setError('We couldn’t recognise any procurement items in what you typed. Describe what you need to buy — e.g. “20 laptops”, “office cleaning services”.'); return; }
     setError(''); if (fr.length && !free.length) setFree(fr);
     setPhase('checking'); setChecks(0);
@@ -132,7 +140,7 @@ export function RouteStep() {
               <div className="mode-grid" role="radiogroup" aria-label="Procurement route">
                 {ROUTE_MODES.map((m) => (
                   <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} className={`mode${mode === m.id ? ' on' : ''}`} onClick={() => { setMode(m.id); setError(''); }}>
-                    <span className="mode-radio" aria-hidden="true" />
+                    <span className="mode-top"><span className={`mode-icon mi-${m.id}`}>{MODE_ICON[m.id]}</span><span className="mode-radio" aria-hidden="true" /></span>
                     <span className="t-body-medium">{m.en}</span>
                     <span className="t-body-small muted">{m.desc}</span>
                   </button>
@@ -142,7 +150,8 @@ export function RouteStep() {
           )}
 
           {selected.length > 0 && mode === 'help' && (
-            <Block title="Anything else to add?" info="List extra things you need — type them, paste a list or attach a file. Each item is checked against Etimad.">
+            <Block id="q-intake" title={<>Tell us what you’re looking for <span className="req-badge t-caption-medium">Required</span></>}>
+              <p className="t-body-small muted" style={{ margin: '-6px 0 0' }}>List what you need — type it, paste a list or attach a file. AI uses it to work out the BOQ items, then checks each one against Etimad and suggests the right route.</p>
               <TextArea rows={4} value={text} onChange={(e) => { setText(e.target.value); setError(''); }} placeholder={`One item per line, e.g.\n${EXAMPLE_ITEMS}`} aria-label="Items you need" />
               <div className="row-gap">
                 <Btn variant="ghost-sm" icon="icon-file" onClick={() => fileRef.current?.click()}>Attach a list</Btn>
@@ -166,7 +175,7 @@ export function RouteStep() {
           )}
 
           <div className="req-foot inline">
-            <span className="t-body-small muted">{!projectId ? 'Select a project to continue' : !selected.length ? 'Select at least one item' : !mode ? 'Choose how you want to buy to continue' : ''}</span>
+            <span className="t-body-small muted">{!projectId ? 'Select a project to continue' : !selected.length ? 'Select at least one item' : !mode ? 'Choose how you want to buy to continue' : mode === 'help' && !text.trim() && !free.length ? 'Tell us what you’re looking for to continue' : ''}</span>
             <span className="grow" />
             <Btn variant="primary" disabled={!selected.length || !mode} onClick={run}>{mode === 'help' ? 'Check the route' : mode === 'emarket' ? 'Continue with E-Market' : 'Continue with tender'}<Icon name="icon-arrow-right" size={16} className="invert" /></Btn>
           </div>

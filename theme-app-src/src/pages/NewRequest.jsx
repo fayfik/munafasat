@@ -3,6 +3,7 @@ import { Icon, Btn, Tooltip } from '../components/ui.jsx';
 import { FormCtx, Dialog } from '../components/FormKit.jsx';
 import { useRequests, emptyForm } from '../state/requests.jsx';
 import { DEFAULT_QUAL } from '../data/newRequest.js';
+import watermark from '../assets/stepper-watermark.svg';
 
 // Drafts saved before the Financial criterion was added get it appended.
 const migrate = (f) => (f.qualificationCriteria.some((m) => m.id === 'qm-4') ? f : { ...f, qualificationCriteria: [...f.qualificationCriteria, ...DEFAULT_QUAL.filter((m) => m.id === 'qm-4').map((m) => ({ ...m, subCriteria: m.subCriteria.map((x) => ({ ...x })) }))] });
@@ -154,6 +155,7 @@ export function NewRequest({ id, onExit, onOpen }) {
                 <li><div className="rail-step pending"><span className="rail-dot dashed" aria-hidden="true" /><span className="rail-text"><span className="t-body-small rail-title">Remaining steps</span><span className="t-caption muted">Appear once the route is confirmed</span></span></div></li>
               )}
             </ol>
+            <img src={watermark} alt="" aria-hidden="true" className="rail-mark" />
           </aside>
 
           <div className="req-scroll" ref={scroller}>
