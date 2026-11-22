@@ -525,3 +525,16 @@ th.num .sort-btn { flex-direction: row-reverse; }
 .rv-step.returned .rv-node { border-color: var(--danger-text); box-shadow: 0 0 0 4px var(--danger-50); }
 .banner.warn { border-color: #f2c9c4; background: var(--danger-50); color: var(--danger-text); }
 @media (max-width: 960px) { .rv-grid { grid-template-columns: 1fr; } }
+
+/* ── Rail watermark, route cards, simpler checkboxes (design-review, 22 Nov) ── */
+.req-rail { padding-bottom: 0; }
+.rail-mark { display: block; width: calc(100% + 28px); max-width: none; height: auto; margin: auto -14px 0; pointer-events: none; user-select: none; }
+.mode { padding: 14px 16px 16px; gap: 2px; }
+.mode-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.mode .mode-radio { position: static; }
+.mode-icon { width: 32px; height: 32px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
+.mi-tender { background: #fff8eb; color: #b56e00; }
+.mi-emarket { background: #ecf7ee; color: #2f8a43; }
+.mi-help { background: var(--ai-bg, #f2f6fe); color: var(--ai-ink, #3b5bdb); }
+.req-badge { display: inline-flex; align-items: center; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--ai-bg, #eef2fd); color: var(--ai-ink, #3b5bdb); font-size: 11px; vertical-align: 2px; }
+.mode.on .mode-radio { border: 5px solid var(--brand-700); }

@@ -15,7 +15,7 @@ export function Block({ title, info, actions, children, id, meta }) {
         <div className="fblock-head">
           <div className="fblock-title">
             {title && <h2 className="t-title">{title}</h2>}
-            {info && <Tooltip text={info} label={`About ${title}`} />}
+            {info && <Tooltip text={info} label={typeof title === 'string' ? `About ${title}` : 'More information'} />}
             {meta && <span className="t-caption muted">{meta}</span>}
           </div>
           {actions && <div className="fblock-actions">{actions}</div>}

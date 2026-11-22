@@ -46,12 +46,6 @@ export function SetupStep() {
 
       <SimilarRequests project={p} />
 
-      {!em && (
-        <Block id="q-priority" title="Project priority" info="How important this project is. It sets the recommended qualification ranges, and Procurement sees it when they plan the tender.">
-          <Choice name="Project priority" options={PRIORITY_LEVELS.map((o) => ({ ...o, dot: true }))} value={f.projectPriority} onChange={(v) => set('projectPriority', v)} />
-          {f.projectPriority && <p className="t-body-small muted fade-in" style={{ margin: '8px 0 0' }}>{PRIORITY_LEVELS.find((o) => o.id === f.projectPriority).hint}</p>}
-        </Block>
-      )}
 
       <Block title={em ? 'Purpose of purchase' : 'Purpose of this request'} info="Say why these items are needed. Your manager returns requests that don’t." actions={<AiBtn onRun={() => set('purpose', aiPurpose)} />}>
         <FieldBlock id="q-purpose">
@@ -62,6 +56,12 @@ export function SetupStep() {
           </div>
         </FieldBlock>
       </Block>
+      {!em && (
+        <Block id="q-priority" title="Project priority" info="How important this project is. It sets the recommended qualification ranges, and Procurement sees it when they plan the tender.">
+          <Choice name="Project priority" options={PRIORITY_LEVELS.map((o) => ({ ...o, dot: true }))} value={f.projectPriority} onChange={(v) => set('projectPriority', v)} />
+          {f.projectPriority && <p className="t-body-small muted fade-in" style={{ margin: '8px 0 0' }}>{PRIORITY_LEVELS.find((o) => o.id === f.projectPriority).hint}</p>}
+        </Block>
+      )}
     </div>
   );
 }

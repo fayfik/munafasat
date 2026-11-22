@@ -130,9 +130,9 @@ export const ROUTES = {
   emarket: { en: 'Etimad E-Market', short: 'E-Market', desc: 'Buy listed items directly from the Etimad catalogue.' },
 };
 export const ROUTE_MODES = [
-  { id: 'tender', en: 'Tender', desc: 'Suppliers bid on Etimad against your scope and BOQ.' },
+  { id: 'tender', en: 'Tendering', desc: 'Suppliers bid on Etimad against your scope and BOQ.' },
   { id: 'emarket', en: 'Etimad E-Market', desc: 'Buy listed items directly from the Etimad catalogue.' },
-  { id: 'help', en: 'Help me decide', desc: 'We’ll check each item and suggest the route.' },
+  { id: 'help', en: 'Help me decide', desc: 'Not sure? We’ll check your items and suggest the route.' },
 ];
 export const EXAMPLE_ITEMS = '20 contractor engineers (manpower)\nOffice cleaning services\nAdobe Creative Cloud licenses - 15\nNetwork switches x4';
 
