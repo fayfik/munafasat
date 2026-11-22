@@ -33,18 +33,22 @@ const QUALIFICATION = {
   member: { name: 'Khalid Al-Otaibi', initials: 'KA', role: 'Chair · Finance' },
   passing: 60,
   groups: [
-    { id: 'q1', name: 'Previous Experience', weight: 40, subs: [
-      { id: 'q1a', name: 'Number of years of experience', range: '5–15 years', weight: 30 },
+    { id: 'q1', name: 'Previous Experience', weight: 30, subs: [
+      { id: 'q1a', name: 'Number of years of experience', range: '12+ years', weight: 30, justification: 'Core ERP migration — needs vendors with proven S/4HANA delivery at this scale' },
       { id: 'q1b', name: 'Number of projects (last 3 years)', range: '3–10 similar projects', weight: 40 },
-      { id: 'q1c', name: 'Total value of projects (last 3 years)', range: 'SAR 1M–10M', weight: 30 },
+      { id: 'q1c', name: 'Total value of projects (last 3 years)', range: 'SAR 5M–50M', weight: 30 },
     ] },
-    { id: 'q2', name: 'Existing Contractual Obligations', weight: 30, subs: [
+    { id: 'q2', name: 'Existing Contractual Obligations', weight: 25, subs: [
       { id: 'q2a', name: 'Number of existing projects', range: '2–8 active projects', weight: 50 },
       { id: 'q2b', name: 'Value of existing projects', range: 'SAR 3M–15M', weight: 50 },
     ] },
-    { id: 'q3', name: 'Human Resources', weight: 30, subs: [
-      { id: 'q3a', name: 'Number of employees', range: '50–500 employees', weight: 40 },
-      { id: 'q3b', name: 'Percentage of Saudi employees', range: '25%–60% Saudi nationals', weight: 60 },
+    { id: 'q3', name: 'Human Resources', weight: 25, subs: [
+      { id: 'q3a', name: 'Number of employees', range: '100–1,000 employees', weight: 40 },
+      { id: 'q3b', name: 'Percentage of Saudi employees', range: '30%–60% Saudi nationals', weight: 60 },
+    ] },
+    { id: 'q4', name: 'Financial Criteria', weight: 20, subs: [
+      { id: 'q4a', name: 'Liquidity ratio', range: '1.2–2.0', weight: 70, hint: 'Current assets ÷ current liabilities' },
+      { id: 'q4b', name: 'Cash ratio', range: '0.4–1.0', weight: 30, hint: 'Cash & equivalents ÷ current liabilities' },
     ] },
   ],
 };
@@ -138,6 +142,7 @@ export const REQUESTS = {
     amount: 9940000, amountVat: 11431000,
     requester: { name: 'Ibrahim Al-Rashid', initials: 'IA', role: 'Requester', dept: 'IT & Digital' },
     budgetItems: ['ERP Software Licenses', 'Implementation & Configuration Services'],
+    profile: { priority: 'high', area: 'it', delivery: 'services' }, // set by the requester; nature read from BOQ & scope
     purpose: 'The purpose of this tender is to procure Enterprise ERP System Upgrade to enhance operational efficiency, support digital transformation objectives and ensure compliance with applicable regulatory standards.',
     scope: 'Design, build, migrate and operate a greenfield S/4HANA environment covering FI, CO, MM and FM with Embedded EWM. Includes data migration from the legacy ECC system, 6 training batches, and 3 months of hypercare support.',
     approvals: ['Technology', 'Consultancy'], terms: TERMS, start: '26 Dec 2026', duration: '18 months', location: 'Riyadh — Head Office',

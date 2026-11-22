@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, Btn, Tooltip } from '../components/ui.jsx';
 import { FormCtx, Dialog } from '../components/FormKit.jsx';
 import { useRequests, emptyForm } from '../state/requests.jsx';
+import { DEFAULT_QUAL } from '../data/newRequest.js';
+
+// Drafts saved before the Financial criterion was added get it appended.
+const migrate = (f) => (f.qualificationCriteria.some((m) => m.id === 'qm-4') ? f : { ...f, qualificationCriteria: [...f.qualificationCriteria, ...DEFAULT_QUAL.filter((m) => m.id === 'qm-4').map((m) => ({ ...m, subCriteria: m.subCriteria.map((x) => ({ ...x })) }))] });
 import { useActor } from '../state/actor.jsx';
 import { PROJECTS } from '../data/newRequest.js';
 import { visibleSteps, sectionStatus, qualityIssues, blockers, uid } from '../lib/requestRules.js';
@@ -23,7 +27,7 @@ export function NewRequest({ id, onExit, onOpen }) {
   const { actor } = useActor();
   const saved = id ? store.get(id) : null;
   const [reqId] = useState(() => id || uid());
-  const [f, setF] = useState(() => (saved ? { ...emptyForm(), ...saved.form } : emptyForm()));
+  const [f, setF] = useState(() => (saved ? migrate({ ...emptyForm(), ...saved.form }) : emptyForm()));
   const [routeConfirmed, setRouteConfirmed] = useState(() => !!saved?.routeConfirmed);
   const [step, setStep] = useState(() => saved?.step || 'route');
   const [savedAt, setSavedAt] = useState(saved?.updatedAt || null);

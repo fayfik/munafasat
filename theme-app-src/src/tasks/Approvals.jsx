@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useTask, ReadRequestRow, Banner, CommentBox } from '../components/ReviewKit.jsx';
-import { Icon, Btn, Avatar } from '../components/ui.jsx';
+import { useEffect } from 'react';
+import { useTask, ReadRequestRow } from '../components/ReviewKit.jsx';
+import { Icon } from '../components/ui.jsx';
 import { sar } from '../data/requests.js';
-import { OFFICERS, OFFICER_CHECKLIST, DOA, PRICE_ITEMS } from '../data/content.js';
+import { DOA, PRICE_ITEMS } from '../data/content.js';
 
 const short = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M` : `${Math.round(n / 1e3)}K`);
 
@@ -92,7 +92,8 @@ export function EstimatedPrice() {
     <div className="stack">
       <ReadRequestRow />
       <section>
-        <h2 className="t-title" style={{ margin: '0 0 10px' }}>Estimated price by budget item</h2>
+        <h2 className="t-title" style={{ margin: 0 }}>Estimated price by budget item</h2>
+        <p className="t-body-small muted" style={{ margin: '2px 0 10px' }}>You approve as Director of IT & Digital. The Procurement Officer then creates the request in Etimad.</p>
         <table className="plain-table">
           <thead><tr><th>Budget item</th><th className="num">Items</th><th className="num">Estimated price</th></tr></thead>
           <tbody>
@@ -104,65 +105,6 @@ export function EstimatedPrice() {
             <tr className="grand"><td colSpan={2}>Total (incl. VAT)</td><td className="num">{sar(subtotal * 1.15)}</td></tr>
           </tfoot>
         </table>
-      </section>
-    </div>
-  );
-}
-
-/* ---------- Procurement — Team Lead ---------- */
-export function ProcLead() {
-  const { review, setGates } = useTask();
-  const picked = review.extra.officer;
-  useEffect(() => { setGates({ assign: picked ? true : 'Pick an officer first.' }); }, [picked]);
-  return (
-    <div className="stack">
-      <ReadRequestRow />
-      <section>
-        <h2 className="t-title" style={{ margin: 0 }}>Assign to officer</h2>
-        <p className="t-body-small muted" style={{ margin: '2px 0 12px' }}>Use this when the request is new or has comments. Otherwise submit it for DOA approval.</p>
-        <div className="choice-grid" role="radiogroup" aria-label="Officer">
-          {OFFICERS.map((o) => (
-            <label key={o.id} className={`choice${picked === o.id ? ' on' : ''}`}>
-              <input type="radio" name="officer" checked={picked === o.id} onChange={() => review.setExtra({ officer: o.id })} />
-              <Avatar person={{ initials: o.id }} size={32} />
-              <span><span className="t-body-medium" style={{ display: 'block' }}>{o.name}</span><span className="t-caption muted">{o.open} open requests</span></span>
-            </label>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-/* ---------- Procurement — Officer ---------- */
-export function ProcOfficer() {
-  const { review, setGates } = useTask();
-  const checks = review.extra.checks || {};
-  const done = OFFICER_CHECKLIST.filter((_, i) => checks[i]).length;
-  useEffect(() => { setGates({ doa: done === OFFICER_CHECKLIST.length ? true : 'Complete the checklist to submit.' }); }, [done]);
-  return (
-    <div className="stack">
-      <ReadRequestRow />
-      <section>
-        <div className="checks-head">
-          <h2 className="t-title" style={{ margin: 0 }}>Officer checklist</h2>
-          <span className="t-body-small muted">{done} of {OFFICER_CHECKLIST.length} done</span>
-        </div>
-        <div className="progress"><div className="progress-track"><div className="progress-fill" style={{ width: `${(done / OFFICER_CHECKLIST.length) * 100}%` }} /></div></div>
-        {OFFICER_CHECKLIST.map((c, i) => (
-          <label className="check" key={c}>
-            <input type="checkbox" checked={!!checks[i]} onChange={(e) => review.setExtra({ checks: { ...checks, [i]: e.target.checked } })} />
-            <span className="label t-body">{c}</span>
-            <span className="t-caption muted">Required</span>
-          </label>
-        ))}
-      </section>
-      <section>
-        <label htmlFor="officer-notes" className="t-title" style={{ display: 'block' }}>Officer comments</label>
-        <span className="t-body-small muted">Included when you return the request or submit it.</span>
-        <div className="notes-field">
-          <textarea id="officer-notes" placeholder="Record what you checked and anything the requester should fix…" value={review.extra.notes || ''} onChange={(e) => review.setExtra({ notes: e.target.value })} />
-        </div>
       </section>
     </div>
   );

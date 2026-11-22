@@ -3,6 +3,8 @@ import { useTask, ReviewHeader, SectionHead, ReviewRow, LibraryDialog, countDone
 import { Icon, Btn, Avatar, Tags, Collapsible } from '../components/ui.jsx';
 import { SPECIALIST, LIBRARY, EA } from '../data/content.js';
 import { sar } from '../data/requests.js';
+import { subGuide, aboveCount } from '../lib/procRules.js';
+import { AREA_OPTS, DELIVERY_OPTS, optName, priorityName } from '../lib/qualGuide.js';
 
 function Member({ person, label }) {
   return (
@@ -211,6 +213,55 @@ export function Qualification() {
       ))}
       <div className={`total-line${mainTotal === 100 ? '' : ' bad'}`}><span className="t-body-medium">Main criteria total</span><span className="t-body-medium">{mainTotal}%</span></div>
       <p className="t-caption muted" style={{ margin: 0 }}>Qualification passing percentage: {q.passing}%</p>
+    </div>
+  );
+}
+
+/* Qualification — Procurement: comment-only. The requester changes the criteria after a return;
+   each sub-criterion shows the typical range for the project's priority and nature. */
+export function ProcQualification() {
+  const { request, review, setGates } = useTask();
+  const q = request.qualification;
+  const keys = q.groups.flatMap((g) => g.subs.map((s) => `pq-${s.id}`));
+  const done = countDone(keys, review.decisions);
+  const commented = keys.filter((k) => review.decisions[k]?.state === 'commented').length;
+  const above = aboveCount(request);
+  const p = request.profile || {};
+  useEffect(() => { setGates({ approve: done < keys.length ? `Review all ${keys.length} criteria first.` : commented ? 'You commented on criteria — return the request instead.' : true }); }, [done, commented]);
+  return (
+    <div className="stack">
+      <ReviewHeader title="Review the qualification criteria" desc="Set by the requester. Accept each criterion, or comment where it doesn’t fit the project size or shuts out SMEs. The requester changes them after a return." done={done} total={keys.length} noun="criteria reviewed"
+        onAll={() => review.set(keys.filter((k) => !review.decisions[k]), { state: 'accepted' })} />
+      <div className="qual-basis">
+        {above === 0
+          ? <span className="ok-chip t-caption-medium"><Icon name="icon-check" size={13} />Open to SMEs</span>
+          : <span className="ok-chip warn t-caption-medium"><Icon name="icon-alert" size={13} />{above} above the typical range</span>}
+        <span className="t-body-small muted">Typical ranges for a <strong className="ink">{priorityName(p.priority).toLowerCase() || 'medium'}-priority</strong> {optName(AREA_OPTS, p.area)} · {optName(DELIVERY_OPTS, p.delivery).toLowerCase()} project</span>
+      </div>
+      {q.groups.map((g, gi) => (
+        <section className="sec" key={g.id}>
+          <SectionHead name={`${gi + 1}. ${g.name}`} right={<span className="t-caption-medium muted">Weight {g.weight}%</span>} />
+          {g.subs.map((s, si) => {
+            const gd = subGuide(request, gi, si);
+            return (
+              <ReviewRow key={s.id} k={`pq-${s.id}`} mode="comment" title={s.name} tone={gd?.above ? 'warning' : undefined}
+                reasons={['Above the typical range', 'May exclude SMEs', 'Range unclear', 'Weight too high']}
+                render={() => (
+                  <div className="crit-row">
+                    <div>
+                      <div className="t-body rrow-title">{s.name}</div>
+                      <div className="t-body-small muted">{s.range}{s.hint ? ` · ${s.hint}` : ''}</div>
+                      {gd && <div className={`t-caption ${gd.above ? 'amber-text' : 'muted'}`} data-typical>Typical {gd.text}{gd.above && ' · above'}</div>}
+                      {gd?.above && s.justification && <div className="t-caption justify-quote">Requester’s reason: “{s.justification}”</div>}
+                    </div>
+                    <span className="weight">{s.weight}%</span>
+                  </div>
+                )} />
+            );
+          })}
+        </section>
+      ))}
+      <p className="t-caption muted" style={{ margin: 0 }}>Qualification passing percentage: {q.passing}%. Financial criteria ranges are set by Finance.</p>
     </div>
   );
 }

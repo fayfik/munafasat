@@ -221,7 +221,7 @@ export const DOA = [
   ['Request value', 'SAR 9,940,000.00'],
   ['DOA reference', 'DOA Matrix 2026 · Procurement §4.2'],
   ['Prior reviews', '12 of 12 complete'],
-  ['Officer review', 'No comments'],
+  ['Officer review', 'Confirmed — good to go'],
 ];
 export const PRICE_ITEMS = [
   ['ERP Software Licenses', 2, 1640000],

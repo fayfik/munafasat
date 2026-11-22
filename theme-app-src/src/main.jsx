@@ -7,6 +7,7 @@ import './styles/theme.css';
 import './styles/app.css';
 import './styles/form.css';
 import './styles/ai.css';
+import './styles/teams.css';
 
 createRoot(document.getElementById('root')).render(
   <StoreProvider>

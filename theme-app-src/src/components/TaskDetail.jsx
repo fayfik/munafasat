@@ -5,19 +5,21 @@ import { RequestDetails } from './RequestDetails.jsx';
 import { Activity, SidePanel, DecisionDialog } from './Panels.jsx';
 import { useStore, useReview } from '../state/store.jsx';
 import { REQUESTS, sar } from '../data/requests.js';
-import { ACTION_PAST } from '../data/tasks.js';
+import { ACTION_PAST, TASKS } from '../data/tasks.js';
 import { useActor } from '../state/actor.jsx';
-import { OFFICERS } from '../data/content.js';
-import { DeptApproval, DoaApproval, EstimatedPrice, ProcLead, ProcOfficer } from '../tasks/Approvals.jsx';
-import { TechEval, Specialist, EaReview, Qualification } from '../tasks/Reviews.jsx';
+import { actorById } from '../data/actors.js';
+import { DeptApproval, DoaApproval, EstimatedPrice } from '../tasks/Approvals.jsx';
+import { FinQual, TlMethod, OfficerConfirm, EtimadCreate, EtimadBanner } from '../tasks/Procurement.jsx';
+import { useQueue, QueueBar, AssignDialog } from './Queue.jsx';
+import { TechEval, Specialist, EaReview, Qualification, ProcQualification } from '../tasks/Reviews.jsx';
 import { GlReview, GlChanged, AssetTreatment } from '../tasks/Finance.jsx';
 import { AiCard, AiSpark, AiTag } from './AiKit.jsx';
 import { executiveSummary } from '../data/aiContent.js';
 
-const BODIES = { dept: DeptApproval, tech: TechEval, cyber: Specialist, bcm: Specialist, orm: Specialist, ea: EaReview, gl: GlReview, glchanged: GlChanged, assets: AssetTreatment, qual: Qualification, lead: ProcLead, officer: ProcOfficer, doa: DoaApproval, price: EstimatedPrice };
-const STATUS = { dept: 'Pending your decision', doa: 'Pending your decision', price: 'Pending your decision', lead: 'Pending your decision', glchanged: 'Changed after approval' };
+const BODIES = { dept: DeptApproval, tech: TechEval, cyber: Specialist, bcm: Specialist, orm: Specialist, ea: EaReview, gl: GlReview, glchanged: GlChanged, assets: AssetTreatment, qual: Qualification, finqual: FinQual, procqual: ProcQualification, method: TlMethod, confirm: OfficerConfirm, doa: DoaApproval, price: EstimatedPrice, etimad: EtimadCreate };
+const STATUS = { dept: 'Pending your decision', doa: 'Pending your decision', price: 'Pending your decision', method: 'Pending your decision', etimad: 'Ready to publish', glchanged: 'Changed after approval' };
 
-export function TaskDetail({ task, onComplete, panel, setPanel }) {
+export function TaskDetail({ task, onComplete, panel, setPanel, onPickedUp }) {
   const { state, dispatch } = useStore();
   const { actor } = useActor();
   const request = REQUESTS[task.req];
@@ -30,6 +32,16 @@ export function TaskDetail({ task, onComplete, panel, setPanel }) {
   const [replyTo, setReplyTo] = useState(null);
   const scroller = useRef(null);
   const done = state.done[task.id];
+  const q = useQueue(task);
+  const [assigning, setAssigning] = useState(false);
+  const readOnly = !!done || !q.mine;
+  // The TL's officer choice assigns the officer's review and the Etimad step of this request.
+  const handOff = () => {
+    const off = state.rfp[request.id]?.method?.officer;
+    if (task.type !== 'method' || !off) return;
+    TASKS.filter((t) => t.req === request.id && ['officer', 'etimad'].includes(t.step)).forEach((t) => dispatch({ type: 'assign', task: t.id, to: off, text: `Assigned to ${actorById(off).name} by ${actor.name.split(' ')[0]} (team lead) with the procurement method` }));
+  };
+  const pickUp = () => { q.pickUp(); if (!q.lead) onPickedUp?.(); };
 
   useEffect(() => { dispatch({ type: 'read', task: task.id }); }, [task.id]);
 
@@ -51,9 +63,11 @@ export function TaskDetail({ task, onComplete, panel, setPanel }) {
   const ctx = useMemo(() => ({ task, request, review, comment, setGates, setActions, openDetails, openComments, commenting, store: state }), [task, request, review, state, commenting]);
   const actions = actionsOverride || task.actions;
   const Body = BODIES[task.type];
-  const officerName = OFFICERS.find((o) => o.id === review.extra.officer)?.name;
+  const officerName = state.rfp[request.id]?.method?.officer ? actorById(state.rfp[request.id].method.officer).name : undefined;
 
-  const statusLabel = done ? ACTION_PAST[done.action].replace(/^./, (c) => c.toUpperCase()) : (STATUS[task.type] || (review.extra.reopened ? 'In review' : 'Pending your review'));
+  const statusLabel = done ? ACTION_PAST[done.action].replace(/^./, (c) => c.toUpperCase())
+    : q.queued ? 'In team queue' : !q.mine ? `With ${actorById(q.holder).name.split(' ')[0]}`
+    : (STATUS[task.type] || (review.extra.reopened ? 'In review' : 'Pending your review'));
 
   return (
     <TaskCtx.Provider value={ctx}>
@@ -63,7 +77,7 @@ export function TaskDetail({ task, onComplete, panel, setPanel }) {
             <div className="eyebrow">
               <span className="t-label" style={{ color: 'var(--brand-700)' }}>{task.title}</span>
               <span className="t-body-small muted">· {request.id}</span>
-              <span className={`status-pill t-caption-medium${done ? ' done' : ''}`}><span className="pill-dot" />{statusLabel}</span>
+              <span className={`status-pill t-caption-medium${done ? ' done' : ''}${q.queued ? ' queued' : ''}`}><span className="pill-dot" />{statusLabel}</span>
             </div>
             <div className="title-row">
               <div className="title">
@@ -71,7 +85,12 @@ export function TaskDetail({ task, onComplete, panel, setPanel }) {
                 <Tooltip text={task.hint} label="About this task" />
               </div>
               <div className="decision">
-                {actions.map((a) => {
+                {q.queued && !done ? (
+                  <>
+                    {q.lead && <Btn variant="secondary" onClick={() => setAssigning(true)}>Assign</Btn>}
+                    <Btn variant="primary" icon="icon-approve" onClick={pickUp} data-pickup>Pick up</Btn>
+                  </>
+                ) : !q.mine ? null : actions.map((a) => {
                   const g = gates[a.id];
                   const blocked = done || (typeof g === 'string');
                   return (
@@ -95,6 +114,8 @@ export function TaskDetail({ task, onComplete, panel, setPanel }) {
           </div>
 
           <div className="content">
+            <EtimadBanner req={request.id} />
+            {!done && <QueueBar q={q} onAssign={() => setAssigning(true)} />}
             <Segment label="Task sections" value={tab} onChange={(v) => { setTab(v); if (v !== 'details') setCommenting(false); }} items={[{ id: 'action', label: 'Required action' }, { id: 'details', label: 'Request details' }, { id: 'activity', label: 'Activity' }]} />
             {done && (
               <div className="banner done-banner">
@@ -104,7 +125,7 @@ export function TaskDetail({ task, onComplete, panel, setPanel }) {
               </div>
             )}
             <div className="panel" key={tab} role="tabpanel">
-              {tab === 'action' && <><ExecSummary request={request} type={task.type} /><fieldset className="plain-fieldset" disabled={!!done}><Body /></fieldset></>}
+              {tab === 'action' && <><ExecSummary request={request} type={task.type} /><fieldset className="plain-fieldset" disabled={readOnly}><Body /></fieldset></>}
               {tab === 'details' && <RequestDetails />}
               {tab === 'activity' && <Activity task={task} request={request} />}
             </div>
@@ -128,9 +149,11 @@ export function TaskDetail({ task, onComplete, panel, setPanel }) {
         })}
       </aside>
 
+      {q.team && <AssignDialog q={q} open={assigning} onClose={() => setAssigning(false)} />}
+
       {dialog && (
         <DecisionDialog action={dialog} task={task} request={request} officer={officerName} onClose={() => setDialog(null)}
-          onConfirm={(note) => { setDialog(null); onComplete(task, dialog, note); }} />
+          onConfirm={(note) => { setDialog(null); handOff(); onComplete(task, dialog, note); }} />
       )}
     </TaskCtx.Provider>
   );

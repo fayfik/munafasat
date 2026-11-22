@@ -91,6 +91,20 @@ export function YesNo({ value, onChange, name, suggested }) {
   );
 }
 
+/** Pick one of a few options, as pills (same look as Yes/No). `dot` colours a leading dot per option. */
+export function Choice({ options, value, onChange, name, disabled, hint }) {
+  return (
+    <div className="yesno choice-pills" role="radiogroup" aria-label={name}>
+      {options.map((o) => (
+        <button key={o.id} type="button" role="radio" aria-checked={value === o.id} disabled={disabled} title={o.hint}
+          className={`yn${value === o.id ? ' on' : ''}${!value && hint === o.id ? ' hint' : ''}`} onClick={() => onChange(o.id)} data-opt={o.id}>
+          {o.dot && <span className={`prio-dot p-${o.id}`} aria-hidden="true" />}{o.en}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** Pill list with a typed "add" field. Locked items can't be removed. */
 export function ChipList({ items, locked = [], onChange, placeholder, label }) {
   const [v, setV] = useState('');

@@ -1,13 +1,15 @@
 import { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
 import { REQUESTS } from '../data/requests.js';
 
-const KEY = 'munafasat-theme-app-v1';
+const KEY = 'munafasat-theme-app-v2';
 
 const initial = () => ({
   done: {},        // taskId -> { action, note, at }
   read: {},        // taskId -> true
   reviews: {},     // taskId -> { rowKey -> { state: 'accepted'|'modified'|'commented'|'flagged', value?, note? } }
   extra: {},       // taskId -> free-form per task (added rows, choices, notes…)
+  assign: {},      // taskId -> { to: actorId | null, history: [{ at, text }] } — team queue moves
+  rfp: {},         // requestId -> procurement decisions shared across tasks (finQual, method, confirm, etimad)
   comments: Object.fromEntries(Object.values(REQUESTS).map((r) => [r.id, r.comments.map((c) => ({ ...c, replies: [] }))])),
 });
 
@@ -53,6 +55,12 @@ function reducer(s, a) {
     }
     case 'resolve':
       return { ...s, comments: { ...s.comments, [a.req]: (s.comments[a.req] || []).map((x) => (x.id === a.id ? { ...x, resolved: !x.resolved } : x)) } };
+    case 'assign': {
+      const cur = s.assign[a.task] || { history: [] };
+      return { ...s, assign: { ...s.assign, [a.task]: { to: a.to, at: stamp(), history: [...cur.history, { at: stamp(), text: a.text }] } } };
+    }
+    case 'rfp':
+      return { ...s, rfp: { ...s.rfp, [a.req]: { ...(s.rfp[a.req] || {}), ...a.patch } } };
     case 'reset':
       return initial();
     default:
