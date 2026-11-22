@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, Btn, Segment, Tooltip } from '../components/ui.jsx';
 import { useForm, Block, FieldBlock, Input, Select, TextArea, NumInput, YesNo, Dialog, ConfirmDelete, MoreMenu, sarFmt } from '../components/FormKit.jsx';
@@ -8,7 +8,7 @@ import { useActor } from '../state/actor.jsx';
 import { uid } from '../lib/requestRules.js';
 import { PURCHASE_TYPES, MATERIAL_GROUPS, ptypeName, mgOf, suggestAccounting, withAccounting } from '../lib/accounting.js';
 import { PROJECTS, UNITS, BOQ_CATEGORIES, QUALIFICATIONS, NATIONALITIES, AI_BOQ, AI_EM_BOQ } from '../data/newRequest.js';
-import { totals, lineTotal, checkEtimad, etimadStale, needsEtimadReason, boqTypeOf, words, MIN_WORDS, num } from '../lib/requestRules.js';
+import { totals, lineTotal, checkEtimad, etimadStale, needsEtimadReason, boqTypeOf, words, MIN_WORDS, num, boqMissing } from '../lib/requestRules.js';
 
 const ETIMAD = {
   available: { label: 'On E-Market', cls: 'warn' },
@@ -17,7 +17,7 @@ const ETIMAD = {
 };
 const catName = (id) => BOQ_CATEGORIES.find((c) => c.id === id)?.en || 'Uncategorised';
 
-const COLS = ['Budgeted item', 'Category', 'Item name', 'Description', 'Unit', 'Quantity', 'Unit price (SAR)'];
+const COLS = ['Budgeted item', 'Category', 'Item name', 'Description', 'Unit', 'Quantity', 'Unit price (SAR)', 'Needed by (YYYY-MM-DD)'];
 function download(name, text) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
@@ -32,6 +32,8 @@ export function BoqStep() {
   const [view, setView] = useState('grid');
   const [confirmAll, setConfirmAll] = useState(false);
   const [template, setTemplate] = useState(false);
+  const [focusKey, setFocusKey] = useState(null);
+  const edit = (r, key = null) => { setFocusKey(key); setEditing(r); };
   const [busy, setBusy] = useState(false);
   const [detail, setDetail] = useState(null);
   const [collapsed, setCollapsed] = useState({});
@@ -86,12 +88,20 @@ export function BoqStep() {
   const exportCsv = () => download('boq.csv', [COLS.join(','), ...f.boqItems.map((r) => [r.projectItem, catName(r.category), r.itemName, r.itemDescription, r.unitOfMeasure, r.quantity, r.unitPrice].map(csvCell).join(','))].join('\n'));
   const dialogs = (
     <>
-      {editing && <ItemDialog row={editing} em={em} budgeted={budgeted} due={due} onClose={() => setEditing(null)} onSave={save} />}
-      {detail && <DetailDialog r={f.boqItems.find((x) => x.id === detail.id) || detail} em={em} onClose={() => setDetail(null)} onEdit={() => { setEditing(detail); setDetail(null); }} />}
-      <TemplateDialog open={template} onClose={() => setTemplate(false)} onRows={addRows} existing={f.boqItems} />
+      {editing && <ItemDialog row={editing} em={em} budgeted={budgeted} due={due} focusKey={focusKey} onClose={() => setEditing(null)} onSave={save} />}
+      {detail && <DetailDialog r={f.boqItems.find((x) => x.id === detail.id) || detail} em={em} onClose={() => setDetail(null)} onEdit={() => { edit(detail); setDetail(null); }} />}
       <ConfirmDelete open={confirmAll} onClose={() => setConfirmAll(false)} onConfirm={rows.clear} title="Delete all items?" />
     </>
   );
+
+  if (!f.boqItems.length && !busy && template) {
+    return (
+      <div className="stack" id="q-boq">
+        <TemplatePanel existing={f.boqItems} onRows={(rs) => { addRows(rs); setTemplate(false); }} onBack={() => setTemplate(false)} />
+        {dialogs}
+      </div>
+    );
+  }
 
   if (!f.boqItems.length && !busy) {
     return (
@@ -127,9 +137,10 @@ export function BoqStep() {
     <div className="stack" id="q-boq">
       {headEl && createPortal(
         <>
-          <Btn variant="secondary-sm" icon="icon-plus" onClick={() => setTemplate(true)}>Use a Template</Btn>
+          <Btn variant="secondary-sm" icon="icon-upload" aria-expanded={template} onClick={() => setTemplate((v) => !v)}>Use a template</Btn>
           <AiBtn label={busy ? 'Drafting…' : 'Draft with AI'} onRun={suggest} disabled={busy} delay={0} />
         </>, headEl)}
+      {template && <TemplatePanel existing={f.boqItems} onRows={(rs) => { addRows(rs); setTemplate(false); }} onBack={() => setTemplate(false)} closeLabel="Close" />}
       {busy && <div className="checking compact" role="status"><AiSpark size={18} spin /><span className="t-body ai-text">Drafting items from your project…</span></div>}
 
       <Block title={`${f.boqItems.length} item${f.boqItems.length === 1 ? '' : 's'}`} actions={
@@ -168,7 +179,7 @@ export function BoqStep() {
                     <div className="table-scroll">
                       <table className="plain-table boq-table">
                         <BoqHead em={em} />
-                        <tbody>{rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={() => setEditing(r)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => checkOne(r)} checking={checking.includes(r.id)} onReason={(v) => rows.update(r.id, { etimadReason: v })} onKeep={(on) => rows.update(r.id, { etimadDecision: on ? 'keep' : '' })} onMove={() => moveToEm(r)} />)}</tbody>
+                        <tbody>{rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={(key) => edit(r, key)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => checkOne(r)} checking={checking.includes(r.id)} onReason={(v) => rows.update(r.id, { etimadReason: v })} onKeep={(on) => rows.update(r.id, { etimadDecision: on ? 'keep' : '' })} onMove={() => moveToEm(r)} />)}</tbody>
                       </table>
                     </div>
                   )}
@@ -183,7 +194,7 @@ export function BoqStep() {
               {groups.map(([g, rs]) => (
                 <tbody key={g || 'all'}>
                   {g && <tr className="group-row"><td colSpan={COLSPAN}>{g}<span className="muted" style={{ fontWeight: 400 }}> · {sarFmt(rs.reduce((s, r) => s + lineTotal(r, em), 0))}</span></td></tr>}
-                  {rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={() => setEditing(r)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => checkOne(r)} checking={checking.includes(r.id)} onReason={(v) => rows.update(r.id, { etimadReason: v })} onKeep={(on) => rows.update(r.id, { etimadDecision: on ? 'keep' : '' })} onMove={() => moveToEm(r)} />)}
+                  {rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={(key) => edit(r, key)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => checkOne(r)} checking={checking.includes(r.id)} onReason={(v) => rows.update(r.id, { etimadReason: v })} onKeep={(on) => rows.update(r.id, { etimadDecision: on ? 'keep' : '' })} onMove={() => moveToEm(r)} />)}
                 </tbody>
               ))}
             </table>
@@ -227,6 +238,7 @@ function BoqRow({ r, em, onEdit, onView, onRemove, onCheck, onReason, onMove, on
   const acc = em ? null : (r.mg ? r : withAccounting(r));
   const mg = acc && mgOf(acc.mg);
   const onEm = !em && fresh && r.etimad.status === 'available';
+  const miss = boqMissing(r, em);
   return (
     <>
       <tr className={`boq-row${onEm ? ' on-em' : ''}`}>
@@ -234,6 +246,12 @@ function BoqRow({ r, em, onEdit, onView, onRemove, onCheck, onReason, onMove, on
           <div className="row-name">
             <button type="button" className="row-title" onClick={onView}><span className="t-body-medium">{r.itemName || 'Unnamed item'}</span></button>
             {acc?.ptype && <span className="status-pill t-caption-medium type-pill">{ptypeName(acc.ptype)}</span>}
+            {miss.length > 0 && (
+              <button type="button" className="miss-btn" onClick={() => onEdit(miss[0].key)} aria-label={`${r.itemName || 'Item'}: ${miss.length} field${miss.length === 1 ? '' : 's'} to fill — ${miss.map((m) => m.label).join(', ')}. Edit to fill them.`}>
+                <Icon name="icon-warn-amber" size={16} />
+                <span className="miss-tip" role="tooltip"><strong>{miss.length === 1 ? '1 field to fill' : `${miss.length} fields to fill`}</strong>{miss.map((m) => <span key={m.key}>{m.label}</span>)}<em>Click to edit</em></span>
+              </button>
+            )}
           </div>
           <div className="t-body-small muted clamp-2 row-desc">{em ? [r.purchaseType && (r.purchaseType === 'vehicle-leasing' ? 'Vehicle leasing' : r.purchaseType[0].toUpperCase() + r.purchaseType.slice(1)), r.productId].filter(Boolean).join(' · ') : r.itemDescription}</div>
           {acc && (
@@ -245,7 +263,7 @@ function BoqRow({ r, em, onEdit, onView, onRemove, onCheck, onReason, onMove, on
               {r.etimad && !fresh && <span className="amber"><span className="sep">·</span>Changed — check Etimad again</span>}
             </div>
           )}
-          {(thin || brandMissing) && <div className="issue t-caption"><Icon name="icon-warn" size={12} />{brandMissing ? 'Brand name needs a justification' : 'Add a clearer description'}</div>}
+          {thin && !brandMissing && r.itemDescription && <div className="issue t-caption"><Icon name="icon-warn" size={12} />Add a clearer description</div>}
         </td>
         {em ? (
           <><td className="muted">{r.supplier || '—'}</td><td className="num">{r.purchaseType === 'product' ? `${num(r.quantity) || 1} ${r.orderUnit || ''}` : r.startDate && r.endDate ? `${r.startDate} → ${r.endDate}` : '—'}</td></>
@@ -261,7 +279,7 @@ function BoqRow({ r, em, onEdit, onView, onRemove, onCheck, onReason, onMove, on
             </button>
           )}
           <button type="button" className="icon-btn" aria-label={`View ${r.itemName}`} title="View" onClick={onView}><Icon name="icon-eye" size={16} /></button>
-          <button type="button" className="icon-btn" aria-label={`Edit ${r.itemName}`} title="Edit" onClick={onEdit}><Icon name="icon-pencil" size={16} /></button>
+          <button type="button" className="icon-btn" aria-label={`Edit ${r.itemName}`} title="Edit" onClick={() => onEdit(miss[0]?.key)}><Icon name="icon-pencil" size={16} /></button>
           <button type="button" className="icon-btn" aria-label={`Delete ${r.itemName}`} title="Delete" onClick={onRemove}><Icon name="icon-trash" size={16} /></button>
         </td>
       </tr>
@@ -306,10 +324,10 @@ function aiDescription(r, cat) {
   return `${n} — new equipment to the agreed specification, delivered, installed and tested on site, with a 3-year manufacturer warranty and spare-parts availability.`;
 }
 
-const EMPTY = { projectItem: '', category: '', itemName: '', itemDescription: '', unitOfMeasure: 'Each', quantity: '', unitPrice: '', deliveryDate: '', hasBrandName: false, brandJustification: '', mandatoryList: '' };
+const EMPTY = { projectItem: '', category: '', itemName: '', itemDescription: '', unitOfMeasure: '', quantity: '', unitPrice: '', deliveryDate: '', hasBrandName: false, brandJustification: '', mandatoryList: '' };
 const EM_EMPTY = { purchaseType: 'product', itemName: '', productId: '', supplier: '', orderUnit: 'Each', quantity: 1, unitPrice: '', shippingCharges: '', startDate: '', endDate: '', deliveryDate: '', respName: '', respMobile: '' };
 
-function ItemDialog({ row, em, budgeted, due, onClose, onSave }) {
+function ItemDialog({ row, em, budgeted, due, focusKey, onClose, onSave }) {
   const [r, setR] = useState(() => ({ ...(em ? EM_EMPTY : EMPTY), deliveryDate: row.id ? '' : due || '', ...row }));
   const s = (k) => (v) => setR((x) => ({ ...x, [k]: v && v.target ? v.target.value : v }));
   const isNew = !row.id;
@@ -323,6 +341,18 @@ function ItemDialog({ row, em, budgeted, due, onClose, onSave }) {
   const setAcc = (k) => (e) => setR((x) => ({ ...x, ptype: acc.ptype, mg: acc.mg, [k]: e.target.value, acctSource: 'user' }));
   const save = () => onSave(em ? r : { ...r, category: cat, ptype: acc.ptype, mg: acc.mg, acctSource: r.acctSource === 'user' ? 'user' : ai ? 'ai' : r.acctSource });
   const aiNote = ai && r.acctSource !== 'user' ? 'Suggested by AI from the name and description' : undefined;
+  // Opened from a missing-value warning: focus the first empty field.
+  useEffect(() => {
+    if (!focusKey) return;
+    const t = setTimeout(() => {
+      const el = document.getElementById(`bi-${focusKey}`);
+      if (!el) return;
+      el.scrollIntoView({ block: 'center' });
+      el.querySelector('input,select,textarea,button')?.focus();
+      el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+    }, 120);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
     <Dialog open onClose={onClose} title={isNew ? 'Add item' : 'Edit item'} sub={isNew ? (em ? 'Fields adapt to the purchase type.' : 'Fill the fields, then save to add it to the table.') : (em ? undefined : 'Changing the name, quantity or price resets the Etimad check.')} className="sheet wide"
@@ -330,19 +360,19 @@ function ItemDialog({ row, em, budgeted, due, onClose, onSave }) {
       {em ? (
         <div className="form-grid">
           <FieldBlock label="Purchase type" wide><Segment size="sm" label="Purchase type" value={r.purchaseType} onChange={s('purchaseType')} items={[{ id: 'product', label: 'Product' }, { id: 'service', label: 'Service' }, { id: 'vehicle-leasing', label: 'Vehicle leasing' }]} /></FieldBlock>
-          <FieldBlock label={r.purchaseType === 'product' ? 'Product name' : 'Service name'} required wide><Input value={r.itemName} onChange={s('itemName')} placeholder="e.g. Dell Latitude 5450" /></FieldBlock>
-          <FieldBlock label="Product ID"><Input value={r.productId} onChange={s('productId')} placeholder="Catalogue / SKU" /></FieldBlock>
-          <FieldBlock label="Supplier"><Input value={r.supplier} onChange={s('supplier')} placeholder="Approved supplier name" /></FieldBlock>
-          <FieldBlock label="Price (SAR)" required><NumInput value={r.unitPrice} onChange={s('unitPrice')} placeholder="0.00" /></FieldBlock>
+          <FieldBlock id="bi-itemName" label={r.purchaseType === 'product' ? 'Product name' : 'Service name'} required wide><Input value={r.itemName} onChange={s('itemName')} placeholder="e.g. Dell Latitude 5450" /></FieldBlock>
+          <FieldBlock id="bi-productId" label="Product ID"><Input value={r.productId} onChange={s('productId')} placeholder="Catalogue / SKU" /></FieldBlock>
+          <FieldBlock id="bi-supplier" label="Supplier"><Input value={r.supplier} onChange={s('supplier')} placeholder="Approved supplier name" /></FieldBlock>
+          <FieldBlock id="bi-unitPrice" label="Price (SAR)" required><NumInput value={r.unitPrice} onChange={s('unitPrice')} placeholder="0.00" /></FieldBlock>
           {r.purchaseType === 'product' ? (
             <>
-              <FieldBlock label="Quantity"><NumInput value={r.quantity} onChange={s('quantity')} min={1} placeholder="1" /></FieldBlock>
-              <FieldBlock label="Order unit"><Input value={r.orderUnit} onChange={s('orderUnit')} placeholder="e.g. Each, Box" /></FieldBlock>
+              <FieldBlock id="bi-quantity" label="Quantity"><NumInput value={r.quantity} onChange={s('quantity')} min={1} placeholder="1" /></FieldBlock>
+              <FieldBlock id="bi-orderUnit" label="Order unit"><Input value={r.orderUnit} onChange={s('orderUnit')} placeholder="e.g. Each, Box" /></FieldBlock>
               <FieldBlock label="Shipping (SAR)" optional><NumInput value={r.shippingCharges} onChange={s('shippingCharges')} placeholder="0.00" /></FieldBlock>
-              <FieldBlock label="Delivery date"><Input type="date" value={r.deliveryDate} onChange={s('deliveryDate')} /></FieldBlock>
+              <FieldBlock id="bi-deliveryDate" label="Delivery date"><Input type="date" value={r.deliveryDate} onChange={s('deliveryDate')} /></FieldBlock>
             </>
           ) : (
-            <><FieldBlock label="Start date"><Input type="date" value={r.startDate} onChange={s('startDate')} /></FieldBlock><FieldBlock label="End date"><Input type="date" min={r.startDate} value={r.endDate} onChange={s('endDate')} /></FieldBlock></>
+            <><FieldBlock id="bi-startDate" label="Start date"><Input type="date" value={r.startDate} onChange={s('startDate')} /></FieldBlock><FieldBlock id="bi-endDate" label="End date"><Input type="date" min={r.startDate} value={r.endDate} onChange={s('endDate')} /></FieldBlock></>
           )}
           <FieldBlock label="Delivery note — responsible name" optional><Input value={r.respName} onChange={s('respName')} placeholder="Full name" /></FieldBlock>
           <FieldBlock label="Responsible mobile" optional><Input value={r.respMobile} onChange={s('respMobile')} placeholder="05XXXXXXXX" inputMode="tel" /></FieldBlock>
@@ -350,42 +380,42 @@ function ItemDialog({ row, em, budgeted, due, onClose, onSave }) {
         </div>
       ) : (
         <div className="form-grid">
-          <FieldBlock label="Budgeted item">
+          <FieldBlock id="bi-projectItem" label="Budgeted item">
             <Select value={r.projectItem} onChange={s('projectItem')}><option value="">Select budgeted item…</option>{budgeted.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}</Select>
           </FieldBlock>
           <FieldBlock label="Category" hint={!r.category && cat ? `Detected: ${catName(cat)}` : undefined}>
             <Select value={r.category} onChange={s('category')}><option value="">Detect from the item</option>{BOQ_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.en}</option>)}</Select>
           </FieldBlock>
-          <FieldBlock label={mp ? 'Role' : 'Item name'} required wide><Input value={r.itemName} onChange={s('itemName')} placeholder={mp ? 'e.g. Senior ERP Consultant' : 'Item name…'} /></FieldBlock>
-          <FieldBlock label="Description" wide hint={`${words(r.itemDescription)} of ${MIN_WORDS.boqDesc}+ words — EA checks the specification and Finance picks the material group from it.`}
+          <FieldBlock id="bi-itemName" label={mp ? 'Role' : 'Item name'} required wide><Input value={r.itemName} onChange={s('itemName')} placeholder={mp ? 'e.g. Senior ERP Consultant' : 'Item name…'} /></FieldBlock>
+          <FieldBlock id="bi-itemDescription" label="Description" wide hint={`${words(r.itemDescription)} of ${MIN_WORDS.boqDesc}+ words — EA checks the specification and Finance picks the material group from it.`}
             action={<AiBtn label="Generate with AI" busyLabel="Writing…" className="ai-sm" disabled={!r.itemName.trim()} onRun={() => setR((x) => ({ ...x, itemDescription: aiDescription(x, cat) }))} delay={800} />}>
             <TextArea rows={3} value={r.itemDescription} onChange={s('itemDescription')} placeholder={mp ? 'Describe the role, responsibilities and requirements…' : 'Describe this item…'} />
           </FieldBlock>
           {mp ? (
             <>
-              <FieldBlock label="Job title"><Input value={r.jobTitle || ''} onChange={s('jobTitle')} placeholder="e.g. ERP Technical Consultant" /></FieldBlock>
-              <FieldBlock label="Staff count" required><NumInput value={r.staffCount ?? ''} onChange={s('staffCount')} min={1} placeholder="1" /></FieldBlock>
-              <FieldBlock label="Minimum qualification"><Select value={r.minQualification || ''} onChange={s('minQualification')}><option value="">Select…</option>{QUALIFICATIONS.map((q) => <option key={q.value} value={q.value}>{q.en}</option>)}</Select></FieldBlock>
-              <FieldBlock label="Minimum years of experience"><NumInput value={r.minExperienceYears ?? ''} onChange={s('minExperienceYears')} placeholder="0" /></FieldBlock>
-              <FieldBlock label="Official working hours"><NumInput value={r.officialWorkingHours ?? ''} onChange={s('officialWorkingHours')} placeholder="e.g. 8" suffix="h/day" /></FieldBlock>
+              <FieldBlock id="bi-jobTitle" label="Job title"><Input value={r.jobTitle || ''} onChange={s('jobTitle')} placeholder="e.g. ERP Technical Consultant" /></FieldBlock>
+              <FieldBlock id="bi-staffCount" label="Staff count" required><NumInput value={r.staffCount ?? ''} onChange={s('staffCount')} min={1} placeholder="1" /></FieldBlock>
+              <FieldBlock id="bi-minQualification" label="Minimum qualification"><Select value={r.minQualification || ''} onChange={s('minQualification')}><option value="">Select…</option>{QUALIFICATIONS.map((q) => <option key={q.value} value={q.value}>{q.en}</option>)}</Select></FieldBlock>
+              <FieldBlock id="bi-minExperienceYears" label="Minimum years of experience"><NumInput value={r.minExperienceYears ?? ''} onChange={s('minExperienceYears')} placeholder="0" /></FieldBlock>
+              <FieldBlock id="bi-officialWorkingHours" label="Official working hours"><NumInput value={r.officialWorkingHours ?? ''} onChange={s('officialWorkingHours')} placeholder="e.g. 8" suffix="h/day" /></FieldBlock>
               <FieldBlock label="Expected extra hours" optional><NumInput value={r.extraWorkingHours ?? ''} onChange={s('extraWorkingHours')} placeholder="e.g. 2" suffix="h/day" /></FieldBlock>
-              <FieldBlock label="Rate per staff (SAR)" required hint="Total = staff count × rate."><NumInput value={r.unitPrice} onChange={s('unitPrice')} placeholder="0.00" /></FieldBlock>
+              <FieldBlock id="bi-unitPrice" label="Rate per staff (SAR)" required hint="Total = staff count × rate."><NumInput value={r.unitPrice} onChange={s('unitPrice')} placeholder="0.00" /></FieldBlock>
               <FieldBlock label="Nationality required?" inline><YesNo name="Nationality required" value={!!r.nationalityRequired} onChange={s('nationalityRequired')} /></FieldBlock>
               {r.nationalityRequired && (
-                <FieldBlock label="Nationalities" wide>
+                <FieldBlock id="bi-nationalities" label="Nationalities" wide>
                   <div className="chips">{NATIONALITIES.map((n) => { const on = (r.nationalities || []).includes(n); return <button key={n} type="button" className={`chip-btn${on ? ' on' : ''}`} aria-pressed={on} onClick={() => setR((x) => ({ ...x, nationalities: on ? x.nationalities.filter((y) => y !== n) : [...(x.nationalities || []), n] }))}>{n}</button>; })}</div>
                 </FieldBlock>
               )}
             </>
           ) : (
             <>
-              <FieldBlock label="Unit"><Select value={r.unitOfMeasure} onChange={s('unitOfMeasure')}>{UNITS.map((u) => <option key={u}>{u}</option>)}</Select></FieldBlock>
-              <FieldBlock label="Quantity" required><NumInput value={r.quantity} onChange={s('quantity')} min={1} placeholder="0" /></FieldBlock>
-              <FieldBlock label="Unit price (SAR)" required><NumInput value={r.unitPrice} onChange={s('unitPrice')} placeholder="0.00" /></FieldBlock>
-              <FieldBlock label="Needed by" optional><Input type="date" value={r.deliveryDate} onChange={s('deliveryDate')} /></FieldBlock>
+              <FieldBlock id="bi-unitOfMeasure" label="Unit"><Select value={r.unitOfMeasure} onChange={s('unitOfMeasure')}><option value="">Select unit…</option>{UNITS.map((u) => <option key={u}>{u}</option>)}</Select></FieldBlock>
+              <FieldBlock id="bi-quantity" label="Quantity" required><NumInput value={r.quantity} onChange={s('quantity')} min={1} placeholder="0" /></FieldBlock>
+              <FieldBlock id="bi-unitPrice" label="Unit price (SAR)" required><NumInput value={r.unitPrice} onChange={s('unitPrice')} placeholder="0.00" /></FieldBlock>
+              <FieldBlock id="bi-deliveryDate" label="Needed by"><Input type="date" value={r.deliveryDate} onChange={s('deliveryDate')} /></FieldBlock>
               {goods && <FieldBlock label="Mandatory list reference" optional wide info="Material and equipment may fall under the mandatory list of national products and must be bought from approved listed companies."><Input value={r.mandatoryList} onChange={s('mandatoryList')} placeholder="Listed company or product reference…" /></FieldBlock>}
               <FieldBlock label="Specific brand required?" inline><YesNo name="Brand name" value={!!r.hasBrandName} onChange={s('hasBrandName')} /></FieldBlock>
-              {r.hasBrandName && <FieldBlock label="Brand justification" required wide><TextArea rows={2} value={r.brandJustification} onChange={s('brandJustification')} placeholder="Explain why a specific brand is required…" /></FieldBlock>}
+              {r.hasBrandName && <FieldBlock id="bi-brandJustification" label="Brand justification" required wide><TextArea rows={2} value={r.brandJustification} onChange={s('brandJustification')} placeholder="Explain why a specific brand is required…" /></FieldBlock>}
             </>
           )}
           <FieldBlock label={<>Purchase type{aiNote && <AiMark />}</>} hint={aiNote}>
@@ -412,36 +442,58 @@ function DetailDialog({ r, em, onClose, onEdit }) {
   );
 }
 
-function TemplateDialog({ open, onClose, onRows, existing = [] }) {
+/* Build from a template — inline, two side-by-side steps (design-review), not a dialog. */
+function TemplatePanel({ existing = [], onRows, onBack, closeLabel = 'Back to options' }) {
   const ref = useRef(null);
   const [msg, setMsg] = useState('');
   const [over, setOver] = useState(false);
+  const [reading, setReading] = useState(false);
   const read = (file) => {
     if (!file) return;
-    if (!/\.csv$/i.test(file.name)) { setMsg('Please upload the .csv template.'); return; }
+    if (!/\.csv$/i.test(file.name)) { setMsg('Please upload the .csv template (Excel can save it as CSV).'); return; }
+    setReading(true);
     file.text().then((txt) => {
       const lines = txt.split(/\r?\n/).filter(Boolean).slice(1);
       const parsed = lines.map((l) => (l.match(/("([^"]|"")*"|[^,]*)(,|$)/g) || []).map((c) => c.replace(/,$/, '').replace(/^"|"$/g, '').replace(/""/g, '"')))
         .filter((c) => c[2]?.trim())
-        .map((c) => ({ projectItem: c[0], category: BOQ_CATEGORIES.find((x) => x.en.toLowerCase() === (c[1] || '').toLowerCase())?.id || '', itemName: c[2], itemDescription: c[3] || '', unitOfMeasure: c[4] || 'Each', quantity: Number(c[5]) || '', unitPrice: Number(c[6]) || '' }));
+        .map((c) => ({ projectItem: c[0], category: BOQ_CATEGORIES.find((x) => x.en.toLowerCase() === (c[1] || '').toLowerCase())?.id || '', itemName: c[2], itemDescription: c[3] || '', unitOfMeasure: c[4] || '', quantity: Number(c[5]) || '', unitPrice: Number(c[6]) || '', deliveryDate: c[7] || '' }));
+      setReading(false);
       if (!parsed.length) { setMsg('No valid rows found. Check the template columns.'); return; }
-      onRows(parsed); setMsg(''); onClose();
-    }).catch(() => setMsg('Couldn’t read the file. Use the downloaded template.'));
+      setMsg(''); onRows(parsed);
+    }).catch(() => { setReading(false); setMsg('Couldn’t read the file. Use the downloaded template.'); });
   };
+  const dl = () => download(existing.length ? 'boq-prefilled.csv' : 'boq-template.csv', [COLS.join(','), ...existing.map((r) => [r.projectItem, catName(r.category), r.itemName, r.itemDescription, r.unitOfMeasure, r.quantity, r.unitPrice, r.deliveryDate].map(csvCell).join(','))].join('\n'));
   return (
-    <Dialog open={open} onClose={onClose} title="Build from a template" sub="Download the sheet, fill it in, then upload it back." foot={<Btn variant="secondary" onClick={onClose}>Close</Btn>}>
-      <ol className="tpl-steps">
-        <li><span className="num-dot">1</span><div><div className="t-body-medium">Download the template</div><div className="t-body-small muted">A sheet with the right columns{existing.length ? ', pre-filled with your current items' : ''}.</div>
-          <Btn variant="secondary-sm" icon="icon-download" onClick={() => download('boq-template.csv', [COLS.join(','), ...existing.map((r) => [r.projectItem, catName(r.category), r.itemName, r.itemDescription, r.unitOfMeasure, r.quantity, r.unitPrice].map(csvCell).join(','))].join('\n'))}>{existing.length ? 'Download pre-filled' : 'Download template'}</Btn></div></li>
-        <li><span className="num-dot">2</span><div style={{ flex: 1 }}><div className="t-body-medium">Upload the completed file</div>
-          <div className={`dropzone${over ? ' over' : ''}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); read(e.dataTransfer.files[0]); }}>
-            <span className="t-body-small">Drop the file here, or <button type="button" className="inline-link" onClick={() => ref.current?.click()}>browse</button></span>
-            <span className="t-caption muted">.csv · max 10 MB</span>
+    <section className="tpl-panel" aria-labelledby="tpl-title">
+      <div className="tpl-head">
+        <div><h2 className="t-title" id="tpl-title" style={{ margin: 0 }}>Build from a template</h2><p className="t-body-small muted" style={{ margin: '2px 0 0' }}>Two quick steps — download the sheet, fill it in Excel, then upload it back.</p></div>
+        <button type="button" className="link-btn t-body-small" onClick={onBack}>{closeLabel === 'Back to options' && <Icon name="icon-arrow-left" size={14} />}{closeLabel}</button>
+      </div>
+      <div className="tpl-grid">
+        <div className="tpl-card">
+          <div className="tpl-step"><span className="num-dot">1</span><span className="t-caption muted">STEP 1 · DOWNLOAD</span></div>
+          <span className="tpl-icon"><Icon name="icon-download" size={22} /></span>
+          <div className="t-body-medium">Download the template</div>
+          <p className="t-body-small muted grow">{existing.length ? 'Get your current BOQ as a pre-filled sheet to edit offline.' : 'A sheet with the right columns and categories, ready to fill in.'}</p>
+          <Btn variant="primary" icon="icon-download" onClick={dl}>{existing.length ? 'Download pre-filled' : 'Download template'}</Btn>
+        </div>
+        <div className="tpl-card">
+          <div className="tpl-step"><span className="num-dot">2</span><span className="t-caption muted">STEP 2 · UPLOAD</span></div>
+          <span className="tpl-icon"><Icon name="icon-upload" size={22} /></span>
+          <div className="t-body-medium">Upload the completed file</div>
+          <p className="t-body-small muted">Drag your filled file onto the area below, or browse to select it.</p>
+          <div className={`dropzone${over ? ' over' : ''}`} role="button" tabIndex={0} onClick={() => !reading && ref.current?.click()} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && ref.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); read(e.dataTransfer.files[0]); }}>
+            {reading ? <span className="t-body-small">Reading file…</span> : <>
+              <Icon name="icon-upload" size={20} />
+              <span className="t-body-small">Drop file here, or <span className="brand-text" style={{ fontWeight: 600 }}>browse</span></span>
+              <span className="t-caption muted">.csv · max 10 MB</span>
+            </>}
             <input ref={ref} type="file" accept=".csv" hidden onChange={(e) => { read(e.target.files[0]); e.target.value = ''; }} />
           </div>
           {msg && <p className="ffield-error t-body-small" role="alert">{msg}</p>}
-        </div></li>
-      </ol>
-    </Dialog>
+        </div>
+      </div>
+    </section>
   );
 }

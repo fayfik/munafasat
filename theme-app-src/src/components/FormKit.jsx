@@ -37,7 +37,7 @@ export function FieldBlock({ label, hint, info, required, error, id, children, w
     <div className={`ffield${wide || inline ? ' wide' : ''}${inline ? ' inline' : ''}${error ? ' has-error' : ''}`} id={id}>
       {label && (
         <div className="ffield-label t-label">
-          <label htmlFor={inputId}>{label}{required && <span className="req" aria-hidden="true"> *</span>}{optional && <span className="t-caption muted"> · optional</span>}</label>
+          <label htmlFor={inputId}>{label}{optional && <span className="t-caption muted opt-tag"> (optional)</span>}</label>
           {info && <Tooltip text={info} label={`About ${label}`} />}
           {action && <span className="ffield-action">{action}</span>}
         </div>

@@ -226,7 +226,7 @@ export function DecisionDialog({ action, task, request, officer, onConfirm, onCl
         <div className="decision-main">
           <h2 id="dlg-title" className="t-heading" style={{ margin: 0, fontSize: 20, lineHeight: '26px' }}>{title}</h2>
           <p className="t-body-small muted" style={{ margin: '4px 0 0' }}>{request.id} · {request.project}</p>
-          <label className="t-label" htmlFor="dlg-note" style={{ marginTop: 18, display: 'block' }}>{needsNote ? (action.id === 'reject' ? 'Reason for rejecting' : 'Note to the requester') : 'Note (optional)'}{needsNote && <span className="danger-text"> *</span>}</label>
+          <label className="t-label" htmlFor="dlg-note" style={{ marginTop: 18, display: 'block' }}>{needsNote ? (action.id === 'reject' ? 'Reason for rejecting' : 'Note to the requester') : 'Note (optional)'}</label>
           <textarea id="dlg-note" className="dlg-note" rows={4} value={note} onChange={(e) => setNote(e.target.value)} autoFocus
             placeholder={action.id === 'reject' ? 'Why is this request rejected?' : action.id === 'return' ? 'What should the requester change? Your section comments are included.' : 'Add a note for the record…'} />
           <div className="dialog-foot">
