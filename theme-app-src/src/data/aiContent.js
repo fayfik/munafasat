@@ -95,8 +95,11 @@ const FOCUS = {
   glchanged: 'To check: what changed since your approval and whether the accounting still holds.',
   assets: 'To check: which lines should be capitalised and how assets group together.',
   qual: 'To check: the qualification ranges and weights for the vendors.',
-  lead: 'To decide: who runs this tender and how urgent it is.',
-  officer: 'To prepare: the Etimad publication — documents, dates and committee.',
+  finqual: 'To check: the liquidity and cash ratio ranges against a high-priority, 18-month services project — they match the typical values for that profile.',
+  procqual: 'To check: one criterion (12+ years of experience) is above the typical 5–10 years; the requester gives a reason. Everything else is in range, so SMEs can compete.',
+  method: 'To decide: contract type and envelope, the priority (the requester says High), and which officer has room for it.',
+  confirm: 'To confirm: the estimated value and duration, after reading the Team Lead’s method and the qualification checks.',
+  etimad: 'To do: create the competition in Etimad with the approved settings and record the reference here.',
 };
 
 /** Sentences for the reviewer-side "AI executive summary". */
@@ -114,4 +117,30 @@ export function executiveSummary(request, taskType, variant = 0) {
     FOCUS[taskType] || 'Check the scope, the BOQ and the budget against your department’s rules.',
   ].filter(Boolean);
   return variant % 2 ? [s[0], s[2], s[1], s[3]].filter(Boolean) : s;
+}
+
+/* ── Review & submit: AI executive summary of the request being created ────── */
+const sarFull = (n) => `SAR ${Math.round(n).toLocaleString('en-US')}`;
+/** A narrative summary for the approving manager (sample text built from the form; no live model). */
+export function requestNarrative(f, t, { em, project, variant = 0 }) {
+  const items = f.boqItems.length;
+  const top = [...f.boqItems].sort((a, b) => (Number(b.unitPrice) || 0) * (Number(b.quantity) || 1) - (Number(a.unitPrice) || 0) * (Number(a.quantity) || 1)).slice(0, 2).map((r) => r.itemName).filter(Boolean);
+  const name = project?.name || 'this project';
+  const what = em
+    ? `This is a direct purchase from the Etimad E-Market catalogue for ${name}: ${items} item${items === 1 ? '' : 's'}${top.length ? `, mainly ${top.join(' and ')}` : ''}. ${f.purpose ? `The requester buys them to ${f.purpose.replace(/^(to |the purpose of this (tender|request) is to )/i, '').replace(/\.$/, '').replace(/^./, (c) => c.toLowerCase())}.` : 'The purpose of the purchase is not written yet.'}`
+    : `This request tenders ${name}${top.length ? ` — mainly ${top.join(' and ')}` : ''}. ${f.purpose ? f.purpose.replace(/\.?$/, '.') : 'The purpose is not written yet.'}${f.scopeOfWork ? ` The scope covers ${f.scopeOfWork.split(/[.;]/)[0].replace(/^(the )?(vendor|supplier) (shall|will) /i, '').toLowerCase()}.` : ''}`;
+  const money = `The estimated value is ${sarFull(t.subtotal)} before VAT and ${sarFull(t.total)} including 15% VAT, across ${items} BOQ line${items === 1 ? '' : 's'}.${em ? '' : ` ${f.startDate ? `Work starts on ${f.startDate}` : 'No start date is set'}${f.contractDuration ? ` and runs for ${f.contractDuration} ${f.contractDurationType}` : ''}. ${f.paymentStages.length ? `Payment is split into ${f.paymentStages.length} stages (${f.paymentStages.map((s) => `${s.stageName || 'stage'} ${s.percentage || 0}%`).join(', ')}).` : 'There is no payment schedule yet.'}`}`;
+  const evalP = em ? null : `Vendors are scored on ${f.evaluationCriteria.length ? f.evaluationCriteria.map((c) => `${(c.description || 'a criterion').toLowerCase()} (${c.weight || 0}%)`).join(', ') : 'criteria that are not defined yet'}, with a technical passing score of ${f.technicalPassingPercentage || '—'}%. Qualification needs ${f.qualificationPassingPercentage || '60'}% and the project priority is ${f.projectPriority || 'not set'}.`;
+  const gaps = [];
+  if (!f.purpose) gaps.push('no purpose');
+  if (!em && !f.scopeOfWork) gaps.push('no scope of work');
+  if (!em && t.payPct !== 100 && f.paymentStages.length) gaps.push(`payment stages add up to ${t.payPct}%`);
+  if (!em && !f.paymentStages.length) gaps.push('no payment schedule');
+  if (!em && t.evalPct !== 100 && f.evaluationCriteria.length) gaps.push(`evaluation weights add up to ${t.evalPct}%`);
+  if (f.boqItems.some((r) => !(Number(r.unitPrice) > 0))) gaps.push('BOQ lines without a price');
+  if (!em && f.startDate && new Date(f.startDate) < new Date()) gaps.push('the start date is in the past');
+  if (!f.attachments.length) gaps.push('no quote or market study attached');
+  const paras = [what, money, evalP].filter(Boolean);
+  if (variant % 2 && paras.length > 2) [paras[1], paras[2]] = [paras[2], paras[1]];
+  return [...paras, `Points to check: ${gaps.length ? gaps.join('; ') : 'nothing stands out'}.`];
 }
