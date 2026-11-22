@@ -7,15 +7,18 @@ import { Toast } from './components/Panels.jsx';
 import { Btn, Empty } from './components/ui.jsx';
 import { NewRequest } from './pages/NewRequest.jsx';
 import { RequestsHome } from './pages/RequestsHome.jsx';
+import { RequestView } from './pages/RequestView.jsx';
 import { useStore } from './state/store.jsx';
 import { useActor } from './state/actor.jsx';
 import { ACTORS, actorById, reviews } from './data/actors.js';
 import { mineFor, teamTasksFor, queuedFor, openerFor, canSee } from './lib/assign.js';
 import { TASKS, taskById, ACTION_PAST } from './data/tasks.js';
 
-// #/inbox/<task> · #/requests · #/requests/new · #/requests/<id>
+// #/inbox/<task> · #/requests · #/requests/new · #/requests/<id> (edit) · #/requests/view/<id>
 const route = () => {
   const h = location.hash;
+  const v = h.match(/^#\/requests\/view\/([\w-]+)/);
+  if (v) return { area: 'view', id: v[1] };
   const r = h.match(/^#\/requests(?:\/([\w-]+))?/);
   if (r) return r[1] ? { area: 'form', id: r[1] === 'new' ? null : r[1], key: r[1] } : { area: 'requests' };
   const m = h.match(/^#\/inbox\/([\w-]+)/);
@@ -103,7 +106,7 @@ export default function App() {
     <div className="app">
       <TopBar counts={counts} queued={queued} onSwitch={switchActor} />
       <div className="body">
-        <NavRail count={counts[actor.id]} area={loc.area === 'form' ? 'requests' : loc.area} onInbox={() => go(current ? `#/inbox/${current}` : '#/inbox')} />
+        <NavRail count={counts[actor.id]} area={loc.area === 'form' || loc.area === 'view' ? 'requests' : loc.area} onInbox={() => go(current ? `#/inbox/${current}` : '#/inbox')} />
         <div className="workspace">
           {loc.area === 'inbox' && (
             <>
@@ -118,7 +121,8 @@ export default function App() {
                 )}
             </>
           )}
-          {loc.area === 'requests' && <RequestsHome onNew={newRequest} onOpen={(id) => go(`#/requests/${id}`)} />}
+          {loc.area === 'requests' && <RequestsHome onNew={newRequest} onOpen={(id) => go(`#/requests/${id}`)} onView={(id) => go(`#/requests/view/${id}`)} />}
+          {loc.area === 'view' && <RequestView key={loc.id} id={loc.id} onBack={() => go('#/requests')} onEdit={(id) => go(`#/requests/${id}`)} />}
           {loc.area === 'form' && <NewRequest key={`${loc.key}-${formKey}`} id={loc.id} onExit={() => go('#/requests')} />}
         </div>
       </div>
