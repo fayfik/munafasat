@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Icon, Btn, Collapsible, Field, Segment, Tooltip } from '../components/ui.jsx';
-import { useForm, Block, FieldBlock, Input, TextArea, YesNo, ChipList, sarFmt } from '../components/FormKit.jsx';
+import { useForm, Block, FieldBlock, Input, TextArea, YesNo, ChipList, Choice, sarFmt } from '../components/FormKit.jsx';
+import { AREA_OPTS, DELIVERY_OPTS, natureOf, priorityName, aboveRange } from '../lib/qualGuide.js';
+import { AiTag } from '../components/AiKit.jsx';
 import { PROJECTS, COST_CENTERS, STD_GROUPS, STD_VERSION, BCM_VERDICT, RISK_RATING, NEXT_STEPS, BOQ_CATEGORIES, SECTIONS } from '../data/newRequest.js';
 import {
   totals, lineTotal, blockers, inEaScope, stdQuestions, standardsFor, deploymentOf,
@@ -9,6 +11,25 @@ import {
 import { fileExt, fileSize } from './AttachmentsStep.jsx';
 import { AiCard, AiSpark } from '../components/AiKit.jsx';
 import { preReview, REVIEWERS, SEVERITY, CHECK_ORDER } from '../lib/preReview.js';
+
+/** Priority (from Project setup) and the project nature, read from the BOQ and scope — the requester can correct it. */
+function ProjectProfile() {
+  const { f, set, goto } = useForm();
+  const { area, delivery, auto } = natureOf(f);
+  return (
+    <Block id="q-nature" title="Project profile" info="Finance and Procurement use these to judge the qualification criteria. The nature is read from your BOQ and scope — correct it if it’s wrong.">
+      <div className="profile-grid">
+        <div className="t-caption muted">Priority</div>
+        <div className="row-gap">{f.projectPriority ? <span className="t-body-medium"><span className={`prio-dot p-${f.projectPriority}`} style={{ display: 'inline-block', marginRight: 6 }} />{priorityName(f.projectPriority)}</span> : <span className="t-body-small amber-text">Not set</span>}<button type="button" className="link-btn t-body-small" onClick={() => goto('setup')}>Change</button></div>
+        <div className="t-caption muted">Nature {auto && <AiTag>Auto-detected</AiTag>}</div>
+        <div className="row-gap" style={{ flexWrap: 'wrap' }}>
+          <Choice name="IT or non-IT" options={AREA_OPTS} value={area} onChange={(v) => set('projectArea', v)} />
+          <Choice name="Delivery type" options={DELIVERY_OPTS} value={delivery} onChange={(v) => set('deliveryType', v)} />
+        </div>
+      </div>
+    </Block>
+  );
+}
 
 const stepTitle = (id, em) => { const s = SECTIONS.find((x) => x.id === id); return id === 'setup' && em ? s.emTitle : s.title; };
 
@@ -40,6 +61,8 @@ export function ReviewStep() {
 
       <PreReview />
 
+      {!em && <ProjectProfile />}
+
       {!em && inEaScope(f) && <Standards />}
       {!em && <Continuity />}
       {!em && p && (
@@ -54,6 +77,7 @@ export function ReviewStep() {
           <div className="field-grid">
             <Field label="Project">{p?.name}</Field><Field label="Project code">{p?.code}</Field><Field label="Cost center">{cc ? `${cc.code} · ${cc.name}` : '—'}</Field>
             <Field label="Route">{em ? 'Etimad E-Market' : 'Competitive tender'}</Field>
+            {!em && <Field label="Project priority">{priorityName(f.projectPriority) || <span className="muted">Not set</span>}</Field>}
             <Field label={em ? 'Purpose of purchase' : 'Purpose'} wide>{f.purpose || <span className="muted">Not completed</span>}</Field>
           </div>
         </Collapsible>
@@ -87,6 +111,7 @@ export function ReviewStep() {
             </Collapsible>
             <Collapsible title="Qualification" meta={`Passing ${f.qualificationPassingPercentage || '—'}%`} defaultOpen={false} actions={<button type="button" className="inline-link t-body-small" onClick={() => goto('qual')}>Edit</button>}>
               <Field label="Reviewers">{f.qualificationCommitteeMembers.map((m) => m.name).join(', ') || <span className="muted">No one selected</span>}</Field>
+              <Field label="Open to SMEs">{aboveRange(f).length ? `No — ${aboveRange(f).length} criteria above the recommended range` : 'Yes — every criterion is within the recommended range'}</Field>
               <table className="plain-table compact"><thead><tr><th>Criteria</th><th>Range</th><th className="num">Weight</th></tr></thead>
                 <tbody>{f.qualificationCriteria.map((m) => [<tr key={m.id} className="group-row"><td colSpan={2}>{m.name}</td><td className="num">{num(m.percentage)}%</td></tr>, ...m.subCriteria.map((s) => <tr key={s.id}><td style={{ paddingLeft: 24 }}>{s.name}</td><td className="muted">{s.range || '—'}</td><td className="num">{num(s.percentage)}%</td></tr>)])}</tbody></table>
             </Collapsible>

@@ -3,6 +3,10 @@ import { Icon, Btn, Collapsible, Avatar, Tags } from './ui.jsx';
 import { useTask, CommentBox } from './ReviewKit.jsx';
 import { sar, boqTotal } from '../data/requests.js';
 import { STANDARDS_4433, BCM_4433 } from '../data/content.js';
+import { priorityName, AREA_OPTS, DELIVERY_OPTS, optName } from '../lib/qualGuide.js';
+import { CONTRACT_OPTS, ENVELOPE_OPTS, requesterFin } from '../lib/procRules.js';
+import { actorById } from '../data/actors.js';
+import { useActor } from '../state/actor.jsx';
 
 /* Wraps any section, field or row so it can be commented on while commenting mode is on. */
 function C({ id, label, children, as: Tag = 'div', className = '' }) {
@@ -31,7 +35,12 @@ function KV({ id, label, children }) {
 }
 
 export function RequestDetails() {
-  const { request: r, commenting, openDetails } = useTask();
+  const { request: r, commenting, openDetails, store } = useTask();
+  const rfp = store.rfp?.[r.id] || {};
+  const { actor } = useActor();
+  const seesFin = ['finance', 'procurement'].includes(actor.team); // financial criteria: Finance and Procurement only
+  const fq = rfp.finQual || requesterFin(r);
+  const subs = r.qualification.groups.reduce((n, g) => n + g.subs.length, 0);
   const total = boqTotal(r);
   const items = r.boq.reduce((n, g) => n + g.items.length, 0);
   return (
@@ -60,6 +69,8 @@ export function RequestDetails() {
             <KV id="f-name-ar" label="Project name (Arabic)"><span dir="rtl" lang="ar">{r.projectAr}</span></KV>
             <KV id="f-cc" label="Cost center">{r.costCenter}</KV>
             <KV id="f-route" label="Procurement route">{r.route}</KV>
+            {r.profile && <KV id="f-priority" label="Project priority">{priorityName(rfp.method?.priority || r.profile.priority)}</KV>}
+            {r.profile && <KV id="f-nature" label="Project nature">{optName(AREA_OPTS, r.profile.area)} · {optName(DELIVERY_OPTS, r.profile.delivery)}</KV>}
           </div>
           <KV id="f-items" label="Selected budgeted items"><span className="chips">{r.budgetItems.map((b) => <span className="chip" key={b}>{b}</span>)}</span></KV>
           <KV id="f-purpose" label="Purpose">{r.purpose}</KV>
@@ -127,7 +138,7 @@ export function RequestDetails() {
       </C>
 
       <C id="sec-qual" label="Qualification criteria" className="c-section">
-        <Collapsible title="Qualification criteria" meta={`3 main · 7 sub-criteria · passing ${r.qualification.passing}%`} defaultOpen={false}>
+        <Collapsible title="Qualification criteria" meta={`${r.qualification.groups.length} main · ${subs} sub-criteria · passing ${r.qualification.passing}%`} defaultOpen={false}>
           <table className="plain-table"><thead><tr><th>Criteria</th><th>Range</th><th className="num">Weight</th></tr></thead>
             <tbody>{r.qualification.groups.flatMap((g) => [
               <tr key={g.id} className="group-row"><td colSpan={2}>{g.name}</td><td className="num">{g.weight}%</td></tr>,
@@ -135,6 +146,27 @@ export function RequestDetails() {
             ])}</tbody></table>
         </Collapsible>
       </C>
+
+      {seesFin && <C id="sec-fin" label="Financial criteria" className="c-section">
+        <Collapsible title="Financial criteria" meta={`${rfp.finQual ? 'Set by Finance' : 'As the requester entered'} · passing ${fq.passing}% · not shown to requesters`} defaultOpen={false}>
+          <table className="plain-table"><thead><tr><th>Ratio</th><th className="num">Minimum</th><th className="num">Target</th><th className="num">Weight</th></tr></thead>
+            <tbody>{[['Liquidity ratio', fq.liquidity], ['Cash ratio', fq.cash]].map(([n, x]) => <tr key={n}><td>{n}</td><td className="num">{x.min}</td><td className="num">{x.max}</td><td className="num">{x.weight}%</td></tr>)}</tbody></table>
+        </Collapsible>
+      </C>}
+
+      {rfp.method?.contractType && (
+        <C id="sec-method" label="Procurement method" className="c-section">
+          <Collapsible title="Procurement method" meta={`Set by ${actorById('lead').name}`}>
+            <div className="field-grid">
+              <KV id="f-contract" label="Contract type">{optName(CONTRACT_OPTS, rfp.method.contractType)}</KV>
+              <KV id="f-envelope" label="Envelope">{optName(ENVELOPE_OPTS, rfp.method.envelope)}</KV>
+              <KV id="f-officer" label="Officer">{rfp.method.officer ? actorById(rfp.method.officer).name : '—'}</KV>
+              {rfp.method.contractType === 'closed' && <KV id="f-vendors" label="Invited vendors">{(rfp.method.vendors || []).join(', ')}</KV>}
+              {rfp.confirm && <KV id="f-confirmed" label="Confirmed value & duration">{sar(rfp.confirm.value)} · {rfp.confirm.duration}</KV>}
+            </div>
+          </Collapsible>
+        </C>
+      )}
 
       <C id="sec-att" label="Attachments" className="c-section">
         <Collapsible title="Attachments" meta={`${r.attachments.length} files`}>

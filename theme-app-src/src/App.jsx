@@ -9,7 +9,8 @@ import { NewRequest } from './pages/NewRequest.jsx';
 import { RequestsHome } from './pages/RequestsHome.jsx';
 import { useStore } from './state/store.jsx';
 import { useActor } from './state/actor.jsx';
-import { ACTORS, actorById, actorForTask, ownsTask } from './data/actors.js';
+import { ACTORS, actorById, reviews } from './data/actors.js';
+import { mineFor, teamTasksFor, queuedFor, openerFor, canSee } from './lib/assign.js';
 import { TASKS, taskById, ACTION_PAST } from './data/tasks.js';
 
 // #/inbox/<task> · #/requests · #/requests/new · #/requests/<id>
@@ -30,13 +31,16 @@ const transition = (fn) => {
 export default function App() {
   const { state, dispatch } = useStore();
   const { actor, setActor } = useActor();
-  const mine = TASKS.filter((t) => ownsTask(actor, t));
-  const firstPending = (list) => list.find((t) => !state.done[t.id])?.id || list[0]?.id || null;
+  const mine = mineFor(actor, state);
+  const teamList = teamTasksFor(actor, state);
+  const [scope, setScope] = useState('mine');
+  const list = scope === 'team' && actor.team ? teamList : mine;
+  const firstPending = (l) => l.find((t) => !state.done[t.id])?.id || l[0]?.id || null;
 
   const [loc, setLoc] = useState(route);
   // A link to someone else's task opens it as that person.
   const [current, setCurrent] = useState(() => route().task || firstPending(mine));
-  useEffect(() => { const t = route().task; if (t) { const owner = actorForTask(taskById(t)); if (owner.id !== actor.id) setActor(owner.id); } }, []);
+  useEffect(() => { const t = route().task; if (t) { const tk = taskById(t); if (!canSee(actor, tk, state)) { const who = actorById(openerFor(tk, state)); setActor(who.id); if (!mineFor(who, state).some((x) => x.id === t)) setScope('team'); } else if (!mine.some((x) => x.id === t)) setScope('team'); } }, []);
   const [panel, setPanel] = useState({ open: false, view: 'comments' });
   const [toast, setToast] = useState(null);
   const [formKey, setFormKey] = useState(0);
@@ -50,14 +54,15 @@ export default function App() {
       transition(() => {
         setLoc(r);
         if (r.area === 'inbox' && r.task) {
-          const owner = actorForTask(taskById(r.task));
-          if (owner.id !== actor.id) setActor(owner.id);
+          const tk = taskById(r.task);
+          if (!canSee(actor, tk, state)) setActor(openerFor(tk, state));
+          setScope(mineFor(canSee(actor, tk, state) ? actor : actorById(openerFor(tk, state)), state).some((x) => x.id === r.task) ? 'mine' : 'team');
           setCurrent(r.task);
         }
       });
     };
     addEventListener('hashchange', onHash); return () => removeEventListener('hashchange', onHash);
-  }, [loc, actor.id]);
+  }, [loc, actor.id, state]);
 
   const go = (hash) => { if (location.hash !== hash) location.hash = hash; };
   const open = (id) => { if (id !== current) { history.pushState(null, '', `#/inbox/${id}`); transition(() => setCurrent(id)); } };
@@ -65,45 +70,50 @@ export default function App() {
 
   const switchActor = (id) => {
     const a = actorById(id);
-    const list = TASKS.filter((t) => ownsTask(a, t));
-    const next = firstPending(list);
+    const own = mineFor(a, state);
+    // Nothing of their own to do but work waiting in the team queue: open the queue.
+    const toTeam = !own.some((t) => !state.done[t.id]) && queuedFor(a, state).length > 0;
+    const next = firstPending(toTeam ? teamTasksFor(a, state) : own);
     transition(() => {
       setActor(id);
+      setScope(toTeam ? 'team' : 'mine');
       setPanel((p) => ({ ...p, open: false }));
       setToast(null);
       setCurrent(next);
       // Requesters land on their requests; reviewers on their inbox.
-      if (!a.steps.length) { if (loc.area === 'inbox') { history.pushState(null, '', '#/requests'); setLoc({ area: 'requests' }); } }
+      if (!reviews(a)) { if (loc.area === 'inbox') { history.pushState(null, '', '#/requests'); setLoc({ area: 'requests' }); } }
       else if (loc.area !== 'form') { history.pushState(null, '', next ? `#/inbox/${next}` : '#/inbox'); setLoc({ area: 'inbox', task: next }); }
     });
   };
 
   const complete = (task, action, note) => {
     dispatch({ type: 'complete', task: task.id, action: action.id, note });
-    const idx = mine.findIndex((t) => t.id === task.id);
-    const next = [...mine.slice(idx + 1), ...mine.slice(0, idx)].find((t) => !state.done[t.id] && t.id !== task.id);
+    const idx = list.findIndex((t) => t.id === task.id);
+    const next = [...list.slice(idx + 1), ...list.slice(0, idx)].find((t) => !state.done[t.id] && t.id !== task.id);
     setToast({ text: `${task.req} · ${task.title} — ${ACTION_PAST[action.id]}.`, undo: task.id, back: task.id });
     if (next) open(next.id);
   };
 
-  const counts = Object.fromEntries(ACTORS.map((a) => [a.id, TASKS.filter((t) => ownsTask(a, t) && !state.done[t.id]).length]));
-  const task = current && ownsTask(actor, taskById(current)) ? taskById(current) : null;
+  const counts = Object.fromEntries(ACTORS.map((a) => [a.id, mineFor(a, state).filter((t) => !state.done[t.id]).length]));
+  const queued = Object.fromEntries(ACTORS.map((a) => [a.id, queuedFor(a, state).length]));
+  const task = current && taskById(current) && canSee(actor, taskById(current), state) ? taskById(current) : null;
+  const changeScope = (v) => transition(() => { setScope(v); const l = v === 'team' ? teamList : mine; if (!l.some((t) => t.id === current)) setCurrent(firstPending(l)); });
 
   return (
     <div className="app">
-      <TopBar counts={counts} onSwitch={switchActor} />
+      <TopBar counts={counts} queued={queued} onSwitch={switchActor} />
       <div className="body">
         <NavRail count={counts[actor.id]} area={loc.area === 'form' ? 'requests' : loc.area} onInbox={() => go(current ? `#/inbox/${current}` : '#/inbox')} />
         <div className="workspace">
           {loc.area === 'inbox' && (
             <>
-              <InboxColumn tasks={mine} currentId={task?.id} onOpen={open} />
+              <InboxColumn key={actor.id} tasks={mine} team={teamList} scope={actor.team ? scope : 'mine'} onScope={changeScope} currentId={task?.id} onOpen={open} />
               {task
-                ? <TaskDetail key={task.id} task={task} onComplete={complete} panel={panel} setPanel={setPanel} />
+                ? <TaskDetail key={task.id} task={task} onComplete={complete} panel={panel} setPanel={setPanel} onPickedUp={() => setScope('mine')} />
                 : (
                   <main className="detail inbox-blank" aria-label="No task selected">
-                    <Empty icon="icon-inbox" title={actor.steps.length ? 'Nothing to review' : `${actor.name} doesn’t review requests`} sub={actor.steps.length ? 'New tasks will appear here.' : 'Requesters create requests and follow them in My requests.'} />
-                    {!actor.steps.length && <Btn variant="secondary" onClick={() => go('#/requests')}>Go to My requests</Btn>}
+                    <Empty icon="icon-inbox" title={reviews(actor) ? 'Nothing to review' : `${actor.name} doesn’t review requests`} sub={reviews(actor) ? 'New tasks will appear here.' : 'Requesters create requests and follow them in My requests.'} />
+                    {!reviews(actor) && <Btn variant="secondary" onClick={() => go('#/requests')}>Go to My requests</Btn>}
                   </main>
                 )}
             </>

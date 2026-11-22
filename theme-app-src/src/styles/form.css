@@ -418,3 +418,28 @@ tr:hover .row-actions .icon-btn, .row-actions .icon-btn:focus-visible { opacity:
 .tag.em { background: #fbf5ea; border-color: #f0e0bf; color: #8a5a12; }
 .req-home > * { flex: none; }
 .req-foot.inline { padding-bottom: 28px; }
+
+/* ── Guided qualification & project priority (design-review, 22 Nov) ─────── */
+.fade-in { animation: fade-in 200ms ease both; }
+@keyframes fade-in { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+.amber-text { color: var(--amber-text); }
+.ink { color: var(--ink-primary); font-weight: 600; }
+.ok-chip.warn { color: var(--amber-text); border-color: var(--amber-border); background: var(--amber-50); }
+.choice-pills { flex-wrap: wrap; border-radius: 20px; }
+.choice-pills .yn { display: inline-flex; align-items: center; gap: 7px; }
+.prio-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #9aa394; }
+.prio-dot.p-medium { background: #2a6193; }
+.prio-dot.p-high { background: #d98a00; }
+.prio-dot.p-critical { background: var(--danger-text); }
+.qual-basis { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+.qual-hint { display: block; }
+.qual-rec { width: 120px; flex: none; white-space: nowrap; }
+.qual-sub-wrap.above { background: var(--amber-50); border-radius: 6px; }
+.qual-sub-wrap.above .qual-sub { border-bottom-color: transparent; }
+.qual-justify { display: flex; flex-direction: column; gap: 4px; padding: 0 12px 12px 16px; color: var(--amber-text); }
+.qual-justify .finput.needs { border-color: var(--amber-border); }
+@media (max-width: 720px) { .qual-rec { width: auto; } }
+.profile-grid { display: grid; grid-template-columns: 120px 1fr; gap: 12px 16px; align-items: center; }
+.profile-grid > .t-caption { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 720px) { .profile-grid { grid-template-columns: 1fr; } }
+.choice-pills { align-self: flex-start; }

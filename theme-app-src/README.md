@@ -20,8 +20,11 @@ Commit both `theme-app-src/` and `theme-app/` after a build.
 | Path | What's in it |
 |---|---|
 | `src/data/requests.js` | The four requests (REQ-4478, 4471, 4433, 4429): details, BOQ, budget, comments |
-| `src/data/actors.js` | The 14 people who act on a request and the workflow steps each owns (drives the per-person inbox) |
-| `src/data/tasks.js` | The 17 inbox tasks, the 15-step workflow, decision copy |
+| `src/data/actors.js` | The people who act on a request and the six reviewing teams (lead + members). Approvals by authority stay with one person |
+| `src/data/tasks.js` | The inbox tasks, the workflow up to Create in Etimad, who holds each task at the start, decision copy |
+| `src/lib/assign.js` · `src/components/Queue.jsx` | Team queues: who holds a task, pick up, return to queue, assign / reassign with workload |
+| `src/lib/qualGuide.js` | Project priority, recommended qualification ranges, SME check, project nature, financial criteria |
+| `src/lib/procRules.js` · `src/tasks/Procurement.jsx` | Finance qualification, procurement method, officer confirm and Create in Etimad |
 | `src/data/content.js` | Review content per task type (cyber, BCM, op-risk, EA, GL, assets…) and the libraries |
 | `src/data/newRequest.js` | New Request reference data: projects, cost centers, people, samples, standards library, BCM / third-party risk questions |
 | `src/lib/requestRules.js` | Routing, step completeness, “will this be returned?” checks, standards and continuity screening |
@@ -40,7 +43,9 @@ Commit both `theme-app-src/` and `theme-app/` after a build.
 Content is transcribed from the design-review build deployed on 11 Nov 2026.
 Review progress, comments, decisions and requests you create are kept for the browser session only.
 
-Switch person from the profile menu in the top bar; each sees only their own inbox and requests. A link to someone else’s task opens it as that person.
+Switch person from the profile menu in the top bar; each sees their own tasks and requests. Review tasks belong to a team: they wait in the team queue until a member picks one up, and the team lead can assign or reassign them (lightest workload suggested). People in a team switch between My tasks and Team queue at the top of the inbox. A link to someone else’s task opens it as that person — or as the team lead while it waits in the queue.
+
+Synced with the design-review build of 22 Nov 2026: project priority and guided qualification ranges in the form, financial criteria as the fourth qualification criterion, and the approval steps up to Create in Etimad.
 
 AI touchpoints (sample content, no live model): similar requests to import on Project setup, “Identify items with AI” in Help me decide, Generate scope / terms / purpose / location, Generate with AI on the BOQ (start card, title row and item descriptions), AI Etimad check, AI purchase type + material group per line, Import from similar projects (payment, requirements, criteria, qualification), AI pre-review on Review & submit, AI suggestions on My requests, and an AI executive summary on every reviewer task.
 

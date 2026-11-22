@@ -1,16 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon, Btn, Segment, Avatar, Empty } from './ui.jsx';
 import { useStore } from '../state/store.jsx';
-import { WORKFLOW, nextSteps } from '../data/tasks.js';
+import { WORKFLOW, TASKS, nextSteps } from '../data/tasks.js';
+import { actorById, teamOfStep } from '../data/actors.js';
+import { assigneeOf } from '../lib/assign.js';
 import { useActor } from '../state/actor.jsx';
 
 /* Workflow state for a request, seen from the task's step. */
-export function processFor(task, request, me) {
+export function processFor(task, request, me, store) {
   const cur = WORKFLOW.findIndex((s) => s.id === task.step);
   return WORKFLOW.map((s, i) => {
     let who = s.id === 'submitted' ? request.requester.name : s.who;
+    // Team steps: whoever holds this request's task, or the team queue.
+    const team = teamOfStep(s.id);
+    const t = team && store && TASKS.find((x) => x.req === request.id && x.step === s.id && x.type !== 'glchanged');
+    if (t) { const h = assigneeOf(t, store); who = h ? `${actorById(h).name} · ${team.name}` : `${team.name} team queue`; }
     const state = i < cur ? 'done' : i === cur ? 'current' : (WORKFLOW[cur].group && s.group === WORKFLOW[cur].group) ? 'parallel' : 'upcoming';
-    if (state === 'current' && me) who = `${me.name} (you)`;
+    if (state === 'current' && me && (!store || !t || assigneeOf(t, store) === me.id)) who = `${me.name} (you)`;
     return { ...s, who, state, when: s.id === 'submitted' ? request.submitted.at.split(',')[0] : null };
   });
 }
@@ -19,7 +25,7 @@ export function processFor(task, request, me) {
 export function Activity({ task, request }) {
   const { state } = useStore();
   const { actor } = useActor();
-  const steps = processFor(task, request, actor);
+  const steps = processFor(task, request, actor, state);
   const cur = steps.find((s) => s.state === 'current');
   const left = steps.filter((s) => s.state === 'upcoming' || s.state === 'parallel').length;
   const next = steps.find((s) => s.state === 'upcoming');
@@ -32,7 +38,10 @@ export function Activity({ task, request }) {
     : [
       { at: request.submitted.at.replace(', ', ' · '), title: `Request ${request.id} submitted`, who: `${request.requester.name} · Requester`, done: true },
       ...(state.comments[request.id] || []).map((c) => ({ at: c.at, title: c.anchor ? `Comment on ${c.anchor.label}` : 'Comment added', who: `${c.author.name}${c.author.role ? ` · ${c.author.role}` : ''}`, quote: c.text, comment: true })),
-      { at: '', title: `Assigned to you — ${cur?.name}`, who: cur?.group ? 'Specialist review · runs in parallel' : 'Workflow', done: true },
+      ...(teamOfStep(task.step)
+        ? [{ at: '', title: task.assignee ? `Assigned to ${actorById(task.assignee).name} — ${cur?.name}` : `Placed in the ${teamOfStep(task.step).name} team queue`, who: cur?.group ? 'Specialist review · runs in parallel' : 'Workflow', done: true },
+          ...(state.assign[task.id]?.history || []).map((h) => ({ at: h.at, title: h.text, who: `${teamOfStep(task.step).name} team`, done: true }))]
+        : [{ at: '', title: `Assigned to you — ${cur?.name}`, who: cur?.group ? 'Specialist review · runs in parallel' : 'Workflow', done: true }]),
     ];
   return (
     <div className="stack">
@@ -49,7 +58,7 @@ export function Activity({ task, request }) {
         ))}
         <li>
           <div className="rail"><span className="node now" /></div>
-          <div className="step"><div className="t-body-medium" style={{ color: 'var(--brand-800)' }}>{cur?.name} — you are here</div><div className="t-caption muted">Due {task.due}</div></div>
+          <div className="step"><div className="t-body-medium" style={{ color: 'var(--brand-800)' }}>{cur?.name} — {assigneeOf(task, state) === actor.id ? 'you are here' : cur?.who}</div><div className="t-caption muted">Due {task.due}</div></div>
         </li>
       </ol>
       <p className="t-body-small muted" style={{ margin: 0 }}>{left} steps left after yours{next ? ` · Next: ${next.name} · ${next.who}` : ''}</p>
@@ -105,7 +114,7 @@ export function SidePanel({ open, view, setView, onClose, task, request, replyTo
     dispatch({ type: 'comment', req: request.id, author: actor, text: text.trim(), replyTo: replyTo?.id });
     setText(''); setReplyTo(null);
   };
-  const steps = processFor(task, request, actor);
+  const steps = processFor(task, request, actor, state);
   const curIdx = steps.findIndex((s) => s.state === 'current');
   const doneCount = steps.filter((s) => s.state === 'done').length;
   const firstUp = steps.findIndex((s, i) => i > curIdx && s.state === 'upcoming');

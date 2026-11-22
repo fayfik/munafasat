@@ -234,11 +234,23 @@ export const DEFAULT_QUAL = [
     { id: 'qs-3-1', name: 'Number of employees', range: '', percentage: '' },
     { id: 'qs-3-2', name: 'Percentage of Saudi employees', range: '', percentage: '' },
   ] },
+  { id: 'qm-4', name: 'Financial criteria', percentage: '', subCriteria: [
+    { id: 'qs-4-1', name: 'Liquidity ratio', hint: 'Current assets ÷ current liabilities', range: '', percentage: '' },
+    { id: 'qs-4-2', name: 'Cash ratio', hint: 'Cash & equivalents ÷ current liabilities', range: '', percentage: '' },
+  ] },
 ];
+// Placeholders shown until the project priority gives a recommended value.
+export const RANGE_PLACEHOLDERS = {
+  'qs-1-1': 'e.g. 5–15 years', 'qs-1-2': 'e.g. 3–10 similar projects', 'qs-1-3': 'e.g. SAR 1M–10M',
+  'qs-2-1': 'e.g. 2–8 active projects', 'qs-2-2': 'e.g. SAR 3M–15M',
+  'qs-3-1': 'e.g. 50–500 employees', 'qs-3-2': 'e.g. 25%–60% Saudi nationals',
+  'qs-4-1': 'e.g. 1.0–1.8', 'qs-4-2': 'e.g. 0.3–0.8',
+};
 export const AI_QUAL = {
-  'qm-1': { percentage: 40, sub: { 'qs-1-1': ['7+ years', 40], 'qs-1-2': ['5+ projects', 35], 'qs-1-3': ['SAR 2M+', 25] } },
-  'qm-2': { percentage: 30, sub: { 'qs-2-1': ['2–8 projects', 50], 'qs-2-2': ['SAR 3M–15M', 50] } },
-  'qm-3': { percentage: 30, sub: { 'qs-3-1': ['100+ employees', 50], 'qs-3-2': ['35%+', 50] } },
+  'qm-1': { percentage: 30, sub: { 'qs-1-1': ['7+ years', 40], 'qs-1-2': ['5+ projects', 35], 'qs-1-3': ['SAR 2M+', 25] } },
+  'qm-2': { percentage: 25, sub: { 'qs-2-1': ['2–8 projects', 50], 'qs-2-2': ['SAR 3M–15M', 50] } },
+  'qm-3': { percentage: 25, sub: { 'qs-3-1': ['100+ employees', 50], 'qs-3-2': ['35%+', 50] } },
+  'qm-4': { percentage: 20, sub: { 'qs-4-1': ['1.0–1.8', 70], 'qs-4-2': ['0.3–0.8', 30] } },
 };
 
 /* ── Technical standards (EA · Cybersecurity · PMO), library v2026.1 ──────── */

@@ -5,6 +5,7 @@ import {
   SECTIONS, EM_STEPS, PROJECTS, CATEGORIES, STD_LIBRARY, STD_QUESTIONS,
   BCM_QUESTIONS, BCM_CLAUSES, TPR_QUESTIONS,
 } from '../data/newRequest.js';
+import { aboveRange } from './qualGuide.js';
 
 export const num = (v) => (typeof v === 'number' && !Number.isNaN(v) ? v : 0);
 export const words = (s) => (s ?? '').trim().split(/\s+/).filter((w) => w.length > 1).length;
@@ -114,7 +115,7 @@ export function sectionStatus(id, f, routeConfirmed) {
   const t = totals(f);
   switch (id) {
     case 'route': return routeConfirmed ? 'done' : 'todo';
-    case 'setup': return f.costCenterId && f.projectId && words(f.purpose) > 0 ? 'done' : f.projectId ? 'missing' : 'todo';
+    case 'setup': return f.costCenterId && f.projectId && words(f.purpose) > 0 && (f.sourceType === 'emarket' || f.projectPriority) ? 'done' : f.projectId ? 'missing' : 'todo';
     case 'scope': {
       const ok = words(f.scopeOfWork) >= 5 && f.executionLocation && f.startDate && f.contractDuration;
       return ok ? 'done' : f.scopeOfWork || f.executionLocation || f.startDate || f.contractDuration ? 'missing' : 'todo';
@@ -130,7 +131,8 @@ export function sectionStatus(id, f, routeConfirmed) {
     case 'qual': {
       const subsOk = f.qualificationCriteria.every((m) => m.subCriteria.reduce((s, c) => s + num(c.percentage), 0) === 100);
       const pass = Number(f.qualificationPassingPercentage);
-      if (t.qualPct === 100 && subsOk && pass > 0 && pass <= 100 && f.qualificationCommitteeMembers.length) return 'done';
+      const justified = aboveRange(f).every((x) => x.justified);
+      if (t.qualPct === 100 && subsOk && justified && pass > 0 && pass <= 100 && f.qualificationCommitteeMembers.length) return 'done';
       return f.qualificationCommitteeMembers.length || t.qualPct > 0 ? 'missing' : 'todo';
     }
     case 'attachments': return f.attachments.length ? 'done' : 'todo';

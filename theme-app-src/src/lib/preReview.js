@@ -2,6 +2,7 @@
 // submitted, and proposes a fix the requester can apply. Rules adapted from the
 // design-review build (Kz). severity: return (likely returned) · improve · tip.
 import { words, MIN_WORDS, totals, num, stdQuestions, inEaScope, uid } from './requestRules.js';
+import { aboveRange, natureOf } from './qualGuide.js';
 import { suggestAccounting, mgOf } from './accounting.js';
 import { PROJECTS } from '../data/newRequest.js';
 
@@ -140,6 +141,10 @@ export function preReview(f) {
   // Finance qualification
   if (!f.qualificationCommitteeMembers.length) out.push({ id: 'fq-committee', dept: 'finqual', severity: 'return', step: 'qual', title: 'No qualification reviewer selected', why: 'Someone has to check vendors against the qualification criteria.', manual: 'Add at least one reviewer in the Qualification step.' });
   const noRange = f.qualificationCriteria.flatMap((m) => m.subCriteria).filter((s) => !(s.range || '').trim());
+  const above = aboveRange(f).filter((x) => !x.justified);
+  if (above.length) out.push({ id: 'fq-above', dept: 'finqual', severity: 'return', step: 'qual', title: `${above.length} criteri${above.length === 1 ? 'on is' : 'a are'} above the recommended range without a reason`, why: 'Procurement returns criteria that shut out SMEs unless the request says why a higher bar is needed.', manual: `Lower ${above.map((x) => x.name).join(', ')} to the recommended range, or add a one-line reason.` });
+  if (!f.projectPriority) out.push({ id: 'fq-priority', dept: 'finqual', severity: 'improve', step: 'setup', title: 'No project priority', why: 'Finance and Procurement judge the qualification criteria against the project priority.', manual: 'Set the project priority in Project setup.' });
+  else if (!natureOf(f).area) out.push({ id: 'fq-nature', dept: 'finqual', severity: 'tip', step: 'review', title: 'Project nature can’t be read yet', why: 'The nature (IT or non-IT, delivery type) decides who reviews the financial criteria.', manual: 'Add BOQ items and a scope, or set the nature under Project profile below.' });
   if (noRange.length) out.push({ id: 'fq-range', dept: 'finqual', severity: 'improve', step: 'qual', title: `${noRange.length} sub-criteri${noRange.length === 1 ? 'on has' : 'a have'} no range`, why: 'Without a range (e.g. “SAR 2M+” or “7+ years”) vendors can’t be scored consistently.', manual: 'Fill in a range for each sub-criterion, or import values from a similar project.' });
 
   return out;
