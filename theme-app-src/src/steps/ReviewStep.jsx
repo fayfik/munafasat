@@ -9,8 +9,25 @@ import {
   bcmQuestions, tprQuestions, bcmVerdict, bcmClauses, tprRating, num,
 } from '../lib/requestRules.js';
 import { fileExt, fileSize } from './AttachmentsStep.jsx';
-import { AiCard, AiSpark } from '../components/AiKit.jsx';
+import { AiCard, AiSpark, AiBtn } from '../components/AiKit.jsx';
+import { requestNarrative } from '../data/aiContent.js';
 import { preReview, REVIEWERS, SEVERITY, CHECK_ORDER } from '../lib/preReview.js';
+
+/** AI executive summary of the request — a narrative for the approving manager (design-review "Generate Summary"). */
+function RequestSummary() {
+  const { f, em } = useForm();
+  const [v, setV] = useState(null);
+  const p = PROJECTS.find((x) => x.id === f.projectId);
+  const lines = v == null ? null : requestNarrative(f, totals(f), { em, project: p, variant: v });
+  return (
+    <AiCard className="req-summary" title="AI executive summary"
+      right={<AiBtn label={v == null ? 'Generate summary' : 'Regenerate'} busyLabel="Writing…" onRun={() => setV((x) => (x == null ? 0 : x + 1))} />}>
+      {lines ? (
+        <div className="summary-text fade-in">{lines.map((l, i) => <p key={i} className={`t-body-small${i === lines.length - 1 ? ' summary-check' : ''}`}>{l}</p>)}</div>
+      ) : <p className="t-body-small muted" style={{ margin: 0 }}>A short narrative of this request for your approver — what is bought and why, value and timeline, how vendors are judged, and anything to check.</p>}
+    </AiCard>
+  );
+}
 
 /** Priority (from Project setup) and the project nature, read from the BOQ and scope — the requester can correct it. */
 function ProjectProfile() {
@@ -60,6 +77,8 @@ export function ReviewStep() {
       )}
 
       <PreReview />
+
+      <RequestSummary />
 
       {!em && <ProjectProfile />}
 

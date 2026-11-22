@@ -171,3 +171,6 @@
 .em-keep { display: flex; flex-direction: column; gap: 6px; }
 .em-keep .finput { background: #fff; border-color: #ecd9a8; }
 .em-keep-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.req-summary .summary-text { display: flex; flex-direction: column; gap: 8px; }
+.req-summary .summary-text p { margin: 0; color: var(--ink-secondary); }
+.req-summary .summary-check { color: var(--ink-primary); font-weight: 500; }

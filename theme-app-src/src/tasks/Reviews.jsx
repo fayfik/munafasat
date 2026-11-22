@@ -3,7 +3,9 @@ import { useTask, ReviewHeader, SectionHead, ReviewRow, LibraryDialog, countDone
 import { Icon, Btn, Avatar, Tags, Collapsible } from '../components/ui.jsx';
 import { SPECIALIST, LIBRARY, EA } from '../data/content.js';
 import { sar } from '../data/requests.js';
-import { subGuide, aboveCount } from '../lib/procRules.js';
+import { subGuide, aboveCount, formLike } from '../lib/procRules.js';
+import { suggestedRange } from '../lib/qualGuide.js';
+import { AiBtn } from '../components/AiKit.jsx';
 import { AREA_OPTS, DELIVERY_OPTS, optName, priorityName } from '../lib/qualGuide.js';
 
 function Member({ person, label }) {
@@ -227,11 +229,17 @@ export function ProcQualification() {
   const commented = keys.filter((k) => review.decisions[k]?.state === 'commented').length;
   const above = aboveCount(request);
   const p = request.profile || {};
+  const [drafts, setDrafts] = useState({});
+  // AI: draft a comment for each criterion above the typical range, with a value inside it.
+  const toSuggest = q.groups.flatMap((g, gi) => g.subs.map((s, si) => ({ s, gi, si, gd: subGuide(request, gi, si) }))).filter((x) => x.gd?.above && !review.decisions[`pq-${x.s.id}`]);
+  const suggest = () => setDrafts(Object.fromEntries(toSuggest.map(({ s, gi, si, gd }) => [s.id, `Above the typical range (${gd.text}). Suggest: ${suggestedRange(`qs-${gi + 1}-${si + 1}`, formLike(request))}.`])));
   useEffect(() => { setGates({ approve: done < keys.length ? `Review all ${keys.length} criteria first.` : commented ? 'You commented on criteria — return the request instead.' : true }); }, [done, commented]);
   return (
     <div className="stack">
       <ReviewHeader title="Review the qualification criteria" desc="Set by the requester. Accept each criterion, or comment where it doesn’t fit the project size or shuts out SMEs. The requester changes them after a return." done={done} total={keys.length} noun="criteria reviewed"
-        onAll={() => review.set(keys.filter((k) => !review.decisions[k]), { state: 'accepted' })} />
+        onAll={() => review.set(keys.filter((k) => !review.decisions[k] && !drafts[k.slice(3)]), { state: 'accepted' })}>
+        {toSuggest.length > 0 && <div className="row-gap" style={{ marginTop: 8 }}><AiBtn variant="outline" label={`Suggest comments (${toSuggest.length})`} busyLabel="Drafting…" onRun={suggest} /><span className="t-caption muted">Drafts a comment with a value inside the typical range — you edit and post it.</span></div>}
+      </ReviewHeader>
       <div className="qual-basis">
         {above === 0
           ? <span className="ok-chip t-caption-medium"><Icon name="icon-check" size={13} />Open to SMEs</span>
@@ -244,7 +252,7 @@ export function ProcQualification() {
           {g.subs.map((s, si) => {
             const gd = subGuide(request, gi, si);
             return (
-              <ReviewRow key={s.id} k={`pq-${s.id}`} mode="comment" title={s.name} tone={gd?.above ? 'warning' : undefined}
+              <ReviewRow key={s.id} k={`pq-${s.id}`} mode="comment" title={s.name} tone={gd?.above ? 'warning' : undefined} draft={drafts[s.id]}
                 reasons={['Above the typical range', 'May exclude SMEs', 'Range unclear', 'Weight too high']}
                 render={() => (
                   <div className="crit-row">

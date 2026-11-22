@@ -54,8 +54,8 @@ function StatusTag({ d }) {
 }
 
 /* Inline comment composer with optional reason chips. */
-export function CommentBox({ reasons, onSubmit, onCancel, placeholder = 'What should the requester change?' }) {
-  const [text, setText] = useState('');
+export function CommentBox({ reasons, onSubmit, onCancel, placeholder = 'What should the requester change?', initial = '' }) {
+  const [text, setText] = useState(initial);
   const [reason, setReason] = useState(null);
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus(); }, []);
@@ -121,10 +121,12 @@ export function ModifyBox({ fields, onSave, onCancel }) {
 }
 
 /* One reviewable row. mode: 'comment' (Accept/Comment) or 'modify' (Accept/Modify). */
-export function ReviewRow({ k, title, sub, tone, mode = 'comment', fields, reasons, anchor, children, render, compact, readOnlyNote }) {
+export function ReviewRow({ k, title, sub, tone, mode = 'comment', fields, reasons, anchor, children, render, compact, readOnlyNote, draft }) {
   const { review, comment } = useTask();
   const d = review.decisions[k];
   const [open, setOpen] = useState(null);
+  // An AI-drafted comment opens the comment box with the text filled in, for the reviewer to edit or post.
+  useEffect(() => { if (draft && !d) setOpen('cmt'); }, [draft]);
   const accept = () => (d?.state === 'accepted' ? review.clear(k) : review.set(k, { state: 'accepted' }));
   const shown = d?.state === 'modified' && d.value ? d.value : null;
   return (
@@ -161,7 +163,7 @@ export function ReviewRow({ k, title, sub, tone, mode = 'comment', fields, reaso
         </div>
       </div>
       {open === 'cmt' && (
-        <CommentBox reasons={reasons} onCancel={() => setOpen(null)} onSubmit={(text) => { review.set(k, { state: 'commented', note: text }); comment(anchor || { id: k, label: title }, text); setOpen(null); }} />
+        <CommentBox key={draft || 'c'} initial={draft || ''} reasons={reasons} onCancel={() => setOpen(null)} onSubmit={(text) => { review.set(k, { state: 'commented', note: text }); comment(anchor || { id: k, label: title }, text); setOpen(null); }} />
       )}
       {open === 'mod' && (
         <ModifyBox fields={fields} onCancel={() => setOpen(null)} onSave={(vals) => { review.set(k, { state: 'modified', value: vals }); setOpen(null); }} />
