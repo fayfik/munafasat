@@ -206,6 +206,10 @@ export interface Task {
   deptReview?: 'cyber' | 'bcm' | 'orm' | 'proc';
   /** Procurement-side steps after qualification: Finance qualification, TL method & assign, Officer confirm, Create in Etimad. */
   procStep?: 'fin-qual' | 'tl-method' | 'officer-confirm' | 'etimad';
+  /** Committee stage after Etimad publish (Epics C5–E). */
+  committee?: CommitteeStep;
+  /** The assignee's seat for this case, shown as a chip (e.g. BOC · Chairman). */
+  committeeRole?: Bilingual;
   /** Cybersecurity: structured review of the sections Cyber owns (EA pattern). */
   cyberReview?: boolean;
   /** Cyber decision per row — accepted, or a comment for the requester. */
@@ -332,7 +336,9 @@ export interface RfpDetail {
   /** Procurement Officer confirmation of value and duration. */
   officerConfirm?: { value: number; duration: string; by: string; byAr?: string; at: string };
   /** Etimad reference once the officer has created the request in Etimad. */
-  etimad?: { ref: string; at: string; by: string; byAr?: string };
+  etimad?: { ref: string; at: string; by: string; byAr?: string; closingDate?: string };
+  /** Bid opening (BOC) or DP evaluation (DPEC) record — shared by every task on the case. */
+  opening?: Opening;
   qualCommittee?: CommitteeMember[];
   documents: { en: string; ar: string; type?: string; size?: string; by?: string }[];
 }
@@ -398,4 +404,40 @@ export interface ProcMethod {
   directJustification?: string; invitedVendors?: string[];
   officerId?: string; officerName?: string; officerNameAr?: string;
   by?: string; byAr?: string; at?: string;
+}
+
+/* ── Committee stage (after Etimad publish) ───────────────────────────── */
+export type CommitteeStep = 'raise-opening' | 'assign' | 'record' | 'verify' | 'mom' | 'fin-opening' | 'dp-evaluate' | 'dp-select';
+export type CommitteeKind = 'boc' | 'dpec';
+export type SeatRole = 'chairman' | 'secretary' | 'legal' | 'finance' | 'procurement' | 'technical';
+export type DocStatus = 'valid' | 'expired' | 'missing';
+export interface CommitteeSeat {
+  role: SeatRole; person: Person; attending: boolean;
+  /** Replaced for this case only; the annual roster is unchanged. */
+  replaced?: { from: Person; reason: string };
+  approval?: 'approved' | 'returned'; approvalAt?: string; note?: string;
+  /** Declared no conflict of interest for this case. */
+  coi?: boolean;
+}
+export interface OpeningVendor {
+  id: string; name: string; cr: string;
+  price?: number;
+  docs: Record<string, DocStatus>;
+  note?: string;
+  /** Two-envelope: technically passing (set by BEC). DP: technical result. */
+  techPass?: boolean; techNote?: string;
+}
+export interface Opening {
+  committee: CommitteeKind;
+  source?: { kind: 'upload' | 'manual'; fileName?: string; at?: string };
+  openingDate?: string;
+  vendors: OpeningVendor[];
+  seats: CommitteeSeat[];
+  recordedAt?: string;
+  chairmanNote?: string;
+  momAt?: string;
+  /** Two-envelope financial opening, after BEC shortlists technically passing vendors. */
+  financial?: { momAt?: string; note?: string };
+  /** Direct purchase: selected vendor. */
+  dp?: { special?: boolean; specialWhy?: Bilingual; selected?: string; reason?: string; at?: string };
 }

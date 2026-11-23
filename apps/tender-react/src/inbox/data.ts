@@ -4,6 +4,7 @@
 
 import type { Bilingual, ChecklistItem, Person, Task, TaskActionDef, RfpDetail, TrailStep, FinLine, FinChange } from './types';
 import { suggestFinQual } from './procGuide';
+import { BOC_ROSTER, DPEC_ROSTER, ALTERNATES, DOC_ITEMS, ETIMAD_BIDDERS, newOpening, vendorFrom } from './committee';
 
 const DAY = 86400000;
 const base = Date.now();
@@ -40,6 +41,8 @@ const P = {
 };
 
 const sup = (en: string, ar: string) => ({ en, ar });
+const BOC = Object.fromEntries(BOC_ROSTER.map((s) => [s.role, s.person])) as Record<'chairman' | 'secretary' | 'legal' | 'finance' | 'procurement', Person>;
+const DPEC = Object.fromEntries(DPEC_ROSTER.map((s) => [s.role, s.person])) as Record<'chairman' | 'secretary' | 'procurement', Person>;
 
 // ── The RFP every task in this inbox relates to ────────────────
 const REQ = {
@@ -305,6 +308,36 @@ const SPECS: Spec[] = [
     stage: sup('Create in Etimad', 'الإنشاء في اعتماد'), assignee: P.officer, sla: 2, priority: 'high', received: 0,
     actions: [{ id: 'complete', labelEn: 'Mark as published', labelAr: 'تحديد كمنشور', variant: 'primary', gated: true, decision: sup('Published in Etimad', 'نُشر في اعتماد') }],
     extra: { procStep: 'etimad' } },
+  { n: 16, type: 'data-collection', title: sup(`Raise bid opening form for request #${REQ.no}`, `رفع نموذج فتح العروض للطلب رقم ${REQ.no}`),
+    summary: sup('Bidding has closed in Etimad. Upload Etimad’s opening report or enter the bidders, then send the case to the Bid Opening Committee.', 'أُغلق التقديم في اعتماد. ارفع تقرير الفتح أو أدخل الموردين ثم أرسل الحالة إلى لجنة فتح العروض.'),
+    stage: sup('Bid opening — Procurement member', 'فتح العروض — عضو المشتريات'), assignee: BOC.procurement, sla: 1, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Send to committee', labelAr: 'إرسال إلى اللجنة', variant: 'primary', gated: true, decision: sup('Bid opening form raised', 'تم رفع نموذج فتح العروض') }],
+    extra: { committee: 'raise-opening', committeeRole: sup('BOC · Procurement member', 'لجنة الفتح · عضو المشتريات') } },
+  { n: 17, type: 'data-collection', title: sup(`Confirm the Bid Opening Committee for request #${REQ.no}`, `تأكيد لجنة فتح العروض للطلب رقم ${REQ.no}`),
+    summary: sup('Members come from this year’s roster. Replace a seat for this case if needed and confirm who attends.', 'الأعضاء من تشكيل هذا العام. استبدل مقعداً لهذه الحالة عند الحاجة وأكّد الحضور.'),
+    stage: sup('Bid opening — Chairman', 'فتح العروض — الرئيس'), assignee: BOC.chairman, sla: 1, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Confirm committee', labelAr: 'تأكيد اللجنة', variant: 'primary', gated: true, decision: sup('Committee confirmed', 'تم تأكيد اللجنة') }],
+    extra: { committee: 'assign', committeeRole: sup('BOC · Chairman', 'لجنة الفتح · الرئيس') } },
+  { n: 18, type: 'data-collection', title: sup(`Record the bids for request #${REQ.no}`, `تسجيل العطاءات للطلب رقم ${REQ.no}`),
+    summary: sup('Check each bidder’s documents against the Etimad report. Two envelopes: prices stay sealed.', 'تحقق من مستندات كل مورد مقابل تقرير اعتماد. ظرفان: تبقى الأسعار مختومة.'),
+    stage: sup('Bid opening — Secretary', 'فتح العروض — الأمين'), assignee: BOC.secretary, sla: 1, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Send for verification', labelAr: 'إرسال للتحقق', variant: 'primary', gated: true, decision: sup('Bids recorded', 'تم تسجيل العطاءات') }],
+    extra: { committee: 'record', committeeRole: sup('BOC · Secretary', 'لجنة الفتح · الأمين') } },
+  { n: 19, type: 'approval', title: sup(`Verify the bid opening for request #${REQ.no}`, `التحقق من فتح العروض للطلب رقم ${REQ.no}`),
+    summary: sup('Attending members declare no conflict of interest, check the register and approve.', 'يقر الأعضاء الحاضرون بعدم تعارض المصالح ويتحققون من السجل ويعتمدون.'),
+    stage: sup('Bid opening — Members', 'فتح العروض — الأعضاء'), assignee: BOC.legal, sla: 1, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Complete verification', labelAr: 'إكمال التحقق', variant: 'primary', gated: true, decision: sup('Opening verified', 'تم التحقق من الفتح') }],
+    extra: { committee: 'verify', committeeRole: sup('BOC · Member', 'لجنة الفتح · عضو') } },
+  { n: 20, type: 'approval', title: sup(`Approve the bid opening MoM for request #${REQ.no}`, `اعتماد محضر فتح العروض للطلب رقم ${REQ.no}`),
+    summary: sup('Add your comments, approve the MoM and send the technical offers to the Bid Evaluation Committee.', 'أضف ملاحظاتك واعتمد المحضر وأرسل العروض الفنية إلى لجنة فحص العروض.'),
+    stage: sup('Bid opening — Chairman', 'فتح العروض — الرئيس'), assignee: BOC.chairman, sla: 1, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Approve & send to BEC', labelAr: 'اعتماد وإرسال للجنة الفحص', variant: 'primary', gated: true, decision: sup('MoM approved — sent to Bid Evaluation', 'تم اعتماد المحضر — أُرسل للجنة الفحص') }],
+    extra: { committee: 'mom', committeeRole: sup('BOC · Chairman', 'لجنة الفتح · الرئيس') } },
+  { n: 21, type: 'approval', title: sup(`Open the financial offers for request #${REQ.no}`, `فتح العروض المالية للطلب رقم ${REQ.no}`),
+    summary: sup('Bid Evaluation shortlisted the technically passing bidders. Record their prices; the others stay sealed.', 'حددت لجنة الفحص المجتازين فنياً. سجّل أسعارهم؛ وتبقى البقية مختومة.'),
+    stage: sup('Financial opening — Chairman', 'الفتح المالي — الرئيس'), assignee: BOC.chairman, sla: 1, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Approve financial opening', labelAr: 'اعتماد الفتح المالي', variant: 'primary', gated: true, decision: sup('Financial offers opened', 'تم فتح العروض المالية') }],
+    extra: { committee: 'fin-opening', committeeRole: sup('BOC · Chairman', 'لجنة الفتح · الرئيس') } },
 ];
 
 
@@ -321,6 +354,12 @@ const OUTCOMES: Record<number, NonNullable<Task['outcomes']>> = {
   12: [{ action: sup('Good to go', 'جاهز للمتابعة'), next: sup('it goes for DOA approval', 'ينتقل لاعتماد الصلاحيات'), tone: 'success' }, { ...toRequester, action: sup('Return with comments', 'إعادة مع ملاحظات') }],
   13: [{ action: sup('Approve', 'اعتماد'), next: sup(`the Director of ${reqDept()} approves the estimated price`, `يعتمد مدير ${reqDept(true)} السعر التقديري`), tone: 'success' }],
   14: [{ action: sup('Approve', 'اعتماد'), next: sup('the Procurement Officer creates the request in Etimad', 'ينشئ أخصائي المشتريات الطلب في اعتماد'), tone: 'success' }],
+  16: [{ action: sup('Send to committee', 'إرسال إلى اللجنة'), next: sup('the BOC Chairman confirms the committee', 'يؤكد رئيس لجنة الفتح اللجنة'), tone: 'success' }],
+  17: [{ action: sup('Confirm committee', 'تأكيد اللجنة'), next: sup('the Secretary records the bids', 'يسجل الأمين العطاءات'), tone: 'success' }],
+  18: [{ action: sup('Send for verification', 'إرسال للتحقق'), next: sup('attending members verify and approve', 'يتحقق الأعضاء الحاضرون ويعتمدون'), tone: 'success' }],
+  19: [{ action: sup('Complete verification', 'إكمال التحقق'), next: sup('the Chairman approves the MoM', 'يعتمد الرئيس المحضر'), tone: 'success' }],
+  20: [{ action: sup('Approve & send to BEC', 'اعتماد وإرسال'), next: sup('the Bid Evaluation Committee evaluates the technical offers', 'تقيّم لجنة فحص العروض العروض الفنية'), tone: 'success' }],
+  21: [{ action: sup('Approve financial opening', 'اعتماد الفتح المالي'), next: sup('Finance ranks the offers in Bid Evaluation', 'يرتب العضو المالي العروض في لجنة الفحص'), tone: 'success' }],
   15: [{ action: sup('Mark as published', 'تحديد كمنشور'), next: sup('the request shows “Published in Etimad” everywhere and is open for vendors', 'يظهر الطلب «منشور في اعتماد» في كل مكان ويصبح متاحاً للموردين'), tone: 'success' }],
 };
 const outcomesFor = (n: number) => OUTCOMES[n] ?? (n >= 3 && n <= 6 ? OUTCOMES[3] : n === 8 ? OUTCOMES[7] : []);
@@ -333,6 +372,12 @@ const PRIOR_NOTE: Record<number, string> = {
   2: 'Technical criteria and weights verified.',
   9: 'Financial criteria set for an IT services profile — 70/30, passing 60%.',
   11: 'Tendering, two envelopes, high priority.',
+  15: 'Published in Etimad. Bid closing date recorded.',
+  16: 'Bidders taken from the Etimad opening report.',
+  17: 'Standing members confirmed; all attending.',
+  18: 'Documents checked for all three bidders.',
+  19: 'All attending members approved.',
+  20: 'MoM approved; technical offers sent to Bid Evaluation.',
 };
 export const SEED_TASKS: Task[] = SPECS.map((s) => {
   // Working-hour timestamps: two steps per working day (10:00, 14:00), newest = today.
@@ -611,6 +656,16 @@ for (const tk of SEED_TASKS) {
   if (n >= 10) {
     tk.rfp = { ...REQ_RFP, finQual: { ...REQ_RFP.finQual!, by: P.finQual.name, at: iso(-1, 11) } };
     if (n >= 12) tk.rfp.procMethod = { contractType: 'tender', envelope: 'two', priority: 'high', officerId: P.officer.id, officerName: P.officer.name, officerNameAr: P.officer.nameAr, by: P.tl.name, byAr: P.tl.nameAr, at: iso(-1, 14) };
+    if (n >= 16) {
+      tk.rfp.etimad = { ref: '260139001234', at: iso(-3, 10), by: P.officer.name, byAr: P.officer.nameAr, closingDate: iso(-1, 13).slice(0, 10) };
+      if (n >= 17) {
+        const o = { ...newOpening('boc'), source: { kind: 'upload' as const, fileName: 'Etimad_opening_report_260139001234.pdf', at: iso(0, 9) }, vendors: ETIMAD_BIDDERS.map(vendorFrom) };
+        if (n >= 19) { o.recordedAt = iso(0, 11); o.vendors = o.vendors.map((v, i) => ({ ...v, docs: Object.fromEntries(DOC_ITEMS.filter((d) => d.required).map((d) => [d.id, i === 2 && d.id === 'zakat' ? 'expired' as const : 'valid' as const])) })); }
+        if (n >= 20) o.seats = o.seats.map((st) => (st.role === 'chairman' || st.role === 'secretary' ? st : { ...st, coi: true, approval: 'approved' as const, approvalAt: iso(0, 12) }));
+        if (n >= 21) { o.momAt = iso(-5, 13); o.chairmanNote = 'Three bidders, all documents present; one Zakat certificate expired — noted for Legal.'; o.vendors = o.vendors.map((v, i) => ({ ...v, techPass: i !== 2 })); }
+        tk.rfp.opening = o;
+      }
+    }
     if (n >= 15) tk.rfp.officerConfirm = { value: REQ.amount, duration: REQ_RFP.duration ?? '18 months', by: P.officer.name, byAr: P.officer.nameAr, at: iso(-1, 15) };
   }
 }
@@ -871,6 +926,52 @@ SEED_TASKS.unshift(
     };
     tk.rfp = requestRfpFor({ refId: `REQ-${no}`, titleEn, titleAr, deptEn: REQ.requester.dept ?? '', deptAr: REQ.requester.deptAr ?? '', amount: 2_350_000, type: 'tendering', costCenter: 'FC-IT-1000' });
     SEED_TASKS.push(tk);
+  }
+}
+
+// ── Direct purchase #4490 at the DP Evaluation Committee (special: urgent, > SAR 100K) ──
+{
+  const no = '4490', titleEn = 'Urgent replacement of data-centre UPS batteries', titleAr = 'استبدال عاجل لبطاريات UPS في مركز البيانات', amount = 420_000;
+  const requester = person('u-waleedr', 'Waleed Al-Rasheed', 'وليد الرشيد', 'Requester', 'مقدّم الطلب', 'IT Infrastructure', 'البنية التحتية');
+  const rfp = requestRfpFor({ refId: `REQ-${no}`, titleEn, titleAr, deptEn: requester.dept ?? '', deptAr: requester.deptAr ?? '', amount, type: 'tendering', costCenter: 'FC-IT-1100' });
+  rfp.procMethod = { contractType: 'direct', envelope: 'one', priority: 'critical', directJustification: 'Urgent: UPS batteries at end of life; failure risk for the data centre.', by: P.tl.name, byAr: P.tl.nameAr, at: iso(-6, 10) };
+  rfp.etimad = { ref: '260139004490', at: iso(-8, 11), by: P.officer.name, byAr: P.officer.nameAr, closingDate: iso(-1, 13).slice(0, 10) };
+  const bidders = [
+    { name: 'Schneider Electric Saudi Arabia', cr: '1010123456', price: 412_000 },
+    { name: 'Vertiv Arabia', cr: '1010654321', price: 398_500 },
+    { name: 'Alfanar Power', cr: '1010987654', price: 441_000 },
+  ];
+  const special = { special: true, specialWhy: sup('Urgent · SAR 420,000', 'عاجل · 420,000 ريال') };
+  const STEPS: { n: number; c: Task['committee']; who: Person; role: Bilingual; title: Bilingual; sum: Bilingual; stage: Bilingual; act: Bilingual }[] = [
+    { n: 16, c: 'raise-opening', who: DPEC.procurement, role: sup('DPEC · Procurement member', 'لجنة الشراء المباشر · عضو المشتريات'),
+      title: sup(`Raise DP evaluation for request #${no}`, `رفع تقييم الشراء المباشر للطلب رقم ${no}`), sum: sup('Upload Etimad’s offers report or enter the offers, then send the case to the DP Evaluation Committee.', 'ارفع تقرير العروض من اعتماد أو أدخلها ثم أرسل الحالة إلى لجنة تقييم الشراء المباشر.'),
+      stage: sup('DP evaluation — Procurement member', 'تقييم الشراء المباشر — عضو المشتريات'), act: sup('Send to committee', 'إرسال إلى اللجنة') },
+    { n: 17, c: 'assign', who: DPEC.chairman, role: sup('DPEC · Chairman', 'لجنة الشراء المباشر · الرئيس'),
+      title: sup(`Confirm the DP committee for request #${no}`, `تأكيد لجنة الشراء المباشر للطلب رقم ${no}`), sum: sup('Confirm the standing members and nominate the Technical member for this case.', 'أكّد الأعضاء الدائمين ورشّح العضو الفني لهذه الحالة.'),
+      stage: sup('DP evaluation — Chairman', 'تقييم الشراء المباشر — الرئيس'), act: sup('Confirm committee', 'تأكيد اللجنة') },
+    { n: 18, c: 'dp-evaluate', who: DPEC.secretary, role: sup('DPEC · Officer', 'لجنة الشراء المباشر · الأخصائي'),
+      title: sup(`Record offers and technical result for request #${no}`, `تسجيل العروض والنتيجة الفنية للطلب رقم ${no}`), sum: sup('Check each offer’s documents and price; the Technical member enters pass or fail.', 'تحقق من مستندات وسعر كل عرض؛ ويُدخل العضو الفني النتيجة.'),
+      stage: sup('DP evaluation — Officer & Technical', 'تقييم الشراء المباشر — الأخصائي والفني'), act: sup('Send to Chairman', 'إرسال للرئيس') },
+    { n: 19, c: 'dp-select', who: DPEC.chairman, role: sup('DPEC · Chairman', 'لجنة الشراء المباشر · الرئيس'),
+      title: sup(`Select the vendor for request #${no}`, `اختيار المورد للطلب رقم ${no}`), sum: sup('Offers ranked by price among technically passing bidders. Special DP: the vendor goes to Qualification next.', 'العروض مرتبة بالسعر بين المجتازين فنياً. شراء مباشر خاص: ينتقل المورد إلى التأهيل.'),
+      stage: sup('DP evaluation — Chairman', 'تقييم الشراء المباشر — الرئيس'), act: sup('Send to Qualification', 'إرسال إلى التأهيل') },
+  ];
+  for (const st of STEPS) {
+    const o = { ...newOpening('dpec'), dp: special };
+    if (st.n >= 17) { o.source = { kind: 'upload', fileName: `Etimad_offers_report_${rfp.etimad.ref}.pdf`, at: iso(0, 9) }; o.vendors = bidders.map(vendorFrom); }
+    if (st.n >= 18) o.seats = [...o.seats, { role: 'technical', person: ALTERNATES.technical![1], attending: true }];
+    if (st.n >= 19) { o.recordedAt = iso(0, 11); o.vendors = o.vendors.map((v, i) => ({ ...v, price: bidders[i].price, docs: Object.fromEntries(DOC_ITEMS.filter((d) => d.required).map((d) => [d.id, 'valid' as const])), techPass: i !== 2, techNote: i === 2 ? 'Battery chemistry not compatible with the installed UPS frames.' : 'Meets the specification.' })); }
+    const received = Date.now() - (20 - st.n) * 40 * 60000;
+    SEED_TASKS.push({
+      id: `TSK-${no}-${st.n}`, type: 'data-collection', titleEn: st.title.en, titleAr: st.title.ar, summaryEn: st.sum.en, summaryAr: st.sum.ar,
+      state: 'available', priority: 'urgent', entity: { kind: 'RFP', ref: `REQ-${no}`, titleEn, titleAr }, project: sup(titleEn, titleAr), amount,
+      requester, assignee: st.who, department: sup(requester.dept ?? '', requester.deptAr ?? ''), stageEn: st.stage.en, stageAr: st.stage.ar,
+      receivedAt: new Date(received).toISOString(), dueAt: new Date(received + 24 * 3600000).toISOString(), mineAction: true,
+      actions: [{ id: 'complete', labelEn: st.act.en, labelAr: st.act.ar, variant: 'primary', gated: true, decision: st.act }],
+      committee: st.c, committeeRole: st.role, slaHours: 24,
+      activity: [{ id: 'a0', kind: 'system', actor: st.who, at: new Date(received).toISOString(), system: sup(`Assigned to ${st.who.name} — ${st.stage.en}`, `أُسند إلى ${st.who.nameAr} — ${st.stage.ar}`) }],
+      rfp: { ...rfp, opening: o },
+    });
   }
 }
 

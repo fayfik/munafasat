@@ -398,12 +398,12 @@ async function openRequest(title) {
     await page.locator('[data-inbox-tab="all"]').click(); await wait(300);
     const titles = await page.locator('ul li > button:visible p:first-child, ul li > button:visible h3').allInnerTexts().catch(() => []);
     const body = (await page.locator('ul li > button:visible').allInnerTexts()).join('\n').replace(/\s+/g, ' ');
-    for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Review financial qualification criteria for request #4433 from IT & Digital', 'Review qualification criteria for request #4433 from IT & Digital', 'Set procurement method & assign request #4433', 'Review & confirm request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Create request #4433 in Etimad', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
+    for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Review financial qualification criteria for request #4433 from IT & Digital', 'Review qualification criteria for request #4433 from IT & Digital', 'Set procurement method & assign request #4433', 'Review & confirm request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Create request #4433 in Etimad', 'Raise bid opening form for request #4433', 'Confirm the Bid Opening Committee for request #4433', 'Record the bids for request #4433', 'Verify the bid opening for request #4433', 'Approve the bid opening MoM for request #4433', 'Open the financial offers for request #4433', 'Select the vendor for request #4490', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
       expect(body.includes(want), `missing task "${want}"`);
     expect(!/\bRFP\b/.test(body), 'the word RFP is still listed');
     const top3 = (await page.locator('ul li > button:visible', { hasText: 'REQ-' }).allInnerTexts()).slice(0, 3).join(' | ');
     expect(['#4478', '#4471', '#4433'].every((n) => top3.includes(`Review & approve request ${n}`)), `manager tasks not on top: ${top3.slice(0, 160)}`);
-    expect((body.match(/REQ-44\d\d/g) || []).length === 18, `expected 18 tasks, got ${(body.match(/REQ-44\d\d/g) || []).length}`);
+    expect((body.match(/REQ-44\d\d/g) || []).length === 28, `expected 28 tasks, got ${(body.match(/REQ-44\d\d/g) || []).length}`);
     void titles;
   });
 
@@ -1290,6 +1290,94 @@ async function openRequest(title) {
     await page.locator('li[data-task-id="TSK-4433-06"] button').click(); await wait(LOAD);
     await tab('Request details'); await wait(500);
     expect(await count('[data-rfp-bcm="exercise"]') === 1, 'clause added in the BCM task visible from the EA task');
+  });
+
+  // ── Committee stage after Etimad publish (Epics C5–E) ──
+  const openId = async (id) => {
+    await page.goto(BASE); await wait(600); await nav('Inbox'); await wait(LOAD);
+    await page.click('[data-inbox-tab="all"]'); await wait(200);
+    await page.locator(`li[data-task-id="${id}"] button`).first().click(); await wait(LOAD);
+  };
+  const btn = (name) => page.getByRole('button', { name, exact: true }).first();
+  await test('Bid opening 16: upload the Etimad report → bidders listed, gated until opening date, role chip on the row', async () => {
+    await openId('TSK-4433-16');
+    expect(await count('li[data-task-id="TSK-4433-16"] [data-row-role]') === 1, 'role chip on inbox row');
+    expect(await btn('Send to committee').isDisabled(), 'send enabled before bidders');
+    await page.click('[data-upload-etimad]'); await wait(1000);
+    expect(await count('[data-bidder-row]') === 3 && await count('[data-etimad-file]') === 1, 'bidders not read from report');
+    expect(!(await btn('Send to committee').isDisabled()), 'opening date defaults to today');
+    await page.fill('[data-opening-date]', ''); await wait(200);
+    expect(await btn('Send to committee').isDisabled(), 'send enabled without opening date');
+    await page.fill('[data-opening-date]', '2026-11-24'); await wait(200);
+    await page.click('[data-add-bidder]'); await wait(150);
+    expect(await btn('Send to committee').isDisabled(), 'blank bidder row should block');
+    await page.locator('[data-bidder-row="3"] [data-bidder-name]').fill('Thiqah Business Services');
+    await page.locator('[data-bidder-row="3"] [data-bidder-cr]').fill('1010334455'); await wait(200);
+    expect(!(await btn('Send to committee').isDisabled()), 'send still disabled');
+    await btn('Send to committee').click(); await wait(400);
+    const dlg = page.getByRole('dialog'); await dlg.getByText('Yes', { exact: true }).first().click(); await dlg.getByRole('button', { name: 'Complete', exact: true }).click(); await wait(500);
+    expect(await count('li[data-task-id="TSK-4433-17"] [data-new-pill]') === 1, 'Chairman task did not arrive');
+  });
+  await test('Bid opening 17: default roster, replace a seat for this case with a reason, Committee tab', async () => {
+    await openId('TSK-4433-17');
+    expect(await count('[data-seat]') === 5, 'five standing seats');
+    await page.click('[data-replace="legal"]'); await wait(250);
+    expect(await btn('Replace').isDisabled() || await page.locator('[data-replace-save]').isDisabled(), 'replace allowed without reason');
+    await page.locator('[data-replace-dialog] [data-reason]').first().click();
+    await page.click('[data-replace-save]'); await wait(250);
+    expect(await count('[data-seat="legal"] [data-replaced]') === 1, 'replacement not logged on the seat');
+    expect(!(await btn('Confirm committee').isDisabled()), 'confirm disabled');
+    await tab('Committee'); await wait(400);
+    expect(await count('[data-committee-tab]') === 1 && await count('[data-committee-seat]') === 5, 'committee tab');
+  });
+  await test('Bid opening 18: full-page bid register — documents per bidder, prices sealed (two envelopes), Next bidder', async () => {
+    await openId('TSK-4433-18');
+    expect(await count('[data-vendor-table]') === 1, 'vendor table');
+    expect(await btn('Send for verification').isDisabled(), 'gated before docs');
+    await page.click('[data-open-register]'); await wait(400);
+    expect(await count('[data-bid-register]') === 1 && await count('[data-sealed]') === 1 && await count('[data-price-sealed]') === 1, 'register / sealed price');
+    for (let i = 0; i < 3; i++) {
+      await page.click('[data-all-valid]'); await wait(120);
+      if (i < 2) { await page.click('[data-next-vendor]'); await wait(200); }
+    }
+    await page.locator('[data-doc="zakat"] [data-doc-status="expired"]').click(); await wait(120);
+    await page.click('[data-register-done]'); await wait(300);
+    expect(await count('[data-bid-register]') === 0, 'register did not close');
+    expect((await page.locator('[data-record-progress]').getAttribute('data-record-progress')) === '3/3', 'progress');
+    expect(!(await btn('Send for verification').isDisabled()), 'send for verification disabled');
+  });
+  await test('Bid opening 19–20: members declare no conflict and approve; Chairman comment gates the MoM', async () => {
+    await openId('TSK-4433-19');
+    expect(await btn('Complete verification').isDisabled(), 'gated before approvals');
+    const seats = await page.locator('[data-member-approve]').evaluateAll((e) => e.map((x) => x.getAttribute('data-member-approve')));
+    expect(await page.locator(`[data-member-approve="${seats[0]}"]`).isDisabled(), 'approve allowed without COI');
+    for (const r of seats) { await page.click(`[data-coi="${r}"]`); await page.click(`[data-member-approve="${r}"]`); await wait(100); }
+    expect(!(await btn('Complete verification').isDisabled()), 'complete disabled after approvals');
+    await openId('TSK-4433-20');
+    expect(await count('[data-mom-preview]') === 1, 'MoM preview');
+    expect(await btn('Approve & send to BEC').isDisabled(), 'MoM approvable without comment');
+    await page.locator('[data-chairman-note] textarea').fill('All bidders present; documents checked.'); await wait(200);
+    expect(!(await btn('Approve & send to BEC').isDisabled()), 'approve disabled after comment');
+  });
+  await test('Financial opening: only technically passing bidders are opened; the others stay sealed', async () => {
+    await openId('TSK-4433-21');
+    expect(await count('[data-fin-vendor]') === 2 && await count('[data-fin-sealed]') === 1, 'pass / sealed split');
+    expect(await btn('Approve financial opening').isDisabled(), 'gated before prices');
+    const ins = page.locator('[data-fin-price]'); await ins.nth(0).fill('9620000'); await ins.nth(1).fill('8975000'); await wait(200);
+    expect(!(await btn('Approve financial opening').isDisabled()), 'still gated with prices');
+  });
+  await test('Direct purchase: nominate the Technical member; select vendor — other than lowest passing needs a reason', async () => {
+    await openId('TSK-4490-17');
+    expect(await count('[data-technical]') === 1 && await btn('Confirm committee').isDisabled(), 'technical required');
+    await page.locator('[data-tech-pick]').first().click(); await wait(200);
+    expect(!(await btn('Confirm committee').isDisabled()), 'confirm disabled after nomination');
+    await openId('TSK-4490-19');
+    expect(await count('[data-dp-route="special"]') === 1, 'special DP route');
+    expect((await page.locator('[data-suggested]').locator('xpath=ancestor::label').innerText()).includes('Vertiv'), 'lowest passing not suggested');
+    await page.locator('[data-dp-vendor]', { hasText: 'Schneider' }).click(); await wait(200);
+    expect(await count('[data-dp-reason]') === 1 && await btn('Send to Qualification').isDisabled(), 'reason not required');
+    await page.locator('[data-dp-reason] input').fill('Faster delivery confirmed by the supplier.'); await wait(200);
+    expect(!(await btn('Send to Qualification').isDisabled()), 'still gated with reason');
   });
 
   await browser.close();

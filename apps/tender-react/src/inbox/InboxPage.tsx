@@ -189,7 +189,9 @@ function TaskRow({ task, isAr, t, active, onSelect, tasks }: { task: Task; isAr:
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.dot}`} title={isAr ? p.ar : p.en} />
             <span className="tabular-nums whitespace-nowrap" dir="ltr">{task.entity.ref}</span>
             <span className="text-neutral-300">·</span>
-            <span className="truncate">{isAr && task.requester.nameAr ? task.requester.nameAr : task.requester.name}</span>
+            {task.committeeRole
+              ? <span className="truncate inline-flex items-center rounded-md bg-[#EEF1FA] text-[#2A3466] px-1.5 py-px text-[11px] font-semibold" data-row-role>{isAr ? task.committeeRole.ar : task.committeeRole.en}</span>
+              : <span className="truncate">{isAr && task.requester.nameAr ? task.requester.nameAr : task.requester.name}</span>}
           </p>
           {task.delegatedTo
             ? <span className="inline-flex items-center gap-1.5 ps-0.5 pe-2 py-0.5 rounded-full bg-[#EEF0FB] text-[#2A3466] text-[11px] font-semibold whitespace-nowrap" data-row-delegated><Avatar p={task.delegatedTo} className="w-4 h-4 text-[7.5px]" />{t(`With ${task.delegatedTo.name.split(' ')[0]}`, `لدى ${(task.delegatedTo.nameAr ?? task.delegatedTo.name).split(' ')[0]}`)}</span>

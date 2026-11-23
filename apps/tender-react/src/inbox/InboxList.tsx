@@ -108,7 +108,8 @@ export default function InboxList({ rows, isAr, t, onOpen }: { rows: Task[]; isA
                 <td className={`px-3 py-3.5 text-[13px] max-w-[200px] ${unread ? 'font-semibold text-neutral-900' : 'text-neutral-800'}`} title={L(x.titleEn, x.titleAr)}>
                   {x.arrivedAt && <span className="me-1.5 px-1.5 py-px rounded bg-brand-600 text-white text-[10px] font-bold align-[1px]">{t('New', 'جديدة')}</span>}
                   {L(x.stageEn, x.stageAr).replace(/^Specialist review — /, '').replace(/^مراجعة تخصصية — /, '')}
-                  {(x.priority === 'urgent' || x.priority === 'high') && <span className={`block mt-0.5 text-[11px] font-semibold ${p.text}`}>{isAr ? p.ar : p.en}</span>}
+                  {x.committeeRole ? <span className="block mt-1 w-fit rounded-md bg-[#EEF1FA] text-[#2A3466] px-1.5 py-px text-[11px] font-semibold">{isAr ? x.committeeRole.ar : x.committeeRole.en}</span>
+                    : (x.priority === 'urgent' || x.priority === 'high') && <span className={`block mt-0.5 text-[11px] font-semibold ${p.text}`}>{isAr ? p.ar : p.en}</span>}
                 </td>
                 <td className="px-3 py-3.5 max-w-[280px]" title={L(x.entity.titleEn, x.entity.titleAr)}><p className={`text-[13px] ${unread ? 'font-semibold text-neutral-900' : 'text-neutral-800'} line-clamp-2`}>{L(x.entity.titleEn, x.entity.titleAr)}</p>
                   <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-neutral-500 whitespace-nowrap"><span className="tabular-nums" dir="ltr">{compactSar(x.amount)}</span>

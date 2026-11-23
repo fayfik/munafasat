@@ -30,6 +30,7 @@ import { deptKind, reasonsFor, deptCommentDigest, ORM_LIBRARY } from './cyberRev
 import { DeploymentHero, StandardsList } from '../components/TechStandards';
 import { bcmVerdict, bcmClauseById, tprRating, VERDICT, RATING, TPR_QUESTIONS } from '../lib/continuityRisk';
 import CyberReview from './CyberReview';
+import { CommitteeWidget, CommitteeTab, RoleChip } from './CommitteeSteps';
 import { FinQualEditor, TlMethod, OfficerConfirm, EtimadCreate, EtimadBanner, PriorityChip } from './ProcSteps';
 import { CONTRACT_OPTS, ENVELOPE_OPTS, PRIORITY_OPTS, optLabel, areaLabel, deliveryLabel, qualFlags } from './procGuide';
 import { scoreBands } from './ProcSteps';
@@ -100,11 +101,11 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
   const [pick, setPick] = useState<string>(suggested?.id ?? '');
   useEffect(() => { setPick(suggested?.id ?? ''); }, [task.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const picked = OFFICERS.find((p) => p.id === pick);
-  const [tab, setTabRaw] = useState<'overview' | 'rfp' | 'activity'>('overview');
+  const [tab, setTabRaw] = useState<'overview' | 'rfp' | 'committee' | 'activity'>('overview');
   // Short skeleton when switching tabs, so content arrives instead of popping in.
   const [tabBusy, setTabBusy] = useState(false);
   const tabTimer = useRef<number | undefined>(undefined);
-  const setTab = (k: 'overview' | 'rfp' | 'activity') => {
+  const setTab = (k: 'overview' | 'rfp' | 'committee' | 'activity') => {
     setTabRaw(k); setTabBusy(true);
     window.clearTimeout(tabTimer.current);
     tabTimer.current = window.setTimeout(() => setTabBusy(false), 180);
@@ -174,6 +175,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
   const TABS: { key: typeof tab; en: string; ar: string }[] = [
     { key: 'overview', en: 'Required action', ar: 'الإجراء المطلوب' },
     { key: 'rfp', en: 'Request details', ar: 'تفاصيل الطلب' },
+    ...(task.rfp?.opening ? [{ key: 'committee' as const, en: 'Committee', ar: 'اللجنة' }] : []),
     { key: 'activity', en: 'Activity', ar: 'النشاط' },
   ];
 
@@ -210,6 +212,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
             <span className="tabular-nums" dir="ltr">{task.id}</span>
             <span className="ms-1"><StateChip state={task.state} isAr={isAr} /></span>
             <span className="ms-1"><PriorityTag priority={task.priority} isAr={isAr} /></span>
+            {task.committeeRole && <span className="ms-1"><RoleChip role={task.committeeRole} isAr={isAr} /></span>}
           </div>
           {/* Title · CTAs */}
           <div className="mt-2 flex items-start justify-between gap-6 flex-wrap">
@@ -336,7 +339,9 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
           )}
           {tab === 'overview' && !queued && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
-            mainWidget={task.procStep && task.rfp
+            mainWidget={task.committee && task.rfp
+              ? <CommitteeWidget task={task} isAr={isAr} t={t} readOnly={terminal} onRfp={(rfp: RfpDetail) => setTaskData(task.id, { rfp })} />
+              : task.procStep && task.rfp
               ? (() => { const P = { task, isAr, t, readOnly: terminal, onRfp: (rfp: RfpDetail) => setTaskData(task.id, { rfp }) };
                   return task.procStep === 'fin-qual' ? <FinQualEditor {...P} /> : task.procStep === 'tl-method' ? <TlMethod {...P} /> : task.procStep === 'officer-confirm' ? <OfficerConfirm {...P} /> : <EtimadCreate {...P} />; })()
               : (task.cyberReview || task.deptReview) && task.rfp
@@ -409,6 +414,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
               <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} showFinance={financeView(task)} />
             </CommentLayer>
           ) : <RfpTab rfp={task.rfp} amount={task.amount} isAr={isAr} t={t} showFinance={financeView(task)} />)}
+          {tab === 'committee' && <CommitteeTab task={task} isAr={isAr} t={t} />}
           {tab === 'activity' && <ActivityTab task={task} isAr={isAr} t={t} onComment={(x) => addComment(task.id, x)} terminal={terminal} onJump={jumpTo} />}
           </div>
         </div>

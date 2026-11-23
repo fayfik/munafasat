@@ -324,6 +324,7 @@ export function EtimadCreate({ task, isAr, t, readOnly, onRfp }: P) {
   const m = rfp.procMethod ?? {};
   const fq = rfp.finQual;
   const [ref, setRef] = useState(rfp.etimad?.ref ?? '');
+  const [closing, setClosing] = useState(rfp.etimad?.closingDate ?? new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
   const done = !!rfp.etimad;
   const rows: [string, string][] = [
     [t('Contract type', 'نوع العقد'), optLabel(CONTRACT_OPTS, m.contractType, isAr)],
@@ -351,9 +352,11 @@ export function EtimadCreate({ task, isAr, t, readOnly, onRfp }: P) {
       </Card>
       <Card title={t('Etimad reference', 'مرجع اعتماد')} attr={{ 'data-etimad-ref': '' }}
         aside={done ? <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-success-700 fade-in"><CheckCircleIcon className="w-3.5 h-3.5" />{t('Recorded', 'مسجل')}</span> : undefined}>
-        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!ref.trim()) return; onRfp({ ...rfp, etimad: { ref: ref.trim(), at: now(), by: task.assignee.name, byAr: task.assignee.nameAr } }); toast(t(`Etimad reference ${ref.trim()} recorded`, `تم تسجيل مرجع اعتماد ${ref.trim()}`)); }}>
+        <form className="flex gap-2 flex-wrap" onSubmit={(e) => { e.preventDefault(); if (!ref.trim()) return; onRfp({ ...rfp, etimad: { ref: ref.trim(), at: now(), by: task.assignee.name, byAr: task.assignee.nameAr, closingDate: closing } }); toast(t(`Etimad reference ${ref.trim()} recorded`, `تم تسجيل مرجع اعتماد ${ref.trim()}`)); }}>
           <input dir="ltr" value={ref} disabled={readOnly || done} onChange={(e) => setRef(e.target.value)} placeholder="e.g. 260139001234" data-etimad-input
             className="flex-1 text-[13px] rounded-lg border border-neutral-300 px-3 py-2 tabular-nums disabled:bg-neutral-50 focus:outline-none focus:border-brand-400" />
+          <label className="inline-flex items-center gap-2 text-[12px] text-neutral-500">{t('Bid closing', 'إغلاق العروض')}
+            <input type="date" value={closing} disabled={readOnly || done} onChange={(e) => setClosing(e.target.value)} data-etimad-closing className="text-[13px] rounded-lg border border-neutral-300 px-2 py-1.5 disabled:bg-neutral-50 focus:outline-none focus:border-brand-400" /></label>
           {!readOnly && !done && <Button type="submit" variant="secondary" disabled={!ref.trim()} data-etimad-save>{t('Record reference', 'تسجيل المرجع')}</Button>}
           {!readOnly && done && <Button type="button" variant="ghost" onClick={() => { const { etimad: _e, ...rest } = rfp; onRfp(rest as RfpDetail); }}>{t('Edit', 'تعديل')}</Button>}
         </form>

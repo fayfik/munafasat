@@ -10,6 +10,7 @@ import { SEED_TASKS, ME, buildCommentResponseTask } from './data';
 import type { Person } from './types';
 import type { RfpDetail, Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry } from './types';
 import { finQualOk, suggestPriority } from './procGuide';
+import { committeeNeeds } from './committee';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
 export const fmtSAR = (n: number) =>
@@ -86,6 +87,8 @@ export function completionStatus(task: Task): Completion {
       const ok = checkItemDone(c) && (!c.evidenceRequired || (c.evidence?.length ?? 0) > 0);
       if (ok) done++; else missing.push(c.label);
     }
+  } else if (task.committee) {
+    const c = committeeNeeds(task); done += c.done; total += c.total; missing.push(...c.missing);
   } else if (task.procStep) {
     const r = task.rfp;
     const need = (ok: boolean, en: string, ar: string) => { total++; if (ok) done++; else missing.push({ en, ar }); };
@@ -267,11 +270,24 @@ function nextFlowSteps(step: number, action: string, done: (n: number) => boolea
   if (step === 12) return action === 'approve' ? [13] : [];
   if (step === 13) return [14];
   if (step === 14) return action === 'approve' ? [15] : [];
+  // After Etimad publish: bid opening (16 raise → 17 committee → 18 record → 19 verify → 20 MoM) or DP (16 → 19).
+  if (step === 15) return action === 'complete' ? [16] : [];
+  if (step >= 16 && step <= 19) return ['complete', 'approve'].includes(action) ? [step + 1] : [];
   return [];
 }
 
 export interface TaskNotice { id: string; taskId: string; at: string; fromEn: string; fromAr: string; read?: boolean }
 
+/** Committee steps stamp the shared opening record when they complete. */
+function stampOpening(t: Task): Task['rfp'] {
+  const o = t.rfp?.opening; if (!t.committee || !o || !t.rfp) return t.rfp;
+  const at = new Date().toISOString();
+  const p = t.committee === 'record' || t.committee === 'dp-evaluate' ? { recordedAt: at }
+    : t.committee === 'mom' ? { momAt: at }
+    : t.committee === 'fin-opening' ? { financial: { ...(o.financial ?? {}), momAt: at } }
+    : {};
+  return { ...t.rfp, opening: { ...o, ...p } };
+}
 const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : `a_${Math.random().toString(36).slice(2)}`);
 
 export function InboxProvider({ children }: { children: ReactNode }) {
@@ -308,7 +324,8 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   /** One request record: a change to the request from any task reaches every task on that request. */
   const shareRfp = (xs: Task[], id: string, rfp: RfpDetail) => {
     const ref = xs.find((t) => t.id === id)?.entity.ref;
-    return xs.map((t) => (t.id !== id && ref && t.entity.ref === ref && t.rfp ? { ...t, rfp } : t));
+    // The committee's opening record is per step (each step holds its own snapshot); it moves forward only when a step completes.
+    return xs.map((t) => (t.id !== id && ref && t.entity.ref === ref && t.rfp ? { ...t, rfp: { ...rfp, opening: t.rfp.opening } } : t));
   };
   const updateRfp = useCallback((id: string, rfp: RfpDetail) => {
     setTasks((xs) => shareRfp(xs, id, rfp).map((t) => (t.id === id ? { ...t, rfp, state: t.state === 'available' ? 'in-progress' : t.state } : t)));
@@ -386,7 +403,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
         submit: { en: 'Submitted', ar: 'تم التقديم' },
         'save-draft': { en: 'Draft Saved', ar: 'تم حفظ المسودة' },
       };
-      const next = xs.map((t) => {
+      let next = xs.map((t) => {
         if (t.id !== id) return t;
         let state = t.state;
         if (action === 'approve' || action === 'complete' || action === 'submit') { state = 'completed'; completedDepId = t.id; }
@@ -398,10 +415,16 @@ export function InboxProvider({ children }: { children: ReactNode }) {
         const entry: ActivityEntry = { id: uid(), at: new Date().toISOString(), kind, actor: ME,
           ...(kind === 'decision' ? { decision: decisionLabel ?? label[action] } : { system: label[action] }), text: note?.trim() || undefined };
         const done = action === 'approve' || action === 'complete' || action === 'submit';
-        return { ...t, state, activity: [...t.activity, entry],
+        return { ...t, state, activity: [...t.activity, entry], rfp: done ? stampOpening(t) : t.rfp,
           decision: (action === 'approve' || action === 'reject' || action === 'complete' || action === 'submit') ? (decisionLabel ?? label[action]) : t.decision,
           completedAt: done ? new Date().toISOString() : t.completedAt };
       });
+      // A committee step closing writes its stamp (MoM, recording) to the shared case record.
+      { const s1 = next.find((t) => t.id === id);
+        if (s1?.committee && s1.rfp?.opening && s1.state === 'completed') {
+          const n1 = Math.floor(flowStep(s1)) + 1, req1 = reqOf(s1);
+          next = next.map((t) => (reqOf(t) === req1 && flowStep(t) === n1 && t.state !== 'completed' && t.rfp ? { ...t, rfp: { ...t.rfp, opening: s1.rfp!.opening } } : t));
+        } }
       // Manager returned a reviewed request → the requester gets a task to answer the comments.
       const src = next.find((t) => t.id === id);
       if (action === 'return' && src?.reviewComments && !src.respondComments) {
