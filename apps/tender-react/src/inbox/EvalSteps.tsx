@@ -10,7 +10,8 @@ import { Button } from '../components/ui';
 import { toast } from '../components/Toast';
 import { ArrowLeftIcon, CheckCircleIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, DocumentIcon, AlertTriangleIcon, SparklesIcon, XIcon, ClockIcon } from '../components/Icons';
 import { Card, Pill } from './CommitteeSteps';
-import { DOC_ITEMS, fmtSar, newOpening } from './committee';
+import { fmtSar, newOpening } from './committee';
+import { aiWeighted, legalInsight, offerDocs, vendorInsight, type Block, type Cite, type OfferDoc } from './offerDocs';
 import {
   BEC, LEGAL_CHECKS, LEGAL_REASONS, PREF_SOURCES, ROLE_LABEL, VARIANCE_FLAG, adjusted, emptyEval, evalVendors, fmtPct, isFlagged, needsWhy,
   prefPct, ranking, riyadh, roleOfStep, sheetMissing, sheetOf, sign, signed, techCriteria, techPassing, techTotal, variance, verifyRow,
@@ -155,49 +156,69 @@ function OtpDialog({ person, vendor, isAr, t, onOk, onClose }: { person: Person;
   );
 }
 
-/* ── F2.1 · Technical inputs ─────────────────────────────────────── */
-function TechInputs({ s, rfp, isAr, t, ro, set }: { s: VendorSheet; rfp: RfpDetail; isAr: boolean; t: T; ro: boolean; set: (p: Partial<VendorSheet>) => void }) {
+/* ── F2.1 · Technical scoring panel (with AI suggestion + evidence per criterion) ── */
+function TechInputs({ s, v, rfp, isAr, t, ro, set, jump, others }: { s: VendorSheet; v: OpeningVendor; rfp: RfpDetail; isAr: boolean; t: T; ro: boolean; set: (p: Partial<VendorSheet>) => void; jump: (c: Cite) => void; others: number }) {
   const cs = techCriteria(rfp); const total = techTotal(s, rfp); const pass = techPassing(rfp);
+  const ai = vendorInsight(v, rfp); const aiTotal = aiWeighted(v, rfp);
+  const scored = cs.filter((c) => s.scores?.[c.key]?.score != null).length;
   const setScore = (k: string, p: { score?: number; why?: string }) => set({ scores: { ...(s.scores ?? {}), [k]: { ...(s.scores?.[k] ?? {}), ...p } } });
+  const applyAll = () => set({ scores: Object.fromEntries(cs.map((c) => { const a = ai.criteria[c.key]; const cur = s.scores?.[c.key] ?? {}; return [c.key, { score: a.score, why: cur.why?.trim() ? cur.why : needsWhy(a.score) ? a.en : cur.why }]; })) });
   return (
-    <div className="space-y-4" data-tech-inputs>
-      <section className="rounded-2xl border border-neutral-200 bg-white p-5 flex items-center gap-5">
-        <Gauge value={total} pass={pass} />
-        <div className="min-w-0">
-          <p className="text-[11.5px] font-semibold uppercase tracking-wide text-neutral-400">{t('Weighted technical score', 'الدرجة الفنية الموزونة')}</p>
-          <p className="mt-1 text-[13px] text-neutral-700">{t(`Passing mark ${pass}% — from the approved request`, `درجة النجاح ${pass}% — من الطلب المعتمد`)}</p>
-          <p className="mt-2">{Object.keys(s.scores ?? {}).length === 0 ? <Pill tone="gray">{t('Not scored yet', 'لم يُقيّم بعد')}</Pill>
-            : cs.some((c) => s.scores?.[c.key]?.score == null) ? <Pill tone="blue">{t(`${cs.filter((c) => s.scores?.[c.key]?.score != null).length} of ${cs.length} criteria scored`, `${cs.filter((c) => s.scores?.[c.key]?.score != null).length} من ${cs.length} معايير`)}</Pill>
-            : total >= pass ? <Pill tone="green" attr={{ 'data-tech-verdict': 'pass' }}>{t('Passes', 'مجتاز')}</Pill> : <Pill tone="amber" attr={{ 'data-tech-verdict': 'fail' }}>{t(`Below passing by ${(pass - total).toFixed(1)}`, `أقل من النجاح بـ ${(pass - total).toFixed(1)}`)}</Pill>}</p>
+    <div className="space-y-3" data-tech-inputs>
+      <section className="rounded-2xl border border-neutral-200 bg-white p-4 flex items-center gap-4">
+        <Gauge value={total} pass={pass} size={84} />
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Your weighted score', 'درجتك الموزونة')}</p>
+          <p className="mt-1">{scored === 0 ? <Pill tone="gray">{t('Not scored yet', 'لم يُقيّم بعد')}</Pill>
+            : scored < cs.length ? <Pill tone="blue">{t(`${scored} of ${cs.length} criteria scored`, `${scored} من ${cs.length} معايير`)}</Pill>
+            : total >= pass ? <Pill tone="green" attr={{ 'data-tech-verdict': 'pass' }}>{t(`Passes · mark ${pass}`, `مجتاز · النجاح ${pass}`)}</Pill> : <Pill tone="amber" attr={{ 'data-tech-verdict': 'fail' }}>{t(`Below the ${pass} mark`, `أقل من ${pass}`)}</Pill>}</p>
+          <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-ai-700"><SparklesIcon className="w-3.5 h-3.5" />{t(`AI estimate ${aiTotal} · ${others} other bidder${others === 1 ? '' : 's'} evaluated`, `تقدير الذكاء الاصطناعي ${aiTotal}`)}</p>
         </div>
+        {!ro && <button type="button" onClick={applyAll} data-ai-apply-all className="self-start inline-flex items-center gap-1 h-8 px-3 rounded-full text-[12px] font-semibold text-ai-700 bg-ai-50 hover:bg-ai-100 ring-1 ring-ai-200/70 transition-colors whitespace-nowrap"><SparklesIcon className="w-3.5 h-3.5" />{t('Use AI scores', 'استخدم درجات الذكاء')}</button>}
       </section>
-      <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
-        <div className="px-5 py-3 border-b border-neutral-100 flex items-center justify-between"><h4 className="text-[13.5px] font-semibold text-neutral-900">{t('Criteria', 'المعايير')}</h4><span className="text-[11.5px] text-neutral-400">{t('Score 0–100 · justify below 60 or 90+', 'الدرجة 0–100 · برّر أقل من 60 أو 90 فأعلى')}</span></div>
-        <ul className="divide-y divide-neutral-100">
-          {cs.map((c) => {
-            const sc = s.scores?.[c.key]; const v = sc?.score; const req = needsWhy(v);
-            return (
-              <li key={c.key} className="px-5 py-4" data-criterion={c.key}>
-                <div className="flex items-start gap-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13.5px] font-semibold text-neutral-900">{isAr ? c.ar : c.en} <span className="ms-1 px-1.5 py-px rounded bg-neutral-100 text-neutral-600 text-[11px] font-semibold align-[1px]">{c.weight}%</span></p>
-                    {(c.descEn || c.descAr) && <p className="mt-0.5 text-[12px] text-neutral-500">{isAr ? c.descAr : c.descEn}</p>}
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <input type="range" min={0} max={100} step={5} disabled={ro} value={v ?? 0} onChange={(e) => setScore(c.key, { score: Number(e.target.value) })} className="w-32 accent-brand-600" aria-label={`${c.en} slider`} />
-                    <input type="number" min={0} max={100} disabled={ro} value={v ?? ''} placeholder="—" onChange={(e) => setScore(c.key, { score: e.target.value === '' ? undefined : Math.max(0, Math.min(100, Number(e.target.value))) })}
-                      className="w-16 text-center text-[14px] font-semibold rounded-lg border border-neutral-200 py-1.5 tabular-nums focus:outline-none focus:border-brand-400 disabled:bg-neutral-50" data-score={c.key} />
-                    <span className="w-14 text-end text-[12px] text-neutral-500 tabular-nums">{v != null ? `${((v * c.weight) / 100).toFixed(1)} pts` : ''}</span>
-                  </div>
+      {cs.map((c) => {
+        const sc = s.scores?.[c.key]; const val = sc?.score; const req = needsWhy(val); const a = ai.criteria[c.key];
+        const diff = val != null ? val - a.score : 0;
+        return (
+          <section key={c.key} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden" data-criterion={c.key}>
+            <div className="px-4 pt-3.5 pb-3">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-neutral-900 leading-snug">{isAr ? c.ar : c.en}</p>
+                  {(c.descEn || c.descAr) && <p className="mt-0.5 text-[11.5px] text-neutral-500 leading-snug">{isAr ? c.descAr : c.descEn}</p>}
                 </div>
-                <input disabled={ro} value={sc?.why ?? ''} onChange={(e) => setScore(c.key, { why: e.target.value })} data-why={c.key}
-                  placeholder={req ? t('Justification required for this score', 'التبرير مطلوب لهذه الدرجة') : t('Justification (optional)', 'التبرير (اختياري)')}
-                  className={`mt-2.5 w-full text-[12.5px] rounded-lg border px-3 py-2 focus:outline-none focus:border-brand-400 disabled:bg-neutral-50 ${req && !sc?.why?.trim() ? 'border-warning-300 bg-warning-50/40' : 'border-neutral-200'}`} />
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+                <span className="px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-600 text-[11px] font-semibold tabular-nums">{c.weight}%</span>
+              </div>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="relative flex-1 h-6 flex items-center">
+                  <span className="absolute inset-x-0 h-1.5 rounded-full bg-neutral-100" />
+                  <span className="absolute start-0 h-1.5 rounded-full bg-brand-500 transition-all" style={{ width: `${val ?? 0}%` }} />
+                  <span className="absolute -translate-x-1/2 w-0.5 h-4 rounded bg-ai-500" style={{ left: `${a.score}%` }} title={`AI ${a.score}`} />
+                  <input type="range" min={0} max={100} step={5} disabled={ro} value={val ?? 0} onChange={(e) => setScore(c.key, { score: Number(e.target.value) })} className="range-clean relative w-full" aria-label={`${c.en} slider`} />
+                </div>
+                <input type="number" min={0} max={100} disabled={ro} value={val ?? ''} placeholder="—" onChange={(e) => setScore(c.key, { score: e.target.value === '' ? undefined : Math.max(0, Math.min(100, Number(e.target.value))) })}
+                  className="w-14 text-center text-[15px] font-semibold rounded-lg border border-neutral-200 py-1 tabular-nums focus:outline-none focus:border-brand-400 disabled:bg-neutral-50" data-score={c.key} />
+              </div>
+            </div>
+            <div className="px-4 py-2.5 bg-gradient-to-r from-ai-50/80 to-white border-t border-ai-100/70" data-ai-suggest={c.key}>
+              <div className="flex items-center gap-2">
+                <SparklesIcon className="w-3.5 h-3.5 text-ai-600 flex-shrink-0" />
+                <span className="text-[12px] font-semibold text-ai-800">{t(`AI suggests ${a.score}`, `يقترح ${a.score}`)}</span>
+                <span className={`text-[10.5px] font-semibold uppercase tracking-wide ${a.confidence === 'high' ? 'text-success-700' : a.confidence === 'medium' ? 'text-warning-700' : 'text-neutral-500'}`}>{a.confidence === 'high' ? t('high confidence', 'ثقة عالية') : a.confidence === 'medium' ? t('medium', 'متوسطة') : t('low', 'منخفضة')}</span>
+                {val != null && Math.abs(diff) >= 15 && <span className="text-[11px] text-warning-700">· {t(`you are ${Math.abs(diff)} ${diff > 0 ? 'above' : 'below'}`, `أنت ${diff > 0 ? 'أعلى' : 'أقل'} بـ ${Math.abs(diff)}`)}</span>}
+                {!ro && val !== a.score && <button type="button" onClick={() => setScore(c.key, { score: a.score, ...(needsWhy(a.score) && !sc?.why?.trim() ? { why: a.en } : {}) })} className="ms-auto text-[11.5px] font-semibold text-ai-700 hover:text-ai-900" data-ai-apply={c.key}>{t('Apply', 'تطبيق')}</button>}
+              </div>
+              <p className="mt-1 text-[12px] text-neutral-700 leading-snug">{isAr ? a.ar : a.en}</p>
+              <div className="mt-1.5 flex flex-wrap gap-1">{a.cites.map((ct) => <CiteChip key={ct.block} c={ct} onJump={jump} />)}</div>
+            </div>
+            <div className="px-4 pb-3 pt-2.5">
+              <textarea rows={1} disabled={ro} value={sc?.why ?? ''} onChange={(e) => setScore(c.key, { why: e.target.value })} data-why={c.key}
+                placeholder={req ? t('Justification required for this score', 'التبرير مطلوب لهذه الدرجة') : t('Your justification (optional)', 'تبريرك (اختياري)')}
+                className={`w-full resize-none text-[12.5px] rounded-lg border px-3 py-2 focus:outline-none focus:border-brand-400 disabled:bg-neutral-50 field-sizing-content ${req && !sc?.why?.trim() ? 'border-warning-300 bg-warning-50/40' : 'border-neutral-200'}`} />
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -217,7 +238,7 @@ function LegalInputs({ s, v, isAr, t, ro, set, onReturnItems }: { s: VendorSheet
           {LEGAL_CHECKS.map((c) => {
             const op = v.docs[c.doc]; const val = s.checks?.[c.id];
             return (
-              <li key={c.id} className="flex items-center gap-3 px-5 py-3" data-legal-check={c.id}>
+              <li key={c.id} className="flex items-center gap-x-3 gap-y-1 px-4 py-2.5 flex-wrap" data-legal-check={c.id}>
                 <span className={`w-2 h-2 rounded-full ${val === 'pass' ? 'bg-success-500' : val === 'missing' ? 'bg-error-500' : 'bg-neutral-200'}`} />
                 <span className="flex-1 text-[13px] text-neutral-800">{isAr ? c.ar : c.en}</span>
                 <span className="text-[11.5px] text-neutral-400">{t('At opening', 'عند الفتح')}: <span className={op === 'valid' ? 'text-success-700' : op ? 'text-warning-700' : ''}>{op ? (DOC_STATUS_LABEL[op][isAr ? 1 : 0]) : '—'}</span></span>
@@ -280,7 +301,7 @@ function FinInputs({ s, v, estimate, isAr, t, ro, set }: { s: VendorSheet; v: Op
   );
   return (
     <div className="space-y-4" data-fin-inputs>
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <section className="grid grid-cols-2 gap-2">
         <Kpi k={t('Opened price', 'السعر عند الفتح')} v={fmtSar(v.price)} />
         <Kpi k={t('Estimated value', 'القيمة التقديرية')} v={fmtSar(estimate)} />
         <Kpi k={t('Variance', 'الفرق')} v={fmtPct(varc)} tone={flag ? 'text-error-700' : 'text-neutral-900'} />
@@ -293,7 +314,7 @@ function FinInputs({ s, v, estimate, isAr, t, ro, set }: { s: VendorSheet; v: Op
             <p className="text-[12px] text-neutral-500">{t('After arithmetic corrections; defaults to the opened price.', 'بعد التصحيحات الحسابية؛ الافتراضي هو سعر الفتح.')}</p>
           </div>
           <input type="number" min={0} disabled={ro} dir="ltr" value={s.evalPrice ?? ''} placeholder={String(v.price ?? '')} onChange={(e) => set({ evalPrice: Number(e.target.value) || undefined })} data-eval-price
-            className="w-48 text-end text-[16px] font-semibold rounded-lg border border-neutral-200 px-3 py-2 tabular-nums focus:outline-none focus:border-brand-400 disabled:bg-neutral-50" />
+            className="w-40 text-end text-[16px] font-semibold rounded-lg border border-neutral-200 px-3 py-2 tabular-nums focus:outline-none focus:border-brand-400 disabled:bg-neutral-50" />
         </div>
         <div className="mt-5" data-variance={varc == null ? '' : varc.toFixed(3)}>
           <div className="relative h-2 rounded-full bg-gradient-to-r from-error-200 via-success-200 to-error-200">
@@ -328,8 +349,183 @@ function FinInputs({ s, v, estimate, isAr, t, ro, set }: { s: VendorSheet; v: Op
   );
 }
 
-/* ── F6.3 · Vendor evaluation page (full page) ───────────────────── */
-function EvalPage({ role, vid, p, onClose, onNext }: { role: EvalRole; vid: string; p: EP; onClose: () => void; onNext: (from: string) => void }) {
+/* ── Evaluation workspace: documents · viewer · evaluate / AI insights ── */
+const CiteChip = ({ c, onJump, short }: { c: Cite; onJump: (c: Cite) => void; short?: string }) => (
+  <button type="button" onClick={() => onJump(c)} data-cite={`${c.doc}:${c.block}`}
+    className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-white ring-1 ring-neutral-200 text-[11px] font-medium text-neutral-600 hover:ring-brand-300 hover:text-brand-700 transition-colors">
+    <DocumentIcon className="w-3 h-3" />{short ?? <>{c.label}<span className="text-neutral-400">· p.{c.page + 1}</span></>}
+  </button>
+);
+const DocIcon = ({ d }: { d: OfferDoc }) => {
+  const tone = d.sealed ? 'bg-ai-50 text-ai-700' : d.status === 'expired' ? 'bg-warning-50 text-warning-700' : d.status === 'missing' ? 'bg-neutral-100 text-neutral-400' : d.group === 'certificates' ? 'bg-success-50 text-success-700' : 'bg-[#EAF2FB] text-[#21507A]';
+  return <span className={`w-8 h-8 rounded-lg inline-flex items-center justify-center flex-shrink-0 ${tone}`}>{d.sealed ? <LockIcon /> : <DocumentIcon className="w-4 h-4" />}</span>;
+};
+function DocRail({ docs, cur, onOpen, onPage, page, isAr, t }: { docs: OfferDoc[]; cur: string; onOpen: (id: string) => void; onPage: (n: number) => void; page: number; isAr: boolean; t: T }) {
+  const groups: [OfferDoc['group'], string][] = [['technical', t('Technical offer', 'العرض الفني')], ['certificates', t('Certificates', 'الشهادات')], ['financial', t('Financial offer', 'العرض المالي')], ['etimad', t('Etimad', 'اعتماد')]];
+  return (
+    <nav className="h-full overflow-y-auto bg-white border-e border-neutral-200 py-4" data-doc-rail>
+      <p className="px-4 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t(`Offer documents · ${docs.filter((d) => d.pages.length).length}`, `مستندات العرض · ${docs.filter((d) => d.pages.length).length}`)}</p>
+      {groups.map(([g, label]) => { const ds = docs.filter((d) => d.group === g); if (!ds.length) return null; return (
+        <div key={g} className="mt-4">
+          {g !== 'technical' && <p className="px-4 mb-1 text-[11.5px] font-semibold text-neutral-500">{label}</p>}
+          <ul className="px-2 space-y-0.5">{ds.map((d) => (
+            <li key={d.id}>
+              <button type="button" onClick={() => onOpen(d.id)} data-doc-open={d.id} aria-current={cur === d.id}
+                className={`w-full flex items-center gap-2.5 rounded-xl px-2 py-2 text-start transition-colors ${cur === d.id ? 'bg-brand-50 ring-1 ring-brand-200' : 'hover:bg-neutral-50'}`}>
+                <DocIcon d={d} />
+                <span className="min-w-0 flex-1"><span className="block text-[12.5px] font-medium text-neutral-900 truncate">{isAr ? d.ar : d.en}</span>
+                  <span className="block text-[11px] text-neutral-500">{d.sealed ? t('Sealed', 'مختوم') : d.status === 'expired' ? <span className="text-warning-700">{t('Expired', 'منتهٍ')}</span> : d.status === 'missing' ? t('Not attached', 'غير مرفق') : `PDF · ${d.size}`}</span></span>
+              </button>
+              {cur === d.id && d.pages.length > 1 && (
+                <ul className="ms-12 me-2 mt-1 mb-2 border-s border-neutral-200 fade-in">{d.pages.map((pg, i) => (
+                  <li key={i}><button type="button" onClick={() => onPage(i)} className={`w-full text-start ps-3 py-1 text-[11.5px] truncate transition-colors ${page === i ? 'text-brand-700 font-semibold border-s-2 border-brand-500 -ms-px' : 'text-neutral-500 hover:text-neutral-800'}`}>{pg.title}</button></li>
+                ))}</ul>
+              )}
+            </li>
+          ))}</ul>
+        </div>
+      ); })}
+    </nav>
+  );
+}
+function Viewer({ doc, vendor, page, hl, nav, zoom, setZoom, onPage, onSeen, isAr, t }: { doc: OfferDoc; vendor: OpeningVendor; page: number; hl?: string; nav: number; zoom: number; setZoom: (z: number) => void; onPage: (n: number) => void; onSeen: (n: number) => void; isAr: boolean; t: T }) {
+  const box = useRef<HTMLDivElement | null>(null);
+  const auto = useRef(false);
+  // Scroll only on explicit navigation (rail, page buttons, citations) — never in response to the user's own scrolling.
+  useEffect(() => {
+    const c = box.current; if (!c) return;
+    const el = (hl ? c.querySelector(`[data-blk="${hl}"][data-pg="${page}"]`) : c.querySelector(`[data-page="${page}"]`)) as HTMLElement | null;
+    if (!el) return;
+    const y = el.getBoundingClientRect().top - c.getBoundingClientRect().top + c.scrollTop - (hl ? c.clientHeight / 3 : 16);
+    auto.current = true; c.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    const id = window.setTimeout(() => { auto.current = false; }, 700); return () => window.clearTimeout(id);
+  }, [nav]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const c = box.current; if (!c) return; const id = window.setTimeout(() => { auto.current = false; onScroll(); }, 900); return () => window.clearTimeout(id); }, [nav]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onScroll = () => {
+    const c = box.current; if (!c || auto.current) return;
+    const pages = Array.from(c.querySelectorAll<HTMLElement>('[data-page]'));
+    const mid = c.getBoundingClientRect().top + c.clientHeight / 2;
+    let cur = pages.findIndex((p) => p.getBoundingClientRect().top <= mid && p.getBoundingClientRect().bottom >= mid);
+    if (cur < 0) cur = pages.findIndex((p) => p.getBoundingClientRect().top > mid) - 1;
+    if (cur >= 0 && cur !== page) onSeen(cur);
+  };
+  const blk = (b: Block, pg: number) => {
+    const on = hl === b.id;
+    const cls = `rounded-md transition-all duration-500 ${on ? 'bg-yellow-100/80 ring-2 ring-yellow-300 -mx-2 px-2 py-1 hl-pulse' : ''}`;
+    const a = { 'data-blk': b.id, 'data-pg': pg, 'data-hl': on ? '' : undefined } as Record<string, unknown>;
+    if (b.kind === 'h') return <h4 key={b.id} {...a} className={`${cls} mt-5 first:mt-0 text-[15px] font-semibold text-neutral-900`}>{b.text}</h4>;
+    if (b.kind === 'p') return <p key={b.id} {...a} className={`${cls} mt-2 text-[13px] leading-relaxed text-neutral-700`}>{b.text}</p>;
+    if (b.kind === 'list') return <ul key={b.id} {...a} className={`${cls} mt-2 space-y-1.5`}>{b.items.map((x) => <li key={x} className="flex gap-2 text-[13px] text-neutral-700"><span className="mt-2 w-1 h-1 rounded-full bg-neutral-400 flex-shrink-0" />{x}</li>)}</ul>;
+    if (b.kind === 'kv') return <dl key={b.id} {...a} className={`${cls} mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5`}>{b.kv.map(([k, v]) => <div key={k}><dt className="text-[11px] text-neutral-500">{k}</dt><dd className="text-[13px] font-medium text-neutral-900">{v}</dd></div>)}</dl>;
+    return <table key={b.id} {...a} className={`${cls} mt-3 w-full text-[12.5px] border-collapse`}><tbody>{b.rows.map((r, i) => <tr key={i} className={i === 0 ? 'bg-neutral-50 text-neutral-500 text-[11.5px]' : 'border-t border-neutral-100'}>{r.map((c, j) => <td key={j} className={`px-2.5 py-1.5 ${i === 0 ? 'font-medium' : 'text-neutral-800'} ${j === r.length - 1 && r.length > 1 && /\d/.test(c) && i > 0 ? 'text-end tabular-nums' : ''}`}>{c}</td>)}</tr>)}</tbody></table>;
+  };
+  return (
+    <div className="h-full flex flex-col bg-[#EEF0F3]" data-viewer={doc.id}>
+      <div className="h-12 flex-shrink-0 bg-white/90 backdrop-blur border-b border-neutral-200 flex items-center gap-3 px-4">
+        <DocIcon d={doc} />
+        <span className="min-w-0"><span className="block text-[13px] font-semibold text-neutral-900 truncate">{isAr ? doc.ar : doc.en}</span><span className="block text-[11px] text-neutral-500 truncate">{vendor.name}</span></span>
+        {doc.pages.length > 0 && <span className="ms-auto flex items-center gap-1 text-[12px] text-neutral-600">
+          <button type="button" disabled={page <= 0} onClick={() => onPage(page - 1)} className="p-1.5 rounded-md hover:bg-neutral-100 disabled:opacity-30" aria-label="Previous page"><ChevronUpIcon className="w-4 h-4" /></button>
+          <span className="tabular-nums w-14 text-center" data-page-of>{page + 1} / {doc.pages.length}</span>
+          <button type="button" disabled={page >= doc.pages.length - 1} onClick={() => onPage(page + 1)} className="p-1.5 rounded-md hover:bg-neutral-100 disabled:opacity-30" aria-label="Next page"><ChevronDownIcon className="w-4 h-4" /></button>
+          <span className="w-px h-5 bg-neutral-200 mx-1.5" />
+          <button type="button" onClick={() => setZoom(Math.max(0.8, zoom - 0.1))} className="w-7 h-7 rounded-md hover:bg-neutral-100 text-[15px]" aria-label="Zoom out">−</button>
+          <span className="tabular-nums w-10 text-center">{Math.round(zoom * 100)}%</span>
+          <button type="button" onClick={() => setZoom(Math.min(1.3, zoom + 0.1))} className="w-7 h-7 rounded-md hover:bg-neutral-100 text-[15px]" aria-label="Zoom in">+</button>
+          <button type="button" onClick={() => toast(t('Download started (prototype)', 'بدأ التنزيل (نموذج)'))} className="ms-1 h-7 px-2.5 rounded-md hover:bg-neutral-100 text-[12px] font-semibold">{t('Download', 'تنزيل')}</button>
+        </span>}
+      </div>
+      <div ref={box} onScroll={onScroll} className="flex-1 min-h-0 overflow-y-auto px-6 py-6" key={doc.id}>
+        {doc.sealed ? (
+          <div className="h-full flex flex-col items-center justify-center text-center fade-in" data-viewer-sealed>
+            <span className="w-14 h-14 rounded-2xl bg-ai-50 text-ai-700 inline-flex items-center justify-center"><LockIcon className="w-6 h-6" /></span>
+            <p className="mt-3 text-[14px] font-semibold text-neutral-900">{t('Sealed until the financial opening', 'مختوم حتى الفتح المالي')}</p>
+            <p className="mt-1 text-[12.5px] text-neutral-500 max-w-xs">{t('Two-envelope tender: prices are opened only for technically passing bidders.', 'منافسة بظرفين: تُفتح الأسعار للمجتازين فنياً فقط.')}</p>
+          </div>
+        ) : !doc.pages.length ? (
+          <div className="h-full flex flex-col items-center justify-center text-center fade-in">
+            <span className="w-14 h-14 rounded-2xl bg-neutral-100 text-neutral-400 inline-flex items-center justify-center"><DocumentIcon className="w-6 h-6" /></span>
+            <p className="mt-3 text-[14px] font-semibold text-neutral-900">{t('Not attached to the offer', 'غير مرفق بالعرض')}</p>
+          </div>
+        ) : (
+          <div className="space-y-5 mx-auto origin-top transition-transform" style={{ width: `${Math.round(620 * zoom)}px`, maxWidth: '100%' }}>
+            {doc.pages.map((pg, i) => (
+              <article key={i} data-page={i} className="bg-white rounded-sm shadow-[0_1px_3px_rgba(0,0,0,.08),0_8px_24px_-12px_rgba(0,0,0,.18)] rise-in" style={{ minHeight: Math.round(620 * zoom * 1.1), fontSize: `${zoom}em`, padding: `${Math.round(44 * zoom)}px ${Math.round(48 * zoom)}px` }}>
+                <header className="flex items-center justify-between pb-3 mb-5 border-b border-neutral-100 text-[10.5px] text-neutral-400"><span className="font-semibold text-neutral-500">{vendor.name}</span><span>{pg.title}</span></header>
+                {pg.blocks.map((b) => blk(b, i))}
+                <footer className="mt-8 pt-3 border-t border-neutral-100 text-center text-[10px] text-neutral-400 tabular-nums">{t('Page', 'صفحة')} {i + 1} / {doc.pages.length}</footer>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+const ReqIcon = ({ s }: { s: 'met' | 'partial' | 'gap' }) => s === 'met' ? <CheckCircleIcon className="w-4 h-4 text-success-600 flex-shrink-0" /> : s === 'partial' ? <span className="w-4 h-4 rounded-full border-2 border-warning-500 flex-shrink-0 relative overflow-hidden"><span className="absolute inset-y-0 start-0 w-1/2 bg-warning-500" /></span> : <XIcon className="w-4 h-4 text-error-600 flex-shrink-0" />;
+function InsightsPanel({ role, v, o, rfp, estimate, isAr, t, jump }: { role: EvalRole; v: OpeningVendor; o: Opening; rfp: RfpDetail; estimate?: number; isAr: boolean; t: T; jump: (c: Cite) => void }) {
+  const ai = vendorInsight(v, rfp);
+  const peers = evalVendors(o, role);
+  const bars = role === 'finance'
+    ? peers.map((x) => ({ x, val: x.price ?? 0 })).sort((a, b) => a.val - b.val)
+    : peers.map((x) => ({ x, val: aiWeighted(x, rfp) })).sort((a, b) => b.val - a.val);
+  const max = Math.max(1, ...bars.map((b) => b.val));
+  const metN = ai.requirements.filter((r) => r.status === 'met').length;
+  return (
+    <div className="space-y-3 fade-in" data-ai-insights>
+      <section className="rounded-2xl p-4 text-white bg-[radial-gradient(120%_120%_at_0%_0%,#5B4BD8_0%,#3A2E9A_55%,#241C66_100%)] shadow-[0_10px_30px_-14px_rgba(58,46,154,.8)]">
+        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/70"><SparklesIcon className="w-3.5 h-3.5" />{t('AI reading of this offer', 'قراءة الذكاء الاصطناعي للعرض')}</div>
+        <div className="mt-3 flex items-center gap-4">
+          <div className="relative w-16 h-16 flex-shrink-0">
+            <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90"><circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,.15)" strokeWidth="3.5" /><circle cx="18" cy="18" r="15.5" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${(ai.match / 100) * 97.4} 97.4`} style={{ transition: 'stroke-dasharray .8s ease' }} /></svg>
+            <span className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-[16px] font-bold tabular-nums" data-ai-match={ai.match}>{ai.match}%</span></span>
+          </div>
+          <div className="min-w-0"><p className="text-[12px] text-white/70">{t(`Matches ${metN} of ${ai.requirements.length} request requirements`, `يطابق ${metN} من ${ai.requirements.length} متطلبات`)}</p><p className="mt-0.5 text-[13px] leading-snug font-medium">{isAr ? ai.ar : ai.en}</p></div>
+        </div>
+        <p className="mt-3 text-[10.5px] text-white/55">{t('Suggestion only — you score and sign. Every point links to the page it came from.', 'اقتراح فقط — أنت من يقيّم ويوقّع. كل نقطة مرتبطة بصفحتها.')}</p>
+      </section>
+      {(ai.bestAt.length > 0 || ai.watch.length > 0) && (
+        <section className="rounded-2xl border border-neutral-200 bg-white p-4 grid grid-cols-1 gap-3">
+          {ai.bestAt.length > 0 && <div><p className="text-[11.5px] font-semibold text-neutral-500">{t('Best at', 'الأقوى في')}</p><div className="mt-1.5 flex flex-wrap gap-1.5" data-ai-best>{ai.bestAt.map((b) => <span key={b.en} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-success-50 text-success-800 text-[12px] font-medium"><CheckIcon className="w-3 h-3" />{L(b, isAr)}</span>)}</div></div>}
+          {ai.watch.length > 0 && <div><p className="text-[11.5px] font-semibold text-neutral-500">{t('Watch out', 'انتبه إلى')}</p><div className="mt-1.5 flex flex-wrap gap-1.5" data-ai-watch>{ai.watch.map((b) => <span key={b.en} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-warning-50 text-warning-800 text-[12px] font-medium"><AlertTriangleIcon className="w-3 h-3" />{L(b, isAr)}</span>)}</div></div>}
+        </section>
+      )}
+      {role === 'legal' ? (
+        <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden" data-ai-certs>
+          <p className="px-4 pt-3.5 pb-2 text-[12.5px] font-semibold text-neutral-900">{t('Certificates read by AI', 'الشهادات التي قرأها الذكاء الاصطناعي')}</p>
+          <ul className="divide-y divide-neutral-100">{legalInsight(v, o).map((c) => (
+            <li key={c.doc.id} className="px-4 py-2.5 flex items-center gap-2.5">
+              <ReqIcon s={c.status === 'valid' ? 'met' : c.status === 'expired' ? 'partial' : 'gap'} />
+              <span className="flex-1 min-w-0"><span className="block text-[12.5px] text-neutral-800">{isAr ? c.doc.ar : c.doc.en}</span><span className="block text-[11px] text-neutral-500">{c.status === 'missing' ? t('Not found in the offer', 'غير موجودة في العرض') : c.status === 'expired' ? t(`Expired ${c.date} — consider L-02`, `منتهية ${c.date} — راجع L-02`) : t(`Valid until ${c.date}`, `سارية حتى ${c.date}`)}</span></span>
+              {c.cite && <CiteChip c={c.cite} onJump={jump} short={t('View', 'عرض')} />}
+            </li>
+          ))}</ul>
+        </section>
+      ) : (
+        <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden" data-ai-reqs>
+          <p className="px-4 pt-3.5 pb-2 text-[12.5px] font-semibold text-neutral-900">{t('Against the request', 'مقابل متطلبات الطلب')}</p>
+          <ul className="divide-y divide-neutral-100">{ai.requirements.map((r) => (
+            <li key={r.en} className="px-4 py-2.5 flex items-center gap-2.5" data-req={r.status}>
+              <ReqIcon s={r.status} /><span className="flex-1 text-[12.5px] text-neutral-800">{L(r, isAr)}</span>{r.cite && <CiteChip c={r.cite} onJump={jump} />}
+            </li>
+          ))}</ul>
+        </section>
+      )}
+      <section className="rounded-2xl border border-neutral-200 bg-white p-4" data-ai-peers>
+        <p className="text-[12.5px] font-semibold text-neutral-900">{role === 'finance' ? t('Price among compliant bidders', 'السعر بين الموردين المطابقين') : t('AI estimate among bidders', 'تقدير الذكاء بين الموردين')}</p>
+        <ul className="mt-3 space-y-2.5">{bars.map(({ x, val }, i) => (
+          <li key={x.id}>
+            <div className="flex items-center justify-between text-[12px]"><span className={x.id === v.id ? 'font-semibold text-neutral-900' : 'text-neutral-600'}>{i + 1}. {x.name}</span><span className="tabular-nums text-neutral-700" dir="ltr">{role === 'finance' ? fmtSar(val) : val}</span></div>
+            <div className="mt-1 h-1.5 rounded-full bg-neutral-100 overflow-hidden"><div className={`h-full rounded-full transition-all duration-700 ${x.id === v.id ? 'bg-ai-500' : 'bg-neutral-300'}`} style={{ width: `${(val / max) * 100}%` }} /></div>
+          </li>
+        ))}</ul>
+        {role === 'finance' && estimate ? <p className="mt-3 text-[11.5px] text-neutral-500">{t('Estimate', 'التقدير')} <span className="tabular-nums" dir="ltr">{fmtSar(estimate)}</span></p> : null}
+      </section>
+    </div>
+  );
+}
+
+function EvalPage({ role, vid, p, onClose, onNext, onSwitch }: { role: EvalRole; vid: string; p: EP; onClose: () => void; onNext: (from: string) => void; onSwitch: (to: string) => void }) {
   const { task, isAr, t, readOnly } = p;
   const { rfp, o, setSheet, setEval, ev, log } = useEval(task, p.onRfp);
   const vs = evalVendors(o, role);
@@ -337,9 +533,21 @@ function EvalPage({ role, vid, p, onClose, onNext }: { role: EvalRole; vid: stri
   const s = sheetOf(o, role, vid);
   const ro = !!readOnly || !!s.sig;
   const miss = v ? sheetMissing(role, s, rfp, v, task.amount) : [];
+  const docs = useMemo(() => (v ? offerDocs(v, o) : []), [v, o]);
+  const first = role === 'legal' ? 'c-cr' : role === 'finance' && o.financial?.momAt ? 'fin' : 'tech';
+  const [docId, setDocId] = useState(first);
+  const [page, setPage] = useState(0);
+  const [hl, setHl] = useState<string | undefined>();
+  const [zoom, setZoom] = useState(1);
+  const [nav, setNav] = useState(0);
+  const go = (pg: number, block?: string) => { setPage(pg); setHl(block); setNav((n) => n + 1); };
+  const [pane, setPane] = useState<'evaluate' | 'insights'>('evaluate');
   const [confirm, setConfirm] = useState(false);
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape' && !confirm) onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose, confirm]);
+  useEffect(() => { if (!hl) return; const id = window.setTimeout(() => setHl(undefined), 2600); return () => window.clearTimeout(id); }, [hl]);
   if (!v) return null;
+  const doc = docs.find((d) => d.id === docId) ?? docs[0];
+  const jump = (c: Cite) => { setDocId(c.doc); window.setTimeout(() => go(c.page, c.block), 40); };
   const set = (x: Partial<VendorSheet>) => setSheet(role, vid, x);
   const doSign = () => {
     const sig = sign(task.assignee, ROLE_LABEL[role]);
@@ -348,60 +556,68 @@ function EvalPage({ role, vid, p, onClose, onNext }: { role: EvalRole; vid: stri
     setConfirm(false); toast(t(`${v.name} signed`, `تم توقيع ${v.name}`)); onNext(vid);
   };
   const lastVoid = s.voids?.[s.voids.length - 1];
+  const nSigned = vs.filter((x) => signed(sheetOf(o, role, x.id))).length;
   return createPortal(
     <div className="fixed inset-0 z-50 bg-[#F6F7F9] flex flex-col fade-in" data-eval-page={role} data-eval-vendor={vid}>
-      <header className="h-16 flex-shrink-0 bg-white border-b border-neutral-200 flex items-center gap-4 px-5">
-        <button type="button" onClick={onClose} data-eval-back className="inline-flex items-center gap-1.5 h-9 ps-2.5 pe-3 rounded-full border border-neutral-200 text-[12.5px] font-semibold text-neutral-700 hover:bg-neutral-50"><ArrowLeftIcon className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />{t('Back to vendors', 'العودة إلى الموردين')}</button>
-        <div className="min-w-0">
-          <p className="text-[11.5px] text-neutral-500">{L(ROLE_LABEL[role], isAr)} · {t(`Vendor ${idx + 1} of ${vs.length}`, `المورد ${idx + 1} من ${vs.length}`)}</p>
-          <h2 className="text-[16px] font-semibold text-neutral-900 truncate">{v.name}</h2>
+      <header className="h-[60px] flex-shrink-0 bg-white border-b border-neutral-200 flex items-center gap-3 px-4">
+        <button type="button" onClick={onClose} data-eval-back title={t('Back to vendors', 'العودة إلى الموردين')} className="w-9 h-9 rounded-full border border-neutral-200 inline-flex items-center justify-center text-neutral-600 hover:bg-neutral-50"><ArrowLeftIcon className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} /></button>
+        <div className="min-w-0 me-2">
+          <p className="text-[11px] text-neutral-500 truncate">{L(ROLE_LABEL[role], isAr)} · {task.entity.ref}</p>
+          <p className="text-[14px] font-semibold text-neutral-900 truncate">{L(BEC, isAr)}</p>
         </div>
-        <div className="hidden md:flex items-center gap-1.5 ms-4" aria-label="vendors">
-          {vs.map((x, i) => { const st = statusOf(sheetOf(o, role, x.id)); return <span key={x.id} title={x.name} className={`h-1.5 rounded-full transition-all ${i === idx ? 'w-8' : 'w-4'} ${st === 'signed' ? 'bg-success-500' : st === 'progress' ? 'bg-brand-400' : 'bg-neutral-200'}`} />; })}
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-100 min-w-0 overflow-x-auto" role="tablist" aria-label="vendors" data-vendor-switch>
+          {vs.map((x) => { const st = statusOf(sheetOf(o, role, x.id)); const on = x.id === vid; return (
+            <button key={x.id} type="button" role="tab" aria-selected={on} onClick={() => !on && onSwitch(x.id)} data-switch-vendor={x.id}
+              className={`flex items-center gap-2 h-8 px-3 rounded-lg text-[12.5px] whitespace-nowrap transition-all ${on ? 'bg-white shadow-sm ring-1 ring-neutral-200/70 font-semibold text-neutral-900' : 'text-neutral-600 hover:text-neutral-900'}`}>
+              <span className={`w-2 h-2 rounded-full ${st === 'signed' ? 'bg-success-500' : st === 'progress' ? 'bg-brand-400' : 'bg-neutral-300'}`} />{x.name.split(' ').slice(0, 2).join(' ')}
+            </button>
+          ); })}
         </div>
-        <span className="ms-auto flex items-center gap-2">
+        <span className="ms-auto flex items-center gap-2 flex-shrink-0">
+          <span className="hidden xl:inline text-[12px] text-neutral-500 tabular-nums me-1">{t(`${nSigned} of ${vs.length} signed`, `${nSigned} من ${vs.length} موقّعة`)}</span>
           {!ro && <Button variant="primary" disabled={miss.length > 0} onClick={() => setConfirm(true)} data-sign><PenIcon />{idx < vs.length - 1 ? t('Sign and next vendor', 'وقّع وانتقل للتالي') : t('Sign', 'وقّع')}</Button>}
           {!ro && <Button variant="secondary" onClick={() => { set({}); toast(t('Draft saved', 'تم حفظ المسودة')); }} data-save-draft>{t('Save draft', 'حفظ كمسودة')}</Button>}
           {ro && s.sig && <Pill tone="green"><LockIcon className="w-3 h-3" />{t('Signed · read-only', 'موقّع · للقراءة فقط')}</Pill>}
         </span>
       </header>
-      <div className="flex-1 min-h-0 overflow-y-auto" key={vid}>
-        <div className="max-w-6xl mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 rise-in">
-          <main className="min-w-0 space-y-4">
-            {lastVoid && !s.sig && (
-              <div className="flex items-start gap-2.5 rounded-xl border border-warning-200 bg-warning-50/70 px-4 py-3 text-[12.5px] text-warning-900" data-voided>
-                <AlertTriangleIcon className="w-4 h-4 mt-0.5 text-warning-600" /><span><span className="font-semibold">{t('Your earlier signature was voided', 'أُلغي توقيعك السابق')}</span> · {lastVoid.reason} · <span className="text-warning-700">{lastVoid.by}, {riyadh(lastVoid.at, isAr)}</span></span>
+      <div className="flex-1 min-h-0 grid grid-cols-[248px_minmax(0,1fr)_460px] grid-rows-[minmax(0,1fr)] overflow-hidden" key={vid}>
+        <DocRail docs={docs} cur={doc.id} page={page} onOpen={(id) => { setDocId(id); setPage(0); setHl(undefined); }} onPage={(n) => go(n)} isAr={isAr} t={t} />
+        <Viewer doc={doc} vendor={v} page={page} hl={hl} nav={nav} zoom={zoom} setZoom={setZoom} onPage={(n) => go(n)} onSeen={setPage} isAr={isAr} t={t} />
+        <aside className="min-h-0 flex flex-col bg-[#F8F9FB] border-s border-neutral-200">
+          <div className="flex-shrink-0 px-4 pt-3 pb-2">
+            <div className="flex items-center gap-3">
+              <Initials name={v.name} />
+              <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold text-neutral-900 truncate">{v.name}</span><span className="block text-[11.5px] text-neutral-500 tabular-nums" dir="ltr">CR {v.cr} · {t(`Bidder ${idx + 1} of ${vs.length}`, `المورد ${idx + 1} من ${vs.length}`)}</span></span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-1 p-1 rounded-xl bg-neutral-200/60" role="tablist">
+              {([['evaluate', t('Evaluate', 'التقييم')], ['insights', t('AI insights', 'رؤى الذكاء الاصطناعي')]] as const).map(([k, l]) => (
+                <button key={k} type="button" role="tab" aria-selected={pane === k} onClick={() => setPane(k)} data-pane={k}
+                  className={`h-8 rounded-lg text-[12.5px] font-semibold inline-flex items-center justify-center gap-1.5 transition-all ${pane === k ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}>{k === 'insights' && <SparklesIcon className="w-3.5 h-3.5 text-ai-600" />}{l}</button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+            {pane === 'insights' ? <InsightsPanel role={role} v={v} o={o} rfp={rfp} estimate={task.amount} isAr={isAr} t={t} jump={jump} /> : (
+              <div className="space-y-3 fade-in">
+                {s.sig && <Stamp sig={s.sig} isAr={isAr} t={t} />}
+                {lastVoid && !s.sig && (
+                  <div className="flex items-start gap-2.5 rounded-xl border border-warning-200 bg-warning-50/70 px-3.5 py-3 text-[12px] text-warning-900" data-voided>
+                    <AlertTriangleIcon className="w-4 h-4 mt-0.5 text-warning-600 flex-shrink-0" /><span><span className="font-semibold">{t('Your earlier signature was voided', 'أُلغي توقيعك السابق')}</span> · {lastVoid.reason} · <span className="text-warning-700">{lastVoid.by}, {riyadh(lastVoid.at, isAr)}</span></span>
+                  </div>
+                )}
+                {role === 'technical' && <TechInputs s={s} v={v} rfp={rfp} isAr={isAr} t={t} ro={ro} set={set} jump={jump} others={vs.length - 1} />}
+                {role === 'legal' && <LegalInputs s={s} v={v} isAr={isAr} t={t} ro={ro} set={set} onReturnItems={(ids) => { set({ returnedItems: ids }); toast(t('Missing documents returned to the Secretary', 'أُعيدت المستندات الناقصة إلى الأمين')); }} />}
+                {role === 'finance' && <FinInputs s={s} v={v} estimate={task.amount} isAr={isAr} t={t} ro={ro} set={set} />}
               </div>
             )}
-            {role === 'technical' && <TechInputs s={s} rfp={rfp} isAr={isAr} t={t} ro={ro} set={set} />}
-            {role === 'legal' && <LegalInputs s={s} v={v} isAr={isAr} t={t} ro={ro} set={set} onReturnItems={(ids) => { set({ returnedItems: ids }); toast(t('Missing documents returned to the Secretary', 'أُعيدت المستندات الناقصة إلى الأمين')); }} />}
-            {role === 'finance' && <FinInputs s={s} v={v} estimate={task.amount} isAr={isAr} t={t} ro={ro} set={set} />}
-          </main>
-          <aside className="space-y-4">
-            {s.sig ? <Stamp sig={s.sig} isAr={isAr} t={t} /> : (
-              <section className="rounded-2xl border border-neutral-200 bg-white p-4" data-eval-missing>
-                <p className="text-[12px] font-semibold text-neutral-600">{miss.length ? t('Before you sign', 'قبل التوقيع') : t('Ready to sign', 'جاهز للتوقيع')}</p>
-                {miss.length ? <ul className="mt-2 space-y-1.5">{miss.map((m) => <li key={m.en} className="flex items-start gap-2 text-[12.5px] text-neutral-700"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-warning-500 flex-shrink-0" />{L(m, isAr)}</li>)}</ul>
-                  : <p className="mt-2 flex items-center gap-1.5 text-[12.5px] text-success-700"><CheckCircleIcon className="w-4 h-4" />{t('Everything required is filled in.', 'تم استكمال كل المطلوب.')}</p>}
-              </section>
-            )}
-            <section className="rounded-2xl border border-neutral-200 bg-white p-4 space-y-3">
-              <p className="text-[12px] font-semibold text-neutral-600">{t('Offer', 'العرض')}</p>
-              <div className="flex items-center gap-3"><Initials name={v.name} /><span className="min-w-0"><span className="block text-[13px] font-semibold text-neutral-900 truncate">{v.name}</span><span className="block text-[11.5px] text-neutral-500 tabular-nums" dir="ltr">CR {v.cr}</span></span></div>
-              <dl className="text-[12.5px] space-y-1.5">
-                <div className="flex justify-between"><dt className="text-neutral-500">{t('Opening documents', 'مستندات الفتح')}</dt><dd className="font-medium text-neutral-800 tabular-nums">{DOC_ITEMS.filter((d) => d.required && v.docs[d.id] === 'valid').length}/{DOC_ITEMS.filter((d) => d.required).length} {t('valid', 'سارية')}</dd></div>
-                <div className="flex justify-between"><dt className="text-neutral-500">{t('Price', 'السعر')}</dt><dd className="font-medium text-neutral-800 tabular-nums" dir="ltr">{role === 'technical' && !o.financial?.momAt ? <span className="text-ai-700">🔒 {t('Sealed', 'مختوم')}</span> : fmtSar(v.price)}</dd></div>
-                {role !== 'technical' && <div className="flex justify-between"><dt className="text-neutral-500">{t('Technical score', 'الدرجة الفنية')}</dt><dd className="font-medium text-neutral-800 tabular-nums">{techTotal(sheetOf(o, 'technical', v.id), rfp).toFixed(1)}</dd></div>}
-                {role === 'finance' && <div className="flex justify-between"><dt className="text-neutral-500">{t('Legal', 'القانوني')}</dt><dd className="font-medium text-success-700">{t('Compliant', 'مطابق')}</dd></div>}
-              </dl>
-              {o.source?.fileName && <p className="flex items-center gap-1.5 text-[11.5px] text-neutral-500 border-t border-neutral-100 pt-3"><DocumentIcon className="w-3.5 h-3.5" /><span className="truncate" dir="ltr">{o.source.fileName}</span></p>}
-            </section>
-            {!!s.voids?.length && (
-              <section className="rounded-2xl border border-neutral-200 bg-white p-4"><p className="text-[12px] font-semibold text-neutral-600">{t('Signature history', 'سجل التوقيع')}</p>
-                <ul className="mt-2 space-y-1.5 text-[12px] text-neutral-600">{s.voids.map((x, i) => <li key={i} className="flex gap-2"><XIcon className="w-3.5 h-3.5 text-warning-600 mt-0.5" /><span>{t('Voided', 'أُلغي')} · {x.reason} <span className="text-neutral-400">· {riyadh(x.at, isAr)}</span></span></li>)}</ul></section>
-            )}
-          </aside>
-        </div>
+          </div>
+          {!s.sig && (
+            <div className="flex-shrink-0 border-t border-neutral-200 bg-white px-4 py-2.5" data-eval-missing>
+              {miss.length ? <p className="flex items-start gap-2 text-[12px] text-neutral-700"><span className="mt-1 w-1.5 h-1.5 rounded-full bg-warning-500 flex-shrink-0" /><span><span className="font-semibold">{t('Before you sign', 'قبل التوقيع')}:</span> {miss.map((m) => L(m, isAr)).join(' · ')}</span></p>
+                : <p className="flex items-center gap-1.5 text-[12px] text-success-700"><CheckCircleIcon className="w-4 h-4" />{t('Ready to sign', 'جاهز للتوقيع')}</p>}
+            </div>
+          )}
+        </aside>
       </div>
       {confirm && (
         <Modal onClose={() => setConfirm(false)} label={t('Sign evaluation', 'توقيع التقييم')}>
@@ -466,7 +682,7 @@ export function VendorEvalTask(p: EP) {
       </section>
       {role === 'finance' && <RankingCard p={p} />}
       {otpFor && <OtpDialog person={task.assignee} vendor={o.vendors.find((x) => x.id === otpFor)!} isAr={isAr} t={t} onClose={() => setOtpFor(null)} onOk={() => { setOpenId(otpFor); setOtpFor(null); }} />}
-      {openId && <EvalPage role={role} vid={openId} p={p} onClose={() => setOpenId(null)} onNext={(from) => { const nx = nextUnsigned(from); setOpenId(null); if (nx) window.setTimeout(() => setOtpFor(nx), 250); }} />}
+      {openId && <EvalPage role={role} vid={openId} p={p} onClose={() => setOpenId(null)} onSwitch={(to) => { setOpenId(null); window.setTimeout(() => setOtpFor(to), 120); }} onNext={(from) => { const nx = nextUnsigned(from); setOpenId(null); if (nx) window.setTimeout(() => setOtpFor(nx), 250); }} />}
       {void ev}{void setEval}
     </div>
   );

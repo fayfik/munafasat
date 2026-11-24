@@ -1415,6 +1415,23 @@ async function openRequest(title) {
     await tab('Committee'); await wait(300);
     expect(Number(await page.locator('[data-signatures]').getAttribute('data-signatures')) === 1, 'signature on the Committee tab');
   });
+
+  await test('Evaluation workspace: offer documents + viewer, AI suggestion per criterion with citations that jump to the passage, AI insights', async () => {
+    await openId('TSK-4433-21');
+    await page.click('[data-eval-start]'); await otp();
+    expect(await count('[data-doc-rail] [data-doc-open]') >= 8 && await count('[data-viewer="tech"] [data-page]') === 5, 'documents / viewer');
+    await page.click('[data-doc-open="fin"]'); await wait(250);
+    expect(await count('[data-viewer-sealed]') === 1, 'financial offer not sealed in technical evaluation');
+    await page.click('[data-cite="tech:exp-1"]'); await wait(900);
+    expect(await count('[data-viewer="tech"] [data-hl]') === 1, 'citation did not highlight the passage');
+    expect(await count('[data-ai-suggest]') === 4, 'AI suggestion per criterion');
+    await page.click('[data-ai-apply-all]'); await wait(200);
+    expect(!(await page.locator('[data-sign]').isDisabled()), 'AI scores (with rationale for 90+) should make the sheet signable');
+    await page.click('[data-pane="insights"]'); await wait(300);
+    expect(Number(await page.locator('[data-ai-match]').getAttribute('data-ai-match')) === 92 && await count('[data-ai-reqs] [data-req]') === 7 && await count('[data-ai-peers] li') === 3, 'AI insights');
+    await page.click('[data-switch-vendor="v2"]'); await wait(300);
+    expect(await count('[data-otp]') === 1, 'switching vendor must ask for a code');
+  });
   await test('F2.2 · Technical report from signed sheets; a return voids signatures and reopens the Technical task', async () => {
     await openId('TSK-4433-22');
     expect(await count('[data-report-row]') === 3 && await count('[data-stamp-mini]') === 3, 'report matrix / signatures');
