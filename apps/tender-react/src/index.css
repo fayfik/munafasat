@@ -534,3 +534,9 @@ section[data-cm-has] { background-color: #fff; outline: 2px solid rgba(42, 97, 1
 .range-clean::-webkit-slider-runnable-track { background: transparent; }
 .range-clean:disabled::-webkit-slider-thumb { border-color: #CBD5E1; cursor: default; }
 .field-sizing-content { field-sizing: content; min-height: 36px; }
+@keyframes slide-in-end { from { transform: translateX(28px); opacity: 0; } to { transform: none; opacity: 1; } }
+.slide-in-end { animation: slide-in-end .32s cubic-bezier(.22,1,.36,1) both; }
+[dir='rtl'] .slide-in-end { animation-name: slide-in-start; }
+@keyframes slide-in-start { from { transform: translateX(-28px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes scan-line { 0% { top: 0; } 100% { top: 100%; } }
+.scan-line { animation: scan-line 1.4s ease-in-out infinite alternate; }

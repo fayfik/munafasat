@@ -44,6 +44,7 @@ export default function InboxPage() {
       // Process-flow order: Department approval → Technical member → Specialist & Finance → Qualification → Procurement → DOA → Price.
       .sort(flowCompare);
   }, [tasksForView, view, q]);
+
   const label = (f: (typeof FILTERS)[number]) => (scope === 'team' && f.teamEn ? (isAr ? f.teamAr! : f.teamEn) : (isAr ? f.ar : f.en));
 
   // Opened from a notification: show it in "All" so it's always in the list.

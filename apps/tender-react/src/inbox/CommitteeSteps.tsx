@@ -5,16 +5,18 @@
    Clean, list-first screens; the bid register opens as a full page when the pane is too narrow. */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import type { CommitteeSeat, DocStatus, Opening, OpeningVendor, Person, RfpDetail, SeatRole, Task } from './types';
+import type { CommitteeSeat, DocStatus, OfferFile, Opening, OpeningVendor, Person, RfpDetail, SeatRole, Task } from './types';
 import { ActionHead } from './ActionHead';
-import { EvalWidget, EvalSignatures } from './EvalSteps';
+import { EvalWidget, EvalSignatures, Viewer } from './EvalSteps';
+import { classified, offerDocs, offerFiles } from './offerDocs';
+import { CaseStory, StoryStrip } from './CaseStory';
 import { Avatar } from './InboxTools';
 import { Button } from '../components/ui';
 import { toast } from '../components/Toast';
-import { ArrowLeftIcon, CheckCircleIcon, CheckIcon, DocumentIcon, PlusIcon, TrashIcon, UploadIcon, XIcon, AlertTriangleIcon, ChevronRightIcon, SparklesIcon } from '../components/Icons';
+import { ArrowLeftIcon, CheckCircleIcon, CheckIcon, ChevronDownIcon, DocumentIcon, PlusIcon, TrashIcon, UploadIcon, XIcon, AlertTriangleIcon, ChevronRightIcon, SparklesIcon } from '../components/Icons';
 import {
   ALTERNATES, COMMITTEE_LABEL, DOC_ITEMS, DOC_STATUS, ETIMAD_BIDDERS, REPLACE_REASONS, SEAT_LABEL,
-  attending, envelopeOf, fmtSar, members, newOpening, priceSealed, seatOf, specialDp, suggestedVendor, vendorDocs, vendorFrom, vendorReady,
+  attending, envelopeOf, etimadSession, fmtSar, members, newOpening, priceSealed, seatOf, specialDp, suggestedVendor, vendorDocs, vendorFrom, vendorReady,
 } from './committee';
 
 type T = (en: string, ar: string) => string;
@@ -59,79 +61,127 @@ const vendorStatus = (v: OpeningVendor, o: Opening, r: RfpDetail | undefined, t:
 export const RoleChip = ({ role, isAr }: { role?: { en: string; ar: string }; isAr: boolean }) =>
   role ? <span className="inline-flex items-center rounded-md bg-[#EEF1FA] text-[#2A3466] px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap" data-committee-role>{isAr ? role.ar : role.en}</span> : null;
 
-/* ── 16 · Raise bid opening form ───────────────────────────────────── */
+/* ── 16 · Raise bid opening form — read Etimad's report: session, bidders, bid bonds ── */
+const fmtDT = (iso?: string, isAr = false) => (iso ? new Date(iso).toLocaleString(isAr ? 'ar-SA-u-ca-gregory' : 'en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }) : '—');
+const Steps = ({ steps, at }: { steps: string[]; at: number }) => (
+  <ul className="space-y-2.5">{steps.map((s, i) => (
+    <li key={s} className={`flex items-center gap-3 text-[13px] transition-colors ${i < at ? 'text-neutral-800' : i === at ? 'text-neutral-900 font-semibold' : 'text-neutral-400'}`}>
+      <span className={`w-5 h-5 rounded-full inline-flex items-center justify-center flex-shrink-0 ${i < at ? 'bg-success-500 text-white' : i === at ? 'border-2 border-brand-500 border-t-transparent animate-spin' : 'border-2 border-neutral-200'}`}>{i < at && <CheckIcon className="w-3 h-3" />}</span>{s}
+    </li>
+  ))}</ul>
+);
+function useStepper(n: number, ms: number, onDone: () => void) {
+  const [at, setAt] = useState(-1);
+  useEffect(() => { if (at < 0) return; if (at >= n) { onDone(); return; } const id = window.setTimeout(() => setAt(at + 1), ms); return () => window.clearTimeout(id); }, [at]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { at, running: at >= 0 && at < n, start: () => setAt(0) };
+}
 export function RaiseOpening({ task, isAr, t, readOnly, onRfp }: P) {
   const { rfp, o, set, setVendor } = useOpening(task, onRfp);
-  const [busy, setBusy] = useState(false);
   const env = envelopeOf(rfp);
-  const upload = () => {
-    setBusy(true);
-    window.setTimeout(() => {
-      set({ source: { kind: 'upload', fileName: `Etimad_opening_report_${rfp.etimad?.ref ?? task.entity.ref}.pdf`, at: now() }, vendors: ETIMAD_BIDDERS.map(vendorFrom) });
-      setBusy(false); toast(t('3 bidders read from the Etimad report — check them', 'تمت قراءة 3 موردين من تقرير اعتماد — تحقق منهم'));
-    }, 700);
-  };
-  const add = () => set({ vendors: [...o.vendors, { id: `v${Date.now()}`, name: '', cr: '', docs: {} }] });
+  const [open, setOpen] = useState<string | null>(null);
+  const read = useStepper(3, 420, () => {
+    set({ ...etimadSession(), source: { kind: 'upload', fileName: `Etimad_opening_report_${rfp.etimad?.ref ?? task.entity.ref}.pdf`, at: now() }, vendors: ETIMAD_BIDDERS.map(vendorFrom) });
+    toast(t('3 bidders, 1 withdrawal and the session details read from the report', 'تمت قراءة 3 موردين وانسحاب واحد وتفاصيل الجلسة'));
+  });
+  const add = () => { const id = `v${Date.now()}`; set({ vendors: [...o.vendors, { id, name: '', cr: '', docs: {} }] }); setOpen(id); };
   const ok = o.vendors.filter((v) => v.name.trim() && v.cr.trim()).length;
+  const bonds = o.vendors.reduce((a, v) => a + (v.bond?.amount ?? 0), 0);
+  const shortValidity = o.vendors.filter((v) => v.validityDays && v.validityDays < 90);
+  const inp = 'w-full rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[13px] bg-white focus:outline-none focus:border-brand-400 disabled:bg-neutral-50';
   return (
     <div className="space-y-4" data-raise-opening>
       <ActionHead title={t('Raise the bid opening form', 'رفع نموذج فتح العروض')}
-        desc={t('Bidding has closed in Etimad. Bring in the bidders — upload Etimad’s opening report or enter them — and send the case to the committee.', 'أُغلق التقديم في اعتماد. أدخل الموردين — ارفع تقرير الفتح من اعتماد أو أدخلهم يدوياً — وأرسل الحالة إلى اللجنة.')}
+        desc={t('Bidding has closed in Etimad. Upload Etimad’s opening report — the session, bidders and bid bonds are read for you — or enter them, then send the case to the committee.', 'أُغلق التقديم في اعتماد. ارفع تقرير الفتح — تُقرأ الجلسة والموردون والضمانات تلقائياً — أو أدخلها، ثم أرسل الحالة إلى اللجنة.')}
         progress={{ done: ok, total: Math.max(1, o.vendors.length), label: t('bidders complete', 'موردين مكتملين'), attrs: { 'data-raise-progress': `${ok}/${o.vendors.length}` } }} />
-      <Card title={t('Tender', 'المنافسة')}>
-        <Facts items={[
-          [t('Etimad reference', 'مرجع اعتماد'), <span dir="ltr">{rfp.etimad?.ref ?? '—'}</span>],
-          [t('Bid closing', 'إغلاق العروض'), fmtDate(rfp.etimad?.closingDate, isAr)],
-          [t('Envelopes', 'الأظرف'), env === 'two' ? t('Two — prices sealed', 'ظرفان — الأسعار مختومة') : t('One', 'ظرف واحد')],
-          [t('Opening date', 'تاريخ الفتح'), <input type="date" disabled={readOnly} value={o.openingDate ?? ''} onChange={(e) => set({ openingDate: e.target.value })} className="text-[13px] font-medium bg-transparent rounded-md border border-neutral-200 px-2 py-0.5 focus:outline-none focus:border-brand-400" data-opening-date />],
-        ]} />
-      </Card>
-      <Card title={t('Bidders', 'الموردون')} attr={{ 'data-bidders': '' }}
-        aside={!readOnly && <div className="inline-flex gap-0.5 p-1 rounded-full bg-neutral-100" role="radiogroup" data-source={o.source?.kind ?? ''}>
-          {([['upload', t('Upload Etimad report', 'رفع تقرير اعتماد')], ['manual', t('Enter manually', 'إدخال يدوي')]] as const).map(([k, l]) => (
-            <button key={k} type="button" role="radio" aria-checked={o.source?.kind === k} data-source-opt={k}
-              onClick={() => (k === 'upload' ? (o.source?.kind !== 'upload' && upload()) : set({ source: { kind: 'manual', at: now() }, vendors: o.vendors.length ? o.vendors : [{ id: 'v1', name: '', cr: '', docs: {} }] }))}
-              className={`h-8 px-3 rounded-full text-[12.5px] font-semibold transition-all ${o.source?.kind === k ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-200/70' : 'text-neutral-600 hover:text-neutral-900'}`}>{l}</button>
-          ))}
-        </div>}>
-        {!o.source && !busy && (
-          <button type="button" disabled={readOnly} onClick={upload} data-upload-etimad
-            className="w-full rounded-xl border-2 border-dashed border-neutral-200 hover:border-brand-300 hover:bg-brand-50/30 transition-colors py-8 flex flex-col items-center gap-2 text-neutral-500">
-            <UploadIcon className="w-6 h-6" /><span className="text-[13px] font-semibold text-neutral-800">{t('Upload Etimad opening report', 'ارفع تقرير فتح العروض من اعتماد')}</span>
-            <span className="text-[12px]">{t('PDF or Excel exported from Etimad · or enter bidders manually', 'PDF أو Excel من اعتماد · أو أدخل الموردين يدوياً')}</span>
+      {!o.source && !read.running && (
+        <div className="grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-3">
+          <button type="button" disabled={readOnly} onClick={read.start} data-upload-etimad
+            className="group relative overflow-hidden rounded-2xl border-2 border-dashed border-brand-200 bg-gradient-to-br from-brand-50/60 to-white hover:border-brand-400 transition-colors px-6 py-8 text-start">
+            <span className="w-12 h-12 rounded-2xl bg-white shadow-sm ring-1 ring-brand-100 inline-flex items-center justify-center text-brand-700 group-hover:scale-105 transition-transform"><UploadIcon className="w-6 h-6" /></span>
+            <p className="mt-4 text-[15px] font-semibold text-neutral-900">{t('Upload Etimad opening report', 'ارفع تقرير الفتح من اعتماد')}</p>
+            <p className="mt-1 text-[12.5px] text-neutral-500">{t('PDF or Excel exported from Etimad. AI reads the session, every bidder, bid numbers, submission times and bid bonds.', 'ملف PDF أو Excel من اعتماد. يقرأ الذكاء الاصطناعي الجلسة والموردين وأرقام العروض وأوقات التقديم والضمانات.')}</p>
+            <span className="mt-3 inline-flex items-center gap-1 text-[11.5px] font-semibold text-ai-700"><SparklesIcon className="w-3.5 h-3.5" />{t('AI extraction', 'استخراج بالذكاء الاصطناعي')}</span>
           </button>
-        )}
-        {busy && <div className="py-8 text-center text-[13px] text-neutral-500 fade-in" data-reading>{t('Reading the report…', 'جارٍ قراءة التقرير…')}</div>}
-        {o.source && !busy && (
-          <div className="fade-in">
-            {o.source.kind === 'upload' && (
-              <div className="mb-3 flex items-center gap-2 rounded-lg bg-neutral-50 border border-neutral-200 px-3 py-2 text-[12.5px]" data-etimad-file>
-                <DocumentIcon className="w-4 h-4 text-neutral-500" /><span className="font-medium text-neutral-800 truncate" dir="ltr">{o.source.fileName}</span>
-                <span className="ms-auto inline-flex items-center gap-1 text-ai-700 text-[11.5px] font-semibold"><SparklesIcon className="w-3 h-3" />{t(`${o.vendors.length} bidders read`, `قُرئ ${o.vendors.length} موردين`)}</span>
-              </div>
-            )}
-            <div className="rounded-xl border border-neutral-200 overflow-hidden">
-              <table className="w-full text-[13px]">
-                <thead><tr className="bg-neutral-50 text-[11.5px] text-neutral-500"><th className="text-start font-medium px-3 py-2 w-10">#</th><th className="text-start font-medium px-3 py-2">{t('Bidder', 'المورد')}</th><th className="text-start font-medium px-3 py-2 w-52">{t('Commercial register no.', 'رقم السجل التجاري')}</th><th className="w-10" /></tr></thead>
-                <tbody className="divide-y divide-neutral-100">
-                  {o.vendors.map((v, i) => (
-                    <tr key={v.id} data-bidder-row={i}>
-                      <td className="px-3 py-1.5 text-neutral-400 tabular-nums">{i + 1}</td>
-                      <td className="px-2 py-1.5"><input disabled={readOnly} value={v.name} onChange={(e) => setVendor(v.id, { name: e.target.value })} placeholder={t('Company name', 'اسم الشركة')} className="w-full rounded-md px-2 py-1.5 border border-transparent hover:border-neutral-200 focus:border-brand-400 focus:outline-none bg-transparent" data-bidder-name /></td>
-                      <td className="px-2 py-1.5"><input disabled={readOnly} dir="ltr" value={v.cr} onChange={(e) => setVendor(v.id, { cr: e.target.value.replace(/\D/g, '').slice(0, 10) })} placeholder="10 digits" className="w-full rounded-md px-2 py-1.5 border border-transparent hover:border-neutral-200 focus:border-brand-400 focus:outline-none bg-transparent tabular-nums" data-bidder-cr /></td>
-                      <td className="px-2">{!readOnly && <button type="button" aria-label={t('Remove', 'حذف')} onClick={() => set({ vendors: o.vendors.filter((x) => x.id !== v.id) })} className="p-1.5 rounded-md text-neutral-400 hover:text-error-600 hover:bg-error-50"><TrashIcon className="w-4 h-4" /></button>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {!readOnly && <button type="button" onClick={add} data-add-bidder className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand-700 hover:text-brand-800"><PlusIcon className="w-4 h-4" />{t('Add bidder', 'إضافة مورد')}</button>}
+          <button type="button" disabled={readOnly} data-source-opt="manual" onClick={() => { set({ source: { kind: 'manual', at: now() }, vendors: [{ id: 'v1', name: '', cr: '', docs: {} }] }); setOpen('v1'); }}
+            className="rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 px-6 py-8 text-start transition-colors">
+            <span className="w-12 h-12 rounded-2xl bg-neutral-100 inline-flex items-center justify-center text-neutral-600"><PlusIcon className="w-6 h-6" /></span>
+            <p className="mt-4 text-[15px] font-semibold text-neutral-900">{t('Enter manually', 'إدخال يدوي')}</p>
+            <p className="mt-1 text-[12.5px] text-neutral-500">{t('When the report isn’t available — add each bidder and their bid bond.', 'عند عدم توفر التقرير — أضف كل مورد وضمانه.')}</p>
+          </button>
+        </div>
+      )}
+      {read.running && (
+        <Card attr={{ 'data-reading': '' }}>
+          <div className="pt-4 flex items-center gap-6">
+            <div className="relative w-24 h-28 rounded-lg border border-neutral-200 bg-white overflow-hidden flex-shrink-0"><div className="p-2 space-y-1.5">{Array.from({ length: 9 }, (_, i) => <span key={i} className="block h-1.5 rounded bg-neutral-100" style={{ width: `${60 + ((i * 17) % 40)}%` }} />)}</div><span className="absolute inset-x-0 h-6 bg-gradient-to-b from-ai-400/0 via-ai-400/30 to-ai-400/0 scan-line" /></div>
+            <div className="flex-1"><p className="text-[13.5px] font-semibold text-neutral-900 mb-3">{t('Reading the Etimad report…', 'جارٍ قراءة تقرير اعتماد…')}</p><Steps at={read.at} steps={[t('Opening session and committee order', 'جلسة الفتح وقرار التشكيل'), t('Bidders, bid numbers and submission times', 'الموردون وأرقام العروض وأوقات التقديم'), t('Bid bonds and offer validity', 'الضمانات وسريان العروض')]} /></div>
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
+      {o.source && (
+        <>
+          <Card title={t('Opening session', 'جلسة الفتح')} aside={o.source.kind === 'upload' ? <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ai-700" data-etimad-file><SparklesIcon className="w-3.5 h-3.5" /><span className="truncate max-w-[220px]" dir="ltr">{o.source.fileName}</span></span> : <Pill tone="gray">{t('Entered manually', 'إدخال يدوي')}</Pill>}>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-3">
+              <Field k={t('Etimad reference', 'مرجع اعتماد')}><span dir="ltr" className="text-[13px] font-medium">{rfp.etimad?.ref ?? '—'}</span></Field>
+              <Field k={t('Bid closing', 'إغلاق العروض')}><span className="text-[13px] font-medium">{fmtDate(rfp.etimad?.closingDate, isAr)}</span></Field>
+              <Field k={t('Opening date', 'تاريخ الفتح')}><input type="date" disabled={readOnly} value={o.openingDate ?? ''} onChange={(e) => set({ openingDate: e.target.value })} className={inp} data-opening-date /></Field>
+              <Field k={t('Opening time', 'وقت الفتح')}><input type="time" disabled={readOnly} value={o.openingTime ?? ''} onChange={(e) => set({ openingTime: e.target.value })} className={inp} /></Field>
+              <Field k={t('Envelopes', 'الأظرف')}><span className="text-[13px] font-medium">{env === 'two' ? t('Two — prices sealed', 'ظرفان — الأسعار مختومة') : t('One', 'ظرف واحد')}</span></Field>
+              <Field k={t('Mode', 'طريقة الفتح')}><select disabled={readOnly} value={o.mode ?? 'etimad'} onChange={(e) => set({ mode: e.target.value as Opening['mode'] })} className={inp}><option value="etimad">{t('Etimad (electronic)', 'اعتماد (إلكتروني)')}</option><option value="in-person">{t('In person', 'حضوري')}</option></select></Field>
+              <Field k={t('Committee order no.', 'رقم قرار التشكيل')}><input disabled={readOnly} value={o.formationNo ?? ''} onChange={(e) => set({ formationNo: e.target.value })} className={inp} placeholder="CF-2026-…" /></Field>
+              <Field k={t('Order date', 'تاريخ القرار')}><input type="date" disabled={readOnly} value={o.formationDate ?? ''} onChange={(e) => set({ formationDate: e.target.value })} className={inp} /></Field>
+            </div>
+          </Card>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-raise-tiles>
+            {[[t('Bids received', 'العروض المستلمة'), o.vendors.length, 'text-neutral-900'], [t('Withdrawn', 'منسحبة'), o.withdrawn?.length ?? 0, 'text-neutral-900'], [t('Bid bonds', 'الضمانات'), bonds ? `${(bonds / 1000).toFixed(0)}K` : '—', 'text-neutral-900'], [t('Short validity', 'سريان قصير'), shortValidity.length, shortValidity.length ? 'text-warning-700' : 'text-neutral-900']].map(([k, v, c]) => (
+              <div key={String(k)} className="rounded-2xl border border-neutral-200 bg-white px-4 py-3"><p className="text-[11.5px] text-neutral-500">{k}</p><p className={`mt-0.5 text-[22px] font-bold tabular-nums ${c}`}>{v}</p></div>
+            ))}
+          </div>
+          {shortValidity.length > 0 && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-ai-200 bg-ai-50/60 px-4 py-3 text-[12.5px] text-neutral-800" data-raise-insight>
+              <SparklesIcon className="w-4 h-4 text-ai-600 mt-0.5 flex-shrink-0" /><span>{shortValidity.map((v) => v.name).join(', ')} {t(`offered ${shortValidity[0].validityDays}-day validity; the request asks for 90 days. Flag it for the committee.`, `قدّم سرياناً ${shortValidity[0].validityDays} يوماً؛ والطلب يتطلب 90 يوماً. نبّه اللجنة.`)}</span>
+            </div>
+          )}
+          <Card title={t('Bidders', 'الموردون')} pad={false} attr={{ 'data-bidders': '' }} aside={!readOnly ? <button type="button" onClick={add} data-add-bidder className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand-700 hover:text-brand-800"><PlusIcon className="w-4 h-4" />{t('Add bidder', 'إضافة مورد')}</button> : undefined}>
+            <ul className="divide-y divide-neutral-100 border-t border-neutral-100">
+              {o.vendors.map((v, i) => { const ex = open === v.id; return (
+                <li key={v.id} data-bidder-row={i}>
+                  <button type="button" onClick={() => setOpen(ex ? null : v.id)} className="w-full flex items-center gap-3 px-5 py-3 text-start hover:bg-neutral-50/80">
+                    <span className="w-5 text-[12px] text-neutral-400 tabular-nums">{i + 1}</span>
+                    <span className="min-w-0 flex-1"><span className="block text-[13.5px] font-semibold text-neutral-900 truncate">{v.name || <span className="text-neutral-400 font-normal">{t('New bidder', 'مورد جديد')}</span>}</span>
+                      <span className="block text-[11.5px] text-neutral-500 tabular-nums" dir="ltr">{v.cr ? `CR ${v.cr}` : '—'}{v.bidNo ? ` · ${v.bidNo}` : ''}{v.submittedAt ? ` · ${fmtDT(v.submittedAt)}` : ''}</span></span>
+                    {v.bond && <span className="hidden md:inline-flex items-center gap-1 h-6 px-2 rounded-md bg-neutral-100 text-[11.5px] text-neutral-700 tabular-nums">{t('Bond', 'ضمان')} {(v.bond.amount / 1000).toFixed(1)}K · {v.bond.bank.split(' ')[0]}</span>}
+                    {v.validityDays && v.validityDays < 90 ? <Pill tone="amber">{t(`${v.validityDays}-day validity`, `سريان ${v.validityDays} يوماً`)}</Pill> : v.fileCount ? <Pill tone="gray">{t(`${v.fileCount} files`, `${v.fileCount} ملفات`)}</Pill> : null}
+                    <ChevronDownIcon className={`w-4 h-4 text-neutral-400 transition-transform ${ex ? 'rotate-180' : ''}`} />
+                  </button>
+                  {ex && (
+                    <div className="px-5 pb-4 ps-[52px] grid grid-cols-2 md:grid-cols-4 gap-3 fade-in">
+                      <Field k={t('Company name', 'اسم الشركة')} wide><input disabled={readOnly} value={v.name} onChange={(e) => setVendor(v.id, { name: e.target.value })} className={inp} data-bidder-name placeholder={t('Company name', 'اسم الشركة')} /></Field>
+                      <Field k={t('Commercial register', 'السجل التجاري')}><input disabled={readOnly} dir="ltr" value={v.cr} onChange={(e) => setVendor(v.id, { cr: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={`${inp} tabular-nums`} data-bidder-cr placeholder="10 digits" /></Field>
+                      <Field k={t('Etimad bid no.', 'رقم العرض في اعتماد')}><input disabled={readOnly} dir="ltr" value={v.bidNo ?? ''} onChange={(e) => setVendor(v.id, { bidNo: e.target.value })} className={inp} /></Field>
+                      <Field k={t('Offer validity (days)', 'سريان العرض (يوم)')}><input type="number" disabled={readOnly} value={v.validityDays ?? ''} onChange={(e) => setVendor(v.id, { validityDays: Number(e.target.value) || undefined })} className={inp} /></Field>
+                      <Field k={t('Bond bank', 'بنك الضمان')}><input disabled={readOnly} value={v.bond?.bank ?? ''} onChange={(e) => setVendor(v.id, { bond: { amount: 0, validUntil: '', ...v.bond, bank: e.target.value } })} className={inp} /></Field>
+                      <Field k={t('Bond amount (SAR)', 'مبلغ الضمان')}><input type="number" disabled={readOnly} value={v.bond?.amount ?? ''} onChange={(e) => setVendor(v.id, { bond: { bank: '', validUntil: '', ...v.bond, amount: Number(e.target.value) || 0 } })} className={inp} /></Field>
+                      <Field k={t('Bond valid until', 'سريان الضمان')}><input type="date" disabled={readOnly} value={v.bond?.validUntil ?? ''} onChange={(e) => setVendor(v.id, { bond: { bank: '', amount: 0, ...v.bond, validUntil: e.target.value } })} className={inp} /></Field>
+                      {!readOnly && <div className="flex items-end"><button type="button" onClick={() => set({ vendors: o.vendors.filter((x) => x.id !== v.id) })} className="inline-flex items-center gap-1 h-8 px-2 rounded-md text-[12px] text-neutral-500 hover:text-error-600 hover:bg-error-50"><TrashIcon className="w-4 h-4" />{t('Remove', 'حذف')}</button></div>}
+                    </div>
+                  )}
+                </li>
+              ); })}
+              {o.withdrawn?.map((w) => (
+                <li key={w.cr} className="flex items-center gap-3 px-5 py-3 bg-neutral-50/70" data-withdrawn>
+                  <span className="w-5" /><span className="min-w-0 flex-1"><span className="block text-[13px] text-neutral-500 line-through truncate">{w.name}</span><span className="block text-[11.5px] text-neutral-400 tabular-nums" dir="ltr">CR {w.cr}</span></span>
+                  <Pill tone="gray">{t(`Withdrawn ${fmtDT(w.at, isAr)}`, `انسحب ${fmtDT(w.at, isAr)}`)}</Pill>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
+const Field = ({ k, children, wide }: { k: string; children: ReactNode; wide?: boolean }) => <label className={`block min-w-0 ${wide ? 'col-span-2 md:col-span-1' : ''}`}><span className="block text-[11px] text-neutral-500 mb-1">{k}</span>{children}</label>;
 
 /* ── 17 · Confirm committee (default from roster, replace by exception) ── */
 function ReplaceDialog({ seat, isAr, t, onClose, onSave }: { seat: CommitteeSeat; isAr: boolean; t: T; onClose: () => void; onSave: (p: Person, reason: string) => void }) {
@@ -209,73 +259,90 @@ export function AssignCommittee({ task, isAr, t, readOnly, onRfp }: P) {
   );
 }
 
-/* ── Bid register (full page): vendor list + one vendor's documents ── */
-function DocRow({ item, value, onSet, readOnly, isAr }: { item: (typeof DOC_ITEMS)[number]; value?: DocStatus; onSet: (s: DocStatus) => void; readOnly?: boolean; isAr: boolean }) {
+/* ── Bid register (full page): bidders · AI-classified checklist · document preview ── */
+const ITEM_DOC: Record<string, string> = { 'tech-offer': 'tech', 'fin-offer': 'fin', bank: 'c-bank', cr: 'c-cr', zakat: 'c-zakat', gosi: 'c-gosi', chamber: 'c-chamber', saudization: 'c-saudization' };
+function DocRow({ item, value, file, onSet, onPick, picked, readOnly, isAr, t, onConfirm }: { item: (typeof DOC_ITEMS)[number]; value?: DocStatus; file?: OfferFile; onSet: (s: DocStatus) => void; onPick: () => void; picked: boolean; readOnly?: boolean; isAr: boolean; t: T; onConfirm: () => void }) {
+  const review = file && !file.confirmed;
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5" data-doc={item.id}>
-      <span className={`w-2 h-2 rounded-full ${value === 'valid' ? 'bg-success-500' : value === 'expired' ? 'bg-warning-500' : value === 'missing' ? 'bg-error-500' : 'bg-neutral-200'}`} />
-      <span className="flex-1 min-w-0 text-[13px] text-neutral-800">{isAr ? item.ar : item.en}{!item.required && <span className="text-neutral-400"> · {isAr ? 'اختياري' : 'optional'}</span>}</span>
-      <div className="inline-flex gap-1" role="radiogroup">
-        {DOC_STATUS.map((s) => (
-          <button key={s.id} type="button" disabled={readOnly} role="radio" aria-checked={value === s.id} onClick={() => onSet(s.id)} data-doc-status={s.id}
-            className={`h-7 px-2.5 rounded-md text-[12px] font-semibold transition-all ring-1 ${value === s.id ? s.on : 'ring-transparent text-neutral-500 hover:bg-neutral-100'}`}>{isAr ? s.ar : s.en}</button>
-        ))}
+    <div className={`px-4 py-3 transition-colors cursor-pointer ${picked ? 'bg-brand-50/60' : review ? 'bg-warning-50/50' : 'hover:bg-neutral-50'}`} data-doc={item.id} onClick={onPick}>
+      <div className="flex items-center gap-3">
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${value === 'valid' ? 'bg-success-500' : value === 'expired' ? 'bg-warning-500' : value === 'missing' ? 'bg-error-500' : 'bg-neutral-200'}`} />
+        <span className="flex-1 min-w-0 text-[13px] font-medium text-neutral-900">{isAr ? item.ar : item.en}{!item.required && <span className="text-neutral-400 font-normal"> · {isAr ? 'اختياري' : 'optional'}</span>}</span>
+        <div className="inline-flex gap-0.5" role="radiogroup" onClick={(e) => e.stopPropagation()}>
+          {DOC_STATUS.map((s) => (
+            <button key={s.id} type="button" disabled={readOnly} role="radio" aria-checked={value === s.id} onClick={() => onSet(s.id)} data-doc-status={s.id}
+              className={`h-7 px-2 rounded-md text-[11.5px] font-semibold transition-all ring-1 ${value === s.id ? s.on : 'ring-transparent text-neutral-400 hover:bg-neutral-100'}`}>{isAr ? s.ar : s.en}</button>
+          ))}
+        </div>
       </div>
+      {file ? (
+        <div className="mt-1.5 ms-5 flex items-center gap-2 flex-wrap text-[11.5px]">
+          <span className="inline-flex items-center gap-1 text-neutral-600 min-w-0"><DocumentIcon className="w-3.5 h-3.5 flex-shrink-0" /><span className="truncate max-w-[180px]" dir="ltr">{file.name}</span></span>
+          <span className={`inline-flex items-center gap-1 px-1.5 py-px rounded font-semibold ${file.conf >= 0.8 ? 'bg-ai-50 text-ai-700' : 'bg-warning-100 text-warning-800'}`} data-ai-conf={Math.round(file.conf * 100)}><SparklesIcon className="w-3 h-3" />{Math.round(file.conf * 100)}%</span>
+          {file.expiry && <span className={file.status === 'expired' ? 'text-warning-700 font-semibold' : 'text-neutral-500'}>{file.status === 'expired' ? t(`Expired ${file.expiry}`, `انتهت ${file.expiry}`) : t(`Valid until ${file.expiry}`, `سارية حتى ${file.expiry}`)}</span>}
+          {review && !readOnly && <span className="ms-auto flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}><span className="text-warning-800">{t('AI isn’t sure — check the preview', 'الذكاء غير متأكد — راجع المعاينة')}</span><button type="button" onClick={onConfirm} data-ai-confirm={item.id} className="h-6 px-2 rounded-md bg-warning-500 text-white font-semibold hover:bg-warning-600">{t('Confirm', 'تأكيد')}</button></span>}
+        </div>
+      ) : value === 'missing' ? <p className="mt-1 ms-5 text-[11.5px] text-error-700">{t('No matching file in the package', 'لا يوجد ملف مطابق في الحزمة')}</p> : null}
     </div>
   );
 }
-export function BidRegister({ task, isAr, t, readOnly, onRfp, onClose }: P & { onClose: () => void }) {
+export function BidRegister({ task, isAr, t, readOnly, onRfp, onClose, start }: P & { onClose: () => void; start?: { vid: string; item?: string } }) {
   const { rfp, o, setVendor } = useOpening(task, onRfp);
-  const [sel, setSel] = useState(o.vendors[0]?.id ?? '');
+  const [sel, setSel] = useState(start?.vid ?? o.vendors[0]?.id ?? '');
+  const [item, setItem] = useState<string>(start?.item ?? 'tech-offer');
+  const [nav, setNav] = useState(1); const [page, setPage] = useState(0); const [zoom, setZoom] = useState(0.9);
   const v = o.vendors.find((x) => x.id === sel) ?? o.vendors[0];
   const idx = o.vendors.findIndex((x) => x.id === v?.id);
   const sealed = priceSealed(o, rfp);
   const dp = o.committee === 'dpec';
   const ready = o.vendors.filter((x) => vendorReady(x, o, rfp)).length;
+  const docs = useMemo(() => (v ? offerDocs(v, o) : []), [v, o]);
+  const doc = docs.find((d) => d.id === ITEM_DOC[item]);
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
+  const pick = (id: string) => { setItem(id); setPage(0); setNav((n) => n + 1); };
   const allValid = () => v && setVendor(v.id, { docs: Object.fromEntries(DOC_ITEMS.filter((d) => d.required).map((d) => [d.id, 'valid' as DocStatus])) });
+  const confirm = (id: string) => { if (!v?.files) return; const f = v.files.find((x) => x.item === id); setVendor(v.id, { files: v.files.map((x) => (x.item === id ? { ...x, confirmed: true } : x)), docs: { ...v.docs, [id]: f?.status ?? 'valid' } }); };
+  const review = v?.files?.filter((f) => !f.confirmed).length ?? 0;
   return createPortal(
     <div className="fixed inset-0 z-50 bg-neutral-50 flex flex-col fade-in" data-bid-register>
       <header className="h-16 flex-shrink-0 bg-white border-b border-neutral-200 flex items-center gap-4 px-5">
         <button type="button" onClick={onClose} data-register-close title={t('Back to task', 'العودة إلى المهمة')} className="w-9 h-9 rounded-full border border-neutral-200 inline-flex items-center justify-center text-neutral-600 hover:bg-neutral-50"><ArrowLeftIcon className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} /></button>
         <div className="min-w-0"><p className="text-[11.5px] text-neutral-500" dir="ltr">{task.entity.ref} · {rfp.etimad?.ref}</p><h2 className="text-[16px] font-semibold text-neutral-900 truncate">{dp ? t('Offer register', 'سجل العروض') : t('Bid register', 'سجل العطاءات')}</h2></div>
         {sealed && <Pill tone="violet" attr={{ 'data-sealed': '' }}>{t('Technical opening · prices sealed', 'الفتح الفني · الأسعار مختومة')}</Pill>}
+        {o.intake && <Pill tone="violet"><SparklesIcon className="w-3 h-3" />{t(`AI sorted ${o.intake.files} files`, `صنّف الذكاء ${o.intake.files} ملفاً`)}</Pill>}
         <span className="ms-auto flex items-center gap-3"><Bar done={ready} total={o.vendors.length} /><Button size="sm" variant="primary" onClick={onClose} data-register-done>{t('Done', 'تم')}</Button></span>
       </header>
-      <div className="flex-1 min-h-0 flex">
-        <aside className="w-80 flex-shrink-0 border-e border-neutral-200 bg-white overflow-y-auto" data-register-vendors>
+      <div className="flex-1 min-h-0 grid grid-cols-[260px_minmax(420px,520px)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] overflow-hidden">
+        <aside className="border-e border-neutral-200 bg-white overflow-y-auto" data-register-vendors>
           <p className="px-5 pt-4 pb-2 text-[11.5px] font-semibold uppercase tracking-wide text-neutral-400">{t(`${o.vendors.length} bidders`, `${o.vendors.length} موردين`)}</p>
           <ul className="px-3 pb-4 space-y-1 stagger">
-            {o.vendors.map((x, i) => {
-              const d = vendorDocs(x);
-              return (
-                <li key={x.id}>
-                  <button type="button" onClick={() => setSel(x.id)} data-register-vendor={i} aria-current={x.id === v?.id}
-                    className={`w-full text-start rounded-xl px-3 py-2.5 transition-colors ${x.id === v?.id ? 'bg-brand-50 ring-1 ring-brand-200' : 'hover:bg-neutral-50'}`}>
-                    <span className="flex items-center justify-between gap-2"><span className="text-[13px] font-semibold text-neutral-900 truncate">{x.name}</span>{vendorStatus(x, o, rfp, t)}</span>
-                    <span className="mt-1.5 flex items-center gap-2"><span className="h-1 flex-1 rounded-full bg-neutral-100 overflow-hidden"><span className="block h-full rounded-full bg-success-500" style={{ width: `${Math.round((d.set / d.total) * 100)}%` }} /></span><span className="text-[11px] text-neutral-500 tabular-nums">{d.set}/{d.total}</span></span>
-                  </button>
-                </li>
-              );
-            })}
+            {o.vendors.map((x, i) => { const d = vendorDocs(x); const rv = x.files?.filter((f) => !f.confirmed).length ?? 0; return (
+              <li key={x.id}>
+                <button type="button" onClick={() => setSel(x.id)} data-register-vendor={i} aria-current={x.id === v?.id}
+                  className={`w-full text-start rounded-xl px-3 py-2.5 transition-colors ${x.id === v?.id ? 'bg-brand-50 ring-1 ring-brand-200' : 'hover:bg-neutral-50'}`}>
+                  <span className="flex items-center justify-between gap-2"><span className="text-[13px] font-semibold text-neutral-900 truncate">{x.name}</span>{rv ? <Pill tone="amber">{t(`${rv} to review`, `${rv} للمراجعة`)}</Pill> : vendorStatus(x, o, rfp, t)}</span>
+                  <span className="mt-1.5 flex items-center gap-2"><span className="h-1 flex-1 rounded-full bg-neutral-100 overflow-hidden"><span className="block h-full rounded-full bg-success-500" style={{ width: `${Math.round((d.set / d.total) * 100)}%` }} /></span><span className="text-[11px] text-neutral-500 tabular-nums">{d.set}/{d.total}</span></span>
+                </button>
+              </li>
+            ); })}
           </ul>
         </aside>
         {v && (
-          <main className="flex-1 min-w-0 overflow-y-auto" key={v.id}>
-            <div className="max-w-3xl mx-auto px-6 py-6 space-y-4 fade-in" data-register-detail={idx}>
+          <main className="min-h-0 overflow-y-auto border-e border-neutral-200 bg-[#FAFAFB]" key={v.id}>
+            <div className="px-5 py-5 space-y-3 fade-in" data-register-detail={idx}>
               <div className="flex items-start justify-between gap-4">
-                <div><p className="text-[11.5px] text-neutral-500">{t(`Bidder ${idx + 1} of ${o.vendors.length}`, `المورد ${idx + 1} من ${o.vendors.length}`)}</p><h3 className="text-[20px] font-semibold text-neutral-900">{v.name}</h3><p className="text-[12.5px] text-neutral-500 tabular-nums" dir="ltr">CR {v.cr}</p></div>
-                <div className="text-end">
+                <div className="min-w-0"><p className="text-[11.5px] text-neutral-500">{t(`Bidder ${idx + 1} of ${o.vendors.length}`, `المورد ${idx + 1} من ${o.vendors.length}`)}</p><h3 className="text-[18px] font-semibold text-neutral-900 truncate">{v.name}</h3><p className="text-[12px] text-neutral-500 tabular-nums" dir="ltr">CR {v.cr}{v.bidNo ? ` · ${v.bidNo}` : ''}</p></div>
+                <div className="text-end flex-shrink-0">
                   <p className="text-[11px] text-neutral-500">{t('Offer price (SAR)', 'سعر العرض (ريال)')}</p>
-                  {sealed
-                    ? <p className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-semibold text-ai-700" data-price-sealed>🔒 {t('Sealed', 'مختوم')}</p>
-                    : <input type="number" min={0} disabled={readOnly} value={v.price ?? ''} onChange={(e) => setVendor(v.id, { price: Number(e.target.value) || undefined })} placeholder="0" dir="ltr" className="mt-1 w-40 text-end text-[15px] font-semibold rounded-lg border border-neutral-200 px-3 py-1.5 tabular-nums focus:outline-none focus:border-brand-400" data-vendor-price />}
+                  {sealed ? <p className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-semibold text-ai-700" data-price-sealed>🔒 {t('Sealed', 'مختوم')}</p>
+                    : <input type="number" min={0} disabled={readOnly} value={v.price ?? ''} onChange={(e) => setVendor(v.id, { price: Number(e.target.value) || undefined })} placeholder="0" dir="ltr" className="mt-1 w-36 text-end text-[14px] font-semibold rounded-lg border border-neutral-200 px-3 py-1.5 tabular-nums focus:outline-none focus:border-brand-400" data-vendor-price />}
                 </div>
               </div>
+              {review > 0 && <div className="flex items-center gap-2 rounded-xl bg-warning-50 border border-warning-200 px-3 py-2 text-[12.5px] text-warning-900"><AlertTriangleIcon className="w-4 h-4 text-warning-600" />{t(`${review} file needs your confirmation`, `${review} ملف بحاجة إلى تأكيدك`)}</div>}
               <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100"><h4 className="text-[13.5px] font-semibold text-neutral-900">{t('Documents', 'المستندات')}</h4>
-                  {!readOnly && <button type="button" onClick={allValid} data-all-valid className="text-[12px] font-semibold text-brand-700 hover:text-brand-800">{t('Mark required as valid', 'تحديد المطلوب كساري')}</button>}</div>
-                <div className="divide-y divide-neutral-100">{DOC_ITEMS.map((d) => <DocRow key={d.id} item={d} value={v.docs[d.id]} readOnly={readOnly} isAr={isAr} onSet={(s) => setVendor(v.id, { docs: { ...v.docs, [d.id]: s } })} />)}</div>
+                  {!readOnly && !v.files && <button type="button" onClick={allValid} data-all-valid className="text-[12px] font-semibold text-brand-700 hover:text-brand-800">{t('Mark required as valid', 'تحديد المطلوب كساري')}</button>}</div>
+                <div className="divide-y divide-neutral-100">{DOC_ITEMS.map((d) => <DocRow key={d.id} item={d} value={v.docs[d.id]} file={v.files?.find((f) => f.item === d.id)} picked={item === d.id} onPick={() => pick(d.id)} readOnly={readOnly} isAr={isAr} t={t} onConfirm={() => confirm(d.id)} onSet={(s) => setVendor(v.id, { docs: { ...v.docs, [d.id]: s } })} />)}</div>
               </section>
               {dp && (
                 <section className="rounded-2xl border border-neutral-200 bg-white p-4" data-tech-result>
@@ -302,6 +369,9 @@ export function BidRegister({ task, isAr, t, readOnly, onRfp, onClose }: P & { o
             </div>
           </main>
         )}
+        {v && (doc
+          ? <Viewer doc={doc} vendor={v} page={page} nav={nav} zoom={zoom} setZoom={setZoom} onPage={(n) => { setPage(n); setNav((x) => x + 1); }} onSeen={setPage} isAr={isAr} t={t} />
+          : <div className="flex flex-col items-center justify-center bg-[#EEF0F3] text-center px-8"><DocumentIcon className="w-8 h-8 text-neutral-300" /><p className="mt-2 text-[13px] text-neutral-500">{t('Select a document to preview it here.', 'اختر مستنداً لمعاينته هنا.')}</p></div>)}
       </div>
     </div>, document.body);
 }
@@ -309,7 +379,7 @@ export function BidRegister({ task, isAr, t, readOnly, onRfp, onClose }: P & { o
 /* ── 18 · Record bids (Secretary) / DP evaluate (Officer + Technical) ── */
 function VendorTable({ o, rfp, t, showPrice, showTech, onOpen }: { o: Opening; rfp?: RfpDetail; t: T; showPrice: boolean; showTech?: boolean; onOpen?: (i: number) => void }) {
   return (
-    <div className="rounded-xl border border-neutral-200 overflow-hidden" data-vendor-table>
+    <div className="rounded-2xl border border-neutral-200 overflow-hidden bg-white" data-vendor-table>
       <table className="w-full text-[13px]">
         <thead><tr className="bg-neutral-50 text-[11.5px] text-neutral-500">
           <th className="text-start font-medium px-4 py-2">{t('Bidder', 'المورد')}</th>
@@ -321,11 +391,11 @@ function VendorTable({ o, rfp, t, showPrice, showTech, onOpen }: { o: Opening; r
         <tbody className="divide-y divide-neutral-100">
           {o.vendors.map((v, i) => { const d = vendorDocs(v); return (
             <tr key={v.id} className={onOpen ? 'hover:bg-neutral-50 cursor-pointer' : ''} onClick={onOpen ? () => onOpen(i) : undefined} data-vendor-row={i}>
-              <td className="px-4 py-2.5"><p className="font-medium text-neutral-900">{v.name}</p><p className="text-[11.5px] text-neutral-500 tabular-nums" dir="ltr">CR {v.cr}</p></td>
+              <td className="px-4 py-2.5"><p className="font-medium text-neutral-900">{v.name}</p><p className="text-[11.5px] text-neutral-500 tabular-nums" dir="ltr">CR {v.cr}{v.files ? ` · ${v.files.length} files` : ''}</p></td>
               <td className="px-3 py-2.5"><Bar done={d.set} total={d.total} /></td>
               {showTech && <td className="px-3 py-2.5">{v.techPass == null ? <span className="text-neutral-400">—</span> : v.techPass ? <Pill tone="green">{t('Pass', 'مجتاز')}</Pill> : <Pill tone="red">{t('Fail', 'غير مجتاز')}</Pill>}</td>}
               <td className="px-3 py-2.5 text-end tabular-nums" dir="ltr">{showPrice ? fmtSar(v.price) : <span className="text-ai-700 text-[12px] font-semibold">🔒 {t('Sealed', 'مختوم')}</span>}</td>
-              <td className="px-4 py-2.5 text-end">{vendorStatus(v, o, rfp, t)}</td>
+              <td className="px-4 py-2.5 text-end">{v.files?.some((f) => !f.confirmed) ? <Pill tone="amber">{t('Review', 'مراجعة')}</Pill> : vendorStatus(v, o, rfp, t)}</td>
             </tr>
           ); })}
         </tbody>
@@ -335,25 +405,74 @@ function VendorTable({ o, rfp, t, showPrice, showTech, onOpen }: { o: Opening; r
 }
 export function RecordBids(props: P) {
   const { task, isAr, t, readOnly } = props;
-  const { rfp, o } = useOpening(task, props.onRfp);
-  const [open, setOpen] = useState(false);
+  const { rfp, o, set } = useOpening(task, props.onRfp);
+  const [open, setOpen] = useState<null | { vid: string; item?: string }>(null);
   const ready = o.vendors.filter((v) => vendorReady(v, o, rfp)).length;
   const dp = o.committee === 'dpec';
   const sealed = priceSealed(o, rfp);
+  const files = o.vendors.reduce((a, v) => a + (offerFiles(v).length), 0);
+  const run = useStepper(4, 520, () => {
+    const vs = o.vendors.map((v) => classified(v, false));
+    set({ vendors: vs, intake: { at: now(), files: vs.reduce((a, v) => a + (v.files?.length ?? 0), 0), packages: vs.length } });
+    toast(t('Offer packages sorted and checked by AI', 'تم فرز الحزم وفحصها بالذكاء الاصطناعي'));
+  });
+  const all = o.vendors.flatMap((v) => (v.files ?? []).map((f) => ({ v, f })));
+  const review = all.filter((x) => !x.f.confirmed);
+  const expired = all.filter((x) => x.f.status === 'expired');
+  const missing = o.vendors.flatMap((v) => DOC_ITEMS.filter((d) => d.required && v.docs[d.id] === 'missing').map((d) => ({ v, d })));
+  const high = all.filter((x) => x.f.conf >= 0.8).length;
   return (
     <div className="space-y-4" data-record-bids>
       <ActionHead title={dp ? t('Record offers and the technical result', 'تسجيل العروض والنتيجة الفنية') : t('Record the bids', 'تسجيل العطاءات')}
-        desc={dp ? t('Check each offer’s documents and price; the Technical member enters pass or fail with a short reason.', 'تحقق من مستندات وسعر كل عرض؛ ويُدخل العضو الفني النتيجة مع مبرر مختصر.')
-          : sealed ? t('Check each bidder’s documents against the Etimad report. Prices stay sealed until technical evaluation is done.', 'تحقق من مستندات كل مورد مقابل تقرير اعتماد. تبقى الأسعار مختومة حتى انتهاء التقييم الفني.')
-          : t('Check each bidder’s documents and record the offer price.', 'تحقق من مستندات كل مورد وسجّل سعر العرض.')}
+        desc={dp ? t('Upload the offer packages — AI sorts each file by bidder and type and pre-checks it. Confirm, record prices and the technical result.', 'ارفع حزم العروض — يفرز الذكاء الاصطناعي كل ملف حسب المورد والنوع ويفحصه. أكّد وسجّل الأسعار والنتيجة الفنية.')
+          : t('Upload all offer packages from Etimad. AI sorts every file by bidder and document type, reads expiry dates and pre-fills the checklist — you confirm.', 'ارفع كل حزم العروض من اعتماد. يفرز الذكاء الاصطناعي كل ملف حسب المورد ونوع المستند ويقرأ تواريخ الانتهاء ويعبئ القائمة — وأنت تؤكد.')}
         progress={{ done: ready, total: o.vendors.length, label: t('bidders checked', 'موردين تم التحقق منهم'), attrs: { 'data-record-progress': `${ready}/${o.vendors.length}` } }}
-        extra={<Button variant={ready === o.vendors.length ? 'secondary' : 'primary'} onClick={() => setOpen(true)} data-open-register>{readOnly ? t('View register', 'عرض السجل') : ready ? t('Continue in register', 'المتابعة في السجل') : t('Open register', 'فتح السجل')}</Button>} />
-      <VendorTable o={o} rfp={rfp} t={t} showPrice={!sealed} showTech={dp} onOpen={() => setOpen(true)} />
+        extra={<Button variant={o.intake && !review.length ? 'secondary' : o.intake ? 'primary' : 'secondary'} onClick={() => setOpen({ vid: review[0]?.v.id ?? o.vendors[0]?.id })} data-open-register>{readOnly ? t('View register', 'عرض السجل') : o.intake ? t('Open register', 'فتح السجل') : t('Check manually', 'تحقق يدوياً')}</Button>} />
+      {!o.intake && !run.running && !readOnly && (
+        <button type="button" onClick={run.start} data-intake-upload className="group w-full rounded-2xl border-2 border-dashed border-ai-200 bg-gradient-to-br from-ai-50/70 via-white to-white hover:border-ai-400 transition-colors px-6 py-6 flex items-center gap-5 text-start">
+          <span className="relative w-16 h-16 flex-shrink-0">
+            {[0, 1, 2].map((i) => <span key={i} className="absolute w-11 h-14 rounded-lg bg-white ring-1 ring-neutral-200 shadow-sm transition-transform group-hover:-translate-y-0.5" style={{ left: i * 8, top: 6 - i * 3, transform: `rotate(${(i - 1) * 7}deg)` }} />)}
+            <span className="absolute -bottom-1 -end-1 w-7 h-7 rounded-full bg-ai-600 text-white inline-flex items-center justify-center shadow"><SparklesIcon className="w-4 h-4" /></span>
+          </span>
+          <span className="min-w-0"><span className="block text-[15px] font-semibold text-neutral-900">{t('Upload offer packages', 'ارفع حزم العروض')}</span>
+            <span className="block mt-0.5 text-[12.5px] text-neutral-500">{t(`ZIP or folder from Etimad · ${o.vendors.length} bidders · about ${files} files. AI matches files to bidders by CR, classifies each document and reads expiry dates.`, `ملف ZIP أو مجلد من اعتماد · ${o.vendors.length} موردين · نحو ${files} ملفاً. يطابق الذكاء الملفات بالموردين ويصنفها ويقرأ تواريخ الانتهاء.`)}</span></span>
+          <span className="ms-auto hidden md:inline-flex h-9 px-4 rounded-full bg-ai-600 text-white text-[12.5px] font-semibold items-center gap-1.5 group-hover:bg-ai-700"><UploadIcon className="w-4 h-4" />{t('Upload', 'رفع')}</span>
+        </button>
+      )}
+      {run.running && (
+        <Card attr={{ 'data-intake-running': '' }}>
+          <div className="pt-4 flex items-center gap-6">
+            <div className="relative w-28 h-28 flex-shrink-0">
+              {o.vendors.map((v, i) => <span key={v.id} className="absolute w-16 h-20 rounded-lg bg-white ring-1 ring-neutral-200 shadow-sm flex items-end p-1.5 text-[8px] font-semibold text-neutral-500 transition-all duration-500" style={{ left: run.at >= 1 ? i * 22 : 20, top: run.at >= 1 ? 8 + i * 4 : 14, transform: `rotate(${run.at >= 1 ? (i - 1) * 9 : 0}deg)` }}>{v.name.split(' ')[0]}</span>)}
+              <span className="absolute inset-x-0 h-6 bg-gradient-to-b from-ai-400/0 via-ai-400/35 to-ai-400/0 scan-line" />
+            </div>
+            <div className="flex-1"><p className="text-[13.5px] font-semibold text-neutral-900 mb-3">{t('Sorting the packages…', 'جارٍ فرز الحزم…')}</p>
+              <Steps at={run.at} steps={[t(`Unpacking ${o.vendors.length} packages · ${files} files`, `فك ${o.vendors.length} حزم · ${files} ملفاً`), t('Matching files to bidders by CR number', 'مطابقة الملفات بالموردين برقم السجل'), t('Classifying each document', 'تصنيف كل مستند'), t('Reading expiry dates and amounts', 'قراءة تواريخ الانتهاء والمبالغ')]} /></div>
+          </div>
+        </Card>
+      )}
+      {o.intake && (
+        <section className="rounded-2xl border border-ai-100 bg-gradient-to-br from-ai-50/60 to-white p-4" data-intake-result>
+          <p className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-wider text-ai-700"><SparklesIcon className="w-3.5 h-3.5" />{t('AI intake', 'فرز الذكاء الاصطناعي')}</p>
+          <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
+            {[[t('Files sorted', 'ملفات مفروزة'), `${all.length}`, ''], [t('High confidence', 'ثقة عالية'), `${high}/${all.length}`, ''], [t('Need your review', 'تحتاج مراجعتك'), review.length, review.length ? 'text-warning-700' : ''], [t('Issues found', 'ملاحظات'), expired.length + missing.length, expired.length + missing.length ? 'text-error-700' : '']].map(([k, v, c]) => (
+              <div key={String(k)} className="rounded-xl bg-white ring-1 ring-neutral-200/70 px-3 py-2.5"><p className="text-[11px] text-neutral-500">{k}</p><p className={`mt-0.5 text-[20px] font-bold tabular-nums ${c || 'text-neutral-900'}`} data-intake-kpi={String(k)}>{v}</p></div>
+            ))}
+          </div>
+          {(review.length > 0 || expired.length > 0 || missing.length > 0) && (
+            <ul className="mt-3 space-y-1.5">
+              {review.map(({ v, f }) => <li key={f.id} className="flex items-center gap-2.5 rounded-lg bg-white ring-1 ring-warning-200 px-3 py-2 text-[12.5px]"><span className="w-2 h-2 rounded-full bg-warning-500" /><span className="flex-1"><span className="font-semibold">{v.name}</span> · <span dir="ltr">{f.name}</span> — {t(`looks like ${DOC_ITEMS.find((d) => d.id === f.item)?.en} (${Math.round(f.conf * 100)}% sure)`, `يبدو ${DOC_ITEMS.find((d) => d.id === f.item)?.ar} (${Math.round(f.conf * 100)}%)`)}</span><button type="button" onClick={() => setOpen({ vid: v.id, item: f.item })} className="text-[12px] font-semibold text-brand-700" data-intake-review>{t('Review', 'مراجعة')}</button></li>)}
+              {expired.map(({ v, f }) => <li key={f.id} className="flex items-center gap-2.5 rounded-lg bg-white ring-1 ring-neutral-200 px-3 py-2 text-[12.5px]"><span className="w-2 h-2 rounded-full bg-error-500" /><span className="flex-1"><span className="font-semibold">{v.name}</span> · {DOC_ITEMS.find((d) => d.id === f.item)?.[isAr ? 'ar' : 'en']} {t(`expired ${f.expiry}`, `انتهت ${f.expiry}`)}</span><button type="button" onClick={() => setOpen({ vid: v.id, item: f.item })} className="text-[12px] font-semibold text-brand-700">{t('View', 'عرض')}</button></li>)}
+              {missing.map(({ v, d }) => <li key={v.id + d.id} className="flex items-center gap-2.5 rounded-lg bg-white ring-1 ring-neutral-200 px-3 py-2 text-[12.5px]"><span className="w-2 h-2 rounded-full bg-error-500" /><span className="flex-1"><span className="font-semibold">{v.name}</span> · {isAr ? d.ar : d.en} {t('not in the package', 'غير موجود في الحزمة')}</span></li>)}
+            </ul>
+          )}
+        </section>
+      )}
+      <VendorTable o={o} rfp={rfp} t={t} showPrice={!sealed} showTech={dp} onOpen={(i) => setOpen({ vid: o.vendors[i].id })} />
       {o.source?.fileName && <p className="flex items-center gap-1.5 text-[12px] text-neutral-500"><DocumentIcon className="w-3.5 h-3.5" /><span dir="ltr">{o.source.fileName}</span></p>}
-      {open && <BidRegister {...props} onClose={() => setOpen(false)} />}
+      {open && <BidRegister {...props} start={open} onClose={() => setOpen(null)} />}
     </div>
   );
-  void isAr;
 }
 
 /* ── 19 · Members verify (conflict of interest + approve) ─────────── */
@@ -524,7 +643,9 @@ export function CommitteeTab({ task, isAr, t }: { task: Task; isAr: boolean; t: 
     [t('Technical evaluation report', 'تقرير التقييم الفني'), o.eval?.techReport?.sig ? `Technical_report_${task.entity.ref}.pdf` : undefined],
   ];
   return (
-    <div className="space-y-4" data-committee-tab>
+    <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_380px] gap-4 items-start" data-committee-tab>
+    <CaseStory task={task} isAr={isAr} t={t} />
+    <div className="space-y-4">
       <Card title={COMMITTEE_LABEL[o.committee][isAr ? 'ar' : 'en']} aside={<Pill tone="gray">{t('Annual roster 2026', 'تشكيل 2026')}</Pill>} pad={false}>
         <ul className="divide-y divide-neutral-100">
           {rows.map((s) => (
@@ -552,11 +673,17 @@ export function CommitteeTab({ task, isAr, t }: { task: Task; isAr: boolean; t: 
         </ul>
       </Card>
     </div>
+    </div>
   );
 }
 
 /** Router: the widget for a committee task. */
-export function CommitteeWidget(p: P) {
+export function CommitteeWidget(p: P & { openStory?: () => void }) {
+  const body = CommitteeBody(p);
+  const showStrip = p.task.committee !== 'raise-opening';
+  return <div className="space-y-4">{showStrip && <StoryStrip task={p.task} isAr={p.isAr} t={p.t} onOpen={p.openStory} />}{body}</div>;
+}
+function CommitteeBody(p: P) {
   switch (p.task.committee) {
     case 'raise-opening': return <RaiseOpening {...p} />;
     case 'assign': return <AssignCommittee {...p} />;

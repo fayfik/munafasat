@@ -67,12 +67,16 @@ export const DOC_STATUS: { id: DocStatus; en: string; ar: string; cls: string; o
   { id: 'missing', en: 'Missing', ar: 'غير مرفق', cls: 'text-error-700', on: 'bg-error-50 text-error-700 ring-error-300' },
 ];
 
-/** What Etimad's opening report lists — the prototype reads the upload as these bidders. */
-export const ETIMAD_BIDDERS: { name: string; cr: string; price: number }[] = [
-  { name: 'Elm Company', cr: '1010216853', price: 9_620_000 },
-  { name: 'Mozn Systems', cr: '1010459472', price: 8_975_000 },
-  { name: 'Al Moammar Information Systems', cr: '1010074863', price: 10_240_000 },
+/** What Etimad's opening report lists — the prototype reads the upload as these bidders (fictional companies). */
+export const ETIMAD_BIDDERS: { name: string; cr: string; price: number; bidNo: string; submitted: string; validity: number; files: number; bond: { bank: string; amount: number; days: number } }[] = [
+  { name: 'Najd Digital Solutions', cr: '1010216853', price: 9_620_000, bidNo: 'BID-260139-0007', submitted: '-2T10:42', validity: 90, files: 11, bond: { bank: 'Saudi National Bank', amount: 192_400, days: 120 } },
+  { name: 'Rawabi Tech Systems', cr: '1010459472', price: 8_975_000, bidNo: 'BID-260139-0011', submitted: '-2T13:05', validity: 90, files: 10, bond: { bank: 'Al Rajhi Bank', amount: 179_500, days: 120 } },
+  { name: 'Khaleej Information Systems', cr: '1010074863', price: 10_240_000, bidNo: 'BID-260139-0015', submitted: '-1T09:18', validity: 60, files: 8, bond: { bank: 'Riyad Bank', amount: 102_400, days: 90 } },
 ];
+/** Bidders who withdrew before closing — listed in the report, not opened. */
+export const ETIMAD_WITHDRAWN = [{ name: 'Tamkeen Cloud Services', cr: '1010558120' }];
+const rel = (spec: string) => { const [d, hm] = spec.split('T'); const x = new Date(); x.setDate(x.getDate() + Number(d)); const [h, m] = hm.split(':').map(Number); x.setHours(h, m, 0, 0); return x.toISOString(); };
+const plusDays = (n: number) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
 
 export const envelopeOf = (r?: RfpDetail): 'one' | 'two' => (r?.procMethod?.envelope === 'two' ? 'two' : 'one');
 /** Two-envelope technical opening: prices stay sealed. */
@@ -84,7 +88,13 @@ export function seatsFrom(kind: CommitteeKind): CommitteeSeat[] {
 export function newOpening(kind: CommitteeKind): Opening {
   return { committee: kind, vendors: [], seats: seatsFrom(kind), openingDate: new Date().toISOString().slice(0, 10) };
 }
-export const vendorFrom = (b: { name: string; cr: string; price?: number }, i: number): OpeningVendor => ({ id: `v${i + 1}`, name: b.name, cr: b.cr, docs: {}, price: undefined });
+export const vendorFrom = (b: { name: string; cr: string; price?: number; bidNo?: string; submitted?: string; validity?: number; files?: number; bond?: { bank: string; amount: number; days: number } }, i: number): OpeningVendor => ({
+  id: `v${i + 1}`, name: b.name, cr: b.cr, docs: {}, price: undefined,
+  ...(b.bidNo ? { bidNo: b.bidNo, submittedAt: rel(b.submitted!), validityDays: b.validity, fileCount: b.files, bond: { bank: b.bond!.bank, amount: b.bond!.amount, validUntil: plusDays(b.bond!.days) } } : {}),
+});
+/** Session details read from the Etimad opening report. */
+export const etimadSession = () => ({ openingTime: '10:00', mode: 'etimad' as const, location: 'Committee room 3, HQ', formationNo: 'CF-2026-014', formationDate: '2026-01-05',
+  withdrawn: ETIMAD_WITHDRAWN.map((w) => ({ ...w, at: rel('-1T16:30') })) });
 
 export const members = (o: Opening) => o.seats.filter((s) => s.role !== 'chairman' && s.role !== 'secretary');
 export const attending = (o: Opening) => members(o).filter((s) => s.attending);

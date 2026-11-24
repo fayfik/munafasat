@@ -1,7 +1,8 @@
 /* Offer documents per bidder (rendered in the evaluation workspace) and the AI reading of them.
    Prototype content: each bidder's technical offer is generated from a profile, certificates from the
    opening checklist, the financial offer only once prices are unsealed. AI insights cite blocks by id. */
-import type { Bilingual, DocStatus, Opening, OpeningVendor, RfpDetail } from './types';
+import type { Bilingual, DocStatus, OfferFile, Opening, OpeningVendor, RfpDetail } from './types';
+const DOC_ITEMS_IDS = ['tech-offer', 'fin-offer', 'bank', 'cr', 'zakat', 'gosi', 'chamber', 'saudization', 'sme', 'other'];
 
 export type Block =
   | { id: string; kind: 'h'; text: string }
@@ -15,6 +16,12 @@ export interface OfferDoc { id: string; group: DocGroup; en: string; ar: string;
 export interface Cite { doc: string; page: number; block: string; label: string }
 export interface CritInsight { score: number; confidence: 'high' | 'medium' | 'low'; en: string; ar: string; cites: Cite[] }
 export interface ReqFinding { en: string; ar: string; status: 'met' | 'partial' | 'gap'; cite?: Cite }
+export interface IntelProject { name: string; nameAr: string; status: 'on-track' | 'at-risk' | 'delayed' | 'completed'; progress: number; value: number; end: string }
+export interface VendorIntel {
+  kind: 'existing' | 'new'; founded: number; employees: string; hq: string; presence: string[]; sectors: string[]; clients: string[]; certifications: string[];
+  sidf?: { since: number; projects: number; onTime: number; rating: number; penalties: number; spend: number; active: IntelProject[]; lastNote: Bilingual };
+  web?: { website: string; linkedin: { followers: string; employees: string; growth: string }; news: { title: string; date: string; source: string; tone: 'good' | 'neutral' | 'bad' }[]; sources: { label: string; url: string }[]; crawled: string };
+}
 export interface VendorInsight { match: number; en: string; ar: string; bestAt: Bilingual[]; watch: Bilingual[]; requirements: ReqFinding[]; criteria: Record<string, CritInsight> }
 
 /* ── Bidder profiles (what each technical offer says) ── */
@@ -27,7 +34,7 @@ interface Profile {
 }
 const PROFILES: Record<string, Profile> = {
   v1: {
-    summary: 'Elm proposes a greenfield S/4HANA 2023 implementation using SAP Activate, delivered from Riyadh by a team that has completed three comparable public-sector programmes since 2022. The offer covers FI, CO, MM, FM and Embedded EWM, full ECC data migration with reconciliation, six training batches and a three-month hypercare.',
+    summary: 'Najd Digital proposes a greenfield S/4HANA 2023 implementation using SAP Activate, delivered from Riyadh by a team that has completed three comparable public-sector programmes since 2022. The offer covers FI, CO, MM, FM and Embedded EWM, full ECC data migration with reconciliation, six training batches and a three-month hypercare.',
     method: ['SAP Activate with six quality gates signed off by the client', 'Fit-to-standard workshops per module in weeks 3–8', 'Clean-core principle: extensions on BTP only', 'Automated testing with Tricentis for regression'],
     phases: [['Prepare', '4 weeks'], ['Explore', '10 weeks'], ['Realize', '24 weeks'], ['Deploy', '6 weeks'], ['Run (hypercare)', '12 weeks']],
     cutover: 'Three mock cut-overs with reconciliation sign-off; go-live over a weekend with a 48-hour rollback window.',
@@ -52,7 +59,7 @@ const PROFILES: Record<string, Profile> = {
       req: ['met', 'met', 'met', 'met', 'met', 'met', 'partial'] },
   },
   v2: {
-    summary: 'Mozn offers an S/4HANA 2023 greenfield using an agile variant of SAP Activate with two-week sprints, a nearshore delivery centre in Riyadh and AI-assisted testing. Scope covers FI, CO, MM, FM and Embedded EWM with data migration and hypercare.',
+    summary: 'Rawabi offers an S/4HANA 2023 greenfield using an agile variant of SAP Activate with two-week sprints, a nearshore delivery centre in Riyadh and AI-assisted testing. Scope covers FI, CO, MM, FM and Embedded EWM with data migration and hypercare.',
     method: ['Agile SAP Activate — 2-week sprints with demo every sprint', 'Fit-to-standard per process area', 'AI-assisted test generation (own accelerator)'],
     phases: [['Prepare', '3 weeks'], ['Explore', '8 weeks'], ['Realize', '26 weeks'], ['Deploy', '5 weeks'], ['Run (hypercare)', '12 weeks']],
     cutover: 'Two mock cut-overs; reconciliation reports for finance balances.',
@@ -77,7 +84,7 @@ const PROFILES: Record<string, Profile> = {
       req: ['met', 'partial', 'partial', 'met', 'partial', 'met', 'met'] },
   },
   v3: {
-    summary: 'Al Moammar proposes an S/4HANA implementation based on their template from earlier ECC projects, delivered by a mixed onshore/offshore team. The offer covers FI, MM and EWM; FM is described as an optional add-on.',
+    summary: 'Khaleej proposes an S/4HANA implementation based on their template from earlier ECC projects, delivered by a mixed onshore/offshore team. The offer covers FI, MM and EWM; FM is described as an optional add-on.',
     method: ['Waterfall with SAP Activate terminology', 'Template-based design from previous ECC rollouts'],
     phases: [['Design', '12 weeks'], ['Build', '22 weeks'], ['Test', '8 weeks'], ['Go-live', '2 weeks'], ['Support', '8 weeks']],
     cutover: 'One rehearsal before go-live.',
@@ -129,7 +136,7 @@ function techOffer(v: OpeningVendor): OfferDoc {
       { title: '1 · Executive summary', blocks: [
         { id: 'sum-h', kind: 'h', text: `${v.name} — Technical proposal` },
         { id: 'sum-1', kind: 'p', text: p.summary },
-        { id: 'sum-kv', kind: 'kv', kv: [['Bidder', v.name], ['Commercial register', v.cr], ['Proposal validity', '90 days'], ['Delivery location', 'Riyadh']] },
+        { id: 'sum-kv', kind: 'kv', kv: [['Bidder', v.name], ['Commercial register', v.cr], ['Proposal validity', `${v.validityDays ?? 90} days`], ['Delivery location', 'Riyadh']] },
       ] },
       { title: '2 · Methodology & plan', blocks: [
         { id: 'meth-h', kind: 'h', text: 'Implementation approach' },
@@ -170,7 +177,8 @@ const CERTS: { id: string; doc: string; en: string; ar: string; issuer: string; 
 ];
 const addMonths = (m: number) => { const d = new Date(); d.setMonth(d.getMonth() + m); return d.toISOString().slice(0, 10); };
 function certDoc(v: OpeningVendor, c: (typeof CERTS)[number]): OfferDoc {
-  const st = v.docs[c.doc];
+  const file = v.files?.find((f) => f.item === c.doc);
+  const st = v.docs[c.doc] ?? (v.files ? (file ? file.status ?? 'valid' : 'missing') : TRUTH[v.id]?.[c.doc] ?? 'valid');
   const expiry = st === 'expired' ? addMonths(-1) : addMonths(c.months);
   return {
     id: `c-${c.id}`, group: 'certificates', en: c.en, ar: c.ar, status: st ?? 'missing', size: st === 'missing' ? '—' : '240 KB',
@@ -233,4 +241,72 @@ export function legalInsight(v: OpeningVendor, o: Opening) {
     const date = exp?.kv.find(([k]) => k === 'Expiry date')?.[1];
     return { doc: d, date, status: d.status ?? 'missing', cite: d.pages.length ? { doc: d.id, page: 0, block: 'c-kv', label: d.en } as Cite : undefined };
   });
+}
+
+/* ── Vendor intelligence (sample data; fictional companies) ── */
+const INTEL: Record<string, VendorIntel> = {
+  v1: { kind: 'existing', founded: 2004, employees: '1,200+', hq: 'Riyadh', presence: ['Riyadh (HQ)', 'Jeddah', 'Dammam', 'NEOM site office'], sectors: ['Government', 'Banking', 'Energy'],
+    clients: ['Ministry of Finance', 'GOSI', 'Saudi Ports Authority', 'Riyad Bank', 'SEC', 'NHC'], certifications: ['SAP Gold Partner', 'ISO 27001', 'ISO 9001', 'CST cloud licence'],
+    sidf: { since: 2015, projects: 12, onTime: 10, rating: 4.4, penalties: 1, spend: 48_600_000, lastNote: { en: 'Strong delivery on the 2024 loan-origination release; one late milestone on data warehouse (vendor-side resourcing).', ar: 'تسليم قوي لإصدار نظام القروض 2024؛ تأخر مرحلة واحدة في مستودع البيانات.' },
+      active: [
+        { name: 'Loan origination portal — phase 3', nameAr: 'بوابة إصدار القروض — المرحلة 3', status: 'on-track', progress: 72, value: 6_400_000, end: '2027-03' },
+        { name: 'Enterprise data warehouse modernisation', nameAr: 'تحديث مستودع البيانات المؤسسي', status: 'at-risk', progress: 45, value: 4_150_000, end: '2026-12' },
+      ] } },
+  v2: { kind: 'existing', founded: 2016, employees: '350', hq: 'Riyadh', presence: ['Riyadh (HQ)', 'Al Khobar'], sectors: ['Government', 'Fintech'],
+    clients: ['ZATCA', 'Monsha’at', 'A private bank', 'Tadawul Group'], certifications: ['SAP Silver Partner', 'ISO 27001'],
+    sidf: { since: 2021, projects: 3, onTime: 3, rating: 4.1, penalties: 0, spend: 7_900_000, lastNote: { en: 'Delivered all three projects on time; small team stretched during the 2025 peak.', ar: 'سلّم المشاريع الثلاثة في موعدها؛ الفريق صغير وتأثر في ذروة 2025.' },
+      active: [{ name: 'AI-assisted customer onboarding', nameAr: 'تهيئة العملاء بمساعدة الذكاء الاصطناعي', status: 'on-track', progress: 60, value: 2_300_000, end: '2027-01' }] } },
+  v3: { kind: 'new', founded: 1998, employees: '800', hq: 'Jeddah', presence: ['Jeddah (HQ)', 'Riyadh branch', 'Cairo delivery centre'], sectors: ['Municipal', 'Retail', 'Healthcare'],
+    clients: ['A municipality (ECC support)', 'Regional retail group', 'Private hospital group'], certifications: ['SAP Partner', 'ISO 9001'],
+    web: { website: 'khaleej-is.example', linkedin: { followers: '14.2K', employees: '780 on LinkedIn', growth: '−6% headcount, 12 months' },
+      news: [
+        { title: 'Renews ECC support contract with a municipality for 3 years', date: '2025-09', source: 'Company news', tone: 'good' },
+        { title: 'Opens nearshore delivery centre in Cairo', date: '2024-11', source: 'Regional press', tone: 'neutral' },
+        { title: 'Reported delays on a retail S/4HANA rollout', date: '2024-05', source: 'Industry blog', tone: 'bad' },
+      ],
+      sources: [{ label: 'Company website', url: 'https://khaleej-is.example' }, { label: 'LinkedIn company page', url: 'https://linkedin.example/company/khaleej-is' }, { label: 'Ministry of Commerce CR lookup', url: 'https://mc.example/cr/1010074863' }],
+      crawled: '2 hours ago' } },
+};
+export const vendorIntel = (v: OpeningVendor): VendorIntel => INTEL[v.id] ?? { kind: 'new', founded: 2010, employees: '—', hq: '—', presence: [], sectors: [], clients: [], certifications: [],
+  web: { website: '—', linkedin: { followers: '—', employees: '—', growth: '—' }, news: [], sources: [], crawled: 'just now' } };
+
+/* ── What each bidder actually submitted (truth the AI reads) ── */
+type Truth = Record<string, DocStatus>;
+const TRUTH: Record<string, Truth> = {
+  v1: { 'tech-offer': 'valid', 'fin-offer': 'valid', bank: 'valid', cr: 'valid', zakat: 'valid', gosi: 'valid', chamber: 'valid', saudization: 'valid', sme: 'missing', other: 'valid' },
+  v2: { 'tech-offer': 'valid', 'fin-offer': 'valid', bank: 'valid', cr: 'valid', zakat: 'valid', gosi: 'valid', chamber: 'valid', saudization: 'valid', sme: 'valid', other: 'missing' },
+  v3: { 'tech-offer': 'valid', 'fin-offer': 'valid', bank: 'valid', cr: 'valid', zakat: 'expired', gosi: 'valid', chamber: 'valid', saudization: 'valid', sme: 'missing', other: 'missing' },
+};
+export const truthOf = (v: OpeningVendor, item: string): DocStatus => v.docs[item] ?? TRUTH[v.id]?.[item] ?? 'valid';
+const FILE_NAMES: Record<string, (short: string) => string> = {
+  'tech-offer': (s) => `${s}_Technical_Proposal_v3.pdf`, 'fin-offer': (s) => `${s}_Financial_Offer_SEALED.pdf`, bank: (s) => `${s}_Bid_Bond.pdf`,
+  cr: (s) => `${s}_CR_Certificate.pdf`, zakat: () => 'Zakat_Certificate_1447.pdf', gosi: () => 'GOSI_Certificate.pdf', chamber: () => 'Chamber_Membership.pdf',
+  saudization: () => 'Nitaqat_Certificate.pdf', sme: () => 'Monshaat_SME_Certificate.pdf', other: (s) => `${s}_Company_Profile.pdf`,
+};
+/** Files in a bidder's package. One scan is deliberately ambiguous so the AI asks for a review. */
+export function offerFiles(v: OpeningVendor): OfferFile[] {
+  const short = v.name.split(' ')[0];
+  const truth = TRUTH[v.id] ?? Object.fromEntries(DOC_ITEMS_IDS.map((i) => [i, i === 'sme' || i === 'other' ? 'missing' : 'valid'])) as Truth;
+  const out: OfferFile[] = [];
+  for (const id of DOC_ITEMS_IDS) {
+    const st = truth[id]; if (st === 'missing') continue;
+    const cert = CERTS.find((c) => c.doc === id);
+    const lowConf = v.id === 'v2' && id === 'gosi';
+    out.push({ id: `${v.id}-${id}`, name: lowConf ? 'scan_0043.pdf' : FILE_NAMES[id](short), size: id === 'tech-offer' ? '2.7 MB' : id === 'fin-offer' ? '610 KB' : '240 KB', item: id,
+      conf: lowConf ? 0.64 : 0.9 + ((v.name.length + id.length) % 9) / 100, status: st, expiry: cert ? (st === 'expired' ? addMonths(-1) : addMonths(cert.months)) : undefined });
+  }
+  if (v.id === 'v1') out.push({ id: 'v1-x', name: 'Najd_Cover_Letter.pdf', size: '90 KB', item: 'other', conf: 0.88, status: 'valid' });
+  return out;
+}
+/** Apply the AI classification to a bidder: confident results set the checklist; low-confidence ones wait for a person (unless confirm). */
+export function classified(v: OpeningVendor, confirm = true): OpeningVendor {
+  const files = offerFiles(v).map((f) => ({ ...f, confirmed: confirm || f.conf >= 0.8 }));
+  const docs: Record<string, DocStatus> = {};
+  for (const id of DOC_ITEMS_IDS) {
+    const f = files.find((x) => x.item === id);
+    if (!f) docs[id] = 'missing';
+    else if (f.confirmed) docs[id] = f.status ?? 'valid';
+  }
+  for (const id of ['sme', 'other']) if (docs[id] === 'missing') delete docs[id];
+  return { ...v, files, docs };
 }

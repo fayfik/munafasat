@@ -186,7 +186,8 @@ export function viewOf(task: Task, all: Task[]): InboxView[] {
   if (overdue) views.push('overdue');
   if (task.state === 'completed') views.push('completed');
   if (task.state === 'in-progress' && task.assignee.id === ME.id) views.push('in-progress');
-  if ((task.state === 'available' || task.state === 'returned') && task.mineAction && !blocked && !terminal) views.push('needs-action');
+  // Started but not finished is still waiting on me — the row must not vanish from the list while I work on it.
+  if ((task.state === 'available' || task.state === 'returned' || task.state === 'in-progress') && task.mineAction && !blocked && !terminal) views.push('needs-action');
   if (task.initiatedByMe && (task.state === 'waiting' || (!task.mineAction && !terminal))) views.push('sent-waiting');
   return views;
 }

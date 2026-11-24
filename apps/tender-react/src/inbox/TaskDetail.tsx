@@ -175,7 +175,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
   const TABS: { key: typeof tab; en: string; ar: string }[] = [
     { key: 'overview', en: 'Required action', ar: 'الإجراء المطلوب' },
     { key: 'rfp', en: 'Request details', ar: 'تفاصيل الطلب' },
-    ...(task.rfp?.opening ? [{ key: 'committee' as const, en: 'Committee', ar: 'اللجنة' }] : []),
+    ...(task.rfp?.opening ? [{ key: 'committee' as const, en: 'Case story', ar: 'سجل الحالة' }] : []),
     { key: 'activity', en: 'Activity', ar: 'النشاط' },
   ];
 
@@ -340,7 +340,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
           {tab === 'overview' && !queued && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
             mainWidget={task.committee && task.rfp
-              ? <CommitteeWidget task={task} isAr={isAr} t={t} readOnly={terminal} onRfp={(rfp: RfpDetail) => setTaskData(task.id, { rfp })} reopen={(n, o, reason) => reopenStep(task.id, n, o, reason)} />
+              ? <CommitteeWidget task={task} isAr={isAr} t={t} readOnly={terminal} onRfp={(rfp: RfpDetail) => setTaskData(task.id, { rfp })} reopen={(n, o, reason) => reopenStep(task.id, n, o, reason)} openStory={() => setTab('committee')} />
               : task.procStep && task.rfp
               ? (() => { const P = { task, isAr, t, readOnly: terminal, onRfp: (rfp: RfpDetail) => setTaskData(task.id, { rfp }) };
                   return task.procStep === 'fin-qual' ? <FinQualEditor {...P} /> : task.procStep === 'tl-method' ? <TlMethod {...P} /> : task.procStep === 'officer-confirm' ? <OfficerConfirm {...P} /> : <EtimadCreate {...P} />; })()

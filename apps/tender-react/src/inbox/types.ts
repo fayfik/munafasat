@@ -423,15 +423,26 @@ export interface CommitteeSeat {
 export interface OpeningVendor {
   id: string; name: string; cr: string;
   price?: number;
+  /** From Etimad's opening report. */
+  bidNo?: string; submittedAt?: string; validityDays?: number; fileCount?: number;
+  bond?: { bank: string; amount: number; validUntil: string };
+  /** Offer files uploaded at recording, with the AI classification (doc item id) and confidence. */
+  files?: OfferFile[];
   docs: Record<string, DocStatus>;
   note?: string;
   /** Two-envelope: technically passing (set by BEC). DP: technical result. */
   techPass?: boolean; techNote?: string;
 }
+export interface OfferFile { id: string; name: string; size: string; item?: string; conf: number; status?: DocStatus; expiry?: string; confirmed?: boolean }
 export interface Opening {
   committee: CommitteeKind;
   source?: { kind: 'upload' | 'manual'; fileName?: string; at?: string };
   openingDate?: string;
+  /** Opening session (from the Etimad report or entered). */
+  openingTime?: string; mode?: 'etimad' | 'in-person'; location?: string; formationNo?: string; formationDate?: string;
+  withdrawn?: { name: string; cr: string; at: string }[];
+  /** Bulk upload of offer packages (Record bids). */
+  intake?: { at: string; files: number; packages: number };
   vendors: OpeningVendor[];
   seats: CommitteeSeat[];
   recordedAt?: string;

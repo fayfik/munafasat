@@ -11,7 +11,8 @@ import { toast } from '../components/Toast';
 import { ArrowLeftIcon, CheckCircleIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, DocumentIcon, AlertTriangleIcon, SparklesIcon, XIcon, ClockIcon } from '../components/Icons';
 import { Card, Pill } from './CommitteeSteps';
 import { fmtSar, newOpening } from './committee';
-import { aiWeighted, legalInsight, offerDocs, vendorInsight, type Block, type Cite, type OfferDoc } from './offerDocs';
+import { aiWeighted, legalInsight, offerDocs, vendorInsight, vendorIntel, type Block, type Cite, type IntelProject, type OfferDoc } from './offerDocs';
+import { Onboarding, introSeen, isVerified, markIntroSeen, markVerified } from './Onboarding';
 import {
   BEC, LEGAL_CHECKS, LEGAL_REASONS, PREF_SOURCES, ROLE_LABEL, VARIANCE_FLAG, adjusted, emptyEval, evalVendors, fmtPct, isFlagged, needsWhy,
   prefPct, ranking, riyadh, roleOfStep, sheetMissing, sheetOf, sign, signed, techCriteria, techPassing, techTotal, variance, verifyRow,
@@ -94,7 +95,7 @@ const Modal = ({ children, onClose, label, wide }: { children: ReactNode; onClos
   </div>, document.body);
 
 /* ── F6.2 · One-time code (emulated) ─────────────────────────────── */
-function OtpDialog({ person, vendor, isAr, t, onOk, onClose }: { person: Person; vendor: OpeningVendor; isAr: boolean; t: T; onOk: () => void; onClose: () => void }) {
+function OtpDialog({ person, count, isAr, t, onOk, onClose }: { person: Person; count: number; isAr: boolean; t: T; onOk: () => void; onClose: () => void }) {
   const [code] = useState(() => String(Math.floor(100000 + Math.random() * 900000)));
   const [digits, setDigits] = useState<string[]>(Array(6).fill(''));
   const [tries, setTries] = useState(0);
@@ -124,10 +125,10 @@ function OtpDialog({ person, vendor, isAr, t, onOk, onClose }: { person: Person;
           <span className={`w-11 h-11 rounded-2xl inline-flex items-center justify-center ${ok ? 'bg-success-50 text-success-600' : locked ? 'bg-error-50 text-error-600' : 'bg-[#EEF1FA] text-[#2A3466]'} transition-colors`}>{ok ? <CheckIcon className="w-5 h-5" /> : <ShieldIcon />}</span>
           <button type="button" onClick={onClose} className="p-1 rounded-md text-neutral-400 hover:bg-neutral-100"><XIcon className="w-4 h-4" /></button>
         </div>
-        <h3 className="mt-4 text-[16px] font-semibold text-neutral-900">{locked ? t('Too many attempts', 'محاولات كثيرة') : t('Verify to open this offer', 'تحقق لفتح هذا العرض')}</h3>
+        <h3 className="mt-4 text-[16px] font-semibold text-neutral-900">{locked ? t('Too many attempts', 'محاولات كثيرة') : t('Verify to unlock the offers', 'تحقق لفتح العروض')}</h3>
         <p className="mt-1 text-[12.5px] text-neutral-500">{locked
           ? t('Access to offers is locked for 15 minutes. Your administrator has been notified.', 'تم قفل الوصول إلى العروض لمدة 15 دقيقة وتم إشعار المسؤول.')
-          : <>{t('Enter the 6-digit code sent to', 'أدخل الرمز المكوّن من 6 أرقام المرسل إلى')} <span className="font-semibold text-neutral-700 tabular-nums" dir="ltr">{phone}</span> {t('to open', 'لفتح')} <span className="font-semibold text-neutral-700">{vendor.name}</span>.</>}</p>
+          : <>{t('Enter the 6-digit code sent to', 'أدخل الرمز المكوّن من 6 أرقام المرسل إلى')} <span className="font-semibold text-neutral-700 tabular-nums" dir="ltr">{phone}</span> {t(`to unlock all ${count} offers for this session.`, `لفتح العروض الـ ${count} لهذه الجلسة.`)}</>}</p>
         {!locked && (
           <>
             <div className={`mt-5 flex justify-between gap-2 ${err ? 'shake' : ''}`} dir="ltr">
@@ -150,71 +151,81 @@ function OtpDialog({ person, vendor, isAr, t, onOk, onClose }: { person: Person;
           {!locked && <button type="button" onClick={() => put(0, code)} className="ms-auto text-[11.5px] font-semibold text-white/80 hover:text-white" data-otp-fill>{t('Fill', 'تعبئة')}</button>}
           {locked && <button type="button" onClick={() => setTries(0)} className="ms-auto text-[11.5px] font-semibold text-white/80 hover:text-white">{t('Unlock', 'فتح')}</button>}
         </div>
-        <p className="mt-3 text-[11px] text-neutral-400 text-center">{isAr ? 'يُطلب الرمز في كل مرة يُفتح فيها عرض.' : 'A code is asked every time an offer is opened.'}</p>
+        <p className="mt-3 text-[11px] text-neutral-400 text-center">{isAr ? 'رمز واحد لكل الموردين — يُسجل الدخول بالتاريخ والوقت.' : 'One code for every bidder — access is logged with date and time.'}</p>
       </div>
     </Modal>
   );
 }
 
-/* ── F2.1 · Technical scoring panel (with AI suggestion + evidence per criterion) ── */
+/* ── F2.1 · Technical scoring panel — AI suggestion stays behind a chip until asked ── */
 function TechInputs({ s, v, rfp, isAr, t, ro, set, jump, others }: { s: VendorSheet; v: OpeningVendor; rfp: RfpDetail; isAr: boolean; t: T; ro: boolean; set: (p: Partial<VendorSheet>) => void; jump: (c: Cite) => void; others: number }) {
   const cs = techCriteria(rfp); const total = techTotal(s, rfp); const pass = techPassing(rfp);
   const ai = vendorInsight(v, rfp); const aiTotal = aiWeighted(v, rfp);
+  const [open, setOpen] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Record<string, boolean>>({});
   const scored = cs.filter((c) => s.scores?.[c.key]?.score != null).length;
   const setScore = (k: string, p: { score?: number; why?: string }) => set({ scores: { ...(s.scores ?? {}), [k]: { ...(s.scores?.[k] ?? {}), ...p } } });
   const applyAll = () => set({ scores: Object.fromEntries(cs.map((c) => { const a = ai.criteria[c.key]; const cur = s.scores?.[c.key] ?? {}; return [c.key, { score: a.score, why: cur.why?.trim() ? cur.why : needsWhy(a.score) ? a.en : cur.why }]; })) });
   return (
-    <div className="space-y-3" data-tech-inputs>
+    <div className="space-y-2.5" data-tech-inputs>
       <section className="rounded-2xl border border-neutral-200 bg-white p-4 flex items-center gap-4">
-        <Gauge value={total} pass={pass} size={84} />
+        <Gauge value={total} pass={pass} size={76} />
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{t('Your weighted score', 'درجتك الموزونة')}</p>
           <p className="mt-1">{scored === 0 ? <Pill tone="gray">{t('Not scored yet', 'لم يُقيّم بعد')}</Pill>
-            : scored < cs.length ? <Pill tone="blue">{t(`${scored} of ${cs.length} criteria scored`, `${scored} من ${cs.length} معايير`)}</Pill>
+            : scored < cs.length ? <Pill tone="blue">{t(`${scored} of ${cs.length} scored`, `${scored} من ${cs.length}`)}</Pill>
             : total >= pass ? <Pill tone="green" attr={{ 'data-tech-verdict': 'pass' }}>{t(`Passes · mark ${pass}`, `مجتاز · النجاح ${pass}`)}</Pill> : <Pill tone="amber" attr={{ 'data-tech-verdict': 'fail' }}>{t(`Below the ${pass} mark`, `أقل من ${pass}`)}</Pill>}</p>
-          <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-ai-700"><SparklesIcon className="w-3.5 h-3.5" />{t(`AI estimate ${aiTotal} · ${others} other bidder${others === 1 ? '' : 's'} evaluated`, `تقدير الذكاء الاصطناعي ${aiTotal}`)}</p>
         </div>
-        {!ro && <button type="button" onClick={applyAll} data-ai-apply-all className="self-start inline-flex items-center gap-1 h-8 px-3 rounded-full text-[12px] font-semibold text-ai-700 bg-ai-50 hover:bg-ai-100 ring-1 ring-ai-200/70 transition-colors whitespace-nowrap"><SparklesIcon className="w-3.5 h-3.5" />{t('Use AI scores', 'استخدم درجات الذكاء')}</button>}
+        {!ro && <button type="button" onClick={applyAll} data-ai-apply-all title={t(`AI estimate ${aiTotal} · compared with ${others} other bidders`, `تقدير ${aiTotal}`)}
+          className="self-center inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-[12.5px] font-semibold text-white bg-gradient-to-r from-[#5B4BD8] to-[#7B5CF0] shadow-[0_6px_16px_-8px_rgba(91,75,216,.9)] hover:brightness-110 transition whitespace-nowrap"><SparklesIcon className="w-3.5 h-3.5" />{t(`Use AI scores · ${aiTotal}`, `درجات الذكاء · ${aiTotal}`)}</button>}
       </section>
       {cs.map((c) => {
         const sc = s.scores?.[c.key]; const val = sc?.score; const req = needsWhy(val); const a = ai.criteria[c.key];
-        const diff = val != null ? val - a.score : 0;
+        const diff = val != null ? val - a.score : 0; const isOpen = open === c.key;
+        const showWhy = req || !!sc?.why || notes[c.key];
         return (
-          <section key={c.key} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden" data-criterion={c.key}>
+          <section key={c.key} className={`rounded-2xl border bg-white transition-shadow ${isOpen ? 'border-ai-200 shadow-[0_8px_24px_-14px_rgba(91,75,216,.6)]' : 'border-neutral-200'}`} data-criterion={c.key}>
             <div className="px-4 pt-3.5 pb-3">
               <div className="flex items-start gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-semibold text-neutral-900 leading-snug">{isAr ? c.ar : c.en}</p>
-                  {(c.descEn || c.descAr) && <p className="mt-0.5 text-[11.5px] text-neutral-500 leading-snug">{isAr ? c.descAr : c.descEn}</p>}
-                </div>
+                <p className="min-w-0 flex-1 text-[13px] font-semibold text-neutral-900 leading-snug">{isAr ? c.ar : c.en}</p>
                 <span className="px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-600 text-[11px] font-semibold tabular-nums">{c.weight}%</span>
               </div>
-              <div className="mt-3 flex items-center gap-3">
+              <div className="mt-2.5 flex items-center gap-3">
                 <div className="relative flex-1 h-6 flex items-center">
                   <span className="absolute inset-x-0 h-1.5 rounded-full bg-neutral-100" />
                   <span className="absolute start-0 h-1.5 rounded-full bg-brand-500 transition-all" style={{ width: `${val ?? 0}%` }} />
-                  <span className="absolute -translate-x-1/2 w-0.5 h-4 rounded bg-ai-500" style={{ left: `${a.score}%` }} title={`AI ${a.score}`} />
+                  {isOpen && <span className="absolute -translate-x-1/2 w-0.5 h-4 rounded bg-ai-500 fade-in" style={{ left: `${a.score}%` }} />}
                   <input type="range" min={0} max={100} step={5} disabled={ro} value={val ?? 0} onChange={(e) => setScore(c.key, { score: Number(e.target.value) })} className="range-clean relative w-full" aria-label={`${c.en} slider`} />
                 </div>
                 <input type="number" min={0} max={100} disabled={ro} value={val ?? ''} placeholder="—" onChange={(e) => setScore(c.key, { score: e.target.value === '' ? undefined : Math.max(0, Math.min(100, Number(e.target.value))) })}
                   className="w-14 text-center text-[15px] font-semibold rounded-lg border border-neutral-200 py-1 tabular-nums focus:outline-none focus:border-brand-400 disabled:bg-neutral-50" data-score={c.key} />
               </div>
-            </div>
-            <div className="px-4 py-2.5 bg-gradient-to-r from-ai-50/80 to-white border-t border-ai-100/70" data-ai-suggest={c.key}>
-              <div className="flex items-center gap-2">
-                <SparklesIcon className="w-3.5 h-3.5 text-ai-600 flex-shrink-0" />
-                <span className="text-[12px] font-semibold text-ai-800">{t(`AI suggests ${a.score}`, `يقترح ${a.score}`)}</span>
-                <span className={`text-[10.5px] font-semibold uppercase tracking-wide ${a.confidence === 'high' ? 'text-success-700' : a.confidence === 'medium' ? 'text-warning-700' : 'text-neutral-500'}`}>{a.confidence === 'high' ? t('high confidence', 'ثقة عالية') : a.confidence === 'medium' ? t('medium', 'متوسطة') : t('low', 'منخفضة')}</span>
-                {val != null && Math.abs(diff) >= 15 && <span className="text-[11px] text-warning-700">· {t(`you are ${Math.abs(diff)} ${diff > 0 ? 'above' : 'below'}`, `أنت ${diff > 0 ? 'أعلى' : 'أقل'} بـ ${Math.abs(diff)}`)}</span>}
-                {!ro && val !== a.score && <button type="button" onClick={() => setScore(c.key, { score: a.score, ...(needsWhy(a.score) && !sc?.why?.trim() ? { why: a.en } : {}) })} className="ms-auto text-[11.5px] font-semibold text-ai-700 hover:text-ai-900" data-ai-apply={c.key}>{t('Apply', 'تطبيق')}</button>}
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                <button type="button" onClick={() => setOpen(isOpen ? null : c.key)} data-ai-chip={c.key} aria-expanded={isOpen}
+                  className={`inline-flex items-center gap-1.5 h-7 ps-2 pe-2.5 rounded-full text-[12px] font-semibold transition-all ${isOpen ? 'bg-ai-600 text-white' : 'bg-ai-50 text-ai-800 hover:bg-ai-100'}`}>
+                  <SparklesIcon className="w-3.5 h-3.5" />{t(`AI suggests ${a.score}`, `يقترح ${a.score}`)}
+                  <span className={`w-1.5 h-1.5 rounded-full ${a.confidence === 'high' ? 'bg-success-400' : a.confidence === 'medium' ? 'bg-warning-400' : 'bg-neutral-400'}`} />
+                  <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {val != null && Math.abs(diff) >= 15 && <span className="text-[11.5px] text-warning-700">{t(`${Math.abs(diff)} ${diff > 0 ? 'above' : 'below'} AI`, `${diff > 0 ? 'أعلى' : 'أقل'} بـ ${Math.abs(diff)}`)}</span>}
+                {!showWhy && !ro && <button type="button" onClick={() => setNotes({ ...notes, [c.key]: true })} className="ms-auto text-[12px] font-medium text-neutral-500 hover:text-neutral-800" data-add-why={c.key}>{t('+ Justification', '+ تبرير')}</button>}
               </div>
-              <p className="mt-1 text-[12px] text-neutral-700 leading-snug">{isAr ? a.ar : a.en}</p>
-              <div className="mt-1.5 flex flex-wrap gap-1">{a.cites.map((ct) => <CiteChip key={ct.block} c={ct} onJump={jump} />)}</div>
-            </div>
-            <div className="px-4 pb-3 pt-2.5">
-              <textarea rows={1} disabled={ro} value={sc?.why ?? ''} onChange={(e) => setScore(c.key, { why: e.target.value })} data-why={c.key}
-                placeholder={req ? t('Justification required for this score', 'التبرير مطلوب لهذه الدرجة') : t('Your justification (optional)', 'تبريرك (اختياري)')}
-                className={`w-full resize-none text-[12.5px] rounded-lg border px-3 py-2 focus:outline-none focus:border-brand-400 disabled:bg-neutral-50 field-sizing-content ${req && !sc?.why?.trim() ? 'border-warning-300 bg-warning-50/40' : 'border-neutral-200'}`} />
+              {isOpen && (
+                <div className="mt-2.5 rounded-xl bg-gradient-to-br from-ai-50 to-white ring-1 ring-ai-100 p-3 rise-in" data-ai-suggest={c.key}>
+                  <p className="text-[12.5px] text-neutral-800 leading-snug">{isAr ? a.ar : a.en}</p>
+                  <div className="mt-2 flex items-center gap-1 flex-wrap">
+                    {a.cites.map((ct) => <CiteChip key={ct.block} c={ct} onJump={jump} />)}
+                    <span className={`ms-auto text-[10.5px] font-semibold uppercase tracking-wide ${a.confidence === 'high' ? 'text-success-700' : a.confidence === 'medium' ? 'text-warning-700' : 'text-neutral-500'}`}>{a.confidence === 'high' ? t('High confidence', 'ثقة عالية') : a.confidence === 'medium' ? t('Medium confidence', 'ثقة متوسطة') : t('Low confidence', 'ثقة منخفضة')}</span>
+                  </div>
+                  {!ro && val !== a.score && <button type="button" onClick={() => { setScore(c.key, { score: a.score, ...(needsWhy(a.score) && !sc?.why?.trim() ? { why: a.en } : {}) }); setOpen(null); }} data-ai-apply={c.key}
+                    className="mt-2.5 w-full h-8 rounded-lg bg-ai-600 hover:bg-ai-700 text-white text-[12.5px] font-semibold transition-colors">{t(`Apply ${a.score}`, `تطبيق ${a.score}`)}</button>}
+                </div>
+              )}
+              {showWhy && (
+                <textarea rows={1} disabled={ro} value={sc?.why ?? ''} onChange={(e) => setScore(c.key, { why: e.target.value })} data-why={c.key} autoFocus={!!notes[c.key] && !sc?.why}
+                  placeholder={req ? t('Justification required for this score', 'التبرير مطلوب لهذه الدرجة') : t('Your justification', 'تبريرك')}
+                  className={`mt-2.5 w-full resize-none text-[12.5px] rounded-lg border px-3 py-2 focus:outline-none focus:border-brand-400 disabled:bg-neutral-50 field-sizing-content ${req && !sc?.why?.trim() ? 'border-warning-300 bg-warning-50/40' : 'border-neutral-200'}`} />
+              )}
             </div>
           </section>
         );
@@ -463,6 +474,76 @@ function Viewer({ doc, vendor, page, hl, nav, zoom, setZoom, onPage, onSeen, isA
   );
 }
 const ReqIcon = ({ s }: { s: 'met' | 'partial' | 'gap' }) => s === 'met' ? <CheckCircleIcon className="w-4 h-4 text-success-600 flex-shrink-0" /> : s === 'partial' ? <span className="w-4 h-4 rounded-full border-2 border-warning-500 flex-shrink-0 relative overflow-hidden"><span className="absolute inset-y-0 start-0 w-1/2 bg-warning-500" /></span> : <XIcon className="w-4 h-4 text-error-600 flex-shrink-0" />;
+/* Vendor profile: existing SIDF vendor (history, active projects) or new (public web intelligence). */
+const STATUS_TONE: Record<IntelProject['status'], { tone: 'green' | 'amber' | 'red' | 'gray'; en: string; ar: string }> = {
+  'on-track': { tone: 'green', en: 'On track', ar: 'في المسار' }, 'at-risk': { tone: 'amber', en: 'At risk', ar: 'معرض للخطر' }, delayed: { tone: 'red', en: 'Delayed', ar: 'متأخر' }, completed: { tone: 'gray', en: 'Completed', ar: 'مكتمل' },
+};
+const Kpi = ({ k, v, sub }: { k: string; v: ReactNode; sub?: ReactNode }) => (
+  <div className="rounded-xl bg-neutral-50 px-3 py-2.5"><p className="text-[10.5px] font-medium text-neutral-500 truncate">{k}</p><p className="mt-0.5 text-[16px] font-bold text-neutral-900 tabular-nums leading-tight">{v}</p>{sub && <p className="text-[10.5px] text-neutral-500 truncate">{sub}</p>}</div>
+);
+export function VendorProfile({ v, isAr, t, compact }: { v: OpeningVendor; isAr: boolean; t: T; compact?: boolean }) {
+  const x = vendorIntel(v); const years = new Date().getFullYear() - x.founded;
+  return (
+    <div className="space-y-3" data-vendor-profile={x.kind}>
+      <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+        <div className={`px-4 py-3 flex items-center gap-2 text-[12px] font-semibold ${x.kind === 'existing' ? 'bg-gradient-to-r from-success-50 to-white text-success-800' : 'bg-gradient-to-r from-warning-50 to-white text-warning-800'}`}>
+          {x.kind === 'existing' ? <CheckCircleIcon className="w-4 h-4" /> : <SparklesIcon className="w-4 h-4" />}
+          {x.kind === 'existing' ? t(`Existing SIDF vendor · since ${x.sidf!.since}`, `مورد حالي للصندوق · منذ ${x.sidf!.since}`) : t('New to SIDF · profile built from the public web', 'جديد على الصندوق · ملف من المصادر العامة')}
+        </div>
+        <div className="p-4 grid grid-cols-3 gap-2">
+          <Kpi k={t('In market', 'في السوق')} v={t(`${years} yrs`, `${years} سنة`)} sub={t(`since ${x.founded}`, `منذ ${x.founded}`)} />
+          <Kpi k={t('Employees', 'الموظفون')} v={x.employees} />
+          {x.sidf ? <>
+            <Kpi k={t('SIDF projects', 'مشاريع الصندوق')} v={x.sidf.projects} sub={t(`${x.sidf.active.length} active`, `${x.sidf.active.length} نشط`)} />
+            <Kpi k={t('On time', 'في الموعد')} v={`${Math.round((x.sidf.onTime / x.sidf.projects) * 100)}%`} sub={`${x.sidf.onTime}/${x.sidf.projects}`} />
+            <Kpi k={t('Our rating', 'تقييمنا')} v={<span>{x.sidf.rating.toFixed(1)}<span className="text-[12px] text-warning-500"> ★</span></span>} sub={t(`${x.sidf.penalties} penalt${x.sidf.penalties === 1 ? 'y' : 'ies'}`, `${x.sidf.penalties} غرامة`)} />
+            <Kpi k={t('Spend with SIDF', 'الإنفاق معنا')} v={`${(x.sidf.spend / 1e6).toFixed(1)}M`} sub="SAR" />
+          </> : x.web && <>
+            <Kpi k={t('LinkedIn', 'لينكدإن')} v={x.web.linkedin.followers} sub={t('followers', 'متابع')} />
+            <Kpi k={t('Headcount', 'عدد الموظفين')} v={<span className="text-[13px]">{x.web.linkedin.growth.split(' ')[0]}</span>} sub={t('12 months', '12 شهراً')} />
+            <Kpi k={t('HQ', 'المقر')} v={<span className="text-[14px]">{x.hq}</span>} />
+            <Kpi k={t('SIDF history', 'التعامل معنا')} v={<span className="text-[14px]">{t('None', 'لا يوجد')}</span>} />
+          </>}
+        </div>
+        <div className="px-4 pb-4">
+          <p className="text-[11px] font-semibold text-neutral-500">{t('Saudi presence', 'التواجد في المملكة')}</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">{x.presence.map((p) => <span key={p} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-neutral-100 text-[12px] text-neutral-700"><svg viewBox="0 0 24 24" className="w-3 h-3 text-brand-600" fill="currentColor"><path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6a2.5 2.5 0 010 5.5z" /></svg>{p}</span>)}</div>
+        </div>
+      </section>
+      {x.sidf && (
+        <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden" data-sidf-projects>
+          <p className="px-4 pt-3.5 text-[12.5px] font-semibold text-neutral-900">{t('Current projects with SIDF', 'المشاريع الحالية مع الصندوق')}</p>
+          <ul className="mt-2 divide-y divide-neutral-100">{x.sidf.active.map((p) => { const st = STATUS_TONE[p.status]; return (
+            <li key={p.name} className="px-4 py-3">
+              <div className="flex items-center gap-2"><span className="flex-1 min-w-0 text-[12.5px] font-medium text-neutral-900 truncate">{isAr ? p.nameAr : p.name}</span><Pill tone={st.tone}>{isAr ? st.ar : st.en}</Pill></div>
+              <div className="mt-2 flex items-center gap-3"><span className="flex-1 h-1.5 rounded-full bg-neutral-100 overflow-hidden"><span className={`block h-full rounded-full ${p.status === 'at-risk' ? 'bg-warning-500' : p.status === 'delayed' ? 'bg-error-500' : 'bg-success-500'}`} style={{ width: `${p.progress}%` }} /></span><span className="text-[11px] text-neutral-500 tabular-nums">{p.progress}% · SAR {(p.value / 1e6).toFixed(1)}M · {t('ends', 'ينتهي')} {p.end}</span></div>
+            </li>
+          ); })}</ul>
+          <p className="mx-4 mb-4 mt-1 rounded-xl bg-neutral-50 px-3 py-2 text-[12px] text-neutral-600 leading-snug"><span className="font-semibold text-neutral-800">{t('Last performance review', 'آخر تقييم أداء')}:</span> {L(x.sidf.lastNote, isAr)}</p>
+        </section>
+      )}
+      {x.web && (
+        <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden" data-web-intel>
+          <div className="px-4 pt-3.5 flex items-center justify-between"><p className="text-[12.5px] font-semibold text-neutral-900">{t('From the web', 'من المصادر العامة')}</p><span className="text-[11px] text-neutral-400">{t(`Collected ${x.web.crawled}`, `جُمع ${x.web.crawled}`)}</span></div>
+          <ul className="mt-2 px-4 space-y-2">{x.web.news.map((n) => (
+            <li key={n.title} className="flex gap-2.5"><span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${n.tone === 'good' ? 'bg-success-500' : n.tone === 'bad' ? 'bg-error-500' : 'bg-neutral-300'}`} /><span><span className="block text-[12.5px] text-neutral-800 leading-snug">{n.title}</span><span className="block text-[11px] text-neutral-500">{n.source} · {n.date}</span></span></li>
+          ))}</ul>
+          <div className="mx-4 my-3 pt-3 border-t border-neutral-100 flex flex-wrap gap-1.5">{x.web.sources.map((s2) => <a key={s2.url} href={s2.url} target="_blank" rel="noreferrer" onClick={(e) => e.preventDefault()} className="inline-flex items-center gap-1 h-6 px-2 rounded-md ring-1 ring-neutral-200 text-[11px] text-neutral-600 hover:text-brand-700"><DocumentIcon className="w-3 h-3" />{s2.label}</a>)}</div>
+          <p className="px-4 pb-3 text-[10.5px] text-neutral-400">{t('Unverified public information — check before relying on it.', 'معلومات عامة غير موثقة — تحقق منها قبل الاعتماد عليها.')}</p>
+        </section>
+      )}
+      {!compact && (
+        <section className="rounded-2xl border border-neutral-200 bg-white p-4">
+          <p className="text-[11px] font-semibold text-neutral-500">{t('Client portfolio', 'محفظة العملاء')}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">{x.clients.map((c) => <span key={c} className="inline-flex items-center gap-1.5 h-8 ps-1 pe-2.5 rounded-lg ring-1 ring-neutral-200 text-[12px] text-neutral-700"><span className="w-6 h-6 rounded-md bg-[#EEF1FA] text-[#2A3466] text-[10px] font-bold inline-flex items-center justify-center">{c.replace(/^A /, '').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()}</span>{c}</span>)}</div>
+          <p className="mt-3 text-[11px] font-semibold text-neutral-500">{t('Certifications', 'الشهادات')}</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">{x.certifications.map((c) => <span key={c} className="h-6 px-2 rounded-md bg-neutral-100 text-[11.5px] text-neutral-700 inline-flex items-center">{c}</span>)}</div>
+          <p className="mt-3 text-[10.5px] text-neutral-400">{t('Sample data in this prototype.', 'بيانات نموذجية في هذا النموذج.')}</p>
+        </section>
+      )}
+    </div>
+  );
+}
 function InsightsPanel({ role, v, o, rfp, estimate, isAr, t, jump }: { role: EvalRole; v: OpeningVendor; o: Opening; rfp: RfpDetail; estimate?: number; isAr: boolean; t: T; jump: (c: Cite) => void }) {
   const ai = vendorInsight(v, rfp);
   const peers = evalVendors(o, role);
@@ -471,61 +552,66 @@ function InsightsPanel({ role, v, o, rfp, estimate, isAr, t, jump }: { role: Eva
     : peers.map((x) => ({ x, val: aiWeighted(x, rfp) })).sort((a, b) => b.val - a.val);
   const max = Math.max(1, ...bars.map((b) => b.val));
   const metN = ai.requirements.filter((r) => r.status === 'met').length;
+  const [sect, setSect] = useState<'vendor' | 'fit'>('vendor');
   return (
     <div className="space-y-3 fade-in" data-ai-insights>
       <section className="rounded-2xl p-4 text-white bg-[radial-gradient(120%_120%_at_0%_0%,#5B4BD8_0%,#3A2E9A_55%,#241C66_100%)] shadow-[0_10px_30px_-14px_rgba(58,46,154,.8)]">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/70"><SparklesIcon className="w-3.5 h-3.5" />{t('AI reading of this offer', 'قراءة الذكاء الاصطناعي للعرض')}</div>
-        <div className="mt-3 flex items-center gap-4">
-          <div className="relative w-16 h-16 flex-shrink-0">
-            <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90"><circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,.15)" strokeWidth="3.5" /><circle cx="18" cy="18" r="15.5" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${(ai.match / 100) * 97.4} 97.4`} style={{ transition: 'stroke-dasharray .8s ease' }} /></svg>
-            <span className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-[16px] font-bold tabular-nums" data-ai-match={ai.match}>{ai.match}%</span></span>
+        <div className="flex items-center gap-4">
+          <div className="relative w-14 h-14 flex-shrink-0">
+            <svg viewBox="0 0 36 36" className="w-14 h-14 -rotate-90"><circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,.15)" strokeWidth="3.5" /><circle cx="18" cy="18" r="15.5" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${(ai.match / 100) * 97.4} 97.4`} style={{ transition: 'stroke-dasharray .8s ease' }} /></svg>
+            <span className="absolute inset-0 flex items-center justify-center text-[14px] font-bold tabular-nums" data-ai-match={ai.match}>{ai.match}%</span>
           </div>
-          <div className="min-w-0"><p className="text-[12px] text-white/70">{t(`Matches ${metN} of ${ai.requirements.length} request requirements`, `يطابق ${metN} من ${ai.requirements.length} متطلبات`)}</p><p className="mt-0.5 text-[13px] leading-snug font-medium">{isAr ? ai.ar : ai.en}</p></div>
+          <div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-wider text-white/60">{t(`Fit · ${metN} of ${ai.requirements.length} requirements`, `الملاءمة · ${metN} من ${ai.requirements.length}`)}</p><p className="mt-0.5 text-[13px] leading-snug font-medium">{isAr ? ai.ar : ai.en}</p></div>
         </div>
-        <p className="mt-3 text-[10.5px] text-white/55">{t('Suggestion only — you score and sign. Every point links to the page it came from.', 'اقتراح فقط — أنت من يقيّم ويوقّع. كل نقطة مرتبطة بصفحتها.')}</p>
+        {(ai.bestAt.length > 0 || ai.watch.length > 0) && <div className="mt-3 flex flex-wrap gap-1.5">
+          {ai.bestAt.map((b) => <span key={b.en} className="inline-flex items-center gap-1 h-6 px-2 rounded-full bg-white/15 text-[11.5px]" data-ai-best><CheckIcon className="w-3 h-3" />{L(b, isAr)}</span>)}
+          {ai.watch.map((b) => <span key={b.en} className="inline-flex items-center gap-1 h-6 px-2 rounded-full bg-[#F5C451]/25 text-[#FFE7A8] text-[11.5px]" data-ai-watch><AlertTriangleIcon className="w-3 h-3" />{L(b, isAr)}</span>)}
+        </div>}
       </section>
-      {(ai.bestAt.length > 0 || ai.watch.length > 0) && (
-        <section className="rounded-2xl border border-neutral-200 bg-white p-4 grid grid-cols-1 gap-3">
-          {ai.bestAt.length > 0 && <div><p className="text-[11.5px] font-semibold text-neutral-500">{t('Best at', 'الأقوى في')}</p><div className="mt-1.5 flex flex-wrap gap-1.5" data-ai-best>{ai.bestAt.map((b) => <span key={b.en} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-success-50 text-success-800 text-[12px] font-medium"><CheckIcon className="w-3 h-3" />{L(b, isAr)}</span>)}</div></div>}
-          {ai.watch.length > 0 && <div><p className="text-[11.5px] font-semibold text-neutral-500">{t('Watch out', 'انتبه إلى')}</p><div className="mt-1.5 flex flex-wrap gap-1.5" data-ai-watch>{ai.watch.map((b) => <span key={b.en} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-warning-50 text-warning-800 text-[12px] font-medium"><AlertTriangleIcon className="w-3 h-3" />{L(b, isAr)}</span>)}</div></div>}
-        </section>
+      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-neutral-200/60">
+        {([['vendor', t('Who they are', 'من هم')], ['fit', role === 'legal' ? t('Certificates', 'الشهادات') : t('Fit to request', 'الملاءمة للطلب')]] as const).map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setSect(k)} data-ins-sect={k} className={`h-8 rounded-lg text-[12px] font-semibold transition-all ${sect === k ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'}`}>{l}</button>
+        ))}
+      </div>
+      {sect === 'vendor' ? <VendorProfile v={v} isAr={isAr} t={t} /> : (
+        <>
+          {role === 'legal' ? (
+            <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden" data-ai-certs>
+              <ul className="divide-y divide-neutral-100">{legalInsight(v, o).map((c) => (
+                <li key={c.doc.id} className="px-4 py-2.5 flex items-center gap-2.5">
+                  <ReqIcon s={c.status === 'valid' ? 'met' : c.status === 'expired' ? 'partial' : 'gap'} />
+                  <span className="flex-1 min-w-0"><span className="block text-[12.5px] text-neutral-800">{isAr ? c.doc.ar : c.doc.en}</span><span className="block text-[11px] text-neutral-500">{c.status === 'missing' ? t('Not found in the offer', 'غير موجودة في العرض') : c.status === 'expired' ? t(`Expired ${c.date} — consider L-02`, `منتهية ${c.date} — راجع L-02`) : t(`Valid until ${c.date}`, `سارية حتى ${c.date}`)}</span></span>
+                  {c.cite && <CiteChip c={c.cite} onJump={jump} short={t('View', 'عرض')} />}
+                </li>
+              ))}</ul>
+            </section>
+          ) : (
+            <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden" data-ai-reqs>
+              <ul className="divide-y divide-neutral-100">{ai.requirements.map((r) => (
+                <li key={r.en} className="px-4 py-2.5 flex items-center gap-2.5" data-req={r.status}>
+                  <ReqIcon s={r.status} /><span className="flex-1 text-[12.5px] text-neutral-800">{L(r, isAr)}</span>{r.cite && <CiteChip c={r.cite} onJump={jump} short={t('View', 'عرض')} />}
+                </li>
+              ))}</ul>
+            </section>
+          )}
+          <section className="rounded-2xl border border-neutral-200 bg-white p-4" data-ai-peers>
+            <p className="text-[12.5px] font-semibold text-neutral-900">{role === 'finance' ? t('Price among compliant bidders', 'السعر بين الموردين المطابقين') : t('AI estimate among bidders', 'تقدير الذكاء بين الموردين')}</p>
+            <ul className="mt-3 space-y-2.5">{bars.map(({ x, val }, i) => (
+              <li key={x.id}>
+                <div className="flex items-center justify-between text-[12px]"><span className={x.id === v.id ? 'font-semibold text-neutral-900' : 'text-neutral-600'}>{i + 1}. {x.name}</span><span className="tabular-nums text-neutral-700" dir="ltr">{role === 'finance' ? fmtSar(val) : val}</span></div>
+                <div className="mt-1 h-1.5 rounded-full bg-neutral-100 overflow-hidden"><div className={`h-full rounded-full transition-all duration-700 ${x.id === v.id ? 'bg-ai-500' : 'bg-neutral-300'}`} style={{ width: `${(val / max) * 100}%` }} /></div>
+              </li>
+            ))}</ul>
+            {role === 'finance' && estimate ? <p className="mt-3 text-[11.5px] text-neutral-500">{t('Estimate', 'التقدير')} <span className="tabular-nums" dir="ltr">{fmtSar(estimate)}</span></p> : null}
+          </section>
+        </>
       )}
-      {role === 'legal' ? (
-        <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden" data-ai-certs>
-          <p className="px-4 pt-3.5 pb-2 text-[12.5px] font-semibold text-neutral-900">{t('Certificates read by AI', 'الشهادات التي قرأها الذكاء الاصطناعي')}</p>
-          <ul className="divide-y divide-neutral-100">{legalInsight(v, o).map((c) => (
-            <li key={c.doc.id} className="px-4 py-2.5 flex items-center gap-2.5">
-              <ReqIcon s={c.status === 'valid' ? 'met' : c.status === 'expired' ? 'partial' : 'gap'} />
-              <span className="flex-1 min-w-0"><span className="block text-[12.5px] text-neutral-800">{isAr ? c.doc.ar : c.doc.en}</span><span className="block text-[11px] text-neutral-500">{c.status === 'missing' ? t('Not found in the offer', 'غير موجودة في العرض') : c.status === 'expired' ? t(`Expired ${c.date} — consider L-02`, `منتهية ${c.date} — راجع L-02`) : t(`Valid until ${c.date}`, `سارية حتى ${c.date}`)}</span></span>
-              {c.cite && <CiteChip c={c.cite} onJump={jump} short={t('View', 'عرض')} />}
-            </li>
-          ))}</ul>
-        </section>
-      ) : (
-        <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden" data-ai-reqs>
-          <p className="px-4 pt-3.5 pb-2 text-[12.5px] font-semibold text-neutral-900">{t('Against the request', 'مقابل متطلبات الطلب')}</p>
-          <ul className="divide-y divide-neutral-100">{ai.requirements.map((r) => (
-            <li key={r.en} className="px-4 py-2.5 flex items-center gap-2.5" data-req={r.status}>
-              <ReqIcon s={r.status} /><span className="flex-1 text-[12.5px] text-neutral-800">{L(r, isAr)}</span>{r.cite && <CiteChip c={r.cite} onJump={jump} />}
-            </li>
-          ))}</ul>
-        </section>
-      )}
-      <section className="rounded-2xl border border-neutral-200 bg-white p-4" data-ai-peers>
-        <p className="text-[12.5px] font-semibold text-neutral-900">{role === 'finance' ? t('Price among compliant bidders', 'السعر بين الموردين المطابقين') : t('AI estimate among bidders', 'تقدير الذكاء بين الموردين')}</p>
-        <ul className="mt-3 space-y-2.5">{bars.map(({ x, val }, i) => (
-          <li key={x.id}>
-            <div className="flex items-center justify-between text-[12px]"><span className={x.id === v.id ? 'font-semibold text-neutral-900' : 'text-neutral-600'}>{i + 1}. {x.name}</span><span className="tabular-nums text-neutral-700" dir="ltr">{role === 'finance' ? fmtSar(val) : val}</span></div>
-            <div className="mt-1 h-1.5 rounded-full bg-neutral-100 overflow-hidden"><div className={`h-full rounded-full transition-all duration-700 ${x.id === v.id ? 'bg-ai-500' : 'bg-neutral-300'}`} style={{ width: `${(val / max) * 100}%` }} /></div>
-          </li>
-        ))}</ul>
-        {role === 'finance' && estimate ? <p className="mt-3 text-[11.5px] text-neutral-500">{t('Estimate', 'التقدير')} <span className="tabular-nums" dir="ltr">{fmtSar(estimate)}</span></p> : null}
-      </section>
+      <p className="text-[10.5px] text-neutral-400 px-1">{t('AI suggests — you score and sign.', 'الذكاء يقترح — وأنت تقيّم وتوقّع.')}</p>
     </div>
   );
 }
 
-function EvalPage({ role, vid, p, onClose, onNext, onSwitch }: { role: EvalRole; vid: string; p: EP; onClose: () => void; onNext: (from: string) => void; onSwitch: (to: string) => void }) {
+function EvalPage({ role, vid, p, onClose, onNext, onSwitch, onHelp }: { role: EvalRole; vid: string; p: EP; onClose: () => void; onNext: (from: string) => void; onSwitch: (to: string) => void; onHelp: () => void }) {
   const { task, isAr, t, readOnly } = p;
   const { rfp, o, setSheet, setEval, ev, log } = useEval(task, p.onRfp);
   const vs = evalVendors(o, role);
@@ -575,6 +661,7 @@ function EvalPage({ role, vid, p, onClose, onNext, onSwitch }: { role: EvalRole;
         </div>
         <span className="ms-auto flex items-center gap-2 flex-shrink-0">
           <span className="hidden xl:inline text-[12px] text-neutral-500 tabular-nums me-1">{t(`${nSigned} of ${vs.length} signed`, `${nSigned} من ${vs.length} موقّعة`)}</span>
+          <button type="button" onClick={onHelp} data-eval-help title={t('How evaluation works', 'كيف يعمل التقييم')} className="w-9 h-9 rounded-full inline-flex items-center justify-center text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"><svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" strokeLinecap="round" /></svg></button>
           {!ro && <Button variant="primary" disabled={miss.length > 0} onClick={() => setConfirm(true)} data-sign><PenIcon />{idx < vs.length - 1 ? t('Sign and next vendor', 'وقّع وانتقل للتالي') : t('Sign', 'وقّع')}</Button>}
           {!ro && <Button variant="secondary" onClick={() => { set({}); toast(t('Draft saved', 'تم حفظ المسودة')); }} data-save-draft>{t('Save draft', 'حفظ كمسودة')}</Button>}
           {ro && s.sig && <Pill tone="green"><LockIcon className="w-3 h-3" />{t('Signed · read-only', 'موقّع · للقراءة فقط')}</Pill>}
@@ -639,7 +726,10 @@ export function VendorEvalTask(p: EP) {
   const { rfp, o, ev, setEval } = useEval(task, p.onRfp);
   const vs = evalVendors(o, role);
   const out = o.vendors.filter((v) => !vs.some((x) => x.id === v.id));
-  const [otpFor, setOtpFor] = useState<string | null>(null);
+  const [gate, setGate] = useState<null | { stage: 'intro' | 'otp'; vid: string }>(null);
+  const [help, setHelp] = useState(false);
+  /** Intro the first time, then one code for every bidder in this task; afterwards bidders open directly. */
+  const begin = (vid: string) => { if (isVerified(task.id)) setOpenId(vid); else setGate({ stage: introSeen(role) ? 'otp' : 'intro', vid }); };
   const [openId, setOpenId] = useState<string | null>(null);
   const n = vs.filter((v) => signed(sheetOf(o, role, v.id))).length;
   const nextUnsigned = (from?: string) => { const i = vs.findIndex((x) => x.id === from); return [...vs.slice(i + 1), ...vs.slice(0, i + 1)].find((x) => x.id !== from && !signed(sheetOf(o, role, x.id)))?.id; };
@@ -656,12 +746,12 @@ export function VendorEvalTask(p: EP) {
     <div className="space-y-4" data-vendor-eval={role}>
       <ActionHead title={role === 'technical' ? t('Score the technical offers', 'تقييم العروض الفنية') : role === 'legal' ? t('Check legal compliance', 'التحقق من المطابقة النظامية') : t('Evaluate prices and rank', 'تقييم الأسعار والترتيب')}
         desc={desc} progress={{ done: n, total: vs.length, label: t(`of ${vs.length} signed`, `من ${vs.length} موقّعة`), attrs: { 'data-signed-progress': `${n}/${vs.length}` } }}
-        extra={!readOnly && n < vs.length ? <Button variant="primary" onClick={() => setOtpFor(nextUnsigned() ?? vs[0].id)} data-eval-start>{n ? t('Continue with next vendor', 'المتابعة مع المورد التالي') : t('Start with first vendor', 'ابدأ بالمورد الأول')}</Button> : undefined} />
+        extra={<span className="flex items-center gap-2">{!readOnly && n < vs.length && <Button variant="primary" onClick={() => begin(nextUnsigned() ?? vs[0].id)} data-eval-start>{n ? t('Continue with next vendor', 'المتابعة مع المورد التالي') : t('Start evaluating', 'ابدأ التقييم')}</Button>}<Button variant="ghost" onClick={() => setHelp(true)} data-how>{t('How it works', 'كيف يعمل')}</Button></span>} />
       <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
         <ul className="divide-y divide-neutral-100 stagger">
           {vs.map((v, i) => { const s = sheetOf(o, role, v.id); return (
             <li key={v.id}>
-              <button type="button" onClick={() => setOtpFor(v.id)} data-eval-vendor-row={v.id} className="w-full flex items-center gap-4 px-5 py-3.5 text-start hover:bg-neutral-50/80 transition-colors group">
+              <button type="button" onClick={() => begin(v.id)} data-eval-vendor-row={v.id} className="w-full flex items-center gap-4 px-5 py-3.5 text-start hover:bg-neutral-50/80 transition-colors group">
                 <span className="w-5 text-[12px] text-neutral-400 tabular-nums">{i + 1}</span>
                 <Initials name={v.name} />
                 <span className="min-w-0 flex-1"><span className="block text-[13.5px] font-semibold text-neutral-900 truncate">{v.name}</span>
@@ -681,8 +771,10 @@ export function VendorEvalTask(p: EP) {
         )}
       </section>
       {role === 'finance' && <RankingCard p={p} />}
-      {otpFor && <OtpDialog person={task.assignee} vendor={o.vendors.find((x) => x.id === otpFor)!} isAr={isAr} t={t} onClose={() => setOtpFor(null)} onOk={() => { setOpenId(otpFor); setOtpFor(null); }} />}
-      {openId && <EvalPage role={role} vid={openId} p={p} onClose={() => setOpenId(null)} onSwitch={(to) => { setOpenId(null); window.setTimeout(() => setOtpFor(to), 120); }} onNext={(from) => { const nx = nextUnsigned(from); setOpenId(null); if (nx) window.setTimeout(() => setOtpFor(nx), 250); }} />}
+      {gate?.stage === 'intro' && <Onboarding role={role} roleLabel={L(ROLE_LABEL[role], isAr)} vendors={vs.length} mode="first" isAr={isAr} t={t} onClose={() => { markIntroSeen(role); setGate(null); }} onDone={() => { markIntroSeen(role); setGate({ stage: 'otp', vid: gate.vid }); }} />}
+      {gate?.stage === 'otp' && <OtpDialog person={task.assignee} count={vs.length} isAr={isAr} t={t} onClose={() => setGate(null)} onOk={() => { markVerified(task.id); setOpenId(gate.vid); setGate(null); }} />}
+      {help && <Onboarding role={role} roleLabel={L(ROLE_LABEL[role], isAr)} vendors={vs.length} mode="info" isAr={isAr} t={t} onClose={() => setHelp(false)} onDone={() => setHelp(false)} />}
+      {openId && <EvalPage key={openId} role={role} vid={openId} p={p} onHelp={() => setHelp(true)} onClose={() => setOpenId(null)} onSwitch={(to) => setOpenId(to)} onNext={(from) => { const nx = nextUnsigned(from); setOpenId(nx ?? null); }} />}
       {void ev}{void setEval}
     </div>
   );
@@ -844,6 +936,93 @@ export function ProcVerify(p: EP) {
   );
 }
 
+/* ── F5.1 · Vendor dossier (slide-over) — everything the committee produced for one bidder ── */
+function VendorDossier({ v, rank, p, onClose, onSelect, selected }: { v: OpeningVendor; rank?: number; p: EP; onClose: () => void; onSelect?: () => void; selected?: boolean }) {
+  const { task, isAr, t } = p; const rfp = task.rfp!; const o = rfp.opening!;
+  const [tab, setTab] = useState<'overview' | 'technical' | 'legal' | 'financial' | 'documents'>('overview');
+  const docs = useMemo(() => offerDocs(v, o), [v, o]);
+  const [docId, setDocId] = useState<string | null>(null);
+  const [nav, setNav] = useState(0); const [page, setPage] = useState(0);
+  const tech = sheetOf(o, 'technical', v.id), legal = sheetOf(o, 'legal', v.id), fin = sheetOf(o, 'finance', v.id);
+  const cs = techCriteria(rfp); const ai = vendorInsight(v, rfp);
+  const price = fin.evalPrice ?? v.price;
+  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
+  const Signed = ({ s }: { s: VendorSheet }) => s.sig ? <div className="mt-3"><Stamp sig={s.sig} isAr={isAr} t={t} /></div> : <p className="mt-3 text-[12px] text-neutral-400">{t('Not signed', 'غير موقّع')}</p>;
+  const doc = docs.find((d) => d.id === docId);
+  return createPortal(
+    <div className="fixed inset-0 z-[55] flex justify-end bg-neutral-900/30 backdrop-blur-[1px] fade-in" onClick={onClose}>
+      <aside className="h-full w-full max-w-[820px] bg-[#F7F8FA] shadow-2xl flex flex-col slide-in-end" onClick={(e) => e.stopPropagation()} data-dossier={v.id} role="dialog" aria-label={v.name}>
+        <header className="bg-white border-b border-neutral-200 px-6 pt-5">
+          <div className="flex items-start gap-4">
+            <Initials name={v.name} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap"><h2 className="text-[18px] font-bold text-neutral-900">{v.name}</h2>{rank && <Pill tone={rank === 1 ? 'violet' : 'gray'}>{t(`Rank #${rank}`, `الترتيب #${rank}`)}</Pill>}{vendorIntel(v).kind === 'existing' ? <Pill tone="green">{t('Existing SIDF vendor', 'مورد حالي')}</Pill> : <Pill tone="amber">{t('New to SIDF', 'جديد على الصندوق')}</Pill>}</div>
+              <p className="text-[12px] text-neutral-500 tabular-nums" dir="ltr">CR {v.cr}{v.bidNo ? ` · ${v.bidNo}` : ''}</p>
+            </div>
+            <button type="button" onClick={onClose} className="p-2 rounded-full text-neutral-400 hover:bg-neutral-100" aria-label={t('Close', 'إغلاق')}><XIcon className="w-5 h-5" /></button>
+          </div>
+          <div className="mt-4 grid grid-cols-4 gap-2">
+            {[[t('Technical', 'الفني'), techTotal(tech, rfp).toFixed(1)], [t('Legal', 'القانوني'), legal.compliant === false ? t('Not compliant', 'غير مطابق') : legal.sig ? t('Compliant', 'مطابق') : '—'], [t('Evaluated price', 'السعر المقيّم'), fmtSar(price)], [t('AI fit', 'ملاءمة الذكاء'), `${ai.match}%`]].map(([k, val]) => (
+              <div key={k} className="rounded-xl bg-neutral-50 px-3 py-2"><p className="text-[10.5px] text-neutral-500">{k}</p><p className="text-[14px] font-bold text-neutral-900 tabular-nums truncate" dir="ltr">{val}</p></div>
+            ))}
+          </div>
+          <nav className="mt-3 flex gap-5 text-[13px]" role="tablist">
+            {([['overview', t('Overview', 'نظرة عامة')], ['technical', t('Technical', 'الفني')], ['legal', t('Legal', 'القانوني')], ['financial', t('Financial', 'المالي')], ['documents', t('Documents', 'المستندات')]] as const).map(([k, l]) => (
+              <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} data-dossier-tab={k} className={`pb-2.5 border-b-2 -mb-px font-semibold transition-colors ${tab === k ? 'border-brand-600 text-neutral-900' : 'border-transparent text-neutral-500 hover:text-neutral-800'}`}>{l}</button>
+            ))}
+          </nav>
+        </header>
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-3" key={tab}>
+          {tab === 'overview' && <div className="fade-in space-y-3">
+            <section className="rounded-2xl bg-white border border-neutral-200 p-4"><p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-ai-700"><SparklesIcon className="w-3.5 h-3.5" />{t('AI summary', 'ملخص الذكاء')}</p><p className="mt-1.5 text-[13.5px] text-neutral-800 leading-relaxed">{isAr ? ai.ar : ai.en}</p>
+              <div className="mt-2.5 flex flex-wrap gap-1.5">{ai.bestAt.map((b) => <span key={b.en} className="h-6 px-2 rounded-full bg-success-50 text-success-800 text-[11.5px] inline-flex items-center gap-1"><CheckIcon className="w-3 h-3" />{L(b, isAr)}</span>)}{ai.watch.map((b) => <span key={b.en} className="h-6 px-2 rounded-full bg-warning-50 text-warning-800 text-[11.5px] inline-flex items-center gap-1"><AlertTriangleIcon className="w-3 h-3" />{L(b, isAr)}</span>)}</div></section>
+            <VendorProfile v={v} isAr={isAr} t={t} />
+          </div>}
+          {tab === 'technical' && <div className="fade-in space-y-3">
+            {cs.map((c) => { const sc = tech.scores?.[c.key]; const a = ai.criteria[c.key]; return (
+              <section key={c.key} className="rounded-2xl bg-white border border-neutral-200 p-4" data-dossier-crit={c.key}>
+                <div className="flex items-center gap-3"><p className="flex-1 text-[13px] font-semibold text-neutral-900">{isAr ? c.ar : c.en} <span className="text-neutral-400 font-normal">· {c.weight}%</span></p><span className="text-[18px] font-bold tabular-nums text-neutral-900">{sc?.score ?? '—'}</span></div>
+                <div className="mt-2 relative h-1.5 rounded-full bg-neutral-100"><span className="absolute inset-y-0 start-0 rounded-full bg-brand-500" style={{ width: `${sc?.score ?? 0}%` }} /><span className="absolute -top-1 w-0.5 h-3.5 rounded bg-ai-500" style={{ left: `${a.score}%` }} title={`AI ${a.score}`} /></div>
+                {sc?.why && <p className="mt-2 text-[12.5px] text-neutral-700">“{sc.why}”</p>}
+                <p className="mt-1.5 text-[11.5px] text-ai-700 flex items-center gap-1"><SparklesIcon className="w-3 h-3" />{t(`AI suggested ${a.score}`, `اقترح الذكاء ${a.score}`)}</p>
+              </section>
+            ); })}
+            <Signed s={tech} />
+          </div>}
+          {tab === 'legal' && <div className="fade-in">
+            <section className="rounded-2xl bg-white border border-neutral-200 overflow-hidden"><ul className="divide-y divide-neutral-100">{LEGAL_CHECKS.map((c) => { const val = legal.checks?.[c.id]; return (
+              <li key={c.id} className="px-4 py-2.5 flex items-center gap-2.5"><ReqIcon s={val === 'pass' ? 'met' : val === 'missing' ? 'gap' : 'partial'} /><span className="flex-1 text-[12.5px] text-neutral-800">{isAr ? c.ar : c.en}</span><span className="text-[12px] text-neutral-500">{val === 'pass' ? t('Pass', 'سليم') : val === 'missing' ? t('Missing', 'ناقص') : '—'}</span></li>
+            ); })}</ul>
+              <div className="px-4 py-3 border-t border-neutral-100 flex items-center gap-2 text-[13px]">{legal.compliant === false ? <><XIcon className="w-4 h-4 text-error-600" /><span className="font-semibold text-error-700">{t('Not compliant', 'غير مطابق')} · {legal.reasonCode}</span></> : legal.compliant ? <><CheckCircleIcon className="w-4 h-4 text-success-600" /><span className="font-semibold text-success-700">{t('Compliant', 'مطابق')}</span></> : <span className="text-neutral-400">{t('Not checked yet', 'لم يُتحقق بعد')}</span>}{legal.comment && <span className="text-neutral-500">· {legal.comment}</span>}</div>
+            </section>
+            <Signed s={legal} />
+          </div>}
+          {tab === 'financial' && <div className="fade-in space-y-3">
+            <section className="grid grid-cols-2 gap-2">
+              {[[t('Opened price', 'سعر الفتح'), fmtSar(v.price)], [t('Evaluated price', 'السعر المقيّم'), fmtSar(price)], [t('Preference', 'التفضيل'), `−${(prefPct(fin) * 100).toFixed(1)}%`], [t('Adjusted for ranking', 'بعد التفضيل'), fmtSar(adjusted(fin, v))], [t('vs estimate', 'مقابل التقدير'), fmtPct(variance(price, task.amount))], [t('Local content', 'المحتوى المحلي'), fin.localContent ? `${fin.localContent}% · ${fin.lcSource ?? ''}` : '—']].map(([k, val]) => (
+                <div key={k} className="rounded-xl bg-white border border-neutral-200 px-4 py-3"><p className="text-[11px] text-neutral-500">{k}</p><p className="mt-0.5 text-[15px] font-semibold text-neutral-900 tabular-nums truncate" dir="ltr">{val}</p></div>
+              ))}
+            </section>
+            {docs.find((d) => d.id === 'fin')?.pages[0] && <section className="rounded-2xl bg-white border border-neutral-200 p-4"><p className="text-[12.5px] font-semibold text-neutral-900 mb-1">{t('Price schedule', 'جدول الأسعار')}</p>
+              <table className="w-full text-[12.5px]"><tbody>{(docs.find((d) => d.id === 'fin')!.pages[0].blocks.find((b) => b.kind === 'table') as Extract<Block, { kind: 'table' }>).rows.map((r, i) => <tr key={i} className={i === 0 ? 'text-neutral-500 text-[11.5px]' : 'border-t border-neutral-100'}><td className="py-1.5">{r[0]}</td><td className="py-1.5 text-end tabular-nums">{r[1]}</td></tr>)}</tbody></table></section>}
+            <Signed s={fin} />
+          </div>}
+          {tab === 'documents' && <div className="fade-in space-y-3">
+            <section className="rounded-2xl bg-white border border-neutral-200 overflow-hidden"><ul className="divide-y divide-neutral-100">{docs.map((d) => (
+              <li key={d.id}><button type="button" disabled={!d.pages.length} onClick={() => { setDocId(d.id); setPage(0); setNav((n) => n + 1); }} data-dossier-doc={d.id} className={`w-full flex items-center gap-3 px-4 py-2.5 text-start ${docId === d.id ? 'bg-brand-50/60' : 'hover:bg-neutral-50'} disabled:opacity-60`}>
+                <DocIcon d={d} /><span className="flex-1 min-w-0"><span className="block text-[12.5px] font-medium text-neutral-900">{isAr ? d.ar : d.en}</span><span className="block text-[11px] text-neutral-500">{d.sealed ? t('Sealed', 'مختوم') : d.status === 'expired' ? t('Expired', 'منتهٍ') : d.status === 'missing' ? t('Not attached', 'غير مرفق') : `PDF · ${d.size}`}</span></span>{d.pages.length > 0 && <ChevronRightIcon className={`w-4 h-4 text-neutral-300 ${isAr ? 'rotate-180' : ''}`} />}</button></li>
+            ))}</ul></section>
+            {doc && <div className="h-[520px] rounded-2xl overflow-hidden border border-neutral-200 rise-in"><Viewer doc={doc} vendor={v} page={page} nav={nav} zoom={0.9} setZoom={() => {}} onPage={(n) => { setPage(n); setNav((x) => x + 1); }} onSeen={setPage} isAr={isAr} t={t} /></div>}
+          </div>}
+        </div>
+        {onSelect && <footer className="bg-white border-t border-neutral-200 px-6 py-3 flex items-center gap-2 justify-end">
+          {selected ? <Pill tone="blue"><CheckIcon className="w-3 h-3" />{t('Selected', 'مختار')}</Pill> : <Button variant="primary" onClick={onSelect} data-select-vendor={v.id}>{t('Select this vendor', 'اختيار هذا المورد')}</Button>}
+          <Button variant="ghost" onClick={onClose}>{t('Close', 'إغلاق')}</Button>
+        </footer>}
+      </aside>
+    </div>, document.body);
+}
+
 /* ── F5.1 · BEC Chairman selects the vendor ──────────────────────── */
 export function BecSelect(p: EP) {
   const { task, isAr, t, readOnly } = p;
@@ -851,41 +1030,48 @@ export function BecSelect(p: EP) {
   const rk = ranking(o);
   const sel = ev.selection?.vendor;
   const [ret, setRet] = useState(false);
+  const [dossier, setDossier] = useState<string | null>(null);
   const pick = rk.ordered.find((x) => x.v.id === sel);
   const save = pick && task.amount ? task.amount - (pick.s.evalPrice ?? pick.v.price ?? 0) : undefined;
   const excluded = o.vendors.filter((v) => !rk.ordered.some((x) => x.v.id === v.id));
   return (
     <div className="space-y-4" data-bec-select>
       <ActionHead title={t('Select the vendor', 'اختيار المورد')}
-        desc={t('The shortlist is ranked from signed sheets. Select a vendor with a reason; the whole ranked list goes to the Qualification Committee, so it can move to the next vendor if needed.', 'القائمة المختصرة مرتبة من الأوراق الموقعة. اختر مورداً مع ذكر السبب؛ تنتقل القائمة المرتبة كاملة إلى لجنة التأهيل لتنتقل للمورد التالي عند الحاجة.')}
+        desc={t('Ranked from the members’ signed sheets. Open a vendor to see everything the committee produced, then select with a reason. The ranked list goes to Qualification.', 'مرتبة من أوراق الأعضاء الموقعة. افتح المورد لترى كل ما أنتجته اللجنة ثم اختر مع ذكر السبب. تنتقل القائمة المرتبة إلى التأهيل.')}
         extra={!readOnly ? <Button variant="secondary" onClick={() => setRet(true)} data-return-proc>{t('Return to Procurement', 'إعادة للمشتريات')}</Button> : undefined} />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {rk.ordered.map((x, i) => { const tech = techTotal(sheetOf(o, 'technical', x.v.id), rfp); const on = sel === x.v.id; return (
-          <button key={x.v.id} type="button" disabled={readOnly} onClick={() => setEval({ selection: { ...(ev.selection ?? {}), vendor: x.v.id } })} data-select-vendor={x.v.id} aria-pressed={on}
-            className={`relative text-start rounded-2xl border-2 bg-white p-4 transition-all ${on ? 'border-brand-500 ring-4 ring-brand-500/10 shadow-sm' : 'border-neutral-200 hover:border-neutral-300'}`}>
-            <span className="flex items-center justify-between"><span className={`inline-flex w-8 h-8 rounded-full items-center justify-center text-[13px] font-bold ${i === 0 ? 'bg-success-600 text-white' : 'bg-neutral-100 text-neutral-600'}`}>{i + 1}</span>
-              {i === 0 ? <Pill tone="violet" attr={{ 'data-top-ranked': '' }}><SparklesIcon className="w-3 h-3" />{t('Top ranked', 'الأعلى ترتيباً')}</Pill> : on ? <Pill tone="blue">{t('Selected', 'مختار')}</Pill> : null}</span>
-            <p className="mt-3 text-[14px] font-semibold text-neutral-900">{x.v.name}</p>
-            <p className="text-[20px] font-semibold text-neutral-900 tabular-nums mt-1" dir="ltr">{fmtSar(x.adj)}</p>
-            <p className="text-[11.5px] text-neutral-500">{t('adjusted price', 'السعر بعد التفضيل')} · {fmtPct(variance(x.s.evalPrice ?? x.v.price, task.amount))} {t('vs estimate', 'مقابل التقدير')}</p>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-[11.5px]">
-              <span className="rounded-lg bg-neutral-50 px-2 py-1.5"><span className="block text-neutral-500">{t('Technical', 'الفني')}</span><span className="font-semibold text-neutral-800 tabular-nums">{tech.toFixed(1)}</span></span>
-              <span className="rounded-lg bg-neutral-50 px-2 py-1.5"><span className="block text-neutral-500">{t('Legal', 'القانوني')}</span><span className="font-semibold text-success-700">{t('Compliant', 'مطابق')}</span></span>
-            </div>
-            {on && <CheckCircleIcon className="absolute top-3 end-3 w-5 h-5 text-brand-600 hidden" />}
-          </button>
-        ); })}
-      </div>
-      {excluded.length > 0 && <p className="text-[12px] text-neutral-500" data-excluded>{t('Not ranked', 'غير مرتب')}: {excluded.map((v) => v.name).join(' · ')}</p>}
+      <section className="rounded-2xl border border-neutral-200 bg-white overflow-hidden" data-shortlist>
+        <table className="w-full text-[13px]">
+          <thead><tr className="text-[11.5px] text-neutral-500 bg-neutral-50"><th className="text-start font-medium px-5 py-2 w-14">#</th><th className="text-start font-medium px-3 py-2">{t('Vendor', 'المورد')}</th><th className="text-center font-medium px-3 py-2">{t('Technical', 'الفني')}</th><th className="text-center font-medium px-3 py-2">{t('AI fit', 'الملاءمة')}</th><th className="text-end font-medium px-3 py-2">{t('Adjusted price', 'بعد التفضيل')}</th><th className="text-end font-medium px-3 py-2">{t('vs estimate', 'مقابل التقدير')}</th><th className="w-28" /></tr></thead>
+          <tbody className="divide-y divide-neutral-100">
+            {rk.ordered.map((x, i) => { const on = sel === x.v.id; const intel = vendorIntel(x.v); return (
+              <tr key={x.v.id} onClick={() => setDossier(x.v.id)} data-dossier-open={x.v.id} className={`cursor-pointer transition-colors ${on ? 'bg-brand-50/60' : 'hover:bg-neutral-50'}`}>
+                <td className="px-5 py-3.5"><span className={`inline-flex w-8 h-8 rounded-full items-center justify-center text-[13px] font-bold ${i === 0 ? 'bg-success-600 text-white' : 'bg-neutral-100 text-neutral-600'}`}>{i + 1}</span></td>
+                <td className="px-3 py-3.5"><p className="font-semibold text-neutral-900 flex items-center gap-2">{x.v.name}{i === 0 && <Pill tone="violet" attr={{ 'data-top-ranked': '' }}><SparklesIcon className="w-3 h-3" />{t('Top ranked', 'الأعلى')}</Pill>}{on && <Pill tone="blue" attr={{ 'data-selected': '' }}><CheckIcon className="w-3 h-3" />{t('Selected', 'مختار')}</Pill>}</p>
+                  <p className="text-[11.5px] text-neutral-500">{intel.kind === 'existing' ? t(`SIDF vendor · ${intel.sidf!.projects} projects · ${intel.sidf!.rating.toFixed(1)}★`, `مورد حالي · ${intel.sidf!.projects} مشاريع`) : t('New to SIDF', 'جديد على الصندوق')}</p></td>
+                <td className="px-3 py-3.5 text-center tabular-nums font-semibold">{techTotal(sheetOf(o, 'technical', x.v.id), rfp).toFixed(1)}</td>
+                <td className="px-3 py-3.5 text-center tabular-nums">{vendorInsight(x.v, rfp).match}%</td>
+                <td className="px-3 py-3.5 text-end tabular-nums font-semibold" dir="ltr">{fmtSar(x.adj)}</td>
+                <td className="px-3 py-3.5 text-end tabular-nums text-neutral-600">{fmtPct(variance(x.s.evalPrice ?? x.v.price, task.amount))}</td>
+                <td className="px-3 py-3.5 text-end"><span className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700">{t('Details', 'التفاصيل')}<ChevronRightIcon className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} /></span></td>
+              </tr>
+            ); })}
+          </tbody>
+        </table>
+        {excluded.length > 0 && <div className="px-5 py-2.5 border-t border-neutral-100 bg-neutral-50/60 text-[12px] text-neutral-500 flex flex-wrap gap-x-4" data-excluded><span className="font-semibold text-neutral-600">{t('Not ranked', 'غير مرتب')}:</span>{excluded.map((v) => <button key={v.id} type="button" onClick={() => setDossier(v.id)} className="underline decoration-dotted hover:text-neutral-800">{v.name}</button>)}</div>}
+      </section>
       <Card title={t('Selection reason', 'سبب الاختيار')} attr={{ 'data-selection-reason': '' }} aside={pick && save != null ? <Pill tone={save >= 0 ? 'green' : 'amber'}>{save >= 0 ? t(`Saves ${fmtSar(save)} vs estimate`, `وفر ${fmtSar(save)} عن التقدير`) : t(`${fmtSar(-save)} above estimate`, `أعلى من التقدير بـ ${fmtSar(-save)}`)}</Pill> : undefined}>
+        {!pick && <p className="mb-2 text-[12.5px] text-neutral-500">{t('Open a vendor and choose “Select this vendor”.', 'افتح مورداً واختر «اختيار هذا المورد».')}</p>}
         {pick && rk.ordered[0].v.id !== pick.v.id && <p className="mb-2 flex items-center gap-1.5 text-[12.5px] text-warning-800"><AlertTriangleIcon className="w-4 h-4" />{t('You selected a vendor other than the top ranked — explain why.', 'اخترت مورداً غير الأعلى ترتيباً — وضح السبب.')}</p>}
         <textarea rows={3} disabled={readOnly} value={ev.selection?.reason ?? ''} onChange={(e) => setEval({ selection: { ...(ev.selection ?? {}), reason: e.target.value } })} placeholder={t('Recorded on the evaluation MoM and sent to Qualification', 'يُسجل في محضر التقييم ويُرسل إلى لجنة التأهيل')} className="w-full text-[13px] rounded-lg border border-neutral-200 px-3 py-2 focus:outline-none focus:border-brand-400" />
       </Card>
+      {dossier && <VendorDossier v={o.vendors.find((x) => x.id === dossier)!} rank={rk.ordered.findIndex((x) => x.v.id === dossier) + 1 || undefined} p={p} selected={sel === dossier} onClose={() => setDossier(null)}
+        onSelect={!readOnly && rk.ordered.some((x) => x.v.id === dossier) ? () => { setEval({ selection: { ...(ev.selection ?? {}), vendor: dossier } }); setDossier(null); } : undefined} />}
       {ret && <ReturnDialog title={t('Return to the Procurement member', 'إعادة إلى عضو المشتريات')} vendors={[]} pickVendors={false} isAr={isAr} t={t} onClose={() => setRet(false)}
         onSave={(_ids, reason) => { const ok = p.reopen?.(26, { ...o, eval: { ...ev, verified: {} } }, reason); setRet(false); toast(ok ? t('Returned to the Procurement member', 'أُعيد إلى عضو المشتريات') : t('Returned', 'تمت الإعادة')); }} />}
     </div>
   );
 }
+export { VendorDossier, Viewer, DocIcon, Initials };
 
 /** Committee tab: BEC members and every signature on the case. */
 export function EvalSignatures({ o, isAr, t }: { o: Opening; isAr: boolean; t: T }) {

@@ -6,7 +6,8 @@ import type { Bilingual, ChecklistItem, Person, Task, TaskActionDef, RfpDetail, 
 import { suggestFinQual } from './procGuide';
 import { BEC_ROSTER, TECH_MANAGER, becSeats } from './evaluation';
 import type { VendorSheet } from './types';
-import { BOC_ROSTER, DPEC_ROSTER, ALTERNATES, DOC_ITEMS, ETIMAD_BIDDERS, newOpening, vendorFrom } from './committee';
+import { classified } from './offerDocs';
+import { BOC_ROSTER, etimadSession, DPEC_ROSTER, ALTERNATES, DOC_ITEMS, ETIMAD_BIDDERS, newOpening, vendorFrom } from './committee';
 
 const DAY = 86400000;
 const base = Date.now();
@@ -698,13 +699,13 @@ for (const tk of SEED_TASKS) {
     if (n >= 16) {
       tk.rfp.etimad = { ref: '260139001234', at: iso(-3, 10), by: P.officer.name, byAr: P.officer.nameAr, closingDate: iso(-1, 13).slice(0, 10) };
       if (n >= 17) {
-        const o = { ...newOpening('boc'), source: { kind: 'upload' as const, fileName: 'Etimad_opening_report_260139001234.pdf', at: iso(0, 9) }, vendors: ETIMAD_BIDDERS.map(vendorFrom) };
-        if (n >= 19) { o.recordedAt = iso(0, 11); o.vendors = o.vendors.map((v, i) => ({ ...v, docs: Object.fromEntries(DOC_ITEMS.filter((d) => d.required).map((d) => [d.id, i === 2 && d.id === 'zakat' ? 'expired' as const : 'valid' as const])) })); }
+        const o: NonNullable<RfpDetail['opening']> = { ...newOpening('boc'), ...etimadSession(), source: { kind: 'upload' as const, fileName: 'Etimad_opening_report_260139001234.pdf', at: iso(0, 9) }, vendors: ETIMAD_BIDDERS.map(vendorFrom) };
+        if (n >= 19) { o.recordedAt = iso(0, 11); o.vendors = o.vendors.map((v) => classified(v)); o.intake = { at: iso(0, 10), files: o.vendors.reduce((a, v) => a + (v.files?.length ?? 0), 0), packages: 3 }; }
         if (n >= 20) o.seats = o.seats.map((st) => (st.role === 'chairman' || st.role === 'secretary' ? st : { ...st, coi: true, approval: 'approved' as const, approvalAt: iso(0, 12) }));
         if (n >= 21) { o.momAt = iso(-5, 13); o.chairmanNote = 'Three bidders, all documents present; one Zakat certificate expired — noted for Legal.'; o.bec = becSeats(); }
         if (n >= 22) Object.assign(o, { eval: evalSeed(n) });
         if (n >= 23) o.vendors = o.vendors.map((v, i) => ({ ...v, techPass: i !== 2 }));
-        if (n >= 24) { o.financial = { momAt: iso(-2, 11), note: 'Financial offers of the two passing bidders opened; Al Moammar stays sealed.' }; o.vendors = o.vendors.map((v, i) => (i === 2 ? v : { ...v, price: ETIMAD_BIDDERS[i].price })); }
+        if (n >= 24) { o.financial = { momAt: iso(-2, 11), note: 'Financial offers of the two passing bidders opened; Khaleej Information Systems stays sealed.' }; o.vendors = o.vendors.map((v, i) => (i === 2 ? v : { ...v, price: ETIMAD_BIDDERS[i].price })); }
         tk.rfp.opening = o;
       }
     }
@@ -1006,16 +1007,16 @@ SEED_TASKS.unshift(
   const special = { special: true, specialWhy: sup('Urgent · SAR 420,000', 'عاجل · 420,000 ريال') };
   const STEPS: { n: number; c: Task['committee']; who: Person; role: Bilingual; title: Bilingual; sum: Bilingual; stage: Bilingual; act: Bilingual }[] = [
     { n: 16, c: 'raise-opening', who: DPEC.procurement, role: sup('DPEC · Procurement member', 'لجنة الشراء المباشر · عضو المشتريات'),
-      title: sup(`Raise DP evaluation for request #${no}`, `رفع تقييم الشراء المباشر للطلب رقم ${no}`), sum: sup('Upload Etimad’s offers report or enter the offers, then send the case to the DP Evaluation Committee.', 'ارفع تقرير العروض من اعتماد أو أدخلها ثم أرسل الحالة إلى لجنة تقييم الشراء المباشر.'),
+      title: sup(`Direct purchase: raise the offers for request #${no}`, `شراء مباشر: رفع العروض للطلب رقم ${no}`), sum: sup('Upload Etimad’s offers report or enter the offers, then send the case to the DP Evaluation Committee.', 'ارفع تقرير العروض من اعتماد أو أدخلها ثم أرسل الحالة إلى لجنة تقييم الشراء المباشر.'),
       stage: sup('DP evaluation — Procurement member', 'تقييم الشراء المباشر — عضو المشتريات'), act: sup('Send to committee', 'إرسال إلى اللجنة') },
     { n: 17, c: 'assign', who: DPEC.chairman, role: sup('DPEC · Chairman', 'لجنة الشراء المباشر · الرئيس'),
-      title: sup(`Confirm the DP committee for request #${no}`, `تأكيد لجنة الشراء المباشر للطلب رقم ${no}`), sum: sup('Confirm the standing members and nominate the Technical member for this case.', 'أكّد الأعضاء الدائمين ورشّح العضو الفني لهذه الحالة.'),
+      title: sup(`Direct purchase: confirm the committee for request #${no}`, `شراء مباشر: تأكيد اللجنة للطلب رقم ${no}`), sum: sup('Confirm the standing members and nominate the Technical member for this case.', 'أكّد الأعضاء الدائمين ورشّح العضو الفني لهذه الحالة.'),
       stage: sup('DP evaluation — Chairman', 'تقييم الشراء المباشر — الرئيس'), act: sup('Confirm committee', 'تأكيد اللجنة') },
     { n: 18, c: 'dp-evaluate', who: DPEC.secretary, role: sup('DPEC · Officer', 'لجنة الشراء المباشر · الأخصائي'),
-      title: sup(`Record offers and technical result for request #${no}`, `تسجيل العروض والنتيجة الفنية للطلب رقم ${no}`), sum: sup('Check each offer’s documents and price; the Technical member enters pass or fail.', 'تحقق من مستندات وسعر كل عرض؛ ويُدخل العضو الفني النتيجة.'),
+      title: sup(`Direct purchase: record offers and technical result for request #${no}`, `شراء مباشر: تسجيل العروض والنتيجة الفنية للطلب رقم ${no}`), sum: sup('Check each offer’s documents and price; the Technical member enters pass or fail.', 'تحقق من مستندات وسعر كل عرض؛ ويُدخل العضو الفني النتيجة.'),
       stage: sup('DP evaluation — Officer & Technical', 'تقييم الشراء المباشر — الأخصائي والفني'), act: sup('Send to Chairman', 'إرسال للرئيس') },
     { n: 19, c: 'dp-select', who: DPEC.chairman, role: sup('DPEC · Chairman', 'لجنة الشراء المباشر · الرئيس'),
-      title: sup(`Select the vendor for request #${no}`, `اختيار المورد للطلب رقم ${no}`), sum: sup('Offers ranked by price among technically passing bidders. Special DP: the vendor goes to Qualification next.', 'العروض مرتبة بالسعر بين المجتازين فنياً. شراء مباشر خاص: ينتقل المورد إلى التأهيل.'),
+      title: sup(`Direct purchase: select the vendor for request #${no}`, `شراء مباشر: اختيار المورد للطلب رقم ${no}`), sum: sup('Offers ranked by price among technically passing bidders. Special DP: the vendor goes to Qualification next.', 'العروض مرتبة بالسعر بين المجتازين فنياً. شراء مباشر خاص: ينتقل المورد إلى التأهيل.'),
       stage: sup('DP evaluation — Chairman', 'تقييم الشراء المباشر — الرئيس'), act: sup('Send to Qualification', 'إرسال إلى التأهيل') },
   ];
   for (const st of STEPS) {

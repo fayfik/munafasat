@@ -398,7 +398,7 @@ async function openRequest(title) {
     await page.locator('[data-inbox-tab="all"]').click(); await wait(300);
     const titles = await page.locator('ul li > button:visible p:first-child, ul li > button:visible h3').allInnerTexts().catch(() => []);
     const body = (await page.locator('ul li > button:visible').allInnerTexts()).join('\n').replace(/\s+/g, ' ');
-    for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Review financial qualification criteria for request #4433 from IT & Digital', 'Review qualification criteria for request #4433 from IT & Digital', 'Set procurement method & assign request #4433', 'Review & confirm request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Create request #4433 in Etimad', 'Raise bid opening form for request #4433', 'Confirm the Bid Opening Committee for request #4433', 'Record the bids for request #4433', 'Verify the bid opening for request #4433', 'Approve the bid opening MoM for request #4433', 'Open the financial offers for request #4433', 'Select the vendor for request #4490', 'Score the technical offers for request #4433', 'Approve the technical report for request #4433', 'Check legal compliance for request #4433', 'Evaluate prices and rank offers for request #4433', 'Verify the evaluation for request #4433', 'Select the vendor for request #4433', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
+    for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Review financial qualification criteria for request #4433 from IT & Digital', 'Review qualification criteria for request #4433 from IT & Digital', 'Set procurement method & assign request #4433', 'Review & confirm request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Create request #4433 in Etimad', 'Raise bid opening form for request #4433', 'Confirm the Bid Opening Committee for request #4433', 'Record the bids for request #4433', 'Verify the bid opening for request #4433', 'Approve the bid opening MoM for request #4433', 'Open the financial offers for request #4433', 'Direct purchase: select the vendor for request #4490', 'Score the technical offers for request #4433', 'Approve the technical report for request #4433', 'Check legal compliance for request #4433', 'Evaluate prices and rank offers for request #4433', 'Verify the evaluation for request #4433', 'Select the vendor for request #4433', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
       expect(body.includes(want), `missing task "${want}"`);
     expect(!/\bRFP\b/.test(body), 'the word RFP is still listed');
     const top3 = (await page.locator('ul li > button:visible', { hasText: 'REQ-' }).allInnerTexts()).slice(0, 3).join(' | ');
@@ -1303,8 +1303,11 @@ async function openRequest(title) {
     await openId('TSK-4433-16');
     expect(await count('li[data-task-id="TSK-4433-16"] [data-row-role]') === 1, 'role chip on inbox row');
     expect(await btn('Send to committee').isDisabled(), 'send enabled before bidders');
-    await page.click('[data-upload-etimad]'); await wait(1000);
+    await page.click('[data-upload-etimad]'); await wait(1900);
     expect(await count('[data-bidder-row]') === 3 && await count('[data-etimad-file]') === 1, 'bidders not read from report');
+    expect(await count('[data-withdrawn]') === 1 && await count('[data-raise-insight]') === 1 && await count('[data-raise-tiles]') === 1, 'session details / withdrawal / validity insight');
+    const hl = await page.locator('li[data-task-id="TSK-4433-16"] > button').getAttribute('class');
+    expect(hl.includes('bg-brand-50'), 'selected task lost its highlight after working on it');
     expect(!(await btn('Send to committee').isDisabled()), 'opening date defaults to today');
     await page.fill('[data-opening-date]', ''); await wait(200);
     expect(await btn('Send to committee').isDisabled(), 'send enabled without opening date');
@@ -1327,7 +1330,7 @@ async function openRequest(title) {
     await page.click('[data-replace-save]'); await wait(250);
     expect(await count('[data-seat="legal"] [data-replaced]') === 1, 'replacement not logged on the seat');
     expect(!(await btn('Confirm committee').isDisabled()), 'confirm disabled');
-    await tab('Committee'); await wait(400);
+    await tab('Case story'); await wait(400);
     expect(await count('[data-committee-tab]') === 1 && await count('[data-committee-seat]') === 5, 'committee tab');
   });
   await test('Bid opening 18: full-page bid register — documents per bidder, prices sealed (two envelopes), Next bidder', async () => {
@@ -1381,23 +1384,26 @@ async function openRequest(title) {
   });
 
   // ── Epic F · Bid evaluation (BEC) ──
-  const otp = async (wrong = 0) => {
-    await page.waitForSelector('[data-otp]');
-    for (let i = 0; i < wrong; i++) { await page.locator('[data-otp-digit="0"]').fill('000000'); await wait(550); }
-    const code = await page.locator('[data-otp-demo]').getAttribute('data-otp-demo');
-    await page.locator('[data-otp-digit="0"]').fill(code); await wait(900);
+  /** First open in a task: intro (first time per role) → one code; afterwards bidders open directly. */
+  const otp = async () => {
+    await wait(350);
+    if (await count('[data-onboarding]')) { await page.locator('[data-onb-skip], [data-onb-done]').first().click(); await wait(350); }
+    if (await count('[data-otp]')) { const code = await page.locator('[data-otp-demo]').getAttribute('data-otp-demo'); await page.locator('[data-otp-digit="0"]').fill(code); await wait(900); }
   };
   const signNow = async () => { await page.click('[data-sign]'); await wait(200); await page.click('[data-sign-ok]'); await wait(500); };
-  await test('F6 · Technical: vendor list → OTP (3 wrong attempts lock) → score page → e-sign → next vendor', async () => {
+  await test('F6 · Technical: intro with steps → one code for all bidders (3 wrong attempts lock) → score → e-sign → next bidder opens directly', async () => {
     await openId('TSK-4433-21');
     expect((await page.locator('[data-signed-progress]').getAttribute('data-signed-progress')) === '0/3' && await count('[data-eval-vendor-row]') === 3, 'vendor list');
     expect(await btn('Send to manager').isDisabled(), 'gated before signatures');
-    await page.click('[data-eval-start]'); await page.waitForSelector('[data-otp]');
+    await page.click('[data-eval-start]'); await wait(400);
+    expect(await count('[data-onboarding="first"]') === 1, 'onboarding not shown the first time');
+    await page.click('[data-onb-next]'); await wait(200); await page.click('[data-onb-next]'); await wait(200);
+    await page.click('[data-onb-done]'); await page.waitForSelector('[data-otp]');
     for (let i = 0; i < 3; i++) { await page.locator('[data-otp-digit="0"]').fill('000000'); await wait(550); }
     expect(await text('Too many attempts').count() === 1 && await count('[data-otp-digit]') === 0, 'not locked after 3 wrong codes');
     await page.getByRole('button', { name: 'Unlock' }).click(); await wait(200);
     await otp();
-    expect(await count('[data-eval-page="technical"]') === 1 && await count('[data-price-sealed], [data-eval-page] :text("Sealed")') >= 1, 'evaluation page / sealed price');
+    expect(await count('[data-eval-page="technical"]') === 1 && await count('[data-doc-open="fin"]') === 1, 'evaluation page');
     expect(await page.locator('[data-sign]').isDisabled(), 'sign enabled before scoring');
     for (let i = 0; i < 4; i++) await page.locator(`[data-score="${i}"]`).fill(i === 2 ? '95' : '80');
     await wait(200);
@@ -1405,32 +1411,51 @@ async function openRequest(title) {
     await page.locator('[data-why="2"]').fill('Five comparable public-sector go-lives.'); await wait(150);
     await page.click('[data-save-draft]'); await wait(150);
     await signNow();
-    expect(await count('[data-otp]') === 1, 'next vendor did not ask for a code');
-    await page.locator('[data-otp] button').first().click(); await wait(250);
+    expect(await count('[data-otp]') === 0 && await count('[data-eval-page][data-eval-vendor="v2"]') === 1, 'next bidder should open directly, without a code');
+    await page.click('[data-eval-back]'); await wait(250);
     expect((await page.locator('[data-signed-progress]').getAttribute('data-signed-progress')) === '1/3', 'progress after sign');
     expect(await count('[data-eval-vendor-row="v1"] [data-sheet-status="signed"]') === 1, 'signed status on row');
-    await page.click('[data-eval-vendor-row="v1"]'); await otp();
-    expect(await count('[data-stamp]') === 1 && await count('[data-sign]') === 0, 'signed sheet not read-only with stamp');
+    await page.click('[data-eval-vendor-row="v1"]'); await wait(400);
+    expect(await count('[data-otp]') === 0 && await count('[data-stamp]') === 1 && await count('[data-sign]') === 0, 'signed sheet not read-only with stamp (or asked for a code again)');
+    await page.click('[data-eval-help]'); await wait(300);
+    expect(await count('[data-onboarding="info"]') === 1, 'info button should reopen the intro');
+    await page.locator('[data-onboarding] button[aria-label="Close"]').click(); await wait(200);
     await page.click('[data-eval-back]'); await wait(200);
-    await tab('Committee'); await wait(300);
-    expect(Number(await page.locator('[data-signatures]').getAttribute('data-signatures')) === 1, 'signature on the Committee tab');
+    await tab('Case story'); await wait(300);
+    expect(Number(await page.locator('[data-signatures]').getAttribute('data-signatures')) === 1, 'signature on the Case story tab');
   });
-
-  await test('Evaluation workspace: offer documents + viewer, AI suggestion per criterion with citations that jump to the passage, AI insights', async () => {
+  await test('Evaluation workspace: documents + viewer, AI suggestion behind a chip with citations that jump to the passage, vendor profile', async () => {
     await openId('TSK-4433-21');
     await page.click('[data-eval-start]'); await otp();
     expect(await count('[data-doc-rail] [data-doc-open]') >= 8 && await count('[data-viewer="tech"] [data-page]') === 5, 'documents / viewer');
     await page.click('[data-doc-open="fin"]'); await wait(250);
     expect(await count('[data-viewer-sealed]') === 1, 'financial offer not sealed in technical evaluation');
-    await page.click('[data-cite="tech:exp-1"]'); await wait(900);
+    expect(await count('[data-ai-chip]') === 4 && await count('[data-ai-suggest]') === 0, 'AI suggestion should be collapsed behind a chip');
+    await page.click('[data-ai-chip="2"]'); await wait(250);
+    expect(await count('[data-ai-suggest]') === 1, 'chip did not expand');
+    await page.click('[data-ai-suggest="2"] [data-cite="tech:exp-1"]'); await wait(900);
     expect(await count('[data-viewer="tech"] [data-hl]') === 1, 'citation did not highlight the passage');
-    expect(await count('[data-ai-suggest]') === 4, 'AI suggestion per criterion');
     await page.click('[data-ai-apply-all]'); await wait(200);
     expect(!(await page.locator('[data-sign]').isDisabled()), 'AI scores (with rationale for 90+) should make the sheet signable');
     await page.click('[data-pane="insights"]'); await wait(300);
-    expect(Number(await page.locator('[data-ai-match]').getAttribute('data-ai-match')) === 92 && await count('[data-ai-reqs] [data-req]') === 7 && await count('[data-ai-peers] li') === 3, 'AI insights');
-    await page.click('[data-switch-vendor="v2"]'); await wait(300);
-    expect(await count('[data-otp]') === 1, 'switching vendor must ask for a code');
+    expect(Number(await page.locator('[data-ai-match]').getAttribute('data-ai-match')) === 92 && await count('[data-vendor-profile="existing"]') === 1 && await count('[data-sidf-projects]') === 1, 'existing-vendor profile');
+    await page.click('[data-ins-sect="fit"]'); await wait(200);
+    expect(await count('[data-ai-reqs] [data-req]') === 7 && await count('[data-ai-peers] li') === 3, 'fit to request');
+    await page.click('[data-switch-vendor="v3"]'); await wait(500);
+    expect(await count('[data-otp]') === 0 && await count('[data-eval-page][data-eval-vendor="v3"]') === 1, 'switching bidder should not ask for a code');
+    await page.click('[data-pane="insights"]'); await wait(300);
+    expect(await count('[data-vendor-profile="new"]') === 1 && await count('[data-web-intel]') === 1, 'new vendor should show web intelligence');
+  });
+  await test('Record bids: bulk upload → AI sorts files by bidder and type, flags low confidence and expired; confirm from the preview', async () => {
+    await openId('TSK-4433-18');
+    await page.click('[data-intake-upload]'); await wait(2900);
+    expect(await count('[data-intake-result]') === 1 && await count('[data-intake-review]') === 1, 'intake result / review item');
+    await page.click('[data-intake-review]'); await wait(500);
+    expect(await count('[data-bid-register]') === 1 && await count('[data-ai-confirm="gosi"]') === 1 && await count('[data-viewer="c-gosi"] [data-page]') === 1, 'register opened at the file to review with preview');
+    await page.click('[data-ai-confirm="gosi"]'); await wait(200);
+    expect(await count('[data-ai-confirm]') === 0, 'confirm did not clear the review');
+    await page.click('[data-register-done]'); await wait(300);
+    expect((await page.locator('[data-record-progress]').getAttribute('data-record-progress')) === '3/3' && !(await btn('Send for verification').isDisabled()), 'all bidders checked after confirm');
   });
   await test('F2.2 · Technical report from signed sheets; a return voids signatures and reopens the Technical task', async () => {
     await openId('TSK-4433-22');
@@ -1490,13 +1515,30 @@ async function openRequest(title) {
     await page.click('[data-return-vendor="v1"]'); await page.fill('[data-return-reason]', 'Bid bond amount does not match.'); await page.click('[data-return-ok]'); await wait(400);
     expect(await count('li[data-task-id="TSK-4433-24"] [data-new-pill]') === 1, 'legal task not reopened');
   });
-  await test('F5 · BEC Chairman: ranked shortlist, non-top selection warns, reason required to send to Qualification', async () => {
+  await test('F5 · BEC Chairman: ranked shortlist; clicking a vendor opens the full dossier; non-top selection needs a reason', async () => {
     await openId('TSK-4433-27');
-    expect(await count('[data-select-vendor]') === 2 && await count('[data-top-ranked]') === 1 && await count('[data-excluded]') === 1, 'shortlist');
-    await page.click('[data-select-vendor="v1"]'); await wait(150);
+    expect(await count('[data-dossier-open]') === 2 && await count('[data-top-ranked]') === 1 && await count('[data-excluded]') === 1, 'shortlist');
+    await page.click('[data-dossier-open="v1"]'); await wait(400);
+    expect(await count('[data-dossier="v1"]') === 1 && await count('[data-dossier] [data-vendor-profile]') === 1, 'dossier overview');
+    await page.click('[data-dossier-tab="technical"]'); await wait(200);
+    expect(await count('[data-dossier-crit]') === 4 && await count('[data-dossier] [data-stamp]') === 1, 'technical tab with signature');
+    await page.click('[data-dossier-tab="documents"]'); await wait(200); await page.click('[data-dossier-doc="tech"]'); await wait(400);
+    expect(await count('[data-dossier] [data-viewer="tech"] [data-page]') === 5, 'document preview in dossier');
+    await page.click('[data-select-vendor="v1"]'); await wait(300);
     expect(await text('other than the top ranked').count() === 1 && await btn('Send to Qualification').isDisabled(), 'non-top warning / reason gate');
     await page.locator('[data-selection-reason] textarea').fill('Higher technical score; difference within budget.'); await wait(150);
     expect(!(await btn('Send to Qualification').isDisabled()), 'still gated with reason');
+  });
+  await test('Case story: every committee task carries the story so far, with who/when and details per stage', async () => {
+    await openId('TSK-4433-27');
+    expect(await count('[data-story-strip]') === 1, 'story strip on required action');
+    await page.click('[data-story-open]'); await wait(400);
+    expect(await count('[data-story-state="done"]') === 12 && await count('[data-story-state="current"]') === 1, 'stages done/current');
+    await page.click('[data-story-toggle="21"]'); await wait(200);
+    expect((await page.locator('[data-story-stage="21"]').innerText()).includes('Methodology'), 'technical matrix in details');
+    await openId('TSK-4433-18');
+    await tab('Case story'); await wait(300);
+    expect(await count('[data-story-state="done"]') === 3 && await count('[data-story-state="next"]') === 9, 'early task story');
   });
 
   await browser.close();
