@@ -93,7 +93,7 @@ function baseActions(task: Task): ActionDef[] {
 export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: { task: Task; onBack: () => void; onSideOpenChange?: (open: boolean) => void; /** Opened from the List view as its own page: breadcrumb back to the Inbox. */ asPage?: boolean }) {
   const { isAr } = useLanguage();
   const t = useT();
-  const { decide, addComment, resolveComment, updateRfp, setTaskData, assignQueued, me } = useInbox();
+  const { decide, addComment, resolveComment, updateRfp, setTaskData, reopenStep, assignQueued, me } = useInbox();
   // Team queue: the Team Lead picks an officer (lowest workload suggested).
   const queued = !!task.queue && !task.queue.assignedTo;
   const OFFICERS = PROC_TEAM.filter((p) => p.id !== 'u-abdullah');
@@ -340,7 +340,7 @@ export default function TaskDetail({ task, onBack, onSideOpenChange, asPage }: {
           {tab === 'overview' && !queued && <RequiredAction task={task} isAr={isAr} t={t} onReview={task.reviewComments ? () => { setTab('rfp'); if (!task.respondComments) setCommentMode(true); } : undefined} commentCount={anchored.length} resolvedCount={anchored.filter((c) => c.resolved).length}
             budgetWidget={task.budgetCheck && budget.state ? <BudgetChecker task={task} state={budget.state} result={budget.result} onRefresh={budget.refresh} isAr={isAr} t={t} /> : undefined}
             mainWidget={task.committee && task.rfp
-              ? <CommitteeWidget task={task} isAr={isAr} t={t} readOnly={terminal} onRfp={(rfp: RfpDetail) => setTaskData(task.id, { rfp })} />
+              ? <CommitteeWidget task={task} isAr={isAr} t={t} readOnly={terminal} onRfp={(rfp: RfpDetail) => setTaskData(task.id, { rfp })} reopen={(n, o, reason) => reopenStep(task.id, n, o, reason)} />
               : task.procStep && task.rfp
               ? (() => { const P = { task, isAr, t, readOnly: terminal, onRfp: (rfp: RfpDetail) => setTaskData(task.id, { rfp }) };
                   return task.procStep === 'fin-qual' ? <FinQualEditor {...P} /> : task.procStep === 'tl-method' ? <TlMethod {...P} /> : task.procStep === 'officer-confirm' ? <OfficerConfirm {...P} /> : <EtimadCreate {...P} />; })()

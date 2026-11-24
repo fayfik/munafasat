@@ -2,6 +2,8 @@
    opening checklist, and the gate for each committee task. */
 import type { Bilingual, CommitteeKind, CommitteeSeat, DocStatus, Opening, OpeningVendor, Person, RfpDetail, SeatRole, Task } from './types';
 
+import { evalNeeds } from './evaluation';
+
 const person = (id: string, name: string, nameAr: string, role: string, roleAr: string, dept: string, deptAr: string): Person =>
   ({ id, name, nameAr, role, roleAr, dept, deptAr });
 
@@ -43,6 +45,7 @@ export const SEAT_LABEL: Record<SeatRole, Bilingual> = {
 export const COMMITTEE_LABEL: Record<CommitteeKind, Bilingual> = {
   boc: { en: 'Bid Opening Committee', ar: 'لجنة فتح العروض' },
   dpec: { en: 'DP Evaluation Committee', ar: 'لجنة تقييم الشراء المباشر' },
+  bec: { en: 'Bid Evaluation Committee', ar: 'لجنة فحص العروض' },
 };
 
 /* Opening checklist per vendor — the documents the committee checks. */
@@ -138,6 +141,8 @@ export function committeeNeeds(task: Task): { done: number; total: number; missi
       need(!!o?.dp?.selected, 'Select the vendor', 'اختر المورد');
       if (o?.dp?.selected && o.dp.selected !== suggestedVendor(o)?.id) need(!!o.dp.reason?.trim(), 'Give a reason for not choosing the lowest passing offer', 'اذكر سبب عدم اختيار أقل عرض مجتاز');
       break;
+    default:
+      evalNeeds(task, need);
   }
   return out;
 }

@@ -398,12 +398,12 @@ async function openRequest(title) {
     await page.locator('[data-inbox-tab="all"]').click(); await wait(300);
     const titles = await page.locator('ul li > button:visible p:first-child, ul li > button:visible h3').allInnerTexts().catch(() => []);
     const body = (await page.locator('ul li > button:visible').allInnerTexts()).join('\n').replace(/\s+/g, ' ');
-    for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Review financial qualification criteria for request #4433 from IT & Digital', 'Review qualification criteria for request #4433 from IT & Digital', 'Set procurement method & assign request #4433', 'Review & confirm request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Create request #4433 in Etimad', 'Raise bid opening form for request #4433', 'Confirm the Bid Opening Committee for request #4433', 'Record the bids for request #4433', 'Verify the bid opening for request #4433', 'Approve the bid opening MoM for request #4433', 'Open the financial offers for request #4433', 'Select the vendor for request #4490', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
+    for (const want of ['Review & approve request #4433 from Ibrahim Al-Rashid', 'Review technical evaluation criteria for request #4433 from Ibrahim Al-Rashid', 'Review request #4433 from IT & Digital', 'Review financial qualification criteria for request #4433 from IT & Digital', 'Review qualification criteria for request #4433 from IT & Digital', 'Set procurement method & assign request #4433', 'Review & confirm request #4433 from IT & Digital', 'Approval DOA', 'Approve estimated price for request #4433 from IT & Digital', 'Create request #4433 in Etimad', 'Raise bid opening form for request #4433', 'Confirm the Bid Opening Committee for request #4433', 'Record the bids for request #4433', 'Verify the bid opening for request #4433', 'Approve the bid opening MoM for request #4433', 'Open the financial offers for request #4433', 'Select the vendor for request #4490', 'Score the technical offers for request #4433', 'Approve the technical report for request #4433', 'Check legal compliance for request #4433', 'Evaluate prices and rank offers for request #4433', 'Verify the evaluation for request #4433', 'Select the vendor for request #4433', 'Review & approve request #4471 from Fatima Al-Zahrani', 'Review & approve request #4478 from Khalid Al-Qahtani'])
       expect(body.includes(want), `missing task "${want}"`);
     expect(!/\bRFP\b/.test(body), 'the word RFP is still listed');
     const top3 = (await page.locator('ul li > button:visible', { hasText: 'REQ-' }).allInnerTexts()).slice(0, 3).join(' | ');
     expect(['#4478', '#4471', '#4433'].every((n) => top3.includes(`Review & approve request ${n}`)), `manager tasks not on top: ${top3.slice(0, 160)}`);
-    expect((body.match(/REQ-44\d\d/g) || []).length === 28, `expected 28 tasks, got ${(body.match(/REQ-44\d\d/g) || []).length}`);
+    expect((body.match(/REQ-44\d\d/g) || []).length === 34, `expected 34 tasks, got ${(body.match(/REQ-44\d\d/g) || []).length}`);
     void titles;
   });
 
@@ -1360,7 +1360,7 @@ async function openRequest(title) {
     expect(!(await btn('Approve & send to BEC').isDisabled()), 'approve disabled after comment');
   });
   await test('Financial opening: only technically passing bidders are opened; the others stay sealed', async () => {
-    await openId('TSK-4433-21');
+    await openId('TSK-4433-23');
     expect(await count('[data-fin-vendor]') === 2 && await count('[data-fin-sealed]') === 1, 'pass / sealed split');
     expect(await btn('Approve financial opening').isDisabled(), 'gated before prices');
     const ins = page.locator('[data-fin-price]'); await ins.nth(0).fill('9620000'); await ins.nth(1).fill('8975000'); await wait(200);
@@ -1377,6 +1377,108 @@ async function openRequest(title) {
     await page.locator('[data-dp-vendor]', { hasText: 'Schneider' }).click(); await wait(200);
     expect(await count('[data-dp-reason]') === 1 && await btn('Send to Qualification').isDisabled(), 'reason not required');
     await page.locator('[data-dp-reason] input').fill('Faster delivery confirmed by the supplier.'); await wait(200);
+    expect(!(await btn('Send to Qualification').isDisabled()), 'still gated with reason');
+  });
+
+  // ── Epic F · Bid evaluation (BEC) ──
+  const otp = async (wrong = 0) => {
+    await page.waitForSelector('[data-otp]');
+    for (let i = 0; i < wrong; i++) { await page.locator('[data-otp-digit="0"]').fill('000000'); await wait(550); }
+    const code = await page.locator('[data-otp-demo]').getAttribute('data-otp-demo');
+    await page.locator('[data-otp-digit="0"]').fill(code); await wait(900);
+  };
+  const signNow = async () => { await page.click('[data-sign]'); await wait(200); await page.click('[data-sign-ok]'); await wait(500); };
+  await test('F6 · Technical: vendor list → OTP (3 wrong attempts lock) → score page → e-sign → next vendor', async () => {
+    await openId('TSK-4433-21');
+    expect((await page.locator('[data-signed-progress]').getAttribute('data-signed-progress')) === '0/3' && await count('[data-eval-vendor-row]') === 3, 'vendor list');
+    expect(await btn('Send to manager').isDisabled(), 'gated before signatures');
+    await page.click('[data-eval-start]'); await page.waitForSelector('[data-otp]');
+    for (let i = 0; i < 3; i++) { await page.locator('[data-otp-digit="0"]').fill('000000'); await wait(550); }
+    expect(await text('Too many attempts').count() === 1 && await count('[data-otp-digit]') === 0, 'not locked after 3 wrong codes');
+    await page.getByRole('button', { name: 'Unlock' }).click(); await wait(200);
+    await otp();
+    expect(await count('[data-eval-page="technical"]') === 1 && await count('[data-price-sealed], [data-eval-page] :text("Sealed")') >= 1, 'evaluation page / sealed price');
+    expect(await page.locator('[data-sign]').isDisabled(), 'sign enabled before scoring');
+    for (let i = 0; i < 4; i++) await page.locator(`[data-score="${i}"]`).fill(i === 2 ? '95' : '80');
+    await wait(200);
+    expect(await page.locator('[data-sign]').isDisabled(), 'score of 95 must need a justification');
+    await page.locator('[data-why="2"]').fill('Five comparable public-sector go-lives.'); await wait(150);
+    await page.click('[data-save-draft]'); await wait(150);
+    await signNow();
+    expect(await count('[data-otp]') === 1, 'next vendor did not ask for a code');
+    await page.locator('[data-otp] button').first().click(); await wait(250);
+    expect((await page.locator('[data-signed-progress]').getAttribute('data-signed-progress')) === '1/3', 'progress after sign');
+    expect(await count('[data-eval-vendor-row="v1"] [data-sheet-status="signed"]') === 1, 'signed status on row');
+    await page.click('[data-eval-vendor-row="v1"]'); await otp();
+    expect(await count('[data-stamp]') === 1 && await count('[data-sign]') === 0, 'signed sheet not read-only with stamp');
+    await page.click('[data-eval-back]'); await wait(200);
+    await tab('Committee'); await wait(300);
+    expect(Number(await page.locator('[data-signatures]').getAttribute('data-signatures')) === 1, 'signature on the Committee tab');
+  });
+  await test('F2.2 · Technical report from signed sheets; a return voids signatures and reopens the Technical task', async () => {
+    await openId('TSK-4433-22');
+    expect(await count('[data-report-row]') === 3 && await count('[data-stamp-mini]') === 3, 'report matrix / signatures');
+    expect(!(await btn('Approve report').isDisabled()), 'approve disabled with all sheets signed');
+    await page.click('[data-report-return]'); await wait(250);
+    await page.click('[data-return-vendor="v2"]'); await page.fill('[data-return-reason]', 'Re-check the SLA score against the offer.');
+    await page.click('[data-return-ok]'); await wait(400);
+    expect(await btn('Approve report').isDisabled(), 'approve still enabled after a void');
+    expect(await count('li[data-task-id="TSK-4433-21"] [data-new-pill]') === 1, 'technical task not reopened');
+    await page.locator('li[data-task-id="TSK-4433-21"] button').first().click(); await wait(LOAD);
+    expect(await count('[data-eval-vendor-row="v2"] [data-sheet-status="signed"]') === 0 && await text('Signature voided').count() === 1, 'voided sheet on the technical task');
+  });
+  await test('F1 · Legal: only passing offers, take checks from opening, non-compliant needs a reason code, return missing to Secretary', async () => {
+    await openId('TSK-4433-24');
+    expect(await count('[data-eval-vendor-row]') === 2 && await count('[data-eval-out]') === 1, 'legal scope = technically passing');
+    await page.click('[data-eval-vendor-row="v1"]'); await otp();
+    await page.click('[data-legal-prefill]'); await wait(150);
+    await page.locator('[data-legal-check="gosi"] [data-legal-set="missing"]').click(); await wait(150);
+    await page.click('[data-legal-return]'); await wait(150);
+    expect(await count('[data-legal-missing] [data-legal-return]') === 0 && (await page.locator('[data-legal-missing]').innerText()).includes('Returned to the Secretary'), 'missing items not returned');
+    await page.click('[data-compliant="no"]'); await wait(150);
+    expect(await page.locator('[data-sign]').isDisabled(), 'sign allowed without reason code');
+    await page.click('[data-reason-code="L-02"]'); await wait(150);
+    await page.click('[data-compliant="yes"]'); await wait(150);
+    await signNow();
+    await otp();
+    await page.click('[data-legal-prefill]'); await page.click('[data-compliant="yes"]'); await wait(150);
+    await signNow();
+    expect((await page.locator('[data-signed-progress]').getAttribute('data-signed-progress')) === '2/2' && !(await btn('Send to Finance').isDisabled()), 'legal not complete');
+  });
+  await test('F4 · Finance: variance flag needs a comment, preference needs a source, ranking unlocks when all signed, override needs a reason', async () => {
+    await openId('TSK-4433-25');
+    expect(await page.locator('[data-ranking]').getAttribute('data-ranking') === 'pending', 'ranking shown before signatures');
+    await page.click('[data-eval-start]'); await otp();
+    await page.fill('[data-eval-price]', '7500000'); await wait(200);
+    expect(await count('[data-flag]') === 1 && await page.locator('[data-sign]').isDisabled(), 'abnormally low not flagged');
+    await page.fill('[data-flag-note]', 'Arithmetic correction confirmed with the vendor.');
+    await page.fill('[data-lc]', '40'); await wait(150);
+    expect(await page.locator('[data-sign]').isDisabled(), 'LC without source');
+    await page.selectOption('[data-src="lc"]', 'LCGPA certificate'); await wait(150);
+    expect((await page.locator('[data-pref]').innerText()).includes('4.0%'), 'preference not applied');
+    await signNow(); await otp(); await signNow();
+    expect(await page.locator('[data-ranking]').getAttribute('data-ranking') === 'ready' && await count('[data-rank-row]') === 2, 'ranking not ready');
+    await page.click('[data-rank-up="2"]'); await wait(200);
+    expect(await count('[data-overridden]') === 1 && await btn('Send ranking').isDisabled(), 'override without reason allowed');
+    await page.locator('[data-override-reason] input').fill('Delivery capacity confirmed for phase 1.'); await wait(150);
+    expect(!(await btn('Send ranking').isDisabled()), 'still gated with reason');
+  });
+  await test('F3 · Procurement verification: tick every vendor; Return to Legal voids and reopens Legal', async () => {
+    await openId('TSK-4433-26');
+    expect(await count('[data-verify-vendor]') === 3 && await btn('Send to Chairman').isDisabled(), 'verify table / gate');
+    for (const v of ['v1', 'v2', 'v3']) await page.click(`[data-verify-tick="${v}"]`);
+    await wait(150);
+    expect(!(await btn('Send to Chairman').isDisabled()), 'still gated after ticks');
+    await page.click('[data-return-legal]'); await wait(250);
+    await page.click('[data-return-vendor="v1"]'); await page.fill('[data-return-reason]', 'Bid bond amount does not match.'); await page.click('[data-return-ok]'); await wait(400);
+    expect(await count('li[data-task-id="TSK-4433-24"] [data-new-pill]') === 1, 'legal task not reopened');
+  });
+  await test('F5 · BEC Chairman: ranked shortlist, non-top selection warns, reason required to send to Qualification', async () => {
+    await openId('TSK-4433-27');
+    expect(await count('[data-select-vendor]') === 2 && await count('[data-top-ranked]') === 1 && await count('[data-excluded]') === 1, 'shortlist');
+    await page.click('[data-select-vendor="v1"]'); await wait(150);
+    expect(await text('other than the top ranked').count() === 1 && await btn('Send to Qualification').isDisabled(), 'non-top warning / reason gate');
+    await page.locator('[data-selection-reason] textarea').fill('Higher technical score; difference within budget.'); await wait(150);
     expect(!(await btn('Send to Qualification').isDisabled()), 'still gated with reason');
   });
 

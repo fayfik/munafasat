@@ -11,6 +11,7 @@ import type { Person } from './types';
 import type { RfpDetail, Task, InboxView, ChecklistItem, CollectField, EvalCriterion, Bilingual, ActivityEntry } from './types';
 import { finQualOk, suggestPriority } from './procGuide';
 import { committeeNeeds } from './committee';
+import { techPassing, techTotal } from './evaluation';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
 export const fmtSAR = (n: number) =>
@@ -214,6 +215,8 @@ interface InboxCtx {
   resolveComment: (id: string, commentId: string, resolved: boolean) => void;
   updateRfp: (id: string, rfp: RfpDetail) => void;
   setTaskData: (id: string, patch: Partial<Task>) => void;
+  /** Send a case back to an earlier committee step (voids signatures there). Returns false if that step isn't on the case. */
+  reopenStep: (fromId: string, step: number, opening: NonNullable<RfpDetail['opening']>, reason: string) => boolean;
   decide: (id: string, action: 'approve' | 'reject' | 'return' | 'request-clarification' | 'complete' | 'submit' | 'save-draft', note?: string, decisionLabel?: Bilingual) => void;
   setChecklistItem: (id: string, itemId: string, patch: Partial<ChecklistItem>) => void;
   setField: (id: string, fieldId: string, value: CollectField['value']) => void;
@@ -272,7 +275,7 @@ function nextFlowSteps(step: number, action: string, done: (n: number) => boolea
   if (step === 14) return action === 'approve' ? [15] : [];
   // After Etimad publish: bid opening (16 raise → 17 committee → 18 record → 19 verify → 20 MoM) or DP (16 → 19).
   if (step === 15) return action === 'complete' ? [16] : [];
-  if (step >= 16 && step <= 19) return ['complete', 'approve'].includes(action) ? [step + 1] : [];
+  if (step >= 16 && step <= 26) return ['complete', 'approve'].includes(action) ? [step + 1] : [];
   return [];
 }
 
@@ -285,6 +288,13 @@ function stampOpening(t: Task): Task['rfp'] {
   const p = t.committee === 'record' || t.committee === 'dp-evaluate' ? { recordedAt: at }
     : t.committee === 'mom' ? { momAt: at }
     : t.committee === 'fin-opening' ? { financial: { ...(o.financial ?? {}), momAt: at } }
+    : t.committee === 'tech-report' ? (() => {
+        // Manager signs the report; the shortlist (technically passing) is fixed from the signed scores.
+        const ev = o.eval ?? { sheets: {} };
+        return { eval: { ...ev, techReport: { sig: { by: t.assignee, role: { en: 'Technical report approver', ar: 'معتمد التقرير الفني' }, committee: { en: 'Bid Evaluation Committee', ar: 'لجنة فحص العروض' }, at } } },
+          vendors: o.vendors.map((v) => ({ ...v, techPass: techTotal(ev.sheets.technical?.[v.id] ?? {}, t.rfp) >= techPassing(t.rfp) })) };
+      })()
+    : t.committee === 'bec-select' && o.eval ? { eval: { ...o.eval, selection: { ...(o.eval.selection ?? {}), at } } }
     : {};
   return { ...t.rfp, opening: { ...o, ...p } };
 }
@@ -335,6 +345,16 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     setTasks((xs) => (p.rfp ? shareRfp(xs, id, p.rfp) : xs).map((t) => (t.id === id ? { ...t, ...p, state: t.state === 'available' ? 'in-progress' : t.state } : t)));
   }, []);
 
+  const reopenStep = useCallback((fromId: string, step: number, opening: NonNullable<RfpDetail['opening']>, reason: string) => {
+    const src = tasksRef.current.find((t) => t.id === fromId); if (!src) return false;
+    const tgt = tasksRef.current.find((t) => reqOf(t) === reqOf(src) && Math.floor(flowStep(t)) === step); if (!tgt) return false;
+    const now = new Date().toISOString();
+    setTasks((xs) => xs.map((t) => t.id === tgt.id
+      ? { ...t, state: 'available', arrivedAt: now, receivedAt: now, completedAt: undefined, decision: undefined, rfp: t.rfp ? { ...t.rfp, opening } : t.rfp,
+          activity: [...t.activity, { id: uid(), at: now, kind: 'decision', actor: ME, decision: { en: 'Returned to you', ar: 'أُعيد إليك' }, text: reason }] }
+      : t.id === fromId ? { ...t, state: t.state === 'available' ? 'in-progress' : t.state, rfp: t.rfp ? { ...t.rfp, opening } : t.rfp } : t));
+    return true;
+  }, []);
   const setChecklistItem = useCallback((id: string, itemId: string, p: Partial<ChecklistItem>) => {
     patch(id, (t) => ({
       ...t,
@@ -494,12 +514,12 @@ export function InboxProvider({ children }: { children: ReactNode }) {
       tasksForView: (v) => tasks.filter((t) => viewOf(t, tasks).includes(v)),
       getTask: (id) => tasks.find((t) => t.id === id),
       blocked: (t) => isBlocked(t, tasks),
-      addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
+      addComment, resolveComment, updateRfp, setTaskData, reopenStep, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck,
       notices, markNoticesRead, dismissNotice, markSeen, focusTaskId, focusTask,
       teamCounts, teamTasksForView: (v) => tasks.filter((t) => teamViewOf(t).includes(v)), assignQueued,
       delegation, delegatableIds, delegate, cancelDelegation, persona, setPersona,
     };
-  }, [persona, assignQueued, delegation, delegatableIds, delegate, cancelDelegation, tasks, addComment, resolveComment, updateRfp, setTaskData, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, notices, markNoticesRead, dismissNotice, markSeen, focusTaskId]);
+  }, [persona, assignQueued, delegation, delegatableIds, delegate, cancelDelegation, tasks, addComment, resolveComment, updateRfp, setTaskData, reopenStep, decide, setChecklistItem, setField, setCriterion, uploadDoc, resolveCheck, notices, markNoticesRead, dismissNotice, markSeen, focusTaskId]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

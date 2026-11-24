@@ -519,3 +519,10 @@ section[data-cm-has] { background-color: #fff; outline: 2px solid rgba(42, 97, 1
 .stagger > *:nth-child(11) { animation-delay: 450ms; }
 .stagger > *:nth-child(12) { animation-delay: 495ms; }
 @media (prefers-reduced-motion: reduce) { .stagger > * { opacity: 1; animation: none; } }
+
+/* Epic F — OTP error shake, e-sign stamp press */
+@keyframes otp-shake { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); } 30%, 50%, 70% { transform: translateX(-6px); } 40%, 60% { transform: translateX(6px); } }
+.shake { animation: otp-shake 0.42s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes stamp-in { 0% { opacity: 0; transform: scale(1.12) rotate(-2deg); } 60% { opacity: 1; transform: scale(0.98) rotate(0.5deg); } 100% { transform: scale(1) rotate(0); } }
+.stamp-in { animation: stamp-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) { .shake, .stamp-in { animation: none; } }

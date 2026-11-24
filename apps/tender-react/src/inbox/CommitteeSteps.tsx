@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { CommitteeSeat, DocStatus, Opening, OpeningVendor, Person, RfpDetail, SeatRole, Task } from './types';
 import { ActionHead } from './ActionHead';
+import { EvalWidget, EvalSignatures } from './EvalSteps';
 import { Avatar } from './InboxTools';
 import { Button } from '../components/ui';
 import { toast } from '../components/Toast';
@@ -17,7 +18,7 @@ import {
 } from './committee';
 
 type T = (en: string, ar: string) => string;
-type P = { task: Task; isAr: boolean; t: T; readOnly?: boolean; onRfp: (rfp: RfpDetail) => void };
+type P = { task: Task; isAr: boolean; t: T; readOnly?: boolean; onRfp: (rfp: RfpDetail) => void; reopen?: (step: number, o: Opening, reason: string) => boolean };
 const nm = (p: Person, isAr: boolean) => (isAr ? p.nameAr ?? p.name : p.name);
 const now = () => new Date().toISOString();
 const fmtDate = (iso?: string, isAr = false) => (iso ? new Date(iso).toLocaleDateString(isAr ? 'ar-SA-u-ca-gregory' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
@@ -32,7 +33,7 @@ function useOpening(task: Task, onRfp: P['onRfp']) {
 }
 
 /* ── small parts ───────────────────────────────────────────────────── */
-const Card = ({ title, aside, children, attr, pad = true }: { title?: ReactNode; aside?: ReactNode; children: ReactNode; attr?: Record<string, string>; pad?: boolean }) => (
+export const Card = ({ title, aside, children, attr, pad = true }: { title?: ReactNode; aside?: ReactNode; children: ReactNode; attr?: Record<string, string>; pad?: boolean }) => (
   <section className="rounded-2xl border border-neutral-200 bg-white rise-in overflow-hidden" {...attr}>
     {title && <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3"><h3 className="text-[13.5px] font-semibold text-neutral-900">{title}</h3>{aside}</div>}
     <div className={pad ? 'px-5 pb-5' : ''}>{children}</div>
@@ -47,7 +48,7 @@ export const Pill = ({ tone, children, attr }: { tone: 'gray' | 'blue' | 'green'
   const cls = { gray: 'bg-neutral-100 text-neutral-600', blue: 'bg-[#EAF2FB] text-[#21507A]', green: 'bg-success-50 text-success-700', amber: 'bg-warning-50 text-warning-800', red: 'bg-error-50 text-error-700', violet: 'bg-ai-50 text-ai-700' }[tone];
   return <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11.5px] font-semibold whitespace-nowrap ${cls}`} {...attr}>{children}</span>;
 };
-const Bar = ({ done, total }: { done: number; total: number }) => (
+export const Bar = ({ done, total }: { done: number; total: number }) => (
   <span className="inline-flex items-center gap-2"><span className="h-1.5 w-24 rounded-full bg-neutral-100 overflow-hidden"><span className="block h-full rounded-full bg-success-500 transition-all duration-500" style={{ width: `${Math.round((done / Math.max(1, total)) * 100)}%` }} /></span><span className="text-[12px] text-neutral-500 tabular-nums">{done}/{total}</span></span>
 );
 const vendorStatus = (v: OpeningVendor, o: Opening, r: RfpDetail | undefined, t: T) => {
@@ -520,6 +521,7 @@ export function CommitteeTab({ task, isAr, t }: { task: Task; isAr: boolean; t: 
     [t('Etimad opening report', 'تقرير الفتح من اعتماد'), o.source?.fileName],
     [t('Bid opening MoM', 'محضر فتح العروض'), o.momAt ? `MoM_opening_${task.entity.ref}.pdf` : undefined],
     [t('Financial opening MoM', 'محضر الفتح المالي'), o.financial?.momAt ? `MoM_financial_${task.entity.ref}.pdf` : undefined],
+    [t('Technical evaluation report', 'تقرير التقييم الفني'), o.eval?.techReport?.sig ? `Technical_report_${task.entity.ref}.pdf` : undefined],
   ];
   return (
     <div className="space-y-4" data-committee-tab>
@@ -537,6 +539,7 @@ export function CommitteeTab({ task, isAr, t }: { task: Task; isAr: boolean; t: 
           ))}
         </ul>
       </Card>
+      <EvalSignatures o={o} isAr={isAr} t={t} />
       <Card title={t('Documents', 'المستندات')} pad={false}>
         <ul className="divide-y divide-neutral-100">
           {docs.map(([k, f]) => (
@@ -562,6 +565,6 @@ export function CommitteeWidget(p: P) {
     case 'mom': return <ApproveMom {...p} />;
     case 'fin-opening': return <FinancialOpening {...p} />;
     case 'dp-select': return <DpSelect {...p} />;
-    default: return null;
+    default: return <EvalWidget {...p} />;
   }
 }

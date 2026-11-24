@@ -4,6 +4,8 @@
 
 import type { Bilingual, ChecklistItem, Person, Task, TaskActionDef, RfpDetail, TrailStep, FinLine, FinChange } from './types';
 import { suggestFinQual } from './procGuide';
+import { BEC_ROSTER, TECH_MANAGER, becSeats } from './evaluation';
+import type { VendorSheet } from './types';
 import { BOC_ROSTER, DPEC_ROSTER, ALTERNATES, DOC_ITEMS, ETIMAD_BIDDERS, newOpening, vendorFrom } from './committee';
 
 const DAY = 86400000;
@@ -42,6 +44,7 @@ const P = {
 
 const sup = (en: string, ar: string) => ({ en, ar });
 const BOC = Object.fromEntries(BOC_ROSTER.map((s) => [s.role, s.person])) as Record<'chairman' | 'secretary' | 'legal' | 'finance' | 'procurement', Person>;
+const BECP = Object.fromEntries(BEC_ROSTER.map((s) => [s.role, s.person])) as Record<'chairman' | 'legal' | 'finance' | 'procurement' | 'technical', Person>;
 const DPEC = Object.fromEntries(DPEC_ROSTER.map((s) => [s.role, s.person])) as Record<'chairman' | 'secretary' | 'procurement', Person>;
 
 // ── The RFP every task in this inbox relates to ────────────────
@@ -333,11 +336,41 @@ const SPECS: Spec[] = [
     stage: sup('Bid opening — Chairman', 'فتح العروض — الرئيس'), assignee: BOC.chairman, sla: 1, priority: 'high', received: 0,
     actions: [{ id: 'complete', labelEn: 'Approve & send to BEC', labelAr: 'اعتماد وإرسال للجنة الفحص', variant: 'primary', gated: true, decision: sup('MoM approved — sent to Bid Evaluation', 'تم اعتماد المحضر — أُرسل للجنة الفحص') }],
     extra: { committee: 'mom', committeeRole: sup('BOC · Chairman', 'لجنة الفتح · الرئيس') } },
-  { n: 21, type: 'approval', title: sup(`Open the financial offers for request #${REQ.no}`, `فتح العروض المالية للطلب رقم ${REQ.no}`),
-    summary: sup('Bid Evaluation shortlisted the technically passing bidders. Record their prices; the others stay sealed.', 'حددت لجنة الفحص المجتازين فنياً. سجّل أسعارهم؛ وتبقى البقية مختومة.'),
+  { n: 21, type: 'data-collection', title: sup(`Score the technical offers for request #${REQ.no}`, `تقييم العروض الفنية للطلب رقم ${REQ.no}`),
+    summary: sup('Score each bidder against the approved criteria. Verify with a one-time code per vendor, then e-sign.', 'قيّم كل مورد مقابل المعايير المعتمدة. تحقق برمز لكل مورد ثم وقّع إلكترونياً.'),
+    stage: sup('Bid evaluation — Technical member', 'فحص العروض — العضو الفني'), assignee: BECP.technical, sla: 2, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Send to manager', labelAr: 'إرسال للمدير', variant: 'primary', gated: true, decision: sup('Technical scoring signed', 'تم توقيع التقييم الفني') }],
+    extra: { committee: 'tech-eval', committeeRole: sup('BEC · Technical member', 'لجنة الفحص · العضو الفني') } },
+  { n: 22, type: 'approval', title: sup(`Approve the technical report for request #${REQ.no}`, `اعتماد التقرير الفني للطلب رقم ${REQ.no}`),
+    summary: sup('Review the report generated from the signed vendor sheets and sign it, or return sheets.', 'راجع التقرير المُنشأ من الأوراق الموقعة ووقّعه أو أعد الأوراق.'),
+    stage: sup('Bid evaluation — Technical manager', 'فحص العروض — المدير الفني'), assignee: TECH_MANAGER, sla: 2, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Approve report', labelAr: 'اعتماد التقرير', variant: 'primary', gated: true, decision: sup('Technical report approved', 'تم اعتماد التقرير الفني') }],
+    extra: { committee: 'tech-report', committeeRole: sup('BEC · Report approver', 'لجنة الفحص · معتمد التقرير') } },
+  { n: 23, type: 'approval', title: sup(`Open the financial offers for request #${REQ.no}`, `فتح العروض المالية للطلب رقم ${REQ.no}`),
+    summary: sup('The technical report is approved. Record the prices of the technically passing bidders; the others stay sealed.', 'حددت لجنة الفحص المجتازين فنياً. سجّل أسعارهم؛ وتبقى البقية مختومة.'),
     stage: sup('Financial opening — Chairman', 'الفتح المالي — الرئيس'), assignee: BOC.chairman, sla: 1, priority: 'high', received: 0,
     actions: [{ id: 'complete', labelEn: 'Approve financial opening', labelAr: 'اعتماد الفتح المالي', variant: 'primary', gated: true, decision: sup('Financial offers opened', 'تم فتح العروض المالية') }],
     extra: { committee: 'fin-opening', committeeRole: sup('BOC · Chairman', 'لجنة الفتح · الرئيس') } },
+  { n: 24, type: 'data-collection', title: sup(`Check legal compliance for request #${REQ.no}`, `التحقق من المطابقة النظامية للطلب رقم ${REQ.no}`),
+    summary: sup('Check each technically passing offer: documents, compliance and reason code. Verify and sign per vendor.', 'تحقق من كل عرض مجتاز فنياً: المستندات والمطابقة ورمز السبب. تحقق ووقّع لكل مورد.'),
+    stage: sup('Bid evaluation — Legal member', 'فحص العروض — العضو القانوني'), assignee: BECP.legal, sla: 2, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Send to Finance', labelAr: 'إرسال للمالي', variant: 'primary', gated: true, decision: sup('Legal compliance signed', 'تم توقيع المطابقة النظامية') }],
+    extra: { committee: 'legal-eval', committeeRole: sup('BEC · Legal member', 'لجنة الفحص · العضو القانوني') } },
+  { n: 25, type: 'data-collection', title: sup(`Evaluate prices and rank offers for request #${REQ.no}`, `تقييم الأسعار وترتيب العروض للطلب رقم ${REQ.no}`),
+    summary: sup('Enter evaluated prices and preferences per vendor; the ranking is built from the signed sheets.', 'أدخل الأسعار المقيّمة والتفضيلات لكل مورد؛ يُبنى الترتيب من الأوراق الموقعة.'),
+    stage: sup('Bid evaluation — Finance member', 'فحص العروض — العضو المالي'), assignee: BECP.finance, sla: 2, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Send ranking', labelAr: 'إرسال الترتيب', variant: 'primary', gated: true, decision: sup('Financial ranking signed', 'تم توقيع الترتيب المالي') }],
+    extra: { committee: 'fin-rank', committeeRole: sup('BEC · Finance member', 'لجنة الفحص · العضو المالي') } },
+  { n: 26, type: 'review', title: sup(`Verify the evaluation for request #${REQ.no}`, `التحقق من التقييم للطلب رقم ${REQ.no}`),
+    summary: sup('Check that legal, technical and financial results are complete for every vendor before selection.', 'تحقق من اكتمال النتائج القانونية والفنية والمالية لكل مورد قبل الاختيار.'),
+    stage: sup('Bid evaluation — Procurement member', 'فحص العروض — عضو المشتريات'), assignee: BECP.procurement, sla: 2, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Send to Chairman', labelAr: 'إرسال للرئيس', variant: 'primary', gated: true, decision: sup('Evaluation verified', 'تم التحقق من التقييم') }],
+    extra: { committee: 'proc-verify', committeeRole: sup('BEC · Procurement member', 'لجنة الفحص · عضو المشتريات') } },
+  { n: 27, type: 'approval', title: sup(`Select the vendor for request #${REQ.no}`, `اختيار المورد للطلب رقم ${REQ.no}`),
+    summary: sup('Select from the ranked shortlist with a reason; the ranked list goes to Qualification.', 'اختر من القائمة المرتبة مع ذكر السبب؛ تنتقل القائمة المرتبة إلى التأهيل.'),
+    stage: sup('Bid evaluation — Chairman', 'فحص العروض — الرئيس'), assignee: BECP.chairman, sla: 2, priority: 'high', received: 0,
+    actions: [{ id: 'complete', labelEn: 'Send to Qualification', labelAr: 'إرسال إلى التأهيل', variant: 'primary', gated: true, decision: sup('Vendor selected — sent to Qualification', 'تم اختيار المورد — أُرسل للتأهيل') }],
+    extra: { committee: 'bec-select', committeeRole: sup('BEC · Chairman', 'لجنة الفحص · الرئيس') } },
 ];
 
 
@@ -359,7 +392,13 @@ const OUTCOMES: Record<number, NonNullable<Task['outcomes']>> = {
   18: [{ action: sup('Send for verification', 'إرسال للتحقق'), next: sup('attending members verify and approve', 'يتحقق الأعضاء الحاضرون ويعتمدون'), tone: 'success' }],
   19: [{ action: sup('Complete verification', 'إكمال التحقق'), next: sup('the Chairman approves the MoM', 'يعتمد الرئيس المحضر'), tone: 'success' }],
   20: [{ action: sup('Approve & send to BEC', 'اعتماد وإرسال'), next: sup('the Bid Evaluation Committee evaluates the technical offers', 'تقيّم لجنة فحص العروض العروض الفنية'), tone: 'success' }],
-  21: [{ action: sup('Approve financial opening', 'اعتماد الفتح المالي'), next: sup('Finance ranks the offers in Bid Evaluation', 'يرتب العضو المالي العروض في لجنة الفحص'), tone: 'success' }],
+  21: [{ action: sup('Send to manager', 'إرسال للمدير'), next: sup('the Technical member’s manager approves the technical report', 'يعتمد مدير العضو الفني التقرير الفني'), tone: 'success' }],
+  22: [{ action: sup('Approve report', 'اعتماد التقرير'), next: sup('the BOC opens the passing bidders’ financial offers', 'تفتح لجنة الفتح العروض المالية للمجتازين'), tone: 'success' }],
+  23: [{ action: sup('Approve financial opening', 'اعتماد الفتح المالي'), next: sup('the Legal member checks compliance', 'يتحقق العضو القانوني من المطابقة'), tone: 'success' }],
+  24: [{ action: sup('Send to Finance', 'إرسال للمالي'), next: sup('the Finance member evaluates prices and ranks', 'يقيّم العضو المالي الأسعار ويرتبها'), tone: 'success' }],
+  25: [{ action: sup('Send ranking', 'إرسال الترتيب'), next: sup('the Procurement member verifies every step', 'يتحقق عضو المشتريات من كل الخطوات'), tone: 'success' }],
+  26: [{ action: sup('Send to Chairman', 'إرسال للرئيس'), next: sup('the BEC Chairman selects the vendor', 'يختار رئيس لجنة الفحص المورد'), tone: 'success' }],
+  27: [{ action: sup('Send to Qualification', 'إرسال إلى التأهيل'), next: sup('the Qualification Committee qualifies the selected vendor', 'تؤهل لجنة التأهيل المورد المختار'), tone: 'success' }],
   15: [{ action: sup('Mark as published', 'تحديد كمنشور'), next: sup('the request shows “Published in Etimad” everywhere and is open for vendors', 'يظهر الطلب «منشور في اعتماد» في كل مكان ويصبح متاحاً للموردين'), tone: 'success' }],
 };
 const outcomesFor = (n: number) => OUTCOMES[n] ?? (n >= 3 && n <= 6 ? OUTCOMES[3] : n === 8 ? OUTCOMES[7] : []);
@@ -662,12 +701,35 @@ for (const tk of SEED_TASKS) {
         const o = { ...newOpening('boc'), source: { kind: 'upload' as const, fileName: 'Etimad_opening_report_260139001234.pdf', at: iso(0, 9) }, vendors: ETIMAD_BIDDERS.map(vendorFrom) };
         if (n >= 19) { o.recordedAt = iso(0, 11); o.vendors = o.vendors.map((v, i) => ({ ...v, docs: Object.fromEntries(DOC_ITEMS.filter((d) => d.required).map((d) => [d.id, i === 2 && d.id === 'zakat' ? 'expired' as const : 'valid' as const])) })); }
         if (n >= 20) o.seats = o.seats.map((st) => (st.role === 'chairman' || st.role === 'secretary' ? st : { ...st, coi: true, approval: 'approved' as const, approvalAt: iso(0, 12) }));
-        if (n >= 21) { o.momAt = iso(-5, 13); o.chairmanNote = 'Three bidders, all documents present; one Zakat certificate expired — noted for Legal.'; o.vendors = o.vendors.map((v, i) => ({ ...v, techPass: i !== 2 })); }
+        if (n >= 21) { o.momAt = iso(-5, 13); o.chairmanNote = 'Three bidders, all documents present; one Zakat certificate expired — noted for Legal.'; o.bec = becSeats(); }
+        if (n >= 22) Object.assign(o, { eval: evalSeed(n) });
+        if (n >= 23) o.vendors = o.vendors.map((v, i) => ({ ...v, techPass: i !== 2 }));
+        if (n >= 24) { o.financial = { momAt: iso(-2, 11), note: 'Financial offers of the two passing bidders opened; Al Moammar stays sealed.' }; o.vendors = o.vendors.map((v, i) => (i === 2 ? v : { ...v, price: ETIMAD_BIDDERS[i].price })); }
         tk.rfp.opening = o;
       }
     }
     if (n >= 15) tk.rfp.officerConfirm = { value: REQ.amount, duration: REQ_RFP.duration ?? '18 months', by: P.officer.name, byAr: P.officer.nameAr, at: iso(-1, 15) };
   }
+}
+
+/** Epic F seed: what the BEC has signed by step n (21 technical … 27 selection). */
+function evalSeed(n: number) {
+  const sg = (role: keyof typeof BECP, en: string, ar: string, d: number, h: number) => ({ by: BECP[role], role: { en, ar }, committee: { en: 'Bid Evaluation Committee', ar: 'لجنة فحص العروض' }, at: iso(d, h) });
+  const tech: Record<string, VendorSheet> = {
+    v1: { touched: true, scores: { 0: { score: 85 }, 1: { score: 80 }, 2: { score: 90, why: 'Three comparable S/4HANA public-sector go-lives in the last four years.' }, 3: { score: 75 } }, sig: sg('technical', 'Technical member', 'العضو الفني', -4, 10) },
+    v2: { touched: true, scores: { 0: { score: 75 }, 1: { score: 70 }, 2: { score: 80 }, 3: { score: 70 } }, sig: sg('technical', 'Technical member', 'العضو الفني', -4, 11) },
+    v3: { touched: true, scores: { 0: { score: 60 }, 1: { score: 55, why: 'Only two certified FI/CO consultants proposed.' }, 2: { score: 65 }, 3: { score: 50, why: 'No Arabic-speaking L2 support; SLA 8h response.' } }, sig: sg('technical', 'Technical member', 'العضو الفني', -4, 12) },
+  };
+  const ev: NonNullable<NonNullable<RfpDetail['opening']>['eval']> = { sheets: { technical: tech } };
+  if (n >= 23) ev.techReport = { sig: { by: TECH_MANAGER, role: { en: 'Technical report approver', ar: 'معتمد التقرير الفني' }, committee: { en: 'Bid Evaluation Committee', ar: 'لجنة فحص العروض' }, at: iso(-3, 9) } };
+  const allPass = { cr: 'pass', zakat: 'pass', gosi: 'pass', saudization: 'pass', bond: 'pass' } as const;
+  if (n >= 25) ev.sheets.legal = { v1: { touched: true, checks: { ...allPass }, compliant: true, sig: sg('legal', 'Legal member', 'العضو القانوني', -1, 10) }, v2: { touched: true, checks: { ...allPass }, compliant: true, sig: sg('legal', 'Legal member', 'العضو القانوني', -1, 11) } };
+  if (n >= 26) ev.sheets.finance = {
+    v1: { touched: true, evalPrice: 9_620_000, localContent: 45, lcSource: 'LCGPA certificate', sig: sg('finance', 'Finance member', 'العضو المالي', 0, 9) },
+    v2: { touched: true, evalPrice: 8_975_000, localContent: 20, lcSource: 'Vendor declaration', sme: true, smeSource: 'Monsha’at SME certificate', sig: sg('finance', 'Finance member', 'العضو المالي', 0, 9) },
+  };
+  if (n >= 27) ev.verified = { v1: true, v2: true, v3: true };
+  return ev;
 }
 
 // ── Finance (GL / Assets) — BOQ lines with their accounting classification ──

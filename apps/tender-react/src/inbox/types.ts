@@ -407,8 +407,9 @@ export interface ProcMethod {
 }
 
 /* ── Committee stage (after Etimad publish) ───────────────────────────── */
-export type CommitteeStep = 'raise-opening' | 'assign' | 'record' | 'verify' | 'mom' | 'fin-opening' | 'dp-evaluate' | 'dp-select';
-export type CommitteeKind = 'boc' | 'dpec';
+export type CommitteeStep = 'raise-opening' | 'assign' | 'record' | 'verify' | 'mom' | 'fin-opening' | 'dp-evaluate' | 'dp-select'
+  | 'tech-eval' | 'tech-report' | 'legal-eval' | 'fin-rank' | 'proc-verify' | 'bec-select';
+export type CommitteeKind = 'boc' | 'dpec' | 'bec';
 export type SeatRole = 'chairman' | 'secretary' | 'legal' | 'finance' | 'procurement' | 'technical';
 export type DocStatus = 'valid' | 'expired' | 'missing';
 export interface CommitteeSeat {
@@ -440,4 +441,33 @@ export interface Opening {
   financial?: { momAt?: string; note?: string };
   /** Direct purchase: selected vendor. */
   dp?: { special?: boolean; specialWhy?: Bilingual; selected?: string; reason?: string; at?: string };
+  /** Bid Evaluation Committee (standing roster + nominated Technical member) and its per-vendor work. */
+  bec?: CommitteeSeat[];
+  eval?: Evaluation;
+}
+
+/* ── Epic F · Bid evaluation ── */
+export type EvalRole = 'legal' | 'technical' | 'finance';
+export interface Signature { by: Person; role: Bilingual; committee: Bilingual; at: string }
+export interface SheetVoid { at: string; by: string; reason: string }
+/** One member's evaluation of one vendor — e-signed when done. */
+export interface VendorSheet {
+  sig?: Signature;
+  voids?: SheetVoid[];
+  touched?: boolean;
+  /** Technical: score 0–100 + justification per criterion (key = criterion index). */
+  scores?: Record<string, { score?: number; why?: string }>;
+  /** Legal: document checks, compliance + reason code. */
+  checks?: Record<string, 'pass' | 'missing'>;
+  compliant?: boolean; reasonCode?: string; comment?: string; returnedItems?: string[];
+  /** Finance: evaluated price, preferences and their source, variance comment. */
+  evalPrice?: number; localContent?: number; lcSource?: string; sme?: boolean; smeSource?: string; flagNote?: string;
+}
+export interface Evaluation {
+  sheets: Partial<Record<EvalRole, Record<string, VendorSheet>>>;
+  techReport?: { sig?: Signature };
+  rankOverride?: { order: string[]; reason: string };
+  verified?: Record<string, boolean>;
+  selection?: { vendor?: string; reason?: string; at?: string };
+  log?: { at: string; by: string; en: string; ar: string }[];
 }
