@@ -3,7 +3,8 @@ import { Icon, Btn } from '../components/ui.jsx';
 import { useForm, Block, FieldBlock, Input, NumInput, AiBtn, TotalBar, PeoplePicker } from '../components/FormKit.jsx';
 import { PEOPLE, AI_QUAL, RANGE_PLACEHOLDERS } from '../data/newRequest.js';
 import { recommendedFor, recText, aboveRange, suggestedRange, priorityName } from '../lib/qualGuide.js';
-import { useImport } from '../components/AiImport.jsx';
+import { useImportPicker } from '../components/ImportPicker.jsx';
+import { QUAL_LIBRARY } from '../data/criteriaLibrary.js';
 import { totals, num } from '../lib/requestRules.js';
 
 export function QualStep() {
@@ -18,10 +19,22 @@ export function QualStep() {
   const flags = new Map(aboveRange(f).map((x) => [x.subId, x]));
   const unjustified = [...flags.values()].filter((x) => !x.justified).length;
   const setJust = (sid, v) => set('qualJustifications', (j) => ({ ...(j || {}), [sid]: v }));
-  const [qImport, qBanner] = useImport('qualification', () => { const prev = f.qualificationCriteria; suggest(); return () => set('qualificationCriteria', prev); });
+  // Import a criterion's ranges and weights from past requests; one source per criterion (the last pick wins).
+  const allQual = Object.values(QUAL_LIBRARY).flat();
+  const [qImport, qBanner, qPicker] = useImportPicker({
+    title: 'Import qualification values', noun: { one: 'criterion', many: 'criteria' },
+    itemsFor: (pid) => (QUAL_LIBRARY[pid] || []).map((m) => ({ key: m.id, title: m.name, sub: m.subCriteria.map((x) => `${x.name}: ${x.range} (${x.percentage}%)`).join(' · '), badge: `${m.percentage}%`, addedBy: m.addedBy, addedOn: m.addedOn })),
+    onImport: (keys) => {
+      const prev = f.qualificationCriteria;
+      const by = new Map(); keys.forEach((k) => { const m = allQual.find((x) => x.id === k); if (m) by.set(m.fixedId, m); });
+      set('qualificationCriteria', prev.map((c) => { const src = by.get(c.id); return src ? { ...c, percentage: src.percentage, subCriteria: c.subCriteria.map((x) => { const v = src.subCriteria.find((y) => y.id === x.id); return v ? { ...x, range: v.range, percentage: v.percentage } : x; }) } : c; }));
+      return () => set('qualificationCriteria', prev);
+    },
+  });
 
   return (
     <div className="stack">
+      {qPicker}
       <Block title="Qualification reviewers" info="People who check vendors against the criteria below." meta={members.length ? `${members.length} selected` : undefined}>
         {members.length > 0 && !pick ? (
           <div className="member-stack">

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Icon, Btn } from '../components/ui.jsx';
-import { useImport } from '../components/AiImport.jsx';
+import { useImportPicker } from '../components/ImportPicker.jsx';
+import { TECH_REQ_LIBRARY, EVAL_LIBRARY } from '../data/criteriaLibrary.js';
 import { useForm, Block, FieldBlock, Input, TextArea, NumInput, AiBtn, TotalBar, ChipList, PeoplePicker, MoreMenu, ConfirmDelete } from '../components/FormKit.jsx';
 import { useTouched } from '../components/FormKit.jsx';
 import { PEOPLE, MANDATORY_DOCS, AI_TECH_DOCS, AI_TECH_REQ, AI_EVAL } from '../data/newRequest.js';
-import { totals, words, MIN_WORDS } from '../lib/requestRules.js';
+import { totals, uid } from '../lib/requestRules.js';
 
 export function TechStep() {
   const { f, set, list } = useForm();
@@ -17,10 +18,34 @@ export function TechStep() {
   const member = f.technicalCommitteeMembers[0];
   const pass = Number(f.technicalPassingPercentage);
 
-  const [reqImport, reqBanner] = useImport('requirements', (rs) => { const prev = f.technicalRequirements; req.clear(); req.addMany(rs); return () => { req.clear(); req.addMany(prev); }; });
-  const [evImport, evBanner] = useImport('criteria', (rs) => { const prev = f.evaluationCriteria; ev.clear(); ev.addMany(rs); return () => { ev.clear(); ev.addMany(prev); }; });
+  // Import individual rows from past requests (design-review): rows already in the request show as imported.
+  const allReq = Object.values(TECH_REQ_LIBRARY).flat();
+  const haveReq = new Set(allReq.filter((c) => f.technicalRequirements.some((r) => (r.requirement || '').trim() === c.requirement.trim())).map((c) => c.id));
+  const [reqImport, reqBanner, reqPicker] = useImportPicker({
+    title: 'Import technical requirements', noun: { one: 'requirement', many: 'requirements' }, existingKeys: haveReq,
+    itemsFor: (pid) => (TECH_REQ_LIBRARY[pid] || []).map((r) => ({ key: r.id, title: r.requirement, sub: r.description, addedBy: r.addedBy, addedOn: r.addedOn })),
+    onImport: (keys) => {
+      const prev = f.technicalRequirements;
+      const add = keys.map((k) => allReq.find((c) => c.id === k)).filter(Boolean).map((c) => ({ requirement: c.requirement, description: c.description }));
+      set('technicalRequirements', [...prev.filter((r) => (r.requirement || '').trim() || (r.description || '').trim()), ...add.map((r) => ({ id: uid(), ...r }))]);
+      return () => set('technicalRequirements', prev);
+    },
+  });
+  const allEval = Object.values(EVAL_LIBRARY).flat();
+  const haveEval = new Set(allEval.filter((c) => f.evaluationCriteria.some((r) => (r.description || '').trim() === c.description.trim())).map((c) => c.id));
+  const [evImport, evBanner, evPicker] = useImportPicker({
+    title: 'Import evaluation criteria', noun: { one: 'criterion', many: 'criteria' }, existingKeys: haveEval,
+    itemsFor: (pid) => (EVAL_LIBRARY[pid] || []).map((c) => ({ key: c.id, title: c.description, sub: c.howApplied, badge: `${c.weight}%`, addedBy: c.addedBy, addedOn: c.addedOn })),
+    onImport: (keys) => {
+      const prev = f.evaluationCriteria;
+      const add = keys.map((k) => allEval.find((c) => c.id === k)).filter(Boolean).map((c) => ({ id: uid(), description: c.description, howApplied: c.howApplied, weight: c.weight }));
+      set('evaluationCriteria', [...prev.filter((r) => (r.description || '').trim()), ...add]);
+      return () => set('evaluationCriteria', prev);
+    },
+  });
   return (
     <div className="stack">
+      {reqPicker}{evPicker}
       <Block title="Technical evaluator" info="The one person who scores technical proposals. People who reviewed RFPs in this project are listed first.">
         {member && !pick ? (
           <div className="member-line">
