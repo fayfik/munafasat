@@ -389,3 +389,10 @@ button.me:focus-visible { outline-color: #fff; }
 .task-table .by-cell { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .task-table td:nth-child(3) { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item-holder .avatar-dot { width: 18px; height: 18px; font-size: 9px; }
+.none-assets { display: flex; justify-content: flex-end; padding: 10px 0 0; }
+.jump-to { position: sticky; top: 8px; z-index: 5; display: flex; justify-content: flex-end; margin-bottom: 8px; pointer-events: none; }
+.jump-to .fselect { width: 220px; height: 34px; font-size: 13px; pointer-events: auto; box-shadow: 0 2px 8px rgba(16, 24, 40, 0.08); }
+.checking-txt { color: var(--amber-text); }
+.inbox-title-row { flex-wrap: wrap; row-gap: 6px; }
+.scope-tab .t-heading { white-space: nowrap; }
+.inbox:not(.wide) .scope-tabs + .inbox-tools { margin-left: auto; }

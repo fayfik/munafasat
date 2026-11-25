@@ -55,6 +55,12 @@ export function FinQual() {
       <Card id="profile" title="Project profile">
         <Kv items={[['Estimated value (excl. VAT)', sar(request.amount)], ['Duration', request.duration], ['Nature', nature(request)], ['Project priority', <PrioChip id={request.profile?.priority} />]]} />
         <p className="t-body-small muted" style={{ margin: 0 }}><strong className="ink">Scope:</strong> {request.scope}</p>
+        <div className="row-gap">
+          <Btn variant="secondary-sm" icon={rfp.finValueRequested ? 'icon-check-brand' : undefined} disabled={!!rfp.finValueRequested} onClick={() => setRfp({ finValueRequested: true })}>{rfp.finValueRequested ? 'Value requested' : 'Request estimated value'}</Btn>
+          <Btn variant="ghost-sm" disabled={!!rfp.finRedirected} onClick={() => setRfp({ finRedirected: true })}>{rfp.finRedirected ? 'Redirected to Non-IT Finance' : 'Redirect to Non-IT Finance'}</Btn>
+        </div>
+        {rfp.finValueRequested && <p className="t-caption muted" style={{ margin: 0 }}>Estimated value requested from the Procurement Officer — it appears here when they confirm it.</p>}
+        {rfp.finRedirected && <p className="t-caption muted" style={{ margin: 0 }}>Redirected to Non-IT Finance qualification. <button type="button" className="inline-link t-caption" onClick={() => setRfp({ finRedirected: false })}>Undo</button></p>}
       </Card>
       <Card id="criteria" title="Financial criteria"
         aside={same(fq, req) ? <span className="ok-chip t-caption-medium"><Icon name="icon-check" size={13} />As the requester entered</span>

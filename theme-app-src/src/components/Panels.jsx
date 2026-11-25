@@ -45,6 +45,7 @@ export function Activity({ task, request }) {
     ];
   return (
     <div className="stack">
+      <p className="t-body-small muted" style={{ margin: 0 }}>Everything that happened on this request, and what comes next.</p>
       <ol className="timeline">
         {events.map((e, i) => (
           <li key={i}>

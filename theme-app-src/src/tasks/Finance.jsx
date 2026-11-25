@@ -184,11 +184,11 @@ export function AssetTreatment() {
                 <div className="rrow-text"><div className="t-body rrow-title"><span className="muted">{a.no}.</span> {a.item}</div><div className="t-caption muted">{a.calc} · {a.mg}</div></div>
                 <div className="rrow-actions">
                   {d ? (
-                    <><span className={`state-tag ${d.state === 'flagged' ? 'warn' : 'ok'}`}>{d.state === 'flagged' ? 'Flagged as asset' : 'Not an asset'}</span><button type="button" className="link-btn" onClick={() => review.clear(a.key)}>Undo</button></>
+                    <><span className={`state-tag ${d.state === 'flagged' ? 'warn' : 'ok'}`}>{d.state === 'flagged' ? 'Marked as asset' : 'Not an asset'}</span><button type="button" className="link-btn" onClick={() => review.clear(a.key)}>{d.state === 'flagged' ? 'Move back' : 'Undo'}</button></>
                   ) : (
                     <>
                       <button type="button" className="act-btn" onClick={() => review.set(a.key, { state: 'accepted', value: { asset: 'Non-asset' } })}><Icon name="icon-check-brand" size={14} />Not an asset</button>
-                      <button type="button" className="act-btn" onClick={() => review.set(a.key, { state: 'flagged', value: { asset: 'Asset' } })}><Icon name="icon-warn" size={14} />Flag as asset</button>
+                      <button type="button" className="act-btn" onClick={() => review.set(a.key, { state: 'flagged', value: { asset: 'Asset' } })}><Icon name="icon-warn" size={14} />Mark as asset</button>
                     </>
                   )}
                 </div>
@@ -196,6 +196,16 @@ export function AssetTreatment() {
             </div>
           );
         })}
+        {showRest && (() => {
+          const open = ASSET_UNFLAGGED.filter((a) => !review.decisions[a.key]);
+          const checked = !open.length && ASSET_UNFLAGGED.every((a) => review.decisions[a.key]?.state === 'accepted');
+          return (
+            <div className="none-assets">
+              {checked ? <span className="state-tag ok">You confirmed none of these are assets</span>
+                : open.length > 0 && <Btn variant="primary-sm" icon="icon-check-white" onClick={() => { review.set(open.map((a) => a.key), { state: 'accepted', value: { asset: 'Non-asset' } }); setShowRest(false); }}>None of these are assets</Btn>}
+            </div>
+          );
+        })()}
       </section>
     </div>
   );
