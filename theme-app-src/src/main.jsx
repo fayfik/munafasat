@@ -9,6 +9,7 @@ import './styles/app.css';
 import './styles/form.css';
 import './styles/ai.css';
 import './styles/teams.css';
+import './styles/dash.css';
 
 createRoot(document.getElementById('root')).render(
   <StoreProvider>

@@ -95,10 +95,10 @@ export function NavRail({ count, area = 'inbox', onInbox }) {
   const cur = (a) => (area === a ? 'page' : undefined);
   return (
     <nav className="nav-rail" aria-label="Main">
-      <a className="nav-item" href="#/dashboard" aria-label="Dashboard (coming next)" title="Dashboard — coming in a later batch" onClick={(e) => e.preventDefault()}><Icon name="icon-grid" size={20} /></a>
+      <a className="nav-item" href="#/dashboard" aria-label="Dashboard" title="Dashboard" aria-current={cur('dashboard')}><Icon name="icon-grid" size={20} /></a>
       <a className="nav-item" href="#/requests" aria-label="My requests" title="My requests" aria-current={cur('requests')}><Icon name="icon-file" size={20} /></a>
       <a className="nav-item" href="#/inbox" aria-label={`Inbox, ${count} tasks`} title="Inbox" aria-current={cur('inbox')} onClick={(e) => { if (onInbox) { e.preventDefault(); onInbox(); } }}><Icon name="icon-inbox" size={20} />{count > 0 && <span className="nav-badge">{count}</span>}</a>
-      <a className="nav-item" href="#/reports" aria-label="Reports (coming next)" title="Reports — coming in a later batch" onClick={(e) => e.preventDefault()}><Icon name="icon-chart" size={20} /></a>
+      <a className="nav-item" href="#/reports" aria-label="Reports" title="Reports" aria-current={cur('reports')}><Icon name="icon-chart" size={20} /></a>
     </nav>
   );
 }
