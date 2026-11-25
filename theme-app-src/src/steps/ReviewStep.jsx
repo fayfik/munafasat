@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { Dialog } from '../components/FormKit.jsx';
+import { useActor } from '../state/actor.jsx';
+import { downloadPdf } from '../lib/pdf.js';
 import { Icon, Btn, Collapsible, Field, Segment, Tooltip } from '../components/ui.jsx';
 import { useForm, Block, FieldBlock, Input, TextArea, YesNo, ChipList, Choice, sarFmt } from '../components/FormKit.jsx';
 import { AREA_OPTS, DELIVERY_OPTS, natureOf, priorityName, aboveRange } from '../lib/qualGuide.js';
@@ -326,28 +329,93 @@ function Continuity() {
 }
 
 /* ── Submitted ─────────────────────────────────────────────────────────────── */
-export function SubmittedScreen({ rec, project, onExit }) {
+export function SubmittedScreen({ rec, project, onExit, onView }) {
   const [copied, setCopied] = useState(false);
-  const t = totals(rec.form);
-  const em = rec.form.sourceType === 'emarket';
+  const [doc, setDoc] = useState(false);
+  const { actor } = useActor();
+  const f = rec.form;
+  const t = totals(f);
+  const em = f.sourceType === 'emarket';
+  const at = new Date(rec.submittedAt || Date.now());
+  const cc = COST_CENTERS.find((c) => c.id === f.costCenterId);
+  const dept = cc?.name || actor.dept || 'IT & Digital';
+  const email = `${actor.name.toLowerCase().replace(/[^a-z]+/g, '.').replace(/^\.|\.$/g, '')}@sidf.gov.sa`;
+  const link = `${location.origin}${location.pathname}#/requests/view/${rec.id}`;
+  const steps = em ? [{ en: 'Line manager review', meta: '1–2 business days' }, { en: 'Etimad E-Market check & order', meta: 'After approval' }, { en: 'Purchase requisition created in SAP ECC', meta: 'Upon approval' }] : NEXT_STEPS;
+  const pdf = () => downloadPdf(rec.requestNo, {
+    title: project?.name || rec.title, sub: `${rec.requestNo} · Submitted ${at.toLocaleString('en-GB')}`,
+    rows: [['Reference', rec.requestNo], ['Department', dept], ['Route', em ? 'Etimad E-Market' : 'Tendering'], ['Total value (excl. VAT)', sarFmt(t.subtotal)], ['Grand total (incl. VAT)', sarFmt(t.total)], ['BOQ items', String(f.boqItems.length)], ['Payment milestones', String(f.paymentStages.length)]],
+    paras: [f.purpose && { head: 'Purpose', body: f.purpose }, f.scopeOfWork && { head: 'Scope of work', body: f.scopeOfWork }].filter(Boolean),
+  });
+  const share = () => {
+    const done = () => { setCopied(true); setTimeout(() => setCopied(false), 2500); };
+    if (navigator.clipboard) navigator.clipboard.writeText(link).then(done, () => {});
+    else { const ta = Object.assign(document.createElement('textarea'), { value: link }); document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) { /* ignore */ } ta.remove(); }
+  };
+  const ACTIONS = [
+    { icon: 'icon-eye', title: 'View request', sub: 'Open full document', primary: true, onClick: () => setDoc(true) },
+    { icon: 'icon-download', title: 'Download PDF', sub: 'Save a local copy', onClick: pdf },
+    { icon: 'icon-send', title: copied ? 'Link copied' : 'Share', sub: 'Send link to colleagues', onClick: share },
+    { icon: 'icon-file', title: 'Return to Requests', sub: 'Back to My requests', onClick: onExit },
+  ];
   return (
     <main className="detail standalone req-form submitted" aria-labelledby="sub-title">
       <div className="submitted-body">
         <div className="sub-check" aria-hidden="true"><Icon name="icon-check-white" size={22} /></div>
-        <h1 className="t-display" id="sub-title">Request submitted</h1>
-        <p className="t-body muted" style={{ margin: 0 }}>{project?.name} · {sarFmt(t.total)} incl. VAT</p>
-        <div className="ref-line"><span className="t-caption muted">Reference</span><span className="t-title tnum">{rec.requestNo}</span>
-          <button type="button" className="inline-link t-body-small" onClick={() => { navigator.clipboard?.writeText(rec.requestNo).then(() => setCopied(true), () => {}); }}>{copied ? 'Copied' : 'Copy'}</button>
-        </div>
+        <h1 className="t-display" id="sub-title">Request submitted successfully</h1>
+        <p className="t-body muted" style={{ margin: 0 }}>{em ? 'Your purchase request has been sent for approval.' : 'Your request has been received by the Procurement Committee and is now under review.'}</p>
+        <section className="sub-card">
+          <div className="sub-card-top">
+            <div><span className="t-caption sub-eyebrow">{em ? 'Purchase request' : 'Request for proposal'}</span><span className="t-title tnum">{rec.requestNo}</span></div>
+            <div className="sub-card-meta"><span className="sub-badge t-caption-medium">Submitted</span><span className="t-caption tnum">{at.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} · {at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span></div>
+          </div>
+          <div className="sub-card-body">
+            <div className="t-body-medium">{project?.name || rec.title}</div>
+            <div className="t-body-small muted">{dept}{project?.code ? ` · ${project.code}` : ''}</div>
+            <dl className="sub-stats">
+              <div><dt className="t-caption muted">Total value</dt><dd className="t-body-medium tnum">{sarFmt(t.subtotal)}</dd></div>
+              <div><dt className="t-caption muted">Grand total</dt><dd className="t-body-medium tnum">{sarFmt(t.total)}</dd></div>
+              <div><dt className="t-caption muted">{em ? 'Items' : 'Payment milestones'}</dt><dd className="t-body-medium tnum">{em ? f.boqItems.length : `${f.paymentStages.length} stages`}</dd></div>
+            </dl>
+          </div>
+        </section>
         <div className="next-box">
           <div className="t-label">What happens next</div>
-          <ol>{(em ? [{ en: 'Line manager review', meta: '1–2 business days' }, { en: 'Purchase order raised on Etimad', meta: 'After approval' }] : NEXT_STEPS).map((s, i) => <li key={s.en}><span className="num-dot">{i + 1}</span><span className="grow t-body">{s.en}</span><span className="t-caption muted">{s.meta}</span></li>)}</ol>
+          <ol>{steps.map((s, i) => <li key={s.en}><span className="num-dot">{i + 1}</span><span className="grow t-body">{s.en}</span><span className="t-caption muted">{s.meta}</span></li>)}</ol>
         </div>
-        <p className="t-body-small muted" style={{ margin: 0 }}>You’ll find it in My requests. We’ll notify you as it moves through approvals.</p>
-        <div className="row-gap" style={{ justifyContent: 'center' }}>
-          <Btn variant="primary" onClick={onExit}>Back to My requests</Btn>
+        <div className="sub-actions">
+          {ACTIONS.map((a) => (
+            <button key={a.sub} type="button" className={`sub-action${a.primary ? ' primary' : ''}`} onClick={a.onClick}>
+              <span className="sub-action-ico"><Icon name={a.icon} size={18} /></span>
+              <span className="grow"><span className="t-body-medium">{a.title}</span><span className="t-body-small muted">{a.sub}</span></span>
+              <Icon name="icon-chevron-right" size={14} />
+            </button>
+          ))}
         </div>
+        <p className="t-caption muted" style={{ margin: 0 }}>A confirmation has been sent to <span className="ink">{email}</span> · Reference <span className="tnum">{rec.requestNo}</span></p>
       </div>
+      <Dialog open={doc} onClose={() => setDoc(false)} title={project?.name || rec.title} sub={`${rec.requestNo} · ${dept}`} className="sheet rv-preview"
+        foot={<><Btn variant="ghost" icon="icon-download" onClick={pdf}>Download PDF</Btn><span className="grow" />{onView && <Btn variant="secondary" onClick={() => onView(rec.id)}>Open in My requests</Btn>}<Btn variant="primary" onClick={() => setDoc(false)}>Close</Btn></>}>
+        <FullDocument f={f} t={t} em={em} />
+      </Dialog>
     </main>
+  );
+}
+
+/** The whole submitted request as one read-only document. */
+function FullDocument({ f, t, em }) {
+  const sec = (title, body, show = true) => show && <section className="fd-sec"><div className="t-label">{title}</div>{body}</section>;
+  const table = (head, rows, empty) => (rows.length ? <table className="rv-table t-body-small fd-table"><thead><tr>{head.map((h, i) => <th key={h} className={i === head.length - 1 ? 'num' : ''}>{h}</th>)}</tr></thead><tbody>{rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j} className={j === r.length - 1 ? 'num tnum' : ''}>{c}</td>)}</tr>)}</tbody></table> : <p className="t-body-small muted">{empty}</p>);
+  return (
+    <div className="fd">
+      <dl className="sub-stats"><div><dt className="t-caption muted">Total value</dt><dd className="t-body-medium tnum">{sarFmt(t.subtotal)}</dd></div><div><dt className="t-caption muted">Grand total</dt><dd className="t-body-medium tnum">{sarFmt(t.total)}</dd></div><div><dt className="t-caption muted">BOQ items</dt><dd className="t-body-medium tnum">{f.boqItems.length}</dd></div></dl>
+      {sec('Purpose', <p className="t-body-small">{f.purpose}</p>, !!f.purpose)}
+      {sec('Scope of work', <p className="t-body-small fd-pre">{f.scopeOfWork}</p>, !!f.scopeOfWork)}
+      {sec('Bill of quantities', table(['Item', 'Qty', 'Unit price', 'Total'], f.boqItems.map((r) => [r.itemName || 'Untitled item', `${r.quantity || 1} ${r.unitOfMeasure || r.orderUnit || ''}`, sarFmt(Number(r.unitPrice) || 0), sarFmt(lineTotal(r, em))]), 'No items added'))}
+      {sec('Payment stages', table(['Stage', 'Deliverables', '%'], f.paymentStages.map((p) => [p.stageName || '—', p.itemsDeliverables || '—', `${p.percentage || 0}%`]), 'No payment stages defined'), !em)}
+      {sec('Evaluation criteria', table(['Criterion', 'Weight'], f.evaluationCriteria.map((c) => [c.requirement || c.name || c.description || '—', `${c.weight || 0}%`]), 'No evaluation criteria'), !em)}
+      {sec('Qualification criteria', table(['Main category', 'Weight'], f.qualificationCriteria.map((m) => [m.name, `${m.percentage || 0}%`]), 'No qualification criteria'), !em)}
+      {sec('Attachments', f.attachments.length ? <ul className="fd-list t-body-small">{f.attachments.map((a) => <li key={a.id || a.name}>{a.name}</li>)}</ul> : <p className="t-body-small muted">No attachments uploaded (optional)</p>)}
+    </div>
   );
 }

@@ -123,7 +123,7 @@ export default function App() {
           )}
           {loc.area === 'requests' && <RequestsHome onNew={newRequest} onOpen={(id) => go(`#/requests/${id}`)} onView={(id) => go(`#/requests/view/${id}`)} />}
           {loc.area === 'view' && <RequestView key={loc.id} id={loc.id} onBack={() => go('#/requests')} onEdit={(id) => go(`#/requests/${id}`)} />}
-          {loc.area === 'form' && <NewRequest key={`${loc.key}-${formKey}`} id={loc.id} onExit={() => go('#/requests')} />}
+          {loc.area === 'form' && <NewRequest key={`${loc.key}-${formKey}`} id={loc.id} onExit={() => go('#/requests')} onView={(rid) => go(`#/requests/view/${rid}`)} />}
         </div>
       </div>
       <Toast toast={toast} onHide={() => setToast(null)} onUndo={() => { dispatch({ type: 'undo', task: toast.undo }); open(toast.back); setToast(null); }} />
