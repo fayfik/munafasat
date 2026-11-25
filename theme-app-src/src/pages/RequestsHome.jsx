@@ -72,7 +72,7 @@ export function RequestsHome({ onNew, onOpen, onView }) {
   const rows = useRequestRows();
   const { list: all } = useRequests();
   const { actor } = useActor();
-  const [status, setStatus] = useState('all');
+  const [status, setStatus] = useState(() => new URLSearchParams(location.hash.split('?')[1] || '').get('status') || 'all');
   const [f, setF] = useState(EMPTY);
   const [viewId, setViewId] = useState('all');
   const [views, setViews] = useState(VIEWS);
