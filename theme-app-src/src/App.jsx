@@ -9,6 +9,7 @@ import { NewRequest } from './pages/NewRequest.jsx';
 import { RequestsHome } from './pages/RequestsHome.jsx';
 import { RequestView } from './pages/RequestView.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
+import { ReportsPage } from './reports/ReportsPage.jsx';
 import { useStore } from './state/store.jsx';
 import { useActor } from './state/actor.jsx';
 import { ACTORS, actorById, reviews } from './data/actors.js';
@@ -129,6 +130,7 @@ export default function App() {
             </>
           )}
           {loc.area === 'dashboard' && <Dashboard go={go} onNew={newRequest} />}
+          {loc.area === 'reports' && <ReportsPage key={loc.id || 'home'} id={loc.id} go={go} />}
           {loc.area === 'requests' && <RequestsHome onNew={newRequest} onOpen={(id) => go(`#/requests/${id}`)} onView={(id) => go(`#/requests/view/${id}`)} />}
           {loc.area === 'view' && <RequestView key={loc.id} id={loc.id} onBack={() => go('#/requests')} onEdit={(id) => go(`#/requests/${id}`)} />}
           {loc.area === 'form' && <NewRequest key={`${loc.key}-${formKey}`} id={loc.id} onExit={() => go('#/requests')} onView={(rid) => go(`#/requests/view/${rid}`)} />}
