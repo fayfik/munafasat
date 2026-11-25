@@ -46,6 +46,9 @@ export default function App() {
   useEffect(() => { const t = route().task; if (t) { const tk = taskById(t); if (!canSee(actor, tk, state)) { const who = actorById(openerFor(tk, state)); setActor(who.id); if (!mineFor(who, state).some((x) => x.id === t)) setScope('team'); } else if (!mine.some((x) => x.id === t)) setScope('team'); } }, []);
   const [panel, setPanel] = useState({ open: false, view: 'comments' });
   const [toast, setToast] = useState(null);
+  const [layout, setLayoutRaw] = useState(() => { try { return localStorage.getItem('munafasat-inbox-layout') || 'compact'; } catch (e) { return 'compact'; } });
+  const [fromList, setFromList] = useState(false);
+  const setLayout = (v) => { setLayoutRaw(v); setFromList(false); try { localStorage.setItem('munafasat-inbox-layout', v); } catch (e) { /* ignore */ } };
   const [formKey, setFormKey] = useState(0);
 
   useEffect(() => { if (loc.area === 'inbox' && current && route().task !== current) history.replaceState(null, '', `#/inbox/${current}`); }, [current, loc.area]);
@@ -104,15 +107,16 @@ export default function App() {
 
   return (
     <div className="app">
-      <TopBar counts={counts} queued={queued} onSwitch={switchActor} />
+      <TopBar counts={counts} queued={queued} onSwitch={switchActor} onOpenTask={(id) => { go(`#/inbox/${id}`); }} />
       <div className="body">
         <NavRail count={counts[actor.id]} area={loc.area === 'form' || loc.area === 'view' ? 'requests' : loc.area} onInbox={() => go(current ? `#/inbox/${current}` : '#/inbox')} />
         <div className="workspace">
           {loc.area === 'inbox' && (
             <>
-              <InboxColumn key={actor.id} tasks={mine} team={teamList} scope={actor.team ? scope : 'mine'} onScope={changeScope} currentId={task?.id} onOpen={open} />
-              {task
-                ? <TaskDetail key={task.id} task={task} onComplete={complete} panel={panel} setPanel={setPanel} onPickedUp={() => setScope('mine')} />
+              <InboxColumn key={actor.id} tasks={mine} team={teamList} scope={actor.team ? scope : 'mine'} onScope={changeScope} currentId={task?.id} layout={layout} onLayout={setLayout}
+                onOpen={(id, fromTable) => { if (fromTable) { setLayoutRaw('compact'); setFromList(true); } open(id); }} />
+              {layout === 'list' ? null : task
+                ? <TaskDetail key={task.id} task={task} onComplete={complete} panel={panel} setPanel={setPanel} onPickedUp={() => setScope('mine')} onBack={fromList ? () => setLayout('list') : undefined} />
                 : (
                   <main className="detail inbox-blank" aria-label="No task selected">
                     <Empty icon="icon-inbox" title={reviews(actor) ? 'Nothing to review' : `${actor.name} doesn’t review requests`} sub={reviews(actor) ? 'New tasks will appear here.' : 'Requesters create requests and follow them in My requests.'} />

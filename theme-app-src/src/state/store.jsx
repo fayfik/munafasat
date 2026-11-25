@@ -9,6 +9,7 @@ const initial = () => ({
   reviews: {},     // taskId -> { rowKey -> { state: 'accepted'|'modified'|'commented'|'flagged', value?, note? } }
   extra: {},       // taskId -> free-form per task (added rows, choices, notes…)
   assign: {},      // taskId -> { to: actorId | null, history: [{ at, text }] } — team queue moves
+  delegation: {},  // actorId -> { to, until, newToo, tasks: [taskId] } — "Delegate my inbox"
   rfp: {},         // requestId -> procurement decisions shared across tasks (finQual, method, confirm, etimad)
   comments: Object.fromEntries(Object.values(REQUESTS).map((r) => [r.id, r.comments.map((c) => ({ ...c, replies: [] }))])),
 });
@@ -59,6 +60,20 @@ function reducer(s, a) {
       const cur = s.assign[a.task] || { history: [] };
       return { ...s, assign: { ...s.assign, [a.task]: { to: a.to, at: stamp(), history: [...cur.history, { at: stamp(), text: a.text }] } } };
     }
+    case 'delegate': {
+      const assign = { ...s.assign };
+      a.tasks.forEach((t) => { const cur = assign[t] || { history: [] }; assign[t] = { to: a.to, at: stamp(), history: [...cur.history, { at: stamp(), text: a.text }] }; });
+      return { ...s, assign, delegation: { ...s.delegation, [a.from]: { to: a.to, until: a.until, newToo: a.newToo, tasks: a.tasks } } };
+    }
+    case 'undelegate': {
+      const d = s.delegation[a.from]; if (!d) return s;
+      const assign = { ...s.assign };
+      d.tasks.forEach((t) => { const cur = assign[t]; if (cur && cur.to === d.to && !s.done[t]) assign[t] = { to: a.from, at: stamp(), history: [...cur.history, { at: stamp(), text: a.text }] }; });
+      const delegation = { ...s.delegation }; delete delegation[a.from];
+      return { ...s, assign, delegation };
+    }
+    case 'readAll':
+      return { ...s, read: { ...s.read, ...Object.fromEntries(a.tasks.map((t) => [t, true])) } };
     case 'rfp':
       return { ...s, rfp: { ...s.rfp, [a.req]: { ...(s.rfp[a.req] || {}), ...a.patch } } };
     case 'reset':
