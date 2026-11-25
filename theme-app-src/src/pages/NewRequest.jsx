@@ -98,7 +98,7 @@ export function NewRequest({ id, onExit, onOpen }) {
 
   const submit = () => {
     const d = new Date();
-    const requestNo = `${em ? 'PR' : 'TEN'}-${d.getFullYear()}-${reqId.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+    const requestNo = saved?.resubmitOf || `${em ? 'PR' : 'TEN'}-${d.getFullYear()}-${reqId.replace(/-/g, '').slice(0, 6).toUpperCase()}`; // a resubmission keeps its number
     const p = PROJECTS.find((x) => x.id === f.projectId);
     const rec = { form: f, routeConfirmed, step, status: 'submitted', createdBy: saved?.createdBy || actor.id, requestNo, submittedAt: d.toISOString(), title: p?.name || 'Request', type: f.sourceType };
     store.save(reqId, rec);

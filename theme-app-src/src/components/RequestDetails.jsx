@@ -35,7 +35,7 @@ function KV({ id, label, children }) {
 }
 
 export function RequestDetails() {
-  const { request: r, commenting, openDetails, store } = useTask();
+  const { request: r, commenting, openDetails, store, viewOnly } = useTask();
   const rfp = store.rfp?.[r.id] || {};
   const { actor } = useActor();
   const seesFin = ['finance', 'procurement'].includes(actor.team); // financial criteria: Finance and Procurement only
@@ -45,7 +45,7 @@ export function RequestDetails() {
   const items = r.boq.reduce((n, g) => n + g.items.length, 0);
   return (
     <div className="details">
-      {commenting ? (
+      {viewOnly ? null : commenting ? (
         <div className="banner brand sticky-banner">
           <Icon name="rail-comments" size={18} />
           <div className="banner-text"><div className="t-body-medium">Commenting is on</div><div className="t-body-small">Hover any section, row or field and choose Comment. Comments are posted to the Comments panel with the section name.</div></div>
