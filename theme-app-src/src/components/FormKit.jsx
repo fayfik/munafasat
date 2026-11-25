@@ -43,11 +43,19 @@ export function FieldBlock({ label, hint, info, required, error, id, children, w
         </div>
       )}
       {child}
+      {hijri(children)}
       {error ? <span className="ffield-error t-caption" id={hintId} role="alert">{error}</span> : hint ? <span className="ffield-hint t-caption muted" id={hintId}>{hint}</span> : null}
     </div>
   );
 }
 
+/** Hijri equivalent under any date field (Umm al-Qura calendar). */
+export const toHijri = (v) => { try { const d = new Date(`${v}T12:00:00`); return Number.isNaN(+d) ? '' : new Intl.DateTimeFormat('en-SA-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' }).format(d); } catch (e) { return ''; } };
+function hijri(child) {
+  if (!isValidElement(child) || child.type !== Input || child.props.type !== 'date' || !child.props.value) return null;
+  const h = toHijri(child.props.value);
+  return h ? <span className="ffield-hint t-caption muted hijri">Hijri equivalent: {h}</span> : null;
+}
 export const Input = ({ className = '', ...p }) => <input className={`finput ${className}`} {...p} />;
 export const Select = ({ className = '', children, ...p }) => <select className={`finput fselect ${className}`} {...p}>{children}</select>;
 export function TextArea({ className = '', autoGrow = true, ...p }) {
