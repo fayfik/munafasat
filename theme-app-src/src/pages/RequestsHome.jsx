@@ -10,8 +10,9 @@ import { useActor } from '../state/actor.jsx';
 import { sarFmt } from '../components/FormKit.jsx';
 import { totals, visibleSteps, sectionStatus } from '../lib/requestRules.js';
 import { SEED_REQUESTS } from '../data/myRequests.js';
+import { useOverrides } from '../lib/requestOverrides.js';
 
-export const STATUS = { draft: 'Draft', submitted: 'Submitted', 'under-review': 'Under review', approved: 'Approved', returned: 'Returned' };
+export const STATUS = { draft: 'Draft', submitted: 'Submitted', 'under-review': 'Under review', approved: 'Approved', returned: 'Returned', cancelled: 'Cancelled' };
 export const TYPE = { tendering: 'Tender', emarket: 'Etimad E-Market' };
 const DATES = [['any', 'Any time'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['90', 'Last 90 days'], ['year', 'This year'], ['custom', 'Custom range']];
 const PRS = [['any', 'Any'], ['has', 'PR created'], ['none', 'No PR yet']];
@@ -49,6 +50,7 @@ export function useRequestRows() {
   const { list: all } = useRequests();
   const { actor } = useActor();
   const mine = all.filter((r) => (r.createdBy || 'requester') === actor.id);
+  const ov = useOverrides();
   return useMemo(() => [
     ...mine.map((r) => {
       const f = r.form;
@@ -63,7 +65,7 @@ export function useRequestRows() {
       };
     }),
     ...SEED_REQUESTS.map((s) => ({ ...s, type: s.type === 'souq-etimad' ? 'emarket' : 'tendering', by: s.createdByName, value: s.budget, amount: money(s.budget) })),
-  ], [mine, actor]);
+  ].map((r) => (ov[r.id] ? { ...r, ...ov[r.id] } : r)), [mine, actor, ov]);
 }
 
 export function RequestsHome({ onNew, onOpen, onView }) {

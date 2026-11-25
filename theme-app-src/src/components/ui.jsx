@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 const ICONS = import.meta.glob('../assets/*.svg', { eager: true, query: '?url', import: 'default' });
 export const iconUrl = (name) => ICONS[`../assets/${name}.svg`];
@@ -68,8 +68,12 @@ export function Tooltip({ text, label = 'More information' }) {
   );
 }
 
+/** Expand all / Collapse all: bump `rev` to set every Collapsible inside to `open`. */
+export const CollapseCtx = createContext(null);
 export function Collapsible({ title, meta, defaultOpen = true, children, id, actions }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const ctl = useContext(CollapseCtx);
+  const [open, setOpen] = useState(ctl ? ctl.open : defaultOpen);
+  useEffect(() => { if (ctl && ctl.rev) setOpen(ctl.open); }, [ctl?.rev]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <section className={`collapse${open ? ' open' : ''}`} id={id}>
       <div className="collapse-head">
