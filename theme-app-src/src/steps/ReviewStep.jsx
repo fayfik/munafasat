@@ -132,7 +132,7 @@ export function ReviewStep() {
               <Field label="Technical requirements">{f.technicalRequirements.length ? f.technicalRequirements.map((r) => r.requirement).join(' · ') : '—'}</Field>
             </Collapsible>
             <Collapsible title="Qualification" meta={`Passing ${f.qualificationPassingPercentage || '—'}%`} defaultOpen={false} actions={<button type="button" className="inline-link t-body-small" onClick={() => goto('qual')}>Edit</button>}>
-              <Field label="Reviewers">{f.qualificationCommitteeMembers.map((m) => m.name).join(', ') || <span className="muted">No one selected</span>}</Field>
+              <Field label="Reviewer">{f.qualificationCommitteeMembers[0]?.name || <span className="muted">No one selected</span>}</Field>
               <Field label="Open to SMEs">{aboveRange(f).length ? `No — ${aboveRange(f).length} criteria above the recommended range` : 'Yes — every criterion is within the recommended range'}</Field>
               <table className="plain-table compact"><thead><tr><th>Criteria</th><th>Range</th><th className="num">Weight</th></tr></thead>
                 <tbody>{f.qualificationCriteria.map((m) => [<tr key={m.id} className="group-row"><td colSpan={2}>{m.name}</td><td className="num">{num(m.percentage)}%</td></tr>, ...m.subCriteria.map((s) => <tr key={s.id}><td style={{ paddingLeft: 24 }}>{s.name}</td><td className="muted">{s.range || '—'}</td><td className="num">{num(s.percentage)}%</td></tr>)])}</tbody></table>

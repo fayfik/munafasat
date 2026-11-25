@@ -35,23 +35,17 @@ export function QualStep() {
   return (
     <div className="stack">
       {qPicker}
-      <Block title="Qualification reviewers" info="People who check vendors against the criteria below." meta={members.length ? `${members.length} selected` : undefined}>
+      <Block title="Qualification reviewer" info="The one person who checks vendors against the criteria below.">
         {members.length > 0 && !pick ? (
           <div className="member-stack">
-            {members.map((m) => (
-              <div key={m.id} className="member-line">
-                <span className="avatar-dot" style={{ width: 32, height: 32, fontSize: 12 }} aria-hidden="true">{m.initials}</span>
-                <div className="grow"><div className="t-body-medium">{m.name}</div><div className="t-body-small muted">{m.role} · {m.department}</div></div>
-                <button type="button" className="icon-btn" aria-label={`Remove ${m.name}`} onClick={() => set('qualificationCommitteeMembers', members.filter((x) => x.id !== m.id))}><Icon name="icon-x" size={16} /></button>
-              </div>
-            ))}
-            <button type="button" className="add-row" onClick={() => setPick(true)}><Icon name="icon-plus" size={14} />Add reviewer</button>
+            <div className="member-line">
+              <span className="avatar-dot" style={{ width: 32, height: 32, fontSize: 12 }} aria-hidden="true">{members[0].initials}</span>
+              <div className="grow"><div className="t-body-medium">{members[0].name}</div><div className="t-body-small muted">{members[0].role} · {members[0].department}</div></div>
+              <Btn variant="secondary-sm" onClick={() => setPick(true)}>Change</Btn>
+            </div>
           </div>
         ) : (
-          <>
-            <PeoplePicker people={PEOPLE} value={members} label="qualification reviewers" onChange={(v) => set('qualificationCommitteeMembers', v)} />
-            {members.length > 0 && <Btn variant="secondary-sm" onClick={() => setPick(false)}>Done</Btn>}
-          </>
+          <PeoplePicker single people={PEOPLE} value={members.slice(0, 1)} label="qualification reviewer" onChange={(v) => { set('qualificationCommitteeMembers', v); if (v.length) setPick(false); }} />
         )}
       </Block>
 
