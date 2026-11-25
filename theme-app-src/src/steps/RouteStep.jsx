@@ -43,12 +43,13 @@ export function RouteStep() {
       <div className="stack">
         <div className="route-summary">
           <div>
-            <div className="t-caption muted">Route</div>
+            <div className="t-caption muted">Determined route</div>
             <div className="t-heading" style={{ marginTop: 2 }}>{ROUTES[f.sourceType].en}</div>
             <div className="t-body-small muted" style={{ marginTop: 4 }}>{p?.name} · {n} budgeted item{n === 1 ? '' : 's'}</div>
           </div>
-          <Btn variant="secondary" icon="icon-pencil" onClick={() => setEditing(true)}>Change</Btn>
+          <Btn variant="secondary" icon="icon-pencil" onClick={() => setEditing(true)}>Edit</Btn>
         </div>
+        <p className="t-body-small muted" style={{ margin: 0 }}>Want to proceed with different items in this project? Use Edit to change the selection and re-check the route.</p>
         {f.movedToDraft && <div className="banner info"><Icon name="icon-info" size={16} /><div className="banner-text t-body-small">{f.movedToDraft.count} item{f.movedToDraft.count === 1 ? ' was' : 's were'} moved to a separate {ROUTES[f.movedToDraft.route].short} draft in My requests.</div></div>}
         {f.routeJustification && <div className="quiet-note"><div className="t-caption muted">Why E-Market items stay in this tender</div><div className="t-body">{f.routeJustification}</div></div>}
         <div className="req-foot inline"><span className="grow" /><Btn variant="primary" onClick={() => confirmRoute({ sourceType: f.sourceType, projectId: f.projectId, itemIds: f.selectedItemIds, choice: f.routeChoice, justification: f.routeJustification, justifiedItems: f.justifiedItems })}>Continue<Icon name="icon-arrow-right" size={16} className="invert" /></Btn></div>
@@ -211,7 +212,7 @@ export function RouteStep() {
               const g = groups.find((x) => x.route === chosenRoute);
               const other = groups.find((x) => x.route !== chosenRoute);
               confirm(chosenRoute, g.items, other ? { movedToDraft: { count: other.items.length, route: other.route, names: other.items.map((x) => x.name), ids: ids(other.items) } } : {});
-            }}>Create this request & continue<Icon name="icon-arrow-right" size={16} className="invert" /></Btn>
+            }}>{chosenRoute === 'emarket' ? 'Create E-Market purchase & continue' : 'Create tender & continue'}<Icon name="icon-arrow-right" size={16} className="invert" /></Btn>
           </div>
         </>
       )}
@@ -257,6 +258,13 @@ export function RouteStep() {
 
       <Dialog open={info} onClose={() => setInfo(false)} title="The procurement route" sub="Before you build a request, Munafasat checks how each item can be bought."
         foot={<Btn variant="primary" onClick={() => setInfo(false)}>Got it</Btn>}>
+        <div className="t-label">How it works</div>
+        <ol className="how-steps t-body-small">
+          <li><strong>Describe items</strong> — pick your project and the items you need, or paste a list.</li>
+          <li><strong>Check & choose route</strong> — we check each item against Etimad.</li>
+          <li>Items are grouped by route — one request follows one route.</li>
+          <li>You confirm and continue to build the request.</li>
+        </ol>
         <dl className="info-list">
           <div><dt className="t-body-medium">Etimad E-Market</dt><dd className="t-body-small muted">Catalogue items bought directly from listed suppliers — fast, no tender needed.</dd></div>
           <div><dt className="t-body-medium">Competitive tender</dt><dd className="t-body-small muted">Items that must be competed — suppliers submit offers on Etimad against your scope and BOQ.</dd></div>

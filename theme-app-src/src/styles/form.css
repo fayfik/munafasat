@@ -736,3 +736,46 @@ th.num .sort-btn { flex-direction: row-reverse; }
 .fd-table { border: 1px solid var(--border-default); border-radius: 8px; }
 .fd-list { margin: 0; padding-left: 18px; }
 @media (max-width: 600px) { .sub-actions, .sub-stats { grid-template-columns: 1fr; } }
+.how-steps { margin: 6px 0 16px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--ink-secondary); }
+
+/* ── BOQ: editable sheet, moved bucket, finance details, attachments, listed companies ── */
+.sheet-wrap { display: flex; flex-direction: column; gap: 8px; }
+.sheet-hint { display: flex; align-items: center; gap: 6px; margin: 0; }
+.boq-sheet { border-collapse: separate; border-spacing: 0; width: 100%; }
+.boq-sheet th { position: sticky; top: 0; z-index: 1; text-align: left; font-weight: 500; color: var(--ink-secondary); background: var(--bg-subtle); padding: 8px 8px; border-bottom: 1px solid var(--border-default); white-space: nowrap; }
+.boq-sheet th.num, .boq-sheet td.num { text-align: right; }
+.boq-sheet td { padding: 0; border-bottom: 1px solid var(--border-soft); border-right: 1px solid var(--border-soft); vertical-align: middle; }
+.boq-sheet td:last-child { border-right: 0; }
+.boq-sheet .sh-no { width: 36px; text-align: center; padding: 0 6px; }
+.sh-cell { width: 100%; height: 38px; padding: 0 8px; border: 0; background: transparent; font: inherit; color: var(--ink-primary); outline: none; border-radius: 0; }
+td.num .sh-cell { text-align: right; }
+.sh-cell:hover { background: var(--bg-subtle); }
+.sh-cell:focus { background: var(--bg-surface); box-shadow: inset 0 0 0 2px var(--brand-500); }
+.sh-cell.miss { background: var(--amber-50); box-shadow: inset 0 0 0 1px var(--amber-border); }
+.sh-cell.miss:focus { box-shadow: inset 0 0 0 2px var(--brand-500); }
+select.sh-cell { appearance: auto; cursor: pointer; }
+.sh-na { text-align: center; color: var(--ink-muted); background: var(--bg-subtle); }
+.sh-total { padding: 0 10px !important; white-space: nowrap; }
+.sh-del { width: 40px; text-align: center; }
+.sh-empty { padding: 24px !important; text-align: center; }
+.sheet-add { align-items: center; }
+.moved-list { list-style: none; margin: 0; padding: 0; }
+.moved-list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border-soft); }
+.moved-list .grow { display: flex; flex-direction: column; min-width: 0; }
+.fin-card { border: 1px solid var(--border-default); border-radius: var(--radius-panel); background: var(--bg-surface); overflow: hidden; }
+.fin-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 0; background: none; cursor: pointer; text-align: left; font: inherit; }
+.fin-head:hover { background: var(--bg-subtle); }
+.fin-head .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fin-head .ai-pill { margin-left: 6px; vertical-align: 1px; }
+.fin-body { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+.fin-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.fin-tiles dd { margin: 2px 0 0; }
+.item-files { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.item-files label.btn { cursor: pointer; }
+.file-chip { display: inline-flex; align-items: center; gap: 6px; }
+.chip-x { display: inline-flex; padding: 2px; border: 0; background: none; cursor: pointer; border-radius: 4px; }
+.chip-x:hover { background: var(--bg-subtle); }
+.listed { list-style: none; margin: 0; padding: 0; }
+.listed li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border-soft); }
+.listed .grow { display: flex; flex-direction: column; min-width: 0; }
+.fin-head .inline-link { font-size: 13px; white-space: nowrap; }

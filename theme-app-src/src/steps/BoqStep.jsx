@@ -6,6 +6,7 @@ import { AiBtn, AiCard, AiSpark, AiMark } from '../components/AiKit.jsx';
 import { useRequests, emptyForm } from '../state/requests.jsx';
 import { useActor } from '../state/actor.jsx';
 import { uid } from '../lib/requestRules.js';
+import { BoqSheet } from '../components/BoqSheet.jsx';
 import { PURCHASE_TYPES, MATERIAL_GROUPS, ptypeName, mgOf, suggestAccounting, withAccounting } from '../lib/accounting.js';
 import { PROJECTS, UNITS, BOQ_CATEGORIES, QUALIFICATIONS, NATIONALITIES, AI_BOQ, AI_EM_BOQ } from '../data/newRequest.js';
 import { totals, lineTotal, checkEtimad, etimadStale, needsEtimadReason, boqTypeOf, words, MIN_WORDS, num, boqMissing } from '../lib/requestRules.js';
@@ -29,7 +30,7 @@ export function BoqStep() {
   const { f, list, em, headEl, set } = useForm();
   const rows = list('boqItems');
   const [editing, setEditing] = useState(null); // row or {} for new
-  const [view, setView] = useState('grid');
+  const [view, setView] = useState(em ? 'list' : 'grid');
   const [confirmAll, setConfirmAll] = useState(false);
   const [template, setTemplate] = useState(false);
   const [focusKey, setFocusKey] = useState(null);
@@ -71,25 +72,47 @@ export function BoqStep() {
     const base = prev?.form || { ...emptyForm(), projectId: f.projectId, costCenterId: f.costCenterId, sourceType: 'emarket', routeChoice: 'emarket', purpose: `Catalogue items moved out of the ${p?.name || ''} tender after the Etimad check.`.replace('  ', ' ') };
     const emRow = { id: uid(), purchaseType: r.ptype === 'service' ? 'service' : 'product', itemName: r.itemName, productId: '', supplier: '', orderUnit: r.unitOfMeasure || 'Each', quantity: num(r.quantity) || 1, unitPrice: num(r.unitPrice), shippingCharges: 0 };
     store.save(did, { createdBy: prev?.createdBy || actor.id, title: `${p?.name || 'Request'} — E-Market items`, type: 'emarket', status: 'draft', routeConfirmed: true, step: 'boq', form: { ...base, boqItems: [...(base.boqItems || []), emRow] }, moved: [...(prev?.moved || []), r.itemName] });
-    const before = f.boqItems;
+    const before = f.boqItems; const beforeMoved = f.emMoved || [];
     rows.remove(r.id);
     if (!keep) set('emDraftId', did);
-    setMoved({ name: r.itemName, did, undo: () => { set('boqItems', before); store.save(did, prev ? { form: prev.form, moved: prev.moved } : { form: { ...base, boqItems: [] }, moved: [] }); setMoved(null); } });
+    set('emMoved', (xs = []) => [...(xs || []), { ...r, did, emRowId: emRow.id, movedAt: new Date().toISOString() }]);
+    setMoved({ name: r.itemName, did, undo: () => { set('boqItems', before); set('emMoved', beforeMoved); store.save(did, prev ? { form: prev.form, moved: prev.moved } : { form: { ...base, boqItems: [] }, moved: [] }); setMoved(null); } });
   };
+  // Put a moved item back: it returns to this tender and leaves the E-Market draft.
+  const putBack = (m) => {
+    const { did, emRowId, movedAt, ...row } = m;
+    const d = store.get(did);
+    if (d?.form && d.status !== 'submitted') store.save(did, { form: { ...d.form, boqItems: d.form.boqItems.filter((x) => x.id !== emRowId) }, moved: (d.moved || []).filter((n) => n !== row.itemName) });
+    rows.add({ ...row, etimadDecision: 'keep' });
+    set('emMoved', (xs) => (xs || []).filter((x) => x.id !== m.id));
+    setMoved(null);
+  };
+  const [askMove, setAskMove] = useState(null);
 
   const groups = useMemo(() => {
-    if (view === 'table' || em) return [['', f.boqItems]];
+    if (view === 'sheet' || em) return [['', f.boqItems]];
     const m = new Map();
     f.boqItems.forEach((r) => { const k = r.projectItem || 'Other items'; if (!m.has(k)) m.set(k, []); m.get(k).push(r); });
     return [...m.entries()];
   }, [f.boqItems, view, em]);
 
   const unchecked = f.boqItems.filter((r) => !r.etimad || etimadStale(r)).length;
+  const exportXls = () => {
+    const head = em ? ['Type', 'Name', 'Product ID', 'Supplier', 'Order unit', 'Quantity', 'Price (SAR)', 'Delivery / start', 'End', 'Total (SAR)'] : [...COLS, 'Total (SAR)'];
+    const body = f.boqItems.map((r) => (em ? [r.purchaseType, r.itemName, r.productId, r.supplier, r.orderUnit, r.quantity, r.unitPrice, r.deliveryDate || r.startDate, r.endDate, lineTotal(r, true)] : [r.projectItem, catName(r.category), r.itemName, r.itemDescription, r.unitOfMeasure, r.quantity, r.unitPrice, r.deliveryDate, lineTotal(r)]));
+    const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table><tr>${head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>${body.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></body></html>`;
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'application/vnd.ms-excel' })); a.download = 'bill-of-quantities.xls'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
   const exportCsv = () => download('boq.csv', [COLS.join(','), ...f.boqItems.map((r) => [r.projectItem, catName(r.category), r.itemName, r.itemDescription, r.unitOfMeasure, r.quantity, r.unitPrice].map(csvCell).join(','))].join('\n'));
   const dialogs = (
     <>
       {editing && <ItemDialog row={editing} em={em} budgeted={budgeted} due={due} focusKey={focusKey} onClose={() => setEditing(null)} onSave={save} />}
       {detail && <DetailDialog r={f.boqItems.find((x) => x.id === detail.id) || detail} em={em} onClose={() => setDetail(null)} onEdit={() => { edit(detail); setDetail(null); }} />}
+      <Dialog open={!!askMove} onClose={() => setAskMove(null)} title="Move this item to an E-Market request?" className="narrow"
+        foot={<><span className="grow" /><Btn variant="secondary" onClick={() => setAskMove(null)}>Cancel</Btn><Btn variant="primary" onClick={() => { moveToEm(askMove); setAskMove(null); }}>Yes, move it</Btn></>}>
+        <p className="t-body" style={{ margin: 0 }}><strong>{askMove?.itemName}</strong> leaves this tender and goes into a draft Etimad E-Market request. You can review or modify that request anytime from the E-Market bucket.</p>
+      </Dialog>
       <ConfirmDelete open={confirmAll} onClose={() => setConfirmAll(false)} onConfirm={rows.clear} title="Delete all items?" />
     </>
   );
@@ -145,9 +168,11 @@ export function BoqStep() {
 
       <Block title={`${f.boqItems.length} item${f.boqItems.length === 1 ? '' : 's'}`} actions={
         <>
-          {!em && <Segment size="sm" label="BOQ view" value={view} onChange={setView} items={[{ id: 'grid', label: 'Grid' }, { id: 'table', label: 'Table' }, { id: 'grouped', label: 'Grouped' }]} />}
+          {view === 'grid' && !em && groups.length > 1 && <Btn variant="ghost-sm" onClick={() => { const shut = groups.every(([g]) => collapsed[g]); setCollapsed(Object.fromEntries(groups.map(([g]) => [g, !shut]))); }}>{groups.every(([g]) => collapsed[g]) ? 'Expand all' : 'Collapse all'}</Btn>}
+          <Segment size="sm" label="BOQ view" value={view} onChange={setView} items={em ? [{ id: 'list', label: 'List' }, { id: 'sheet', label: 'Sheet' }] : [{ id: 'grid', label: 'Grid' }, { id: 'sheet', label: 'Sheet' }, { id: 'grouped', label: 'Grouped' }]} />
           <MoreMenu items={[
             { label: 'Add item', onClick: () => setEditing({}) },
+            { label: 'Download as Excel', onClick: exportXls },
             { label: 'Download as CSV', onClick: exportCsv },
             { label: 'Delete all items', danger: true, onClick: () => setConfirmAll(true) },
           ]} />
@@ -165,7 +190,9 @@ export function BoqStep() {
           </div>
         )}
 
-        {view === 'grid' && !em ? (
+        {view === 'sheet' ? (
+          <BoqSheet rows={f.boqItems} em={em} budgeted={budgeted} list={rows} />
+        ) : view === 'grid' && !em ? (
           <div className="boq-cards">
             {groups.map(([g, rs]) => {
               const shut = !!collapsed[g];
@@ -179,7 +206,7 @@ export function BoqStep() {
                     <div className="table-scroll">
                       <table className="plain-table boq-table">
                         <BoqHead em={em} />
-                        <tbody>{rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={(key) => edit(r, key)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => checkOne(r)} checking={checking.includes(r.id)} onReason={(v) => rows.update(r.id, { etimadReason: v })} onKeep={(on) => rows.update(r.id, { etimadDecision: on ? 'keep' : '' })} onMove={() => moveToEm(r)} />)}</tbody>
+                        <tbody>{rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={(key) => edit(r, key)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => checkOne(r)} checking={checking.includes(r.id)} onReason={(v) => rows.update(r.id, { etimadReason: v })} onKeep={(on) => rows.update(r.id, { etimadDecision: on ? 'keep' : '' })} onMove={() => setAskMove(r)} />)}</tbody>
                       </table>
                     </div>
                   )}
@@ -194,19 +221,35 @@ export function BoqStep() {
               {groups.map(([g, rs]) => (
                 <tbody key={g || 'all'}>
                   {g && <tr className="group-row"><td colSpan={COLSPAN}>{g}<span className="muted" style={{ fontWeight: 400 }}> · {sarFmt(rs.reduce((s, r) => s + lineTotal(r, em), 0))}</span></td></tr>}
-                  {rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={(key) => edit(r, key)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => checkOne(r)} checking={checking.includes(r.id)} onReason={(v) => rows.update(r.id, { etimadReason: v })} onKeep={(on) => rows.update(r.id, { etimadDecision: on ? 'keep' : '' })} onMove={() => moveToEm(r)} />)}
+                  {rs.map((r) => <BoqRow key={r.id} r={r} em={em} onEdit={(key) => edit(r, key)} onView={() => setDetail(r)} onRemove={() => rows.remove(r.id)} onCheck={() => checkOne(r)} checking={checking.includes(r.id)} onReason={(v) => rows.update(r.id, { etimadReason: v })} onKeep={(on) => rows.update(r.id, { etimadDecision: on ? 'keep' : '' })} onMove={() => setAskMove(r)} />)}
                 </tbody>
               ))}
             </table>
           </div>
         )}
-        <button type="button" className="add-row" onClick={() => setEditing({})}><Icon name="icon-plus" size={14} />Add item</button>
+        {view !== 'sheet' && <button type="button" className="add-row" onClick={() => setEditing({})}><Icon name="icon-plus" size={14} />Add item</button>}
         <dl className="boq-totals">
           <div><dt className="muted">Subtotal</dt><dd className="tnum">{sarFmt(t.subtotal, 2)}</dd></div>
           <div><dt className="muted">VAT (15%)</dt><dd className="tnum">{sarFmt(t.vat, 2)}</dd></div>
           <div className="grand"><dt>Total incl. VAT</dt><dd className="tnum">{sarFmt(t.total, 2)}</dd></div>
         </dl>
       </Block>
+      {!em && <FinanceDetails f={f} project={p} />}
+      {!em && (f.emMoved || []).length > 0 && (
+        <Block title="Moved to Etimad E-Market" meta={`${f.emMoved.length} item${f.emMoved.length === 1 ? '' : 's'}`}
+          info="Moving items here keeps this tender focused on items that genuinely need a competitive tender."
+          actions={f.emDraftId && <Btn variant="secondary-sm" onClick={() => { location.hash = `#/requests/${f.emDraftId}`; }}>View draft request</Btn>}>
+          <p className="t-body-small muted" style={{ margin: '-4px 0 0' }}>Moved items are in a separate Etimad E-Market draft under My requests.</p>
+          <ul className="moved-list">
+            {f.emMoved.map((m) => (
+              <li key={m.id}>
+                <span className="grow"><span className="t-body-medium">{m.itemName}</span><span className="t-caption muted tnum">{num(m.quantity) || 1} {m.unitOfMeasure || ''} · {sarFmt(lineTotal(m))}</span></span>
+                <Btn variant="ghost-sm" icon="icon-return" onClick={() => putBack(m)}>Put back to this request</Btn>
+              </li>
+            ))}
+          </ul>
+        </Block>
+      )}
       {dialogs}
     </div>
   );
@@ -339,6 +382,7 @@ function ItemDialog({ row, em, budgeted, due, focusKey, onClose, onSave }) {
   const setAcc = (k) => (e) => setR((x) => ({ ...x, ptype: acc.ptype, mg: acc.mg, [k]: e.target.value, acctSource: 'user' }));
   const save = () => onSave(em ? r : { ...r, category: cat, ptype: acc.ptype, mg: acc.mg, acctSource: r.acctSource === 'user' ? 'user' : ai ? 'ai' : r.acctSource });
   const aiNote = ai && r.acctSource !== 'user' ? 'Suggested by AI from the name and description' : undefined;
+  const [listed, setListed] = useState(false);
   // Opened from a missing-value warning: focus the first empty field.
   useEffect(() => {
     if (!focusKey) return;
@@ -353,6 +397,8 @@ function ItemDialog({ row, em, budgeted, due, focusKey, onClose, onSave }) {
   }, []);
 
   return (
+    <>
+    {listed && <ListedCompanies onClose={() => setListed(false)} onPick={(c) => { setR((x) => ({ ...x, mandatoryList: `${c.name} · ${c.ref}` })); setListed(false); }} />}
     <Dialog open onClose={onClose} title={isNew ? 'Add item' : 'Edit item'} sub={isNew ? (em ? 'Fields adapt to the purchase type.' : 'Fill the fields, then save to add it to the table.') : (em ? undefined : 'Changing the name, quantity or price resets the Etimad check.')} className="sheet wide"
       foot={<><Btn variant="secondary" onClick={onClose}>Cancel</Btn><Btn variant="primary" disabled={!valid} onClick={save}>{isNew ? 'Add item' : 'Save changes'}</Btn></>}>
       {em ? (
@@ -411,11 +457,18 @@ function ItemDialog({ row, em, budgeted, due, focusKey, onClose, onSave }) {
               <FieldBlock id="bi-quantity" label="Quantity" required><NumInput value={r.quantity} onChange={s('quantity')} min={1} placeholder="0" /></FieldBlock>
               <FieldBlock id="bi-unitPrice" label="Unit price (SAR)" required><NumInput value={r.unitPrice} onChange={s('unitPrice')} placeholder="0.00" /></FieldBlock>
               <FieldBlock id="bi-deliveryDate" label="Needed by"><Input type="date" value={r.deliveryDate} onChange={s('deliveryDate')} /></FieldBlock>
-              {goods && <FieldBlock label="Mandatory list reference" optional wide info="Material and equipment may fall under the mandatory list of national products and must be bought from approved listed companies."><Input value={r.mandatoryList} onChange={s('mandatoryList')} placeholder="Listed company or product reference…" /></FieldBlock>}
+              {goods && <FieldBlock label="Mandatory list reference" optional wide hint="Material and equipment items may fall under the mandatory list of national products and must be purchased from approved listed companies."
+                action={<button type="button" className="inline-link t-body-small" onClick={() => setListed(true)}>View listed companies</button>}><Input value={r.mandatoryList} onChange={s('mandatoryList')} placeholder="Listed company or product reference…" /></FieldBlock>}
               <FieldBlock label="Specific brand required?" inline><YesNo name="Brand name" value={!!r.hasBrandName} onChange={s('hasBrandName')} /></FieldBlock>
               {r.hasBrandName && <FieldBlock id="bi-brandJustification" label="Brand justification" required wide><TextArea rows={2} value={r.brandJustification} onChange={s('brandJustification')} placeholder="Explain why a specific brand is required…" /></FieldBlock>}
             </>
           )}
+          <FieldBlock label="Supporting documents" optional wide hint={mp ? 'CVs, certificates, or any supporting document for this role.' : 'Specs, drawings, quotes or any supporting document for this item.'}>
+            <div className="item-files">
+              {(r.files || []).map((x, i) => <span key={i} className="chip file-chip"><Icon name="icon-file" size={14} />{x.name}<span className="muted tnum">{x.size}</span><button type="button" className="chip-x" aria-label={`Remove ${x.name}`} onClick={() => setR((y) => ({ ...y, files: y.files.filter((_, j) => j !== i) }))}><Icon name="icon-x" size={12} /></button></span>)}
+              <label className="btn btn-secondary-sm"><Icon name="icon-upload" size={16} />Attach files<input type="file" multiple hidden onChange={(e) => { const fs = Array.from(e.target.files || []).map((x) => ({ name: x.name, size: x.size > 1e6 ? `${(x.size / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(x.size / 1e3))} KB` })); setR((y) => ({ ...y, files: [...(y.files || []), ...fs] })); e.target.value = ''; }} /></label>
+            </div>
+          </FieldBlock>
           <FieldBlock label={<>Purchase type{aiNote && <AiMark />}</>} hint={aiNote}>
             <Select value={acc.ptype || ''} onChange={setAcc('ptype')}><option value="">Select…</option>{PURCHASE_TYPES.map((x) => <option key={x.id} value={x.id}>{x.en}</option>)}</Select>
           </FieldBlock>
@@ -426,13 +479,36 @@ function ItemDialog({ row, em, budgeted, due, focusKey, onClose, onSave }) {
         </div>
       )}
     </Dialog>
+    </>
+  );
+}
+
+const LISTED = [
+  { name: 'Saudi Electronics & Home Appliances (SEHA)', ref: 'ML-0142', cat: 'IT hardware & peripherals', city: 'Riyadh' },
+  { name: 'Al-Ittefaq Steel Products', ref: 'ML-0087', cat: 'Steel & metal furniture', city: 'Dammam' },
+  { name: 'National Industries for Cables (NICCO)', ref: 'ML-0213', cat: 'Network & power cables', city: 'Jeddah' },
+  { name: 'Riyadh Cables Group', ref: 'ML-0215', cat: 'Network & power cables', city: 'Riyadh' },
+  { name: 'Saudi Paper Manufacturing', ref: 'ML-0301', cat: 'Paper & stationery', city: 'Dammam' },
+  { name: 'Alfanar Electrical Systems', ref: 'ML-0178', cat: 'Electrical equipment', city: 'Riyadh' },
+  { name: 'Saudi Office Furniture Co.', ref: 'ML-0094', cat: 'Office furniture', city: 'Riyadh' },
+];
+function ListedCompanies({ onClose, onPick }) {
+  const [q, setQ] = useState('');
+  const shown = LISTED.filter((c) => !q.trim() || `${c.name} ${c.cat} ${c.ref}`.toLowerCase().includes(q.trim().toLowerCase()));
+  return (
+    <Dialog open onClose={onClose} title="Listed companies" sub="Approved suppliers on the mandatory list of national products (LCGPA)." className="sheet">
+      <label className="search" style={{ marginBottom: 12 }}><Icon name="icon-search" size={16} /><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search company, category or reference" aria-label="Search listed companies" /></label>
+      <ul className="listed">{shown.map((c) => (
+        <li key={c.ref}><span className="grow"><span className="t-body-medium">{c.name}</span><span className="t-body-small muted">{c.cat} · {c.city} · <span className="tnum">{c.ref}</span></span></span><Btn variant="secondary-sm" onClick={() => onPick(c)}>Use</Btn></li>
+      ))}{!shown.length && <li className="t-body-small muted">No listed companies match.</li>}</ul>
+    </Dialog>
   );
 }
 
 function DetailDialog({ r, em, onClose, onEdit }) {
   const rows = em
     ? [['Purchase type', r.purchaseType], ['Product ID', r.productId], ['Supplier', r.supplier], ['Price', sarFmt(r.unitPrice, 2)], ['Quantity', r.quantity], ['Shipping', sarFmt(r.shippingCharges, 2)], ['Period', r.startDate && `${r.startDate} → ${r.endDate}`], ['Responsible', [r.respName, r.respMobile].filter(Boolean).join(' · ')], ['Line total', sarFmt(lineTotal(r, true), 2)]]
-    : [['Budgeted item', r.projectItem], ['Category', catName(r.category)], ['Description', r.itemDescription], ['Quantity', r.category === 'manpower' ? `${r.staffCount} staff` : `${r.quantity} ${r.unitOfMeasure}`], ['Unit price', sarFmt(r.unitPrice, 2)], ['Needed by', r.deliveryDate], ['Purchase type', ptypeName(r.ptype) + (r.acctSource === 'ai' ? ' · suggested by AI' : '')], ['Material group', mgOf(r.mg) && `${mgOf(r.mg).en} · ${r.mg}`], ['Job title', r.jobTitle], ['Min. qualification', QUALIFICATIONS.find((q) => q.value === r.minQualification)?.en], ['Experience', r.minExperienceYears && `${r.minExperienceYears}+ years`], ['Nationalities', r.nationalityRequired && (r.nationalities || []).join(', ')], ['Brand', r.hasBrandName ? r.brandJustification : 'Not required'], ['Mandatory list', r.mandatoryList], ['Etimad', r.etimad && `${ETIMAD[r.etimad.status].label} — ${r.etimad.comment}`], ['Line total', sarFmt(lineTotal(r), 2)]];
+    : [['Budgeted item', r.projectItem], ['Category', catName(r.category)], ['Description', r.itemDescription], ['Quantity', r.category === 'manpower' ? `${r.staffCount} staff` : `${r.quantity} ${r.unitOfMeasure}`], ['Unit price', sarFmt(r.unitPrice, 2)], ['Needed by', r.deliveryDate], ['Purchase type', ptypeName(r.ptype) + (r.acctSource === 'ai' ? ' · suggested by AI' : '')], ['Material group', mgOf(r.mg) && `${mgOf(r.mg).en} · ${r.mg}`], ['Job title', r.jobTitle], ['Min. qualification', QUALIFICATIONS.find((q) => q.value === r.minQualification)?.en], ['Experience', r.minExperienceYears && `${r.minExperienceYears}+ years`], ['Nationalities', r.nationalityRequired && (r.nationalities || []).join(', ')], ['Brand', r.hasBrandName ? r.brandJustification : 'Not required'], ['Mandatory list', r.mandatoryList], ['Supporting documents', (r.files || []).map((x) => x.name).join(', ')], ['Etimad', r.etimad && `${ETIMAD[r.etimad.status].label} — ${r.etimad.comment}`], ['Line total', sarFmt(lineTotal(r), 2)]];
   return (
     <Dialog open onClose={onClose} title={r.itemName || 'Unnamed item'} className="sheet" foot={<><Btn variant="secondary" onClick={onClose}>Close</Btn><Btn variant="primary" icon="icon-pencil" onClick={onEdit}>Edit</Btn></>}>
       <dl className="kv-list">{rows.filter(([, v]) => v !== undefined && v !== '' && v !== null && v !== false).map(([k, v]) => <div key={k}><dt className="t-caption muted">{k}</dt><dd className="t-body">{String(v)}</dd></div>)}</dl>
@@ -492,6 +568,39 @@ function TemplatePanel({ existing = [], onRows, onBack, closeLabel = 'Back to op
           {msg && <p className="ffield-error t-body-small" role="alert">{msg}</p>}
         </div>
       </div>
+    </section>
+  );
+}
+
+/* Finance details the requester doesn't fill: from the budget and AI accounting (design-review BoqAccounting). */
+function FinanceDetails({ f, project }) {
+  const [open, setOpen] = useState(false);
+  const lines = f.boqItems.map((r) => (r.mg ? r : withAccounting(r)));
+  const classified = lines.filter((r) => r.ptype && r.mg);
+  const assets = lines.filter((r) => r.ptype === 'asset' || r.ptype === 'service-asset').length;
+  const cc = f.costCenterId ? f.costCenterId.replace('cc-', 'CC-') : '—';
+  const ci = project ? `CI-${project.code.replace('PRJ-', '')}` : '—';
+  const route = assets ? 'Assets + GL (parallel)' : 'GL';
+  return (
+    <section className="fin-card">
+      <button type="button" className="fin-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <AiSpark size={16} />
+        <span className="grow"><span className="t-body-medium">Finance details <span className="ai-pill t-caption-medium">AI-prepared</span></span>
+          <span className="t-body-small muted">{classified.length === lines.length ? 'Accounting check: all lines consistent' : `${classified.length}/${lines.length} lines classified`} · Finance review route: {route}</span></span>
+        <span className="t-body-small inline-link">{open ? 'Show less' : 'Show more'}</span>
+      </button>
+      {open && (
+        <div className="fin-body">
+          <p className="t-body-small muted" style={{ margin: 0 }}>Prepared by AI for the Finance team — you don’t need to fill anything here.</p>
+          <dl className="kv-tiles fin-tiles">
+            <div><dt className="t-caption muted">Cost center (from budget)</dt><dd className="t-body-medium tnum">{cc}</dd></div>
+            <div><dt className="t-caption muted">Commitment item (from budget)</dt><dd className="t-body-medium tnum">{ci}</dd></div>
+            <div><dt className="t-caption muted">Finance review route</dt><dd className="t-body-medium">{route}</dd></div>
+          </dl>
+          <p className="t-body-small" style={{ margin: 0 }}>{assets ? `This request contains ${assets} asset line${assets === 1 ? '' : 's'}, so it goes to the Assets team as well as GL.` : 'No asset lines — only the GL team reviews the accounting.'} {lines.length - classified.length > 0 && <span className="amber">{lines.length - classified.length} line{lines.length - classified.length === 1 ? '' : 's'} not classified yet.</span>}</p>
+          <p className="t-caption muted" style={{ margin: 0 }}>The GL account follows the material group and cannot be edited here.</p>
+        </div>
+      )}
     </section>
   );
 }
