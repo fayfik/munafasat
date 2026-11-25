@@ -45,7 +45,7 @@ function ActorSwitcher({ counts, queued, onSwitch }) {
   // Requester, the approvers by authority, then each team with its lead first.
   const groups = [
     ['Requests', actors.filter((a) => !reviews(a))],
-    ['Approvers', actors.filter((a) => !a.team && a.steps.length)],
+    ['Approvers', actors.filter((a) => !a.team && reviews(a))],
     ...TEAMS.map((t) => [`${t.name} team`, actors.filter((a) => a.team === t.id).sort((x, y) => isLead(y) - isLead(x))]),
   ];
   return (

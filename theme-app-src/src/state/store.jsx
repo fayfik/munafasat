@@ -9,6 +9,7 @@ const initial = () => ({
   reviews: {},     // taskId -> { rowKey -> { state: 'accepted'|'modified'|'commented'|'flagged', value?, note? } }
   extra: {},       // taskId -> free-form per task (added rows, choices, notes…)
   assign: {},      // taskId -> { to: actorId | null, history: [{ at, text }] } — team queue moves
+  responds: {},    // requestId -> { from: taskId, note, at, due } — open "Respond to review comments" for the requester
   delegation: {},  // actorId -> { to, until, newToo, tasks: [taskId] } — "Delegate my inbox"
   rfp: {},         // requestId -> procurement decisions shared across tasks (finQual, method, confirm, etimad)
   comments: Object.fromEntries(Object.values(REQUESTS).map((r) => [r.id, r.comments.map((c) => ({ ...c, replies: [] }))])),
@@ -40,11 +41,23 @@ function reducer(s, a) {
       return { ...s, extra: { ...s.extra, [a.task]: { ...(s.extra[a.task] || {}), ...a.patch } } };
     case 'read':
       return s.read[a.task] ? s : { ...s, read: { ...s.read, [a.task]: true } };
-    case 'complete':
-      return { ...s, done: { ...s.done, [a.task]: { action: a.action, note: a.note || '', at: stamp() } } };
+    case 'complete': {
+      const n = { ...s, done: { ...s.done, [a.task]: { action: a.action, note: a.note || '', at: stamp() } } };
+      if (a.action === 'return' && a.req) n.responds = { ...s.responds, [a.req]: { from: a.task, note: a.note || '', at: stamp(), due: '15 Nov 2026' } };
+      if (a.action === 'resubmit' && a.req && s.responds[a.req]) {
+        // Back to the reviewer who returned it, marked as resubmitted.
+        const from = s.responds[a.req].from;
+        const done = { ...n.done }; delete done[from];
+        n.done = done;
+        n.extra = { ...s.extra, [from]: { ...(s.extra[from] || {}), reopened: true, resubmitted: stamp() } };
+      }
+      return n;
+    }
     case 'undo': {
       const done = { ...s.done }; delete done[a.task];
-      return { ...s, done };
+      const responds = { ...s.responds };
+      Object.keys(responds).forEach((k) => { if (responds[k].from === a.task) delete responds[k]; }); // undoing a return withdraws the requester's task
+      return { ...s, done, responds };
     }
     case 'comment': {
       const list = s.comments[a.req] || [];

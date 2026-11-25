@@ -396,3 +396,20 @@ button.me:focus-visible { outline-color: #fff; }
 .inbox-title-row { flex-wrap: wrap; row-gap: 6px; }
 .scope-tab .t-heading { white-space: nowrap; }
 .inbox:not(.wide) .scope-tabs + .inbox-tools { margin-left: auto; }
+/* Respond to review comments */
+.edit-mode { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--bg-subtle); }
+.edit-mode.on { border-color: var(--brand-200); background: var(--brand-50); }
+.edit-mode .grow { min-width: 0; }
+.resp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.resp { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid var(--amber-border); border-radius: 12px; background: var(--bg-surface); }
+.resp.resolved { border-color: var(--border-default); background: var(--bg-subtle); }
+.resp > .grow { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.resp-marker { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #e3a008; color: #fff; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+.resp.resolved .resp-marker { background: var(--brand-500); }
+.resp-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.resp-anchor { cursor: pointer; }
+.resp-cmt { display: flex; gap: 8px; align-items: flex-start; }
+.resp-cmt.reply { margin-left: 28px; }
+.resp-edit { display: flex; gap: 8px; align-items: center; }
+.resp-edit .finput { flex: 1; }
+.resp-actions { display: flex; gap: 6px; flex-wrap: wrap; }

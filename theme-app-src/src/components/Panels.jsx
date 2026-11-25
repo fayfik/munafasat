@@ -8,7 +8,8 @@ import { useActor } from '../state/actor.jsx';
 
 /* Workflow state for a request, seen from the task's step. */
 export function processFor(task, request, me, store) {
-  const cur = WORKFLOW.findIndex((s) => s.id === task.step);
+  const step = task.type === 'respond' ? TASKS.find((t) => t.id === task.from)?.step || 'dept' : task.step;
+  const cur = WORKFLOW.findIndex((s) => s.id === step);
   return WORKFLOW.map((s, i) => {
     let who = s.id === 'submitted' ? request.requester.name : s.who;
     // Team steps: whoever holds this request's task, or the team queue.
@@ -195,6 +196,7 @@ export function SidePanel({ open, view, setView, onClose, task, request, replyTo
 
 /* ---------- Decision dialog ---------- */
 const COPY = {
+  resubmit: ['Resubmit the request?', 'Resubmit request'],
   approve: ['Approve this request?', 'Approve'],
   return: ['Return to the requester?', 'Return request'],
   reject: ['Reject this request?', 'Reject request'],

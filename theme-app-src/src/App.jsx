@@ -22,7 +22,7 @@ const route = () => {
   const r = h.match(/^#\/requests(?:\/([\w-]+))?/);
   if (r) return r[1] ? { area: 'form', id: r[1] === 'new' ? null : r[1], key: r[1] } : { area: 'requests' };
   const m = h.match(/^#\/inbox\/([\w-]+)/);
-  return { area: 'inbox', task: m && taskById(m[1]) ? m[1] : null };
+  return { area: 'inbox', task: m && (taskById(m[1]) || /^RSP-/.test(m[1])) ? m[1] : null };
 };
 
 // Animate in-app navigation where the browser supports view transitions.
@@ -43,7 +43,7 @@ export default function App() {
   const [loc, setLoc] = useState(route);
   // A link to someone else's task opens it as that person.
   const [current, setCurrent] = useState(() => route().task || firstPending(mine));
-  useEffect(() => { const t = route().task; if (t) { const tk = taskById(t); if (!canSee(actor, tk, state)) { const who = actorById(openerFor(tk, state)); setActor(who.id); if (!mineFor(who, state).some((x) => x.id === t)) setScope('team'); } else if (!mine.some((x) => x.id === t)) setScope('team'); } }, []);
+  useEffect(() => { const t = route().task; if (t) { const tk = taskById(t, state); if (!tk) return; if (!canSee(actor, tk, state)) { const who = actorById(openerFor(tk, state)); setActor(who.id); if (!mineFor(who, state).some((x) => x.id === t)) setScope('team'); } else if (!mine.some((x) => x.id === t)) setScope('team'); } }, []);
   const [panel, setPanel] = useState({ open: false, view: 'comments' });
   const [toast, setToast] = useState(null);
   const [layout, setLayoutRaw] = useState(() => { try { return localStorage.getItem('munafasat-inbox-layout') || 'compact'; } catch (e) { return 'compact'; } });
@@ -60,7 +60,7 @@ export default function App() {
       transition(() => {
         setLoc(r);
         if (r.area === 'inbox' && r.task) {
-          const tk = taskById(r.task);
+          const tk = taskById(r.task, state); if (!tk) { setLoc(r); return; }
           if (!canSee(actor, tk, state)) setActor(openerFor(tk, state));
           setScope(mineFor(canSee(actor, tk, state) ? actor : actorById(openerFor(tk, state)), state).some((x) => x.id === r.task) ? 'mine' : 'team');
           setCurrent(r.task);
@@ -93,7 +93,7 @@ export default function App() {
   };
 
   const complete = (task, action, note) => {
-    dispatch({ type: 'complete', task: task.id, action: action.id, note });
+    dispatch({ type: 'complete', task: task.id, req: task.req, action: action.id, note });
     const idx = list.findIndex((t) => t.id === task.id);
     const next = [...list.slice(idx + 1), ...list.slice(0, idx)].find((t) => !state.done[t.id] && t.id !== task.id);
     setToast({ text: `${task.req} · ${task.title} — ${ACTION_PAST[action.id]}.`, undo: task.id, back: task.id });
@@ -102,7 +102,7 @@ export default function App() {
 
   const counts = Object.fromEntries(ACTORS.map((a) => [a.id, mineFor(a, state).filter((t) => !state.done[t.id]).length]));
   const queued = Object.fromEntries(ACTORS.map((a) => [a.id, queuedFor(a, state).length]));
-  const task = current && taskById(current) && canSee(actor, taskById(current), state) ? taskById(current) : null;
+  const task = current && taskById(current, state) && canSee(actor, taskById(current, state), state) ? taskById(current, state) : null;
   const changeScope = (v) => transition(() => { setScope(v); const l = v === 'team' ? teamList : mine; if (!l.some((t) => t.id === current)) setCurrent(firstPending(l)); });
 
   return (

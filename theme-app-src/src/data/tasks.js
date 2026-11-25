@@ -71,10 +71,30 @@ export const TASKS = [
     hint: 'The request and its estimated price are approved. Create the competition in Etimad with the approved settings and record the Etimad reference.', actions: [A('publish', 'Mark as published')] },
 ];
 
-export const taskById = (id) => TASKS.find((t) => t.id === id);
+/* The requester's "Respond to review comments" task appears when a reviewer returns a request
+   (state.responds, set by the store) and goes back to the reviewer on resubmit. */
+export const RESUBMIT = A('resubmit', 'Resubmit request');
+export function respondTasks(state) {
+  return Object.entries(state?.responds || {}).map(([req, r]) => {
+    const from = TASKS.find((t) => t.id === r.from);
+    return { id: `RSP-${req.replace('REQ-', '')}`, req, type: 'respond', step: 'respond', title: 'Respond to review comments', due: r.due, left: '2d left', hours: 48, unread: true,
+      from: r.from, fromTitle: from?.title, note: r.note, returnedAt: r.at,
+      hint: 'A reviewer returned this request. Reply to or resolve each comment, change the commented fields, then resubmit.', actions: [RESUBMIT] };
+  });
+}
+export const allTasks = (state) => [...TASKS, ...respondTasks(state)];
+export const taskById = (id, state) => TASKS.find((t) => t.id === id) || respondTasks(state).find((t) => t.id === id);
 
 // What happens after each decision (shown in the confirmation dialog).
 export function nextSteps(task, action, request) {
+  if (action === 'resubmit') {
+    const from = TASKS.find((t) => t.id === task.from);
+    return [
+      ['Back to the reviewer', `${from?.title || 'The reviewer'} gets the request again, marked as resubmitted.`],
+      ['They check your changes', 'Your replies, resolved comments and edited fields are shown with the request.'],
+      ['Then', 'The approval continues from where it was returned.'],
+    ];
+  }
   const idx = WORKFLOW.findIndex((s) => s.id === task.step);
   const next = WORKFLOW.slice(idx + 1).find((s) => !(WORKFLOW[idx].group && s.group === WORKFLOW[idx].group)) || null;
   const who = request.requester.name;
@@ -117,4 +137,4 @@ export function nextSteps(task, action, request) {
   }
 }
 
-export const ACTION_PAST = { approve: 'approved', return: 'returned', reject: 'rejected', submit: 'review submitted', confirm: 'review confirmed', keep: 'approval kept', complete: 'completed', assign: 'assigned to officer', doa: 'submitted for DOA approval', publish: 'published in Etimad' };
+export const ACTION_PAST = { resubmit: 'resubmitted', approve: 'approved', return: 'returned', reject: 'rejected', submit: 'review submitted', confirm: 'review confirmed', keep: 'approval kept', complete: 'completed', assign: 'assigned to officer', doa: 'submitted for DOA approval', publish: 'published in Etimad' };
