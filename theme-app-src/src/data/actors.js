@@ -19,7 +19,7 @@ export const teamOfStep = (step) => TEAMS.find((t) => t.steps.includes(step)) ||
 // `steps` are owned personally (no queue). `load` is open work outside this prototype, for the workload view.
 const P = (id, name, role, dept, extra = {}) => ({ id, name, initials: name.split(/[\s-]+/).filter((w) => !/^al$/i.test(w)).map((w) => w[0]).slice(0, 2).join('').toUpperCase(), role, dept, team: null, steps: [], load: 0, ...extra });
 export const ACTORS = [
-  P('requester', 'Mohammed H.', 'Requester', 'IT & Digital', { initials: 'MH' }),
+  P('requester', 'Mohammed H.', 'Requester', 'IT & Digital', { initials: 'MH', steps: ['respond'] }),
   P('dept', 'Nasser Al-Harthi', 'Department manager', 'IT & Digital', { steps: ['dept'] }),
   P('price', 'Saad Al-Malki', 'Department director', 'IT & Digital', { steps: ['price'] }),
   P('tech', 'Sara Al-Zahrani', 'Technical review lead', 'PMO', { team: 'tech', load: 2 }),
@@ -46,6 +46,6 @@ export const actorById = (id) => ACTORS.find((a) => a.id === id) || ACTORS[0];
 export const membersOf = (teamId) => ACTORS.filter((a) => a.team === teamId);
 export const isLead = (actor) => !!actor.team && teamById(actor.team)?.lead === actor.id;
 /** Everyone who acts on tasks — the requester only creates requests. */
-export const reviews = (actor) => actor.steps.length > 0 || !!actor.team;
+export const reviews = (actor) => actor.steps.some((s) => s !== 'respond') || !!actor.team;
 /** Officers the Procurement team lead can hand a request to. */
 export const OFFICER_IDS = ['officer', 'officer2', 'officer3'];

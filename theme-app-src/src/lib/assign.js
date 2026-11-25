@@ -1,6 +1,6 @@
 // Who holds each task, and the team-queue moves: pick up, return to queue,
 // assign and reassign. Mirrors design-review-manual's team queue.
-import { TASKS } from '../data/tasks.js';
+import { TASKS, allTasks } from '../data/tasks.js';
 import { ACTORS, actorById, teamOfStep, teamById, membersOf, isLead } from '../data/actors.js';
 
 /** Actor id holding the task, or null while it waits in the team queue. */
@@ -24,7 +24,7 @@ export const teamOf = (task) => teamOfStep(task.step);
 export const inQueue = (task, state) => !!teamOf(task) && !assigneeOf(task, state);
 
 /** Tasks on this person's own list. */
-export const mineFor = (actor, state) => TASKS.filter((t) => assigneeOf(t, state) === actor.id);
+export const mineFor = (actor, state) => allTasks(state).filter((t) => assigneeOf(t, state) === actor.id);
 
 /** The team view: the lead sees every open team task; members see what is waiting to be picked up. */
 export function teamTasksFor(actor, state) {

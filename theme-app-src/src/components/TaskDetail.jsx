@@ -13,11 +13,12 @@ import { FinQual, TlMethod, OfficerConfirm, EtimadCreate, EtimadBanner } from '.
 import { useQueue, QueueBar, AssignDialog } from './Queue.jsx';
 import { TechEval, Specialist, EaReview, Qualification, ProcQualification } from '../tasks/Reviews.jsx';
 import { GlReview, GlChanged, AssetTreatment } from '../tasks/Finance.jsx';
+import { Respond } from '../tasks/Respond.jsx';
 import { AiCard, AiSpark, AiTag } from './AiKit.jsx';
 import { executiveSummary } from '../data/aiContent.js';
 
-const BODIES = { dept: DeptApproval, tech: TechEval, cyber: Specialist, bcm: Specialist, orm: Specialist, ea: EaReview, gl: GlReview, glchanged: GlChanged, assets: AssetTreatment, qual: Qualification, finqual: FinQual, procqual: ProcQualification, method: TlMethod, confirm: OfficerConfirm, doa: DoaApproval, price: EstimatedPrice, etimad: EtimadCreate };
-const STATUS = { dept: 'Pending your decision', doa: 'Pending your decision', price: 'Pending your decision', method: 'Pending your decision', etimad: 'Ready to publish', glchanged: 'Changed after approval' };
+const BODIES = { respond: Respond, dept: DeptApproval, tech: TechEval, cyber: Specialist, bcm: Specialist, orm: Specialist, ea: EaReview, gl: GlReview, glchanged: GlChanged, assets: AssetTreatment, qual: Qualification, finqual: FinQual, procqual: ProcQualification, method: TlMethod, confirm: OfficerConfirm, doa: DoaApproval, price: EstimatedPrice, etimad: EtimadCreate };
+const STATUS = { respond: 'Returned to you', dept: 'Pending your decision', doa: 'Pending your decision', price: 'Pending your decision', method: 'Pending your decision', etimad: 'Ready to publish', glchanged: 'Changed after approval' };
 
 export function TaskDetail({ task, onComplete, panel, setPanel, onPickedUp, onBack }) {
   const { state, dispatch } = useStore();
@@ -116,6 +117,7 @@ export function TaskDetail({ task, onComplete, panel, setPanel, onPickedUp, onBa
           </div>
 
           <div className="content">
+            {review.extra.resubmitted && !done && <div className="banner brand"><Icon name="icon-reopen" size={16} /><div className="banner-text"><div className="t-body-medium">Resubmitted for approval</div><div className="t-body-small">The requester responded to your comments on {review.extra.resubmitted}. Check their replies in Comments and the edited fields, then decide again.</div></div><Btn variant="secondary-sm" onClick={() => openComments()}>View replies</Btn></div>}
             {state.delegation?.[actor.id]?.tasks.includes(task.id) && !done && <div className="banner"><Icon name="icon-user-assign" size={16} /><div className="banner-text t-body-small">This task is with <strong>{actorById(state.delegation[actor.id].to).name}</strong> — your inbox is delegated. Cancel the delegation to act on it yourself.</div></div>}
             <EtimadBanner req={request.id} />
             {!done && <QueueBar q={q} onAssign={() => setAssigning(true)} />}
@@ -123,7 +125,8 @@ export function TaskDetail({ task, onComplete, panel, setPanel, onPickedUp, onBa
             {done && (
               <div className="banner done-banner">
                 <Icon name="icon-check" size={16} />
-                <div className="banner-text"><div className="t-body-medium">You {ACTION_PAST[done.action]} this on {done.at}</div>{done.note && <div className="t-body-small">“{done.note}”</div>}</div>
+                <div className="banner-text"><div className="t-body-medium">You {ACTION_PAST[done.action]} this on {done.at}</div>{done.note && <div className="t-body-small">“{done.note}”</div>}
+                  {done.action === 'return' && state.responds?.[request.id]?.from === task.id && <div className="t-body-small muted">{request.requester.name} is responding to your comments. The task comes back to you when they resubmit.</div>}</div>
                 <button type="button" className="link-btn" onClick={() => dispatch({ type: 'undo', task: task.id })}>Undo</button>
               </div>
             )}
