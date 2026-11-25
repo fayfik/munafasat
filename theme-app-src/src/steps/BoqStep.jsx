@@ -233,7 +233,6 @@ function BoqHead({ em }) {
 
 function BoqRow({ r, em, onEdit, onView, onRemove, onCheck, onReason, onMove, onKeep, checking }) {
   const fresh = r.etimad && !etimadStale(r);
-  const thin = !em && words(r.itemDescription) < MIN_WORDS.boqDesc;
   const brandMissing = r.hasBrandName && !(r.brandJustification ?? '').trim();
   const acc = em ? null : (r.mg ? r : withAccounting(r));
   const mg = acc && mgOf(acc.mg);
@@ -263,7 +262,6 @@ function BoqRow({ r, em, onEdit, onView, onRemove, onCheck, onReason, onMove, on
               {r.etimad && !fresh && <span className="amber"><span className="sep">·</span>Changed — check Etimad again</span>}
             </div>
           )}
-          {thin && !brandMissing && r.itemDescription && <div className="issue t-caption"><Icon name="icon-warn" size={12} />Add a clearer description</div>}
         </td>
         {em ? (
           <><td className="muted">{r.supplier || '—'}</td><td className="num">{r.purchaseType === 'product' ? `${num(r.quantity) || 1} ${r.orderUnit || ''}` : r.startDate && r.endDate ? `${r.startDate} → ${r.endDate}` : '—'}</td></>
@@ -387,7 +385,7 @@ function ItemDialog({ row, em, budgeted, due, focusKey, onClose, onSave }) {
             <Select value={r.category} onChange={s('category')}><option value="">Detect from the item</option>{BOQ_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.en}</option>)}</Select>
           </FieldBlock>
           <FieldBlock id="bi-itemName" label={mp ? 'Role' : 'Item name'} required wide><Input value={r.itemName} onChange={s('itemName')} placeholder={mp ? 'e.g. Senior ERP Consultant' : 'Item name…'} /></FieldBlock>
-          <FieldBlock id="bi-itemDescription" label="Description" wide hint={`${words(r.itemDescription)} of ${MIN_WORDS.boqDesc}+ words — EA checks the specification and Finance picks the material group from it.`}
+          <FieldBlock id="bi-itemDescription" label="Description" wide hint="EA checks the specification and Finance picks the material group from it."
             action={<AiBtn label="Generate with AI" busyLabel="Writing…" className="ai-sm" disabled={!r.itemName.trim()} onRun={() => setR((x) => ({ ...x, itemDescription: aiDescription(x, cat) }))} delay={800} />}>
             <TextArea rows={3} value={r.itemDescription} onChange={s('itemDescription')} placeholder={mp ? 'Describe the role, responsibilities and requirements…' : 'Describe this item…'} />
           </FieldBlock>

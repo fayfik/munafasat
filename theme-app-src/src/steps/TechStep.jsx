@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Icon, Btn } from '../components/ui.jsx';
 import { useImport } from '../components/AiImport.jsx';
 import { useForm, Block, FieldBlock, Input, TextArea, NumInput, AiBtn, TotalBar, ChipList, PeoplePicker, MoreMenu, ConfirmDelete } from '../components/FormKit.jsx';
+import { useTouched } from '../components/FormKit.jsx';
 import { PEOPLE, MANDATORY_DOCS, AI_TECH_DOCS, AI_TECH_REQ, AI_EVAL } from '../data/newRequest.js';
 import { totals, words, MIN_WORDS } from '../lib/requestRules.js';
 
@@ -9,6 +10,7 @@ export function TechStep() {
   const { f, set, list } = useForm();
   const req = list('technicalRequirements');
   const ev = list('evaluationCriteria');
+  const touched = useTouched();
   const [del, setDel] = useState(null);
   const [pick, setPick] = useState(!f.technicalCommitteeMembers.length);
   const t = totals(f);
@@ -48,8 +50,8 @@ export function TechStep() {
                 <span className="edit-num t-caption muted">{i + 1}</span>
                 <div className="edit-fields">
                   <Input value={r.requirement} onChange={(e) => req.update(r.id, { requirement: e.target.value })} placeholder="Requirement title…" aria-label={`Requirement ${i + 1} title`} className="strong" />
-                  <TextArea rows={2} value={r.description} onChange={(e) => req.update(r.id, { description: e.target.value })} placeholder="Description and acceptance criteria…" aria-label={`Requirement ${i + 1} description`} />
-                  {r.requirement && words(r.description) < MIN_WORDS.techReq && <div className="issue t-caption"><Icon name="icon-warn" size={12} />Add a description of at least {MIN_WORDS.techReq} words</div>}
+                  <TextArea rows={2} value={r.description} onChange={(e) => req.update(r.id, { description: e.target.value })} onBlur={touched.leave(`r-${r.id}`)} placeholder="Description and acceptance criteria…" aria-label={`Requirement ${i + 1} description`} />
+                  {!String(r.description ?? '').trim() && touched.seen(`r-${r.id}`) && <div className="issue t-caption"><Icon name="icon-warn" size={12} />Add a description and acceptance criteria</div>}
                 </div>
                 <button type="button" className="icon-btn" aria-label={`Delete requirement ${i + 1}`} onClick={() => req.remove(r.id)}><Icon name="icon-x" size={16} /></button>
               </li>
@@ -69,8 +71,8 @@ export function TechStep() {
                 <span className="edit-num t-caption muted">{i + 1}</span>
                 <div className="edit-fields">
                   <Input value={r.description} onChange={(e) => ev.update(r.id, { description: e.target.value })} placeholder="Criterion…" aria-label={`Criterion ${i + 1}`} className="strong" />
-                  <TextArea rows={2} value={r.howApplied} onChange={(e) => ev.update(r.id, { howApplied: e.target.value })} placeholder="How it is scored…" aria-label={`How criterion ${i + 1} is scored`} />
-                  {words(r.howApplied) < MIN_WORDS.howApplied && <div className="issue t-caption"><Icon name="icon-warn" size={12} />Say how it’s scored ({MIN_WORDS.howApplied}+ words)</div>}
+                  <TextArea rows={2} value={r.howApplied} onChange={(e) => ev.update(r.id, { howApplied: e.target.value })} onBlur={touched.leave(`e-${r.id}`)} placeholder="How it is scored…" aria-label={`How criterion ${i + 1} is scored`} />
+                  {!String(r.howApplied ?? '').trim() && touched.seen(`e-${r.id}`) && <div className="issue t-caption"><Icon name="icon-warn" size={12} />Say how it’s scored</div>}
                 </div>
                 <div className="weight-in"><NumInput value={r.weight} max={100} suffix="%" onChange={(v) => ev.update(r.id, { weight: v })} placeholder="0" aria-label={`Criterion ${i + 1} weight`} /></div>
                 <button type="button" className="icon-btn" aria-label={`Delete criterion ${i + 1}`} onClick={() => ev.remove(r.id)}><Icon name="icon-x" size={16} /></button>
