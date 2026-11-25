@@ -2,8 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from './ui.jsx';
 import { useActor } from '../state/actor.jsx';
 import { TEAMS, isLead, reviews } from '../data/actors.js';
+import { useStore } from '../state/store.jsx';
+import { mineFor } from '../lib/assign.js';
+import { REQUESTS } from '../data/requests.js';
 
-export function TopBar({ counts = {}, queued = {}, onSwitch }) {
+export function TopBar({ counts = {}, queued = {}, onSwitch, onOpenTask }) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -11,7 +14,7 @@ export function TopBar({ counts = {}, queued = {}, onSwitch }) {
         <span className="brand-name">Munafasat</span>
       </div>
       <div className="topbar-actions">
-        <button className="bell" type="button" aria-label="Notifications, unread"><Icon name="notifications" size={40} /></button>
+        <Bell onOpenTask={onOpenTask} />
         <ActorSwitcher counts={counts} queued={queued} onSwitch={onSwitch} />
       </div>
     </header>
@@ -97,5 +100,45 @@ export function NavRail({ count, area = 'inbox', onInbox }) {
       <a className="nav-item" href="#/inbox" aria-label={`Inbox, ${count} tasks`} title="Inbox" aria-current={cur('inbox')} onClick={(e) => { if (onInbox) { e.preventDefault(); onInbox(); } }}><Icon name="icon-inbox" size={20} />{count > 0 && <span className="nav-badge">{count}</span>}</a>
       <a className="nav-item" href="#/reports" aria-label="Reports (coming next)" title="Reports — coming in a later batch" onClick={(e) => e.preventDefault()}><Icon name="icon-chart" size={20} /></a>
     </nav>
+  );
+}
+
+/* Task notifications: new tasks in your inbox, newest first; open one or mark all as read. */
+function Bell({ onOpenTask }) {
+  const { state, dispatch } = useStore();
+  const { actor } = useActor();
+  const [open, setOpen] = useState(false);
+  const wrap = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const off = (e) => { if (!wrap.current?.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', off); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', off); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  const items = mineFor(actor, state).filter((t) => !state.done[t.id]).sort((a, b) => a.hours - b.hours);
+  const unread = items.filter((t) => t.unread && !state.read[t.id]);
+  const ago = (i) => (i === 0 ? 'just now' : `${i * 7 + 2} min ago`);
+  return (
+    <div className="bell-wrap" ref={wrap}>
+      <button className={`bell${unread.length ? '' : ' quiet'}`} type="button" aria-label={unread.length ? `Notifications, ${unread.length} unread` : 'Notifications'} aria-expanded={open} onClick={() => setOpen(!open)}><Icon name={unread.length ? 'notifications' : 'notifications-read'} size={40} /></button>
+      {open && (
+        <div className="notif-pop" role="dialog" aria-label="Notifications">
+          <div className="notif-head"><span className="t-title">Notifications</span>{unread.length > 0 && <button type="button" className="inline-link t-body-small" onClick={() => dispatch({ type: 'readAll', tasks: unread.map((t) => t.id) })}>Mark all as read</button>}</div>
+          {!items.length ? <p className="t-body-small muted notif-empty">You’re all caught up.</p> : (
+            <ul className="notif-list">{items.slice(0, 8).map((t, i) => {
+              const isNew = t.unread && !state.read[t.id];
+              return (
+                <li key={t.id}><button type="button" className={`notif${isNew ? ' new' : ''}`} onClick={() => { setOpen(false); onOpenTask?.(t.id); }}>
+                  <span className="notif-dot" aria-hidden="true" />
+                  <span className="grow"><span className="t-caption muted">{isNew ? 'New task in your inbox' : 'Waiting for you'} · {ago(i)}</span><span className="t-body-small t-strong">{t.title}</span><span className="t-caption muted">{t.req} · {REQUESTS[t.req].project}</span></span>
+                  <span className={`t-caption tnum${t.hours <= 24 ? ' amber' : ' muted'}`}>{t.left}</span>
+                </button></li>
+              );
+            })}</ul>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

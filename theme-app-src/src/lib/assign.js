@@ -5,10 +5,20 @@ import { ACTORS, actorById, teamOfStep, teamById, membersOf, isLead } from '../d
 
 /** Actor id holding the task, or null while it waits in the team queue. */
 export function assigneeOf(task, state) {
-  const team = teamOfStep(task.step);
-  if (!team) return ACTORS.find((a) => a.steps.includes(task.step))?.id ?? null;
   const moved = state.assign?.[task.id];
+  const team = teamOfStep(task.step);
+  if (!team) return moved?.to || (ACTORS.find((a) => a.steps.includes(task.step))?.id ?? null); // personal steps move only by delegation
   return moved ? moved.to : task.assignee ?? null;
+}
+/** Tasks this person delegated to a colleague (still theirs to follow). */
+export const delegatedBy = (actor, state) => {
+  const d = state.delegation?.[actor.id];
+  return d ? TASKS.filter((t) => d.tasks.includes(t.id)) : [];
+};
+/** Colleagues a person can delegate their inbox to: their team, else reviewers in their department. */
+export function delegatesFor(actor) {
+  const pool = actor.team ? membersOf(actor.team) : ACTORS.filter((a) => a.dept === actor.dept && (a.steps.length || a.team));
+  return pool.filter((a) => a.id !== actor.id);
 }
 export const teamOf = (task) => teamOfStep(task.step);
 export const inQueue = (task, state) => !!teamOf(task) && !assigneeOf(task, state);
@@ -38,7 +48,7 @@ export function openerFor(task, state) {
 }
 
 /** Can this person see the task at all? */
-export const canSee = (actor, task, state) => assigneeOf(task, state) === actor.id || teamTasksFor(actor, state).some((t) => t.id === task.id) || (actor.team && teamOf(task)?.id === actor.team && isLead(actor));
+export const canSee = (actor, task, state) => assigneeOf(task, state) === actor.id || !!state.delegation?.[actor.id]?.tasks.includes(task.id) || teamTasksFor(actor, state).some((t) => t.id === task.id) || (actor.team && teamOf(task)?.id === actor.team && isLead(actor));
 
 const first = (name) => name.split(' ')[0];
 /** The history line for a queue move (also shown in Activity). */

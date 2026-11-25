@@ -19,7 +19,7 @@ import { executiveSummary } from '../data/aiContent.js';
 const BODIES = { dept: DeptApproval, tech: TechEval, cyber: Specialist, bcm: Specialist, orm: Specialist, ea: EaReview, gl: GlReview, glchanged: GlChanged, assets: AssetTreatment, qual: Qualification, finqual: FinQual, procqual: ProcQualification, method: TlMethod, confirm: OfficerConfirm, doa: DoaApproval, price: EstimatedPrice, etimad: EtimadCreate };
 const STATUS = { dept: 'Pending your decision', doa: 'Pending your decision', price: 'Pending your decision', method: 'Pending your decision', etimad: 'Ready to publish', glchanged: 'Changed after approval' };
 
-export function TaskDetail({ task, onComplete, panel, setPanel, onPickedUp }) {
+export function TaskDetail({ task, onComplete, panel, setPanel, onPickedUp, onBack }) {
   const { state, dispatch } = useStore();
   const { actor } = useActor();
   const request = REQUESTS[task.req];
@@ -74,10 +74,12 @@ export function TaskDetail({ task, onComplete, panel, setPanel, onPickedUp }) {
       <main className="detail" aria-labelledby="task-title">
         <div className="detail-scroll" ref={scroller}>
           <div className="detail-header">
+            {onBack && <button type="button" className="link-btn back-inbox t-body-small" onClick={onBack}><Icon name="icon-arrow-left" size={14} />Back to Inbox</button>}
             <div className="eyebrow">
               <span className="t-label" style={{ color: 'var(--brand-700)' }}>{task.title}</span>
               <span className="t-body-small muted">· {request.id}</span>
               <span className={`status-pill t-caption-medium${done ? ' done' : ''}${q.queued ? ' queued' : ''}`}><span className="pill-dot" />{statusLabel}</span>
+              <a className="newtab-link t-caption" href={`#/inbox/${task.id}`} target="_blank" rel="noopener" title="Open the request details in a new tab" aria-label="Open the request details in a new tab"><Icon name="icon-arrow-right" size={12} />New tab</a>
             </div>
             <div className="title-row">
               <div className="title">
@@ -114,6 +116,7 @@ export function TaskDetail({ task, onComplete, panel, setPanel, onPickedUp }) {
           </div>
 
           <div className="content">
+            {state.delegation?.[actor.id]?.tasks.includes(task.id) && !done && <div className="banner"><Icon name="icon-user-assign" size={16} /><div className="banner-text t-body-small">This task is with <strong>{actorById(state.delegation[actor.id].to).name}</strong> — your inbox is delegated. Cancel the delegation to act on it yourself.</div></div>}
             <EtimadBanner req={request.id} />
             {!done && <QueueBar q={q} onAssign={() => setAssigning(true)} />}
             <Segment label="Task sections" value={tab} onChange={(v) => { setTab(v); if (v !== 'details') setCommenting(false); }} items={[{ id: 'action', label: 'Required action' }, { id: 'details', label: 'Request details' }, { id: 'activity', label: 'Activity' }]} />

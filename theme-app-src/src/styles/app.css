@@ -340,3 +340,52 @@ button.me:focus-visible { outline-color: #fff; }
 .inbox-blank { align-items: center; justify-content: center; gap: 12px; }
 @media (prefers-reduced-motion: no-preference) { .actor-menu { animation: pop 160ms var(--ease-out) both; transform-origin: top right; } }
 .inline-link.t-body-small { font-size: 13px; line-height: 19px; } .inline-link.t-caption { font-size: 12px; line-height: 16px; }
+
+/* ── Inbox tools: filters, list layout, delegation, notifications ── */
+.inbox-tools { display: flex; align-items: center; gap: 2px; }
+.inbox-tools .icon-btn img { width: 18px; height: 18px; }
+.icon-btn.has-dot { position: relative; }
+.icon-btn.has-dot::after { content: ''; position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--brand-500); box-shadow: 0 0 0 2px var(--bg-surface); }
+.inbox-note { padding: 6px 10px; border-radius: 8px; background: var(--brand-50); color: var(--brand-800); }
+.inbox-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: center; }
+.inbox-filters .fselect { height: 34px; font-size: 13px; }
+.inbox.wide .inbox-filters { grid-template-columns: repeat(4, minmax(0, 220px)) auto; }
+.deleg-banner { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--amber-border); border-radius: 10px; background: var(--amber-50); }
+.deleg-banner .grow { display: flex; flex-direction: column; min-width: 0; }
+.t-strong { font-weight: 500; }
+.inbox.wide { width: auto; flex: 1; margin-right: 0; border-radius: var(--radius-card); }
+.task-table { width: 100%; border-collapse: collapse; }
+.task-table th { text-align: left; font-weight: 500; color: var(--ink-secondary); padding: 10px 12px; border-bottom: 1px solid var(--border-default); white-space: nowrap; position: sticky; top: 0; background: var(--bg-surface); }
+.task-table td { padding: 10px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
+.task-table tbody tr { cursor: pointer; }
+.task-table tbody tr:hover { background: var(--bg-subtle); }
+.task-table tr.unread .tt-title { font-weight: 600; }
+.task-table tr.is-done td { color: var(--ink-muted); }
+.tt-title { display: inline-flex; align-items: center; gap: 8px; }
+.back-inbox { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.newtab-link { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-muted); text-decoration: none; margin-left: auto; }
+.newtab-link:hover { color: var(--brand-700); }
+.deleg-form { display: flex; flex-direction: column; gap: 10px; }
+.deleg-people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.deleg-people label { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: 10px; cursor: pointer; }
+.deleg-people label.on { border-color: var(--brand-500); background: var(--brand-50); }
+.deleg-people .grow { display: flex; flex-direction: column; min-width: 0; }
+.deleg-people input { accent-color: var(--brand-700); }
+.deleg-until { display: flex; flex-direction: column; gap: 6px; }
+.deleg-check { display: flex; align-items: center; gap: 8px; }
+.bell-wrap { position: relative; }
+.bell.quiet img { filter: none; }
+.notif-pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: 380px; max-height: 70vh; overflow: auto; background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 12px; box-shadow: 0 12px 32px rgba(16, 24, 40, 0.16); }
+.notif-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid var(--border-soft); }
+.notif-empty { margin: 0; padding: 20px 16px; }
+.notif-list { list-style: none; margin: 0; padding: 6px; }
+.notif { width: 100%; display: flex; align-items: flex-start; gap: 10px; padding: 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; font: inherit; color: var(--ink-primary); }
+.notif:hover { background: var(--bg-subtle); }
+.notif .grow { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.notif-dot { width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; flex: none; background: transparent; }
+.notif.new .notif-dot { background: var(--brand-500); }
+.deleg-banner .avatar-dot, .deleg-people .avatar-dot { width: 30px; height: 30px; font-size: 11px; }
+.task-table .avatar-dot { width: 24px; height: 24px; font-size: 10px; }
+.task-table .by-cell { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.task-table td:nth-child(3) { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-holder .avatar-dot { width: 18px; height: 18px; font-size: 9px; }
