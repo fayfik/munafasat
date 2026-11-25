@@ -91,6 +91,12 @@ export function YesNo({ value, onChange, name, suggested }) {
   );
 }
 
+/** Fields the person has left (blurred) — empty-field warnings wait until then, never while typing. */
+export function useTouched() {
+  const [t, setT] = useState({});
+  return { seen: (k) => !!t[k], leave: (k) => () => setT((x) => (x[k] ? x : { ...x, [k]: true })) };
+}
+
 /** Pick one of a few options, as pills (same look as Yes/No). `dot` colours a leading dot per option. */
 export function Choice({ options, value, onChange, name, disabled, hint }) {
   return (

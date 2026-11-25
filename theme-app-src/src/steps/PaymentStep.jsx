@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '../components/ui.jsx';
 import { useForm, Block, Input, NumInput, AiBtn, TotalBar, MoreMenu, ConfirmDelete, sarFmt } from '../components/FormKit.jsx';
+import { useTouched } from '../components/FormKit.jsx';
 import { AI_PAYMENTS } from '../data/newRequest.js';
 import { useImport } from '../components/AiImport.jsx';
 import { totals, num, words, MIN_WORDS } from '../lib/requestRules.js';
@@ -8,6 +9,7 @@ import { totals, num, words, MIN_WORDS } from '../lib/requestRules.js';
 export function PaymentStep() {
   const { f, list } = useForm();
   const rows = list('paymentStages');
+  const touched = useTouched();
   const [confirmAll, setConfirmAll] = useState(false);
   const t = totals(f);
   const base = t.subtotal;
@@ -25,7 +27,7 @@ export function PaymentStep() {
               <tbody>
                 {f.paymentStages.map((r, i) => {
                   const amount = typeof r.amount === 'number' ? r.amount : (num(r.percentage) / 100) * base;
-                  const thin = words(r.itemsDeliverables) < MIN_WORDS.deliverable;
+                  const noDeliverable = !String(r.itemsDeliverables ?? '').trim() && touched.seen(`d-${r.id}`);
                   return (
                     <tr key={r.id}>
                       <td className="order-cell">
@@ -34,8 +36,8 @@ export function PaymentStep() {
                       </td>
                       <td><Input value={r.stageName} onChange={(e) => rows.update(r.id, { stageName: e.target.value })} placeholder="Stage name…" aria-label={`Stage ${i + 1} name`} /></td>
                       <td>
-                        <Input value={r.itemsDeliverables} onChange={(e) => rows.update(r.id, { itemsDeliverables: e.target.value })} placeholder="e.g. Signed design document" aria-label={`Stage ${i + 1} deliverables`} />
-                        {thin && r.stageName && <div className="issue t-caption"><Icon name="icon-warn" size={12} />Name the deliverable this pays for</div>}
+                        <Input value={r.itemsDeliverables} onChange={(e) => rows.update(r.id, { itemsDeliverables: e.target.value })} onBlur={touched.leave(`d-${r.id}`)} placeholder="e.g. Signed design document" aria-label={`Stage ${i + 1} deliverables`} />
+                        {noDeliverable && <div className="issue t-caption"><Icon name="icon-warn" size={12} />Name the deliverable this pays for</div>}
                       </td>
                       <td className="num"><NumInput value={r.percentage} max={100} suffix="%" onChange={(v) => rows.update(r.id, { percentage: v, amount: undefined })} placeholder="0" aria-label={`Stage ${i + 1} percentage`} /></td>
                       <td className="num"><NumInput value={base ? Math.round(amount * 100) / 100 : ''} disabled={!base} onChange={(v) => rows.update(r.id, { amount: v === '' ? undefined : v, percentage: v === '' || !base ? '' : Math.round((v / base) * 10000) / 100 })} placeholder={base ? '0' : 'Add BOQ first'} aria-label={`Stage ${i + 1} amount`} /></td>

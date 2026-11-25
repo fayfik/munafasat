@@ -9,7 +9,8 @@ import { aboveRange } from './qualGuide.js';
 
 export const num = (v) => (typeof v === 'number' && !Number.isNaN(v) ? v : 0);
 export const words = (s) => (s ?? '').trim().split(/\s+/).filter((w) => w.length > 1).length;
-export const MIN_WORDS = { scope: 40, purpose: 12, boqDesc: 5, deliverable: 3, howApplied: 6, techReq: 6 };
+// Purpose and scope keep a word guide (shown as a meter); other fields only need to be filled in.
+export const MIN_WORDS = { scope: 40, purpose: 12 };
 export const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : `id-${Math.random().toString(36).slice(2)}`);
 
 /* ── Routing (step 1) ─────────────────────────────────────────────────────── */
@@ -202,19 +203,19 @@ export function qualityIssues(id, f) {
     if (n < MIN_WORDS.scope) out.push({ id: 'sow', field: 'q-scope', en: 'Add more detail to the scope of work', why: 'EA and your manager return a short scope. Say what is delivered, where, by whom, and what is out of scope.', ai: true, meta: `${n} of ${MIN_WORDS.scope} words` });
   }
   if (id === 'boq') {
-    const thin = f.boqItems.filter((r) => words(r.itemDescription) < MIN_WORDS.boqDesc);
-    if (thin.length) out.push({ id: 'boq-desc', field: 'q-boq', en: `${thin.length} BOQ item${thin.length === 1 ? ' needs' : 's need'} a clearer description`, why: 'EA checks the specification and Finance picks the material group from it — a one-liner gets returned.', ai: true, meta: thin.slice(0, 3).map((r) => r.itemName || 'Unnamed item').join(' · ') });
+    const thin = f.boqItems.filter((r) => !String(r.itemDescription ?? '').trim());
+    if (thin.length) out.push({ id: 'boq-desc', field: 'q-boq', en: `${thin.length} BOQ item${thin.length === 1 ? ' needs' : 's need'} a description`, why: 'EA checks the specification and Finance picks the material group from it — a one-liner gets returned.', ai: true, meta: thin.slice(0, 3).map((r) => r.itemName || 'Unnamed item').join(' · ') });
     const noPrice = f.boqItems.filter((r) => !(num(r.unitPrice) > 0) || !(num(r.quantity) > 0 || num(r.staffCount) > 0));
     if (noPrice.length) out.push({ id: 'boq-price', field: 'q-boq', en: `${noPrice.length} BOQ item${noPrice.length === 1 ? ' has' : 's have'} no quantity or unit price`, why: 'Your manager can’t approve the budget without an estimated amount for every line.' });
   }
   if (id === 'payment') {
-    const thin = f.paymentStages.filter((s) => words(s.itemsDeliverables) < MIN_WORDS.deliverable);
+    const thin = f.paymentStages.filter((s) => !String(s.itemsDeliverables ?? '').trim());
     if (thin.length) out.push({ id: 'pay', field: 'q-payment', en: `${thin.length} payment stage${thin.length === 1 ? '' : 's'} without the deliverable it pays for`, why: 'Finance and PMO return payments that aren’t tied to a deliverable.' });
   }
   if (id === 'tech') {
-    const thin = f.evaluationCriteria.filter((c) => words(c.howApplied) < MIN_WORDS.howApplied);
+    const thin = f.evaluationCriteria.filter((c) => !String(c.howApplied ?? '').trim());
     if (thin.length) out.push({ id: 'eval', field: 'q-eval', en: `Explain how ${thin.length === 1 ? '1 criterion is' : `${thin.length} criteria are`} scored`, why: 'The technical committee returns criteria without a clear scoring method.' });
-    const req = f.technicalRequirements.filter((r) => r.requirement && words(r.description) < MIN_WORDS.techReq);
+    const req = f.technicalRequirements.filter((r) => r.requirement && !String(r.description ?? '').trim());
     if (req.length) out.push({ id: 'req', field: 'q-req', en: `${req.length} technical requirement${req.length === 1 ? ' needs' : 's need'} a description`, why: 'EA returns requirements that only have a title.' });
   }
   return out;
