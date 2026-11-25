@@ -23,7 +23,7 @@ import { ReviewStep, SubmittedScreen } from '../steps/ReviewStep.jsx';
 const BODIES = { route: RouteStep, setup: SetupStep, scope: ScopeStep, boq: BoqStep, payment: PaymentStep, tech: TechStep, qual: QualStep, attachments: AttachmentsStep, review: ReviewStep };
 const time = (d) => new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-export function NewRequest({ id, onExit, onOpen }) {
+export function NewRequest({ id, onExit, onOpen, onView }) {
   const store = useRequests();
   const { actor } = useActor();
   const saved = id ? store.get(id) : null;
@@ -114,7 +114,7 @@ export function NewRequest({ id, onExit, onOpen }) {
   const bl = cur.id === 'review' ? blockers(f, routeConfirmed) : [];
   const stepTitle = cur.id === 'setup' && em ? cur.emTitle : cur.title;
 
-  if (submitted) return <SubmittedScreen rec={submitted} project={project} onExit={onExit} onView={() => setSubmitted(null)} />;
+  if (submitted) return <SubmittedScreen rec={submitted} project={project} onExit={onExit} onView={onView} />;
 
   return (
     <FormCtx.Provider value={ctx}>
