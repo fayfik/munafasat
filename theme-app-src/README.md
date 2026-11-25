@@ -49,11 +49,11 @@ Synced with the design-review build of 22 Nov 2026: project priority and guided 
 
 AI touchpoints (sample content, no live model): similar requests to import on Project setup, “Identify items with AI” in Help me decide, Generate scope / terms / purpose / location, Generate with AI on the BOQ (start card, title row and item descriptions), AI Etimad check, AI purchase type + material group per line, Import from similar projects (payment, requirements, criteria, qualification), AI pre-review on Review & submit, AI suggestions on My requests, and an AI executive summary on every reviewer task.
 
-Routes: `#/inbox/<task>` · `#/requests` · `#/requests/new` · `#/requests/<id>`.
+Routes: `#/dashboard` · `#/inbox/<task>` · `#/requests` · `#/requests/new` · `#/requests/<id>` · `#/requests/view/<id>` · `#/reports` · `#/reports/<id>`.
 
 ## Batches
 
 1. **Inbox — all task types** (done)
-2. **New Request form** — tender (9 steps) and E-Market (5 steps) (done) · My Requests list and request page (next)
-3. Dashboard and Reports
+2. **New Request form** — tender (9 steps) and E-Market (5 steps), My Requests list and request page (done)
+3. **Dashboard and Reports** — 33 reports in 5 groups (done)
 4. Arabic / right-to-left pass
