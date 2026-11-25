@@ -102,7 +102,8 @@ export function Specialist() {
   const usedIds = new Set(keys);
   return (
     <div className="stack">
-      <ReviewHeader title={cfg.title} desc={cfg.desc} done={done} total={keys.length} noun={cfg.noun} onAll={acceptAll} />
+      <ReviewHeader title={cfg.title} desc={cfg.desc} done={done} total={keys.length} noun={cfg.noun} onAll={acceptAll}
+        allLabel={task.type === 'bcm' && sections[0]?.rows[0]?.tone === 'success' ? 'Confirm not in BCM scope' : undefined} />
       {sections.map((s) => (
         <section className="sec" key={s.id}>
           <SectionHead name={s.name} hint={s.hint} done={countDone(s.rows.map((r) => r.key), review.decisions)} total={s.rows.length} />

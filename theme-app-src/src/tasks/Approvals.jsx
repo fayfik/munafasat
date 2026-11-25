@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTask, ReadRequestRow } from '../components/ReviewKit.jsx';
 import { Icon } from '../components/ui.jsx';
 import { sar } from '../data/requests.js';
@@ -8,6 +8,9 @@ const short = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M
 
 /* ---------- Budget check ---------- */
 export function BudgetCheck({ budget }) {
+  const [checking, setChecking] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const refresh = () => { setChecking(true); setTimeout(() => { setChecking(false); setChecked(true); }, 900); };
   const ok = budget.status === 'available';
   const total = budget.consumed + budget.request + (ok ? budget.remaining : 0);
   const pct = (n) => `${(n / Math.max(total, budget.consumed + budget.request)) * 100}%`;
@@ -18,7 +21,7 @@ export function BudgetCheck({ budget }) {
           <span className="t-title" id="budget-title">Budget check</span>
           <span className={`ok-chip t-caption-medium${ok ? '' : ' bad'}`}><Icon name={ok ? 'icon-check' : 'icon-block'} size={13} />{ok ? 'Within budget' : 'Insufficient budget'}</span>
         </div>
-        <span className="t-caption muted">SAP Funds Mgmt · {budget.ref}</span>
+        <span className="t-caption muted budget-src">SAP Funds Mgmt · {budget.ref} · {checking ? <span className="checking-txt">Checking budget…</span> : <button type="button" className="inline-link t-caption" onClick={refresh}>{checked ? 'Checked just now · Refresh' : 'Refresh'}</button>}</span>
       </div>
       {!ok && <p className="t-body-small" style={{ margin: 0, color: 'var(--danger-text)' }}>The estimated value exceeds the available budget. Approval is blocked — return the request or ask Finance for a budget transfer.</p>}
       <div className="figures">

@@ -1,4 +1,4 @@
-import { Children, cloneElement, useState } from 'react';
+import { Children, cloneElement, useEffect, useRef, useState } from 'react';
 import { Icon, Btn, Collapsible, Avatar, Tags } from './ui.jsx';
 import { useTask, CommentBox } from './ReviewKit.jsx';
 import { sar, boqTotal } from '../data/requests.js';
@@ -36,6 +36,7 @@ function KV({ id, label, children }) {
 
 export function RequestDetails() {
   const { request: r, commenting, openDetails, store, viewOnly } = useTask();
+  const rootRef = useRef(null);
   const rfp = store.rfp?.[r.id] || {};
   const { actor } = useActor();
   const seesFin = ['finance', 'procurement'].includes(actor.team); // financial criteria: Finance and Procurement only
@@ -44,7 +45,8 @@ export function RequestDetails() {
   const total = boqTotal(r);
   const items = r.boq.reduce((n, g) => n + g.items.length, 0);
   return (
-    <div className="details">
+    <div className="details" ref={rootRef}>
+      <JumpTo root={rootRef} />
       {viewOnly ? null : commenting ? (
         <div className="banner brand sticky-banner">
           <Icon name="rail-comments" size={18} />
@@ -193,6 +195,31 @@ export function RequestDetails() {
           </C>
         </>
       )}
+    </div>
+  );
+}
+
+/** Jump to section: lists the request's sections and scrolls to the one picked. */
+function JumpTo({ root }) {
+  const [secs, setSecs] = useState([]);
+  useEffect(() => {
+    const list = [...(root.current?.querySelectorAll('[data-anchor^="sec-"]') || [])].map((el) => ({ id: el.dataset.anchor, label: el.querySelector('.t-title')?.textContent || el.dataset.anchor }));
+    setSecs(list);
+  }, [root]);
+  if (secs.length < 3) return null;
+  const go = (id) => {
+    const el = root.current?.querySelector(`[data-anchor="${id}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    el.querySelector('.collapse-toggle[aria-expanded="false"]')?.click();
+    el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+  };
+  return (
+    <div className="jump-to">
+      <select className="finput fselect" value="" onChange={(e) => go(e.target.value)} aria-label="Jump to section">
+        <option value="" disabled>Jump to section…</option>
+        {secs.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+      </select>
     </div>
   );
 }
