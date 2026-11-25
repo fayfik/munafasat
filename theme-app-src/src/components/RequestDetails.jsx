@@ -37,6 +37,7 @@ function KV({ id, label, children }) {
 export function RequestDetails() {
   const { request: r, commenting, openDetails, store, viewOnly } = useTask();
   const rootRef = useRef(null);
+  const [boqView, setBoqView] = useState('table');
   const rfp = store.rfp?.[r.id] || {};
   const { actor } = useActor();
   const seesFin = ['finance', 'procurement'].includes(actor.team); // financial criteria: Finance and Procurement only
@@ -93,7 +94,9 @@ export function RequestDetails() {
       </C>
 
       <C id="sec-boq" label="Bill of quantities" className="c-section">
-        <Collapsible title="Bill of quantities" meta={`${items} items · ${sar(total)}`}>
+        <Collapsible title="Bill of quantities" meta={`${items} items · ${sar(total)}`}
+          actions={<span className="boq-viewtog" role="group" aria-label="BOQ view"><button type="button" aria-pressed={boqView === 'table'} onClick={() => setBoqView('table')}>Table view</button><button type="button" aria-pressed={boqView === 'chart'} onClick={() => setBoqView('chart')}>Chart view</button></span>}>
+          {boqView === 'chart' ? <BoqChart boq={r.boq} total={total} /> : (
           <div className="table-scroll">
             <table className="plain-table boq">
               <thead><tr><th>#</th><th>Item</th><th>Category</th><th>Delivery</th><th className="num">Qty</th><th className="num">Unit price</th><th className="num">Total</th></tr></thead>
@@ -114,6 +117,7 @@ export function RequestDetails() {
               </tfoot>
             </table>
           </div>
+          )}
         </Collapsible>
       </C>
 
@@ -221,5 +225,23 @@ function JumpTo({ root }) {
         {secs.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
       </select>
     </div>
+  );
+}
+
+/** Chart view of the BOQ: value by budget line (bar length) with item counts. */
+function BoqChart({ boq, total }) {
+  const lines = boq.map((g) => ({ name: g.name, n: g.items.length, v: g.items.reduce((a, i) => a + i.total, 0) })).sort((a, b) => b.v - a.v);
+  const max = Math.max(...lines.map((l) => l.v), 1);
+  return (
+    <ul className="boq-chart">
+      {lines.map((l) => (
+        <li key={l.name}>
+          <span className="t-body-small bc-name">{l.name}<span className="muted"> · {l.n} item{l.n > 1 ? 's' : ''}</span></span>
+          <span className="bc-bar"><span style={{ width: `${(l.v / max) * 100}%` }} /></span>
+          <span className="t-body-small tnum bc-val">{sar(l.v, 0)}</span>
+          <span className="t-caption muted tnum bc-pct">{Math.round((l.v / total) * 100)}%</span>
+        </li>
+      ))}
+    </ul>
   );
 }

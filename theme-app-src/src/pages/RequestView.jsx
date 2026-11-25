@@ -417,6 +417,7 @@ function BoqItems({ boq, em }) {
 function Documents({ r, m, refId, editable }) {
   const [added, setAdded] = useState([]);
   const [preview, setPreview] = useState(null);
+  const [zoom, setZoom] = useState(1);
   const attachments = [...m.request.attachments.slice(0, m.em ? 2 : 5).map((d) => ({ ...d, by: r.by, at: r.createdAt })), ...added];
   const generated = [
     ...(r.status !== 'draft' && r.requestNo ? [{ name: `Request summary — ${r.requestNo}`, type: 'PDF', size: '412 KB', by: 'Munafasat', at: r.createdAt }] : []),
@@ -450,15 +451,15 @@ function Documents({ r, m, refId, editable }) {
       {group('Request attachments', attachments, 'No attachments yet.', editable && <label className="btn btn-secondary-sm rv-upload"><Icon name="icon-upload" size={16} />Upload<input type="file" multiple hidden onChange={upload} /></label>)}
       {group('Generated documents', generated, 'Documents are generated once the request is submitted.')}
       <Dialog open={!!preview} onClose={() => setPreview(null)} title={preview?.name} sub={preview && `${preview.type} · ${preview.size} · by ${preview.by}`} className="sheet rv-preview"
-        foot={preview && <><span className="grow" /><Btn variant="secondary" onClick={() => setPreview(null)}>Close</Btn><Btn variant="primary" icon="icon-download" onClick={() => downloadPdf(preview.name, spec(preview))}>Download</Btn></>}>
+        foot={preview && <><span className="zoom-ctl"><button type="button" className="icon-btn" aria-label="Zoom out" disabled={zoom <= 0.6} onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.2).toFixed(1)))}>−</button><span className="t-caption tnum">{Math.round(zoom * 100)}%</span><button type="button" className="icon-btn" aria-label="Zoom in" disabled={zoom >= 1.6} onClick={() => setZoom((z) => Math.min(1.6, +(z + 0.2).toFixed(1)))}>+</button></span><span className="grow" /><Btn variant="secondary" onClick={() => setPreview(null)}>Close</Btn><Btn variant="primary" icon="icon-download" onClick={() => downloadPdf(preview.name, spec(preview))}>Download</Btn></>}>
         {preview && (
-          <div className="rv-page">
+          <div className="rv-page-wrap"><div className="rv-page" style={{ zoom }}>
             <div className="rv-page-bar" />
             <div className="t-heading">{preview.name}</div>
             <div className="t-body-small muted">{refId} · {r.title}</div>
             <dl className="rv-page-rows t-body-small">{spec(preview).rows.map(([k, v]) => <div key={k}><dt className="muted">{k}</dt><dd>{v}</dd></div>)}</dl>
             <p className="t-body-small muted">{m.request.scope}</p>
-          </div>
+          </div></div>
         )}
       </Dialog>
     </div>

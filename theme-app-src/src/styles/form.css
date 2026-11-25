@@ -787,3 +787,6 @@ select.sh-cell { appearance: auto; cursor: pointer; }
 .xcc-list label { display: grid; grid-template-columns: 18px 70px 1fr; align-items: center; gap: 10px; padding: 7px 4px; border-radius: 6px; cursor: pointer; }
 .xcc-list label:hover { background: var(--bg-subtle); }
 .hijri { display: block; margin-top: 4px; }
+.zoom-ctl { display: inline-flex; align-items: center; gap: 4px; }
+.zoom-ctl .icon-btn { width: 30px; height: 30px; font-size: 18px; line-height: 1; border: 1px solid var(--border-default); border-radius: 8px; }
+.rv-page-wrap { overflow: auto; max-height: 60vh; padding: 4px; background: var(--bg-subtle); border-radius: 8px; }
