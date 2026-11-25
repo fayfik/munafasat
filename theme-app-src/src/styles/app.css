@@ -339,3 +339,4 @@ button.me:focus-visible { outline-color: #fff; }
 .actor-tick { width: 14px; flex: none; }
 .inbox-blank { align-items: center; justify-content: center; gap: 12px; }
 @media (prefers-reduced-motion: no-preference) { .actor-menu { animation: pop 160ms var(--ease-out) both; transform-origin: top right; } }
+.inline-link.t-body-small { font-size: 13px; line-height: 19px; } .inline-link.t-caption { font-size: 12px; line-height: 16px; }

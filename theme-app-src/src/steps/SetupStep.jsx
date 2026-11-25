@@ -29,6 +29,7 @@ export function SetupStep() {
           <Field label="Project code">{p?.code}</Field>
           <Field label="Cost center">{cc ? `${cc.code} · ${cc.name}` : '—'}</Field>
         </div>
+        {!em && <ExtraCostCenters />}
       </Block>
 
       <Block title="Budgeted items in this request" meta={`${items.length + (f.freeItems?.length || 0)} items`} info="Picked in the procurement route step. Go back to that step to change them.">
@@ -151,5 +152,36 @@ function BrowseDialog({ open, route, onClose, onImport }) {
         {!all.length && <li className="t-body-small muted">No past requests match “{q}”.</li>}
       </ul>
     </Dialog>
+  );
+}
+
+/* Additional cost centres that share the cost (design-review CostCenterPicker): search, view more. */
+function ExtraCostCenters() {
+  const { f, set } = useForm();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const [more, setMore] = useState(false);
+  const picked = f.extraCostCenters || [];
+  const opts = COST_CENTERS.filter((c) => c.id !== f.costCenterId && (!q.trim() || `${c.code} ${c.name}`.toLowerCase().includes(q.trim().toLowerCase())));
+  const shown = more || q ? opts : opts.slice(0, 5);
+  const tog = (id) => set('extraCostCenters', (xs = []) => ((xs || []).includes(id) ? xs.filter((x) => x !== id) : [...(xs || []), id]));
+  return (
+    <div className="xcc">
+      <div className="row-gap">
+        <span className="t-label">Additional cost centers <span className="t-caption muted">(optional)</span></span>
+        <button type="button" className="inline-link t-body-small" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Done' : picked.length ? 'Change' : 'Add cost center'}</button>
+      </div>
+      {picked.length > 0 && <div className="chips">{picked.map((id) => { const c = COST_CENTERS.find((x) => x.id === id); return c && <span key={id} className="chip">{c.code} · {c.name}<button type="button" className="chip-x" aria-label={`Remove ${c.code}`} onClick={() => tog(id)}><Icon name="icon-x" size={12} /></button></span>; })}</div>}
+      {open && (
+        <div className="xcc-pop">
+          <label className="search"><Icon name="icon-search" size={16} /><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or code…" aria-label="Search cost centers" autoFocus /></label>
+          <ul className="xcc-list">
+            {shown.map((c) => <li key={c.id}><label><input type="checkbox" checked={picked.includes(c.id)} onChange={() => tog(c.id)} /><span className="tnum t-body-small">{c.code}</span><span className="t-body-small">{c.name}</span></label></li>)}
+            {!opts.length && <li className="t-body-small muted">No cost centers match your search.</li>}
+          </ul>
+          {!more && !q && opts.length > 5 && <button type="button" className="inline-link t-body-small" onClick={() => setMore(true)}>View more cost centers</button>}
+        </div>
+      )}
+    </div>
   );
 }

@@ -779,3 +779,11 @@ select.sh-cell { appearance: auto; cursor: pointer; }
 .listed li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border-soft); }
 .listed .grow { display: flex; flex-direction: column; min-width: 0; }
 .fin-head .inline-link { font-size: 13px; white-space: nowrap; }
+[id^="q-"].flash { background: #fff6d6; border-radius: 10px; box-shadow: 0 0 0 8px #fff6d6; transition: background .3s, box-shadow .3s; }
+.xcc { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-soft); display: flex; flex-direction: column; gap: 8px; }
+.xcc .chip { display: inline-flex; align-items: center; gap: 6px; }
+.xcc-pop { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--bg-surface); max-width: 460px; }
+.xcc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.xcc-list label { display: grid; grid-template-columns: 18px 70px 1fr; align-items: center; gap: 10px; padding: 7px 4px; border-radius: 6px; cursor: pointer; }
+.xcc-list label:hover { background: var(--bg-subtle); }
+.hijri { display: block; margin-top: 4px; }

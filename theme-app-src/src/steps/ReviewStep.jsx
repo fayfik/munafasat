@@ -148,8 +148,25 @@ export function ReviewStep() {
 }
 
 /* ── AI pre-review ───────────────────────────────────────────────────────── */
+// Where "Take me to the field" lands for each recommendation (the step opens, then the field is focused).
+const REC_FIELD = { 'fin-pay': 'q-payment', 'fin-advance': 'q-payment', 'fin-mg': 'q-boq', 'fin-price': 'q-boq', 'ea-sow': 'q-scope', 'ea-reqs': 'q-req', 'ea-integ': 'q-req', 'cy-test': 'q-req', 'cy-pdpl': 'q-req', 'cy-nda': 'q-scope', 'pr-eval': 'q-eval', 'pr-pass': 'q-eval', 'pr-dates': 'q-boq', 'mgr-duration': 'q-duration', 'mgr-location': 'q-location', 'mgr-objective': 'q-purpose', 'risk-dr': 'q-req', 'risk-sla': 'q-req', 'fq-priority': 'q-priority', 'fq-nature': 'q-nature', 'em-purpose': 'q-purpose', 'em-supplier': 'q-boq' };
+const recSig = (f) => { const j = JSON.stringify([f.boqItems, f.paymentStages, f.scopeOfWork, f.scopeTerms, f.purpose, f.technicalRequirements, f.evaluationCriteria, f.technicalPassingPercentage, f.technicalCommitteeMembers, f.qualificationCriteria, f.qualificationCommitteeMembers, f.startDate, f.contractDuration, f.executionLocation, f.projectPriority, f.attachments]); let h = 7; for (let i = 0; i < j.length; i++) h = (h * 31 + j.charCodeAt(i)) | 0; return h; };
+
 function PreReview() {
   const { f, patch, goto, em } = useForm();
+  const [undoDismiss, setUndoDismiss] = useState(null);
+  const takeMe = (r) => {
+    goto(r.step);
+    const id = REC_FIELD[r.id];
+    if (!id) return;
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.querySelector('input,textarea,select,button')?.focus({ preventScroll: true });
+      el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600);
+    }, 450);
+  };
   const [phase, setPhase] = useState(f.preReviewRan ? 'done' : 'idle');
   const [at, setAt] = useState(0);
   const [tab, setTab] = useState('all');
@@ -160,8 +177,10 @@ function PreReview() {
   const run = () => {
     setPhase('running'); setAt(0);
     order.forEach((_, i) => setTimeout(() => setAt(i + 1), 380 * (i + 1)));
-    setTimeout(() => { setPhase('done'); patch({ preReviewRan: true }); }, 380 * (order.length + 1));
+    setTimeout(() => { setPhase('done'); patch({ preReviewRan: true, preReviewSig: recSig(f) }); setDismissed([]); setUndoDismiss(null); }, 380 * (order.length + 1));
   };
+  const changed = phase === 'done' && f.preReviewSig != null && f.preReviewSig !== recSig(f);
+  const quiet = order.filter((d) => !recs.some((r) => r.dept === d));
   const toFix = recs.filter((r) => r.severity === 'return').length;
   const shown = recs.filter((r) => tab === 'all' || r.severity === tab);
   const apply = (r) => {
@@ -190,14 +209,16 @@ function PreReview() {
   return (
     <AiCard className="pre-review" title="AI pre-review"
       info={<Tooltip text="Recommendations update as you edit. Apply a suggestion to fill it in, or go to the step to change it yourself." label="About the AI pre-review" />}
-      right={<button type="button" className="ai-link" onClick={run}>Run again</button>}>
+      right={<button type="button" className="ai-link" onClick={run}>Review again</button>}>
+      {changed && <div className="pre-changed t-body-small"><Icon name="icon-info" size={14} />The request changed since this review. <button type="button" className="inline-link t-body-small" onClick={run}>Review again</button></div>}
       <div className="pre-summary">
-        <span className="t-body-medium">{recs.length === 0 ? 'Nothing to fix — every reviewer should accept this request.' : `${recs.length} recommendation${recs.length === 1 ? '' : 's'} · ${toFix ? `${toFix} to fix before you submit` : 'nothing blocking'}`}</span>
+        <span className="t-body-medium">{recs.length === 0 ? 'Nothing to fix — every reviewer would accept this request.' : `${recs.length} recommendation${recs.length === 1 ? '' : 's'} · ${toFix ? `${toFix} to fix before you submit` : 'nothing blocking'}`}</span>
         {recs.length > 0 && <Segment size="sm" label="Filter recommendations" value={tab} onChange={setTab} items={[{ id: 'all', label: 'All', count: recs.length }, ...Object.entries(SEVERITY).map(([k, v]) => ({ id: k, label: v, count: recs.filter((r) => r.severity === k).length, disabled: !recs.some((r) => r.severity === k) }))]} />}
       </div>
       {applied && (
         <div className="ai-done" role="status"><Icon name="icon-check-brand" size={16} /><div className="grow"><span className="t-body-medium">AI recommendation applied</span><span className="t-body-small muted">{applied.title}</span></div><button type="button" className="inline-link t-body-small" onClick={() => { patch(applied.prev); setApplied(null); }}>Undo</button></div>
       )}
+      {undoDismiss && <div className="ai-done" role="status"><Icon name="icon-check-brand" size={16} /><div className="grow"><span className="t-body-medium">Recommendation dismissed</span><span className="t-body-small muted">{undoDismiss.title}</span></div><button type="button" className="inline-link t-body-small" onClick={() => { setDismissed((d) => d.filter((x) => x !== undoDismiss.id)); setUndoDismiss(null); }}>Undo dismiss</button></div>}
       {shown.length > 0 && (
         <ul className="rec-list">
           {shown.map((r) => (
@@ -217,12 +238,17 @@ function PreReview() {
               )}
               {r.manual && <div className="t-body-small">{r.manual}</div>}
               <div className="rec-actions">
-                {r.apply && <Btn variant="primary-sm" onClick={() => apply(r)}>Apply</Btn>}
-                <Btn variant="ghost-sm" onClick={() => goto(r.step)}>Go to {stepTitle(r.step, em)}</Btn>
-                <Btn variant="ghost-sm" onClick={() => setDismissed((d) => [...d, r.id])}>Dismiss</Btn>
+                {r.apply && <Btn variant="primary-sm" onClick={() => apply(r)}>Apply it</Btn>}
+                <Btn variant="ghost-sm" onClick={() => takeMe(r)} title={`Opens ${stepTitle(r.step, em)}`}>Take me to the field</Btn>
+                <Btn variant="ghost-sm" onClick={() => { setDismissed((d) => [...d, r.id]); setUndoDismiss({ id: r.id, title: r.title }); }}>Dismiss</Btn>
               </div>
             </li>
           ))}
+        </ul>
+      )}
+      {tab === 'all' && quiet.length > 0 && recs.length > 0 && (
+        <ul className="pre-quiet">
+          {quiet.map((d) => <li key={d}><Icon name="icon-check-brand" size={14} /><span className="t-body-small"><strong>No concerns from {REVIEWERS[d].en}</strong> <span className="muted">— this part of the request looks ready for their review.</span></span></li>)}
         </ul>
       )}
     </AiCard>
